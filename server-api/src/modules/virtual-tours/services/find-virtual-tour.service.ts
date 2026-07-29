@@ -6,8 +6,11 @@ export class FindVirtualTourService {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute(id: string) {
-    const tour = await this.prisma.virtualTour.findUnique({
-      where: { id },
+    // Rota pública: só serve tour publicado. DRAFT e ARCHIVED caem no mesmo 404
+    // de tour inexistente, sem revelar que o id existe.
+    // findFirst (e não findUnique) porque o where combina id + status.
+    const tour = await this.prisma.virtualTour.findFirst({
+      where: { id, status: 'PUBLISHED' },
       select: {
         id: true, status: true, propertyId: true, createdAt: true, updatedAt: true,
         panoramas: {

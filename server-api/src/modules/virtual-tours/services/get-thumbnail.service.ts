@@ -7,7 +7,8 @@ export class GetThumbnailService {
 
   async execute(virtualTourId: string): Promise<Buffer> {
     const panorama = await this.prisma.panorama.findFirst({
-      where: { virtualTourId },
+      // Rota pública: mesmo critério do find — thumbnail só de tour publicado.
+      where: { virtualTourId, virtualTour: { status: 'PUBLISHED' } },
       orderBy: [{ initialPanorama: 'desc' }, { order: 'asc' }],
       select: { imageData: true },
     });
