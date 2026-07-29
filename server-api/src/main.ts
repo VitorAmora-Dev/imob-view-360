@@ -3,12 +3,20 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import {
+  bodyLimitMiddleware,
+  urlencodedMiddleware,
+} from './config/body-limit.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // bodyParser: false para que os parsers abaixo rodem antes do roteador do Nest
+  // e o limite alto valha só nas rotas de imagem — ver body-limit.config.ts
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
 
-  // Panoramas are sent as base64 JSON; the default 100kb body limit is too small
-  app.useBodyParser('json', { limit: '50mb' });
+  app.use(bodyLimitMiddleware());
+  app.use(urlencodedMiddleware());
 
   const config = new DocumentBuilder()
     .setTitle('Inner View API')
