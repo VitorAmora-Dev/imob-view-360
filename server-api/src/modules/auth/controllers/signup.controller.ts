@@ -1,8 +1,10 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { ApiBody, ApiConflictResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiConflictResponse, ApiOperation, ApiResponse, ApiTags, ApiTooManyRequestsResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { SignupService } from '../services/signup.service';
 import { SignupSchema, SignupDto } from '../dto/signup.dto';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
+import { SIGNUP_THROTTLE } from '../../../config/throttle.config';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -10,6 +12,7 @@ export class SignupController {
   constructor(private readonly signupService: SignupService) {}
 
   @Post('signup')
+  @Throttle(SIGNUP_THROTTLE)
   @ApiOperation({ summary: 'Cria imobiliária e primeiro usuário (ADMINISTRADOR)' })
   @ApiBody({
     schema: {
@@ -28,6 +31,7 @@ export class SignupController {
   })
   @ApiResponse({ status: 201, description: 'Imobiliária e administrador criados com sucesso' })
   @ApiConflictResponse({ description: 'E-mail já cadastrado' })
+  @ApiTooManyRequestsResponse({ description: 'Muitas contas criadas deste IP' })
   signup(@Body(new ZodValidationPipe(SignupSchema)) dto: SignupDto) {
     return this.signupService.execute(dto);
   }

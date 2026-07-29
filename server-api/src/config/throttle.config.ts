@@ -8,6 +8,7 @@
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
+const HOUR = 60 * MINUTE;
 
 /**
  * Teto global de toda a API.
@@ -22,6 +23,13 @@ export const GLOBAL_THROTTLE = { ttl: MINUTE, limit: 100 };
  * inviabiliza ataque de dicionário sem punir quem só esqueceu a senha.
  */
 export const SIGNIN_THROTTLE = { default: { ttl: 5 * MINUTE, limit: 5 } };
+
+/**
+ * POST /auth/signup — cria Agency + User numa transação, sem custo para o atacante.
+ * Abrir conta é ação única na vida do usuário; 3 por hora cobre a pessoa que
+ * errou o formulário duas vezes e inviabiliza criação de contas em massa.
+ */
+export const SIGNUP_THROTTLE = { default: { ttl: HOUR, limit: 3 } };
 
 /**
  * POST /auth/refresh — força bruta contra o refresh token.
