@@ -8,6 +8,13 @@ import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { CreateVirtualTourDto } from '../dto/create-virtual-tour.dto';
 
+const TOUR_TRANSACTION_OPTIONS = {
+  /** Tempo máximo da transação inteira. Padrão do Prisma é 5s. */
+  timeout: 60_000,
+  /** Tempo para obter conexão do pool: uploads concorrentes seguram a dele por vários segundos. */
+  maxWait: 10_000,
+};
+
 @Injectable()
 export class CreateVirtualTourService {
   constructor(private readonly prisma: PrismaService) {}
@@ -26,6 +33,10 @@ export class CreateVirtualTourService {
         'Virtual tour already exists for this property',
       );
 
+    // O corpo é limitado a 50MB (body-limit.config.ts), então a transação nunca
+    // processa mais que isso — a ~5MB/s pessimistas de compressão TOAST + WAL
+    // dá ~10s, e 60s deixa folga sem prender conexão indefinidamente. O padrão
+    // do Prisma é 5s, curto demais para 4-6 panorâmicas em base64.
     return this.prisma.$transaction(async (tx) => {
       const tour = await tx.virtualTour.create({
         data: { propertyId: dto.propertyId, status: 'PUBLISHED' },
@@ -112,6 +123,6 @@ export class CreateVirtualTourService {
           },
         },
       });
-    });
+    }, TOUR_TRANSACTION_OPTIONS);
   }
 }
