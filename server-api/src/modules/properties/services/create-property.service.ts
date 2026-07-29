@@ -29,8 +29,6 @@ export class CreatePropertyService {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute(dto: CreatePropertyDto, currentUser: JwtPayload) {
-    console.log(dto);
-
     const existing = await this.prisma.property.findUnique({
       where: { code: dto.code },
     });
