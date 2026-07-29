@@ -1,0 +1,106 @@
+# ==========================================================================
+# .gitignore raiz — vale para todos os subprojetos (server-api, inner-view-client).
+# Os .gitignore dentro de cada subprojeto continuam válidos; a redundância aqui
+# é proposital: a regra de segredos não deve depender de um arquivo aninhado.
+# ==========================================================================
+
+# --------------------------------------------------------------------------
+# SEGREDOS — a regra mais importante deste arquivo.
+# Ignora .env e todas as variantes, EXCETO o .env.example.
+# --------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --------------------------------------------------------------------------
+# Dependências
+# --------------------------------------------------------------------------
+node_modules/
+.pnp/
+.pnp.js
+.yarn/cache
+.yarn/install-state.gz
+
+# --------------------------------------------------------------------------
+# Saída de build e código gerado
+# --------------------------------------------------------------------------
+dist/
+build/
+out-tsc/
+www/                    # saída do Angular (angular.json → outputPath)
+generated/              # Prisma Client (schema.prisma → output)
+.angular/               # cache do Angular CLI
+tmp/
+.tmp/
+
+# --------------------------------------------------------------------------
+# Testes e cobertura
+# --------------------------------------------------------------------------
+coverage/
+.nyc_output/
+
+# --------------------------------------------------------------------------
+# Capacitor / Ionic — plataformas nativas são geradas
+# --------------------------------------------------------------------------
+/android/
+/ios/
+.ionic/
+platforms/
+plugins/
+
+# --------------------------------------------------------------------------
+# Banco local
+# --------------------------------------------------------------------------
+.postgres/
+*.sqlite
+*.sqlite3
+
+# --------------------------------------------------------------------------
+# Logs
+# --------------------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --------------------------------------------------------------------------
+# IDEs e editores
+# --------------------------------------------------------------------------
+.idea/
+.history/
+*.swp
+*.sw[mnpcod]
+*~
+.project
+.classpath
+.settings/
+*.launch
+*.sublime-project
+*.sublime-workspace
+
+# VS Code: versiona só a configuração compartilhada do time
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# --------------------------------------------------------------------------
+# Sistema operacional (o projeto vive dentro do OneDrive)
+# --------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.tmp.*
+
+# --------------------------------------------------------------------------
+# Ferramentas de agente / scaffolding temporário
+# --------------------------------------------------------------------------
+.claude/
+.superpowers/
+MIGRATION.md
