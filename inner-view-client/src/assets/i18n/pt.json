@@ -1,0 +1,116 @@
+{
+  "HOME": {
+    "SEARCH_PLACEHOLDER": "Buscar lugares..."
+  },
+  "PROFILE": {
+    "TITLE": "Meu Perfil",
+    "STATS": {
+      "UPLOADS": "Uploads",
+      "FAVORITES": "Favoritos",
+      "FOLLOWERS": "Seguidores"
+    },
+    "SEGMENT": {
+      "UPLOADS": "Uploads",
+      "FAVORITES": "Favoritos"
+    },
+    "SEARCH": {
+      "UPLOADS": "Buscar uploads...",
+      "FAVORITES": "Buscar favoritos..."
+    },
+    "BUTTON": {
+      "EMBED": "Embed",
+      "EDIT": "Editar"
+    },
+    "MODAL": {
+      "TITLE": "Embed / Compartilhar",
+      "DIRECT_LINK": "Link direto",
+      "COPY_LINK": "Copiar link",
+      "EMBED_CODE": "Código de embed",
+      "COPY_CODE": "Copiar código"
+    },
+    "ACTION_SHEET": {
+      "HEADER": "Opções do upload",
+      "RENAME": "Renomear",
+      "DELETE": "Excluir",
+      "CANCEL": "Cancelar"
+    },
+    "TOAST": {
+      "COPIED": "Copiado!",
+      "COMING_SOON": "Funcionalidade em breve"
+    },
+    "DELETE_TOUR_CONFIRM_HEADER": "Excluir imóvel",
+    "DELETE_TOUR_CONFIRM_MSG": "O imóvel e todos os seus dados serão removidos. Continuar?",
+    "DELETE_CONFIRM": "Excluir",
+    "DELETE_TOUR_SUCCESS": "Imóvel excluído.",
+    "DELETE_TOUR_ERROR": "Erro ao excluir o imóvel."
+  },
+  "UPLOAD": {
+    "TITLE": "Novo Tour Virtual",
+    "PROPERTY_SECTION": "Dados do imóvel",
+    "PROPERTY_TITLE_LABEL": "Nome do imóvel",
+    "PROPERTY_TYPE_LABEL": "Tipo de imóvel",
+    "PROPERTY_PURPOSE_LABEL": "Finalidade",
+    "IMAGES_TITLE": "Imagens 360°",
+    "ADD_IMAGE": "Adicionar imagem 360°",
+    "NO_IMAGES": "Nenhuma imagem adicionada ainda.",
+    "SUBMIT": "Criar tour",
+    "SUBMITTING": "Criando...",
+    "PREVIEW": "Pré-visualizar",
+    "SUCCESS": "Tour criado com sucesso!",
+    "ERROR": "Erro ao criar o tour.",
+    "TYPE": {
+      "HOUSE": "Casa",
+      "APARTMENT": "Apartamento",
+      "LAND": "Terreno",
+      "COMMERCIAL": "Comercial",
+      "RURAL": "Rural",
+      "OFFICE": "Escritório"
+    },
+    "PURPOSE": {
+      "SALE": "Venda",
+      "RENT": "Aluguel",
+      "SALE_OR_RENT": "Venda ou Aluguel"
+    },
+    "ADDRESS": {
+      "SECTION": "Endereço (opcional)",
+      "CEP_LABEL": "CEP",
+      "CEP_PLACEHOLDER": "00000-000",
+      "STREET_LABEL": "Rua",
+      "NUMBER_LABEL": "Número",
+      "COMPLEMENT_LABEL": "Complemento",
+      "DISTRICT_LABEL": "Bairro",
+      "CITY_LABEL": "Cidade",
+      "STATE_LABEL": "UF",
+      "CEP_NOT_FOUND": "CEP não encontrado.",
+      "CEP_LOOKUP_ERROR": "Erro ao consultar o CEP.",
+      "REQUIRED_HINT": "Preencha rua, cidade e UF (2 letras) ou deixe o endereço em branco."
+    }
+  },
+  "INNER_VIEW": {
+    "LOADING": "Carregando...",
+    "LOAD_ERROR": "Não foi possível carregar o tour virtual.",
+    "NO_TOUR": "Este imóvel ainda não possui imagens 360°.",
+    "UPLOAD_FIRST": "Enviar primeira imagem",
+    "ROOM_NAME_TITLE": "Nome do ambiente",
+    "ROOM_NAME_PLACEHOLDER": "Ex: Sala, Cozinha...",
+    "CANCEL": "Cancelar",
+    "CONFIRM": "Adicionar",
+    "UPLOAD_SUCCESS": "Imagem enviada com sucesso!",
+    "UPLOAD_ERROR": "Erro ao enviar a imagem.",
+    "DELETE_TOUR_CONFIRM_HEADER": "Excluir tour",
+    "DELETE_TOUR_CONFIRM_MSG": "Isso removerá todos os panoramas do tour. Continuar?",
+    "DELETE_PANORAMA_CONFIRM_HEADER": "Excluir panorama",
+    "DELETE_PANORAMA_CONFIRM_MSG": "Remover o panorama atual?",
+    "DELETE_CANCEL": "Cancelar",
+    "DELETE_CONFIRM": "Excluir",
+    "DELETE_TOUR_ERROR": "Erro ao excluir o tour.",
+    "DELETE_PANORAMA_SUCCESS": "Panorama excluído.",
+    "DELETE_PANORAMA_ERROR": "Erro ao excluir o panorama.",
+    "HOTSPOT_SELECT_TARGET": "Selecionar destino",
+    "HOTSPOT_NO_TARGET": "Adicione mais imagens para criar hotspots",
+    "HOTSPOT_CREATED": "Hotspot criado!",
+    "HOTSPOT_ERROR": "Erro ao criar hotspot",
+    "HOTSPOT_EDIT_HINT": "Clique no panorama para adicionar um ponto de navegação",
+    "HOTSPOT_LIST_TITLE": "Pontos de navegação"
+  }
+}

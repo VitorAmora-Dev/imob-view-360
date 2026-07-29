@@ -1,0 +1,116 @@
+{
+  "HOME": {
+    "SEARCH_PLACEHOLDER": "Search places..."
+  },
+  "PROFILE": {
+    "TITLE": "My Profile",
+    "STATS": {
+      "UPLOADS": "Uploads",
+      "FAVORITES": "Favorites",
+      "FOLLOWERS": "Followers"
+    },
+    "SEGMENT": {
+      "UPLOADS": "Uploads",
+      "FAVORITES": "Favorites"
+    },
+    "SEARCH": {
+      "UPLOADS": "Search uploads...",
+      "FAVORITES": "Search favorites..."
+    },
+    "BUTTON": {
+      "EMBED": "Embed",
+      "EDIT": "Edit"
+    },
+    "MODAL": {
+      "TITLE": "Embed / Share",
+      "DIRECT_LINK": "Direct link",
+      "COPY_LINK": "Copy link",
+      "EMBED_CODE": "Embed code",
+      "COPY_CODE": "Copy code"
+    },
+    "ACTION_SHEET": {
+      "HEADER": "Upload options",
+      "RENAME": "Rename",
+      "DELETE": "Delete",
+      "CANCEL": "Cancel"
+    },
+    "TOAST": {
+      "COPIED": "Copied!",
+      "COMING_SOON": "Feature coming soon"
+    },
+    "DELETE_TOUR_CONFIRM_HEADER": "Delete property",
+    "DELETE_TOUR_CONFIRM_MSG": "The property and all its data will be removed. Continue?",
+    "DELETE_CONFIRM": "Delete",
+    "DELETE_TOUR_SUCCESS": "Property deleted.",
+    "DELETE_TOUR_ERROR": "Failed to delete the property."
+  },
+  "UPLOAD": {
+    "TITLE": "New Virtual Tour",
+    "PROPERTY_SECTION": "Property details",
+    "PROPERTY_TITLE_LABEL": "Property name",
+    "PROPERTY_TYPE_LABEL": "Property type",
+    "PROPERTY_PURPOSE_LABEL": "Purpose",
+    "IMAGES_TITLE": "360° Images",
+    "ADD_IMAGE": "Add 360° image",
+    "NO_IMAGES": "No images added yet.",
+    "SUBMIT": "Create tour",
+    "SUBMITTING": "Creating...",
+    "PREVIEW": "Preview",
+    "SUCCESS": "Tour created successfully!",
+    "ERROR": "Failed to create the tour.",
+    "TYPE": {
+      "HOUSE": "House",
+      "APARTMENT": "Apartment",
+      "LAND": "Land",
+      "COMMERCIAL": "Commercial",
+      "RURAL": "Rural",
+      "OFFICE": "Office"
+    },
+    "PURPOSE": {
+      "SALE": "Sale",
+      "RENT": "Rent",
+      "SALE_OR_RENT": "Sale or Rent"
+    },
+    "ADDRESS": {
+      "SECTION": "Address (optional)",
+      "CEP_LABEL": "ZIP code (CEP)",
+      "CEP_PLACEHOLDER": "00000-000",
+      "STREET_LABEL": "Street",
+      "NUMBER_LABEL": "Number",
+      "COMPLEMENT_LABEL": "Complement",
+      "DISTRICT_LABEL": "District",
+      "CITY_LABEL": "City",
+      "STATE_LABEL": "State (UF)",
+      "CEP_NOT_FOUND": "CEP not found.",
+      "CEP_LOOKUP_ERROR": "Failed to look up the CEP.",
+      "REQUIRED_HINT": "Fill in street, city and state (2 letters) or leave the address empty."
+    }
+  },
+  "INNER_VIEW": {
+    "LOADING": "Loading...",
+    "LOAD_ERROR": "Could not load the virtual tour.",
+    "NO_TOUR": "This property has no 360° images yet.",
+    "UPLOAD_FIRST": "Upload first image",
+    "ROOM_NAME_TITLE": "Room name",
+    "ROOM_NAME_PLACEHOLDER": "E.g. Living room, Kitchen...",
+    "CANCEL": "Cancel",
+    "CONFIRM": "Add",
+    "UPLOAD_SUCCESS": "Image uploaded successfully!",
+    "UPLOAD_ERROR": "Failed to upload the image.",
+    "DELETE_TOUR_CONFIRM_HEADER": "Delete tour",
+    "DELETE_TOUR_CONFIRM_MSG": "This will remove all panoramas in the tour. Continue?",
+    "DELETE_PANORAMA_CONFIRM_HEADER": "Delete panorama",
+    "DELETE_PANORAMA_CONFIRM_MSG": "Remove the current panorama?",
+    "DELETE_CANCEL": "Cancel",
+    "DELETE_CONFIRM": "Delete",
+    "DELETE_TOUR_ERROR": "Failed to delete the tour.",
+    "DELETE_PANORAMA_SUCCESS": "Panorama deleted.",
+    "DELETE_PANORAMA_ERROR": "Failed to delete the panorama.",
+    "HOTSPOT_SELECT_TARGET": "Select destination",
+    "HOTSPOT_NO_TARGET": "Add more images to create hotspots",
+    "HOTSPOT_CREATED": "Hotspot created!",
+    "HOTSPOT_ERROR": "Failed to create hotspot",
+    "HOTSPOT_EDIT_HINT": "Click the panorama to add a navigation point",
+    "HOTSPOT_LIST_TITLE": "Navigation points"
+  }
+}

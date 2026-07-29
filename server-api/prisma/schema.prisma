@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserType {
+  ADMINISTRATOR // ADMINISTRADOR
+  AGENT // CORRETOR
+}
+
+enum PropertyType {
+  HOUSE // Casa
+  APARTMENT // Apartamento
+  LAND // Terreno
+  COMMERCIAL // Comercial
+  RURAL // Rural
+  OFFICE // Escritório
+}
+
+enum PropertyPurpose {
+  SALE // Venda
+  RENT // Aluguel
+  SALE_OR_RENT // Venda ou Aluguel
+}
+
+enum PropertyStatus {
+  AVAILABLE // Disponível
+  SOLD // Vendido
+  RENTED // Alugado
+  UNAVAILABLE // Indisponível
+}
+
+enum VirtualTourStatus {
+  DRAFT // Rascunho
+  PUBLISHED // Publicado
+  ARCHIVED // Arquivado
+}
+
+model User {
+  id       String   @id @default(uuid())
+  name     String // nome
+  email    String   @unique
+  password String // senha
+  type     UserType // tipo
+
+  // específico de Corretor
+  licenseNumber String? // creci
+  agency        Agency? @relation(fields: [agencyId], references: [id]) // imobiliaria
+  agencyId      String?
+
+  properties Property[] // imoveis
+  sessions   Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  hashedToken String   @db.Text
+  expiresAt   DateTime
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Agency {
+  id    String  @id @default(uuid())
+  name  String // nome
+  taxId String? @unique // cnpj
+  email String?
+  phone String? // telefone
+
+  agents     User[] // corretores
+  properties Property[] // imoveis
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Property {
+  id          String          @id @default(uuid())
+  code        String          @unique // codigo
+  title       String // titulo
+  description String? // descricao
+  type        PropertyType // tipo
+  purpose     PropertyPurpose // finalidade
+  price       Float? // valor
+  totalArea   Float? // areaTotal
+  status      PropertyStatus  @default(AVAILABLE)
+
+  agency   Agency  @relation(fields: [agencyId], references: [id]) // imobiliaria
+  agencyId String
+  agent    User?   @relation(fields: [agentId], references: [id]) // corretor
+  agentId  String?
+
+  address     Address? // endereco
+  virtualTour VirtualTour? // tourVirtual
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([agentId])
+  @@index([type, purpose, status])
+}
+
+model Address {
+  id         String  @id @default(uuid())
+  street     String // logradouro
+  number     String? // numero
+  complement String? // complemento
+  district   String? // bairro
+  city       String // cidade
+  state      String // estado
+  zipCode    String? // cep
+
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade) // imovel
+  propertyId String   @unique
+}
+
+model VirtualTour {
+  id        String            @id @default(uuid())
+  createdAt DateTime          @default(now())
+  status    VirtualTourStatus @default(DRAFT)
+
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade) // imovel
+  propertyId String   @unique
+
+  panoramas Panorama[] // panoramas
+  shares    Share[] // compartilhamentos
+  views     View[] // visualizacoes
+
+  updatedAt DateTime @updatedAt
+}
+
+model Panorama {
+  id              String  @id @default(uuid())
+  roomName        String // nomeComodo
+  imageData       String  @db.Text // base64 JPEG
+  order           Int     @default(0) // ordem
+  initialPanorama Boolean @default(false) // panoramaInicial
+
+  virtualTour   VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade) // tourVirtual
+  virtualTourId String
+
+  originHotspots Hotspot[]     @relation("origin") // hotspotsOrigem
+  targetHotspots Hotspot[]     @relation("target") // hotspotsDestino
+  measurements   Measurement[] // medidas
+
+  @@index([virtualTourId])
+}
+
+model Hotspot {
+  id        String  @id @default(uuid())
+  label     String? // rotulo
+  positionX Float // posicaoX
+  positionY Float // posicaoY
+
+  origin   Panorama @relation("origin", fields: [originId], references: [id], onDelete: Cascade) // origem
+  originId String // origemId
+  target   Panorama @relation("target", fields: [targetId], references: [id], onDelete: Cascade) // destino
+  targetId String // destinoId
+
+  @@index([originId])
+  @@index([targetId])
+}
+
+model Measurement {
+  id          String @id @default(uuid())
+  description String // descricao
+  value       Float // valor
+  unit        String @default("m") // unidade
+
+  panorama   Panorama @relation(fields: [panoramaId], references: [id], onDelete: Cascade)
+  panoramaId String
+
+  @@index([panoramaId])
+}
+
+model Visitor {
+  id        String @id @default(uuid())
+  sessionId String @unique // identificadorSessao
+
+  shares Share[] // compartilhamentos
+  views  View[] // visualizacoes
+
+  createdAt DateTime @default(now())
+}
+
+model Share {
+  id       String   @id @default(uuid())
+  sharedAt DateTime @default(now()) // dataHora
+  channel  String // canal
+
+  virtualTour   VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade) // tourVirtual
+  virtualTourId String
+  visitor       Visitor     @relation(fields: [visitorId], references: [id], onDelete: Cascade) // visitante
+  visitorId     String
+
+  @@index([virtualTourId])
+  @@index([visitorId])
+}
+
+model View {
+  id              String   @id @default(uuid())
+  viewedAt        DateTime @default(now()) // dataHora
+  durationSeconds Int? // tempoPermanencia
+  device          String? // dispositivo
+
+  virtualTour   VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade) // tourVirtual
+  virtualTourId String
+  visitor       Visitor     @relation(fields: [visitorId], references: [id], onDelete: Cascade) // visitante
+  visitorId     String
+
+  @@index([virtualTourId])
+  @@index([visitorId])
+}

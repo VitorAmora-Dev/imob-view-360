@@ -1,0 +1,109 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ pageTitle }}</ion-title>
+    <ion-buttons slot="end">
+      @if (property && !loading) {
+        <ion-button (click)="openFilePicker()" [disabled]="uploading">
+          @if (uploading) {
+            <ion-spinner name="crescent"></ion-spinner>
+          } @else {
+            <ion-icon slot="icon-only" name="cloud-upload-outline"></ion-icon>
+          }
+        </ion-button>
+        @if (tour) {
+          <ion-button (click)="toggleHotspotEdit()" [color]="editingHotspots ? 'primary' : 'medium'">
+            <ion-icon slot="icon-only" name="git-network-outline"></ion-icon>
+          </ion-button>
+          <ion-button color="danger" (click)="onDeleteTour()">
+            <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+          </ion-button>
+        }
+      }
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <input type="file" accept="image/*" hidden #fileInput (change)="onFileSelected($event)">
+
+  @if (loading) {
+    <div class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>{{ 'INNER_VIEW.LOADING' | translate }}</p>
+    </div>
+  } @else if (loadError) {
+    <div class="loading-container">
+      <p>{{ 'INNER_VIEW.LOAD_ERROR' | translate }}</p>
+    </div>
+  } @else if (tour && tour.panoramas.length > 0) {
+    <app-panoramic-viewer
+      [panoramas]="tour.panoramas"
+      [editMode]="editingHotspots"
+      (panoramaChange)="onPanoramaChange($event)"
+      (hotspotPlaced)="onHotspotPlaced($event)">
+    </app-panoramic-viewer>
+
+    @if (editingHotspots) {
+      <div class="edit-banner">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        {{ 'INNER_VIEW.HOTSPOT_EDIT_HINT' | translate }}
+      </div>
+    }
+
+    <div class="info-panel-wrapper">
+      <ion-button
+        class="toggle-btn"
+        fill="solid"
+        size="small"
+        color="dark"
+        (click)="infoPanelVisible = !infoPanelVisible">
+        <ion-icon slot="icon-only" [name]="infoPanelVisible ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+      </ion-button>
+
+      @if (infoPanelVisible && property) {
+        <ion-card class="info-card">
+          <ion-card-header>
+            <ion-card-title>{{ property.title }}</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            @if (property.description) {
+              <p>{{ property.description }}</p>
+            }
+            @if (currentPanorama) {
+              <div class="room-row">
+                <p class="room-label">{{ currentPanorama.roomName }}</p>
+                <ion-button fill="clear" color="danger" size="small" (click)="onDeletePanorama()">
+                  <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+                </ion-button>
+              </div>
+            }
+            @if (editingHotspots && currentPanorama && currentPanorama.originHotspots.length > 0) {
+              <div class="hotspot-list">
+                <p class="hotspot-list-title">{{ 'INNER_VIEW.HOTSPOT_LIST_TITLE' | translate }}</p>
+                @for (hs of currentPanorama.originHotspots; track hs.id) {
+                  <div class="hotspot-row">
+                    <span class="hotspot-target">⟶ {{ hs.label || targetRoomName(hs.targetId) }}</span>
+                    <ion-button fill="clear" color="danger" size="small" (click)="onDeleteHotspot(hs.id)">
+                      <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+                    </ion-button>
+                  </div>
+                }
+              </div>
+            }
+          </ion-card-content>
+        </ion-card>
+      }
+    </div>
+  } @else {
+    <div class="loading-container">
+      <p>{{ 'INNER_VIEW.NO_TOUR' | translate }}</p>
+      <ion-button (click)="openFilePicker()" [disabled]="uploading">
+        <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
+        {{ 'INNER_VIEW.UPLOAD_FIRST' | translate }}
+      </ion-button>
+    </div>
+  }
+</ion-content>

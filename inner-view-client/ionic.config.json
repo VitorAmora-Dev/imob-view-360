@@ -1,0 +1,7 @@
+{
+  "name": "inner-view-client",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular-standalone"
+}

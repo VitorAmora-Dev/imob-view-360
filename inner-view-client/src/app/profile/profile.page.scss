@@ -1,0 +1,150 @@
+.profile-avatar-placeholder {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--ion-color-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  font-size: 2.5rem;
+  color: var(--ion-color-medium);
+}
+
+.stat-value--small {
+  font-size: 0.85rem;
+}
+
+.property-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 8px;
+}
+
+.meta-item {
+  &:not(:last-child)::after {
+    content: ' ·';
+  }
+}
+
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 16px;
+  text-align: center;
+}
+
+.profile-avatar {
+  width: 88px;
+  height: 88px;
+  margin-bottom: 12px;
+}
+
+.profile-name {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.profile-sub {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium);
+}
+
+.profile-bio {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+}
+
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  justify-content: center;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+}
+
+.stat-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--ion-color-light-shade);
+}
+
+.profile-segment {
+  margin: 0 16px 8px;
+}
+
+.upload-card {
+  margin: 0;
+}
+
+.upload-thumb {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.upload-title {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.social-stats {
+  display: flex;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 8px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+
+  ion-icon {
+    font-size: 0.95rem;
+  }
+}
+
+.upload-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.embed-section {
+  margin-bottom: 24px;
+
+  h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+}

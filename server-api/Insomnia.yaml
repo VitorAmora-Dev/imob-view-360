@@ -1,0 +1,793 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: Imovel 360
+meta:
+  id: wrk_232d273e7315450793c08cdb39a5366e
+  created: 1782673049407
+  modified: 1782683856248
+  description: ""
+collection:
+  - name: Auth
+    meta:
+      id: fld_4f68365651fb45db9663c9f52ec2038d
+      created: 1782673049410
+      modified: 1782682254882
+      sortKey: -1782673049512
+      description: ""
+    children:
+      - url: "{{ base_url }}/auth/signup"
+        name: Signup
+        meta:
+          id: req_b1828dbe81ce4df98b5660a8ac424b61
+          created: 1782673049413
+          modified: 1782673049413
+          isPrivate: false
+          description: Cria imobiliária e primeiro usuário (ADMINISTRADOR)
+          sortKey: -1782673049413
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "agencyName": "Imobiliária Central",
+              "cnpj": "12.345.678/0001-90",
+              "agencyEmail": "contato@central.com",
+              "phone": "(51) 99999-0000",
+              "name": "João Silva",
+              "email": "joao@central.com",
+              "password": "senha123"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/auth/signin"
+        name: Signin
+        meta:
+          id: req_d002c09c610e4bbea77fab0df77548e3
+          created: 1782673049413
+          modified: 1782676686277
+          isPrivate: false
+          description: Autentica usuário e retorna tokens
+          sortKey: -1782673049413
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "email": "joao@central.com",
+              "password": "senha123"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/auth/refresh"
+        name: Refresh Token
+        meta:
+          id: req_5b3638d31a4d49609ce3c280512f3cbb
+          created: 1782673049414
+          modified: 1782673049414
+          isPrivate: false
+          description: Renova access token e refresh token (usa refresh_token)
+          sortKey: -1782673049414
+        method: POST
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ refresh_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/auth/me"
+        name: Me
+        meta:
+          id: req_e4d41821b16f40e0a7567305c643cbbe
+          created: 1782673049416
+          modified: 1782673049416
+          isPrivate: false
+          description: Retorna o payload do usuário logado
+          sortKey: -1782673049416
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: Virtual Tours
+    meta:
+      id: fld_14b01457f833450489d559d8156a03a0
+      created: 1782673049411
+      modified: 1782682281364
+      sortKey: -1782673049424.5
+      description: ""
+    children:
+      - url: "{{ base_url }}/virtual-tours/ab806d71-e159-47d3-82be-452199e4e40f"
+        name: Atualizar Tour Virtual
+        meta:
+          id: req_7685e04700cb4005aac53efb11162649
+          created: 1782673049421
+          modified: 1782682469634
+          isPrivate: false
+          description: Substitui todos os panoramas, medidas e hotspots do tour. Mesma
+            estrutura do create.
+          sortKey: -1782673049473
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "status": "ARCHIVED"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/virtual-tours"
+        name: Criar Tour Virtual
+        meta:
+          id: req_d62f89df24104ea49f4898655c5949ea
+          created: 1782673049421
+          modified: 1782681829967
+          isPrivate: false
+          description: Cria tour com panoramas, medidas e hotspots. Use tempId para
+            referenciar panoramas nos hotspots.
+          sortKey: -1782673049523
+        method: POST
+        body:
+          mimeType: application/json
+          text: >-
+            {
+              "propertyId": "ab806d71-e159-47d3-82be-452199e4e40f",
+              "panoramas": [
+                {
+                  "tempId": "sala",
+                  "roomName": "Sala de Estar",
+                  "imageData": "data:image/jpeg;base64,/9j/4AAQ...",
+                  "order": 0,
+                  "initialPanorama": true,
+                  "measurements": [
+                    { "description": "Largura", "value": 4.5, "unit": "m" },
+                    { "description": "Comprimento", "value": 6.0, "unit": "m" }
+                  ],
+                  "hotspots": [
+                    { "label": "Ir para quarto", "positionX": 0.8, "positionY": 0.5, "targetTempId": "quarto" }
+                  ]
+                },
+                {
+                  "tempId": "quarto",
+                  "roomName": "Quarto Principal",
+                  "imageData": "data:image/jpeg;base64,/9j/4AAQ...",
+                  "order": 1,
+                  "initialPanorama": false,
+                  "measurements": [
+                    { "description": "Largura", "value": 3.5, "unit": "m" }
+                  ],
+                  "hotspots": [
+                    { "label": "Voltar para sala", "positionX": 0.2, "positionY": 0.5, "targetTempId": "sala" }
+                  ]
+                }
+              ]
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url
+          }}/virtual-tours/1ea89662-629a-4dd9-8315-99907dde1276/analytics"
+        name: Analytics do Tour
+        meta:
+          id: req_e6f67ca8fff24ff28ac415e79b25dcd7
+          created: 1782673049422
+          modified: 1782682066427
+          isPrivate: false
+          description: "Analytics do tour: views, shares, tempo médio (requer
+            ADMINISTRATOR)"
+          sortKey: -1782673049422
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/virtual-tours/1ea89662-629a-4dd9-8315-99907dde1276"
+        name: Buscar Tour por ID
+        meta:
+          id: req_ec55fe01a0cd4b33b42abdeabb1beec4
+          created: 1782673049422
+          modified: 1782682393161
+          isPrivate: false
+          description: Retorna o tour completo com panoramas e hotspots (público)
+          sortKey: -1782673049448
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ _.access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/virtual-tours/1ea89662-629a-4dd9-8315-99907dde1276/shares"
+        name: Registrar Compartilhamento
+        meta:
+          id: req_7813101ea8df4e4e92a93fc99104cb5a
+          created: 1782673049423
+          modified: 1782682050380
+          isPrivate: false
+          description: "Registra um compartilhamento do tour (público). channel: whatsapp,
+            email, link, etc."
+          sortKey: -1782673049423
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "sessionId": "sess_abc123",
+              "channel": "whatsapp"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/virtual-tours/1ea89662-629a-4dd9-8315-99907dde1276/views"
+        name: Registrar Visualização
+        meta:
+          id: req_9fd38ca7c72c4c95983a3e9cf91fa65b
+          created: 1782673049423
+          modified: 1782682047391
+          isPrivate: false
+          description: Registra uma visualização do tour (público)
+          sortKey: -1782673049423
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "sessionId": "sess_abc123",
+              "durationSeconds": 120,
+              "device": "desktop"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: Properties
+    meta:
+      id: fld_591a0c30e9b542d2a077cbd60a511836
+      created: 1782673049411
+      modified: 1782682273870
+      sortKey: -1782673049437
+      description: ""
+    children:
+      - url: "{{ base_url }}/properties"
+        name: Criar Imóvel
+        meta:
+          id: req_baaa312b68564300947c030264c74d6a
+          created: 1782673049420
+          modified: 1782680818736
+          isPrivate: false
+          description: "Cria um novo imóvel. type:
+            HOUSE|APARTMENT|LAND|COMMERCIAL|RURAL|OFFICE. purpose:
+            SALE|RENT|SALE_OR_RENT"
+          sortKey: -1782673049420
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "code": "IMV-001",
+              "title": "Apartamento Centro",
+              "description": "Lindo apartamento no centro da cidade",
+              "type": "APARTMENT",
+              "purpose": "SALE",
+              "price": 350000,
+              "totalArea": 85.5,
+              "status": "AVAILABLE",
+              "address": {
+                "street": "Rua das Flores",
+                "number": "123",
+                "complement": "Apto 42",
+                "district": "Centro",
+                "city": "Porto Alegre",
+                "state": "RS",
+                "zipCode": "90010-000"
+              }
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/properties/ab806d71-e159-47d3-82be-452199e4e40f"
+        name: Buscar Imóvel por ID
+        meta:
+          id: req_18af978594b5449e91ea107f5c4b7a58
+          created: 1782673049421
+          modified: 1782681010735
+          isPrivate: false
+          description: Busca um imóvel pelo ID (público)
+          sortKey: -1782673049421
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ _.access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/properties"
+        name: Listar Imóveis
+        meta:
+          id: req_b26266b2782a4829b70f0dec5c0be1f4
+          created: 1782673049421
+          modified: 1782683842435
+          isPrivate: false
+          description: "Lista imóveis com filtros. Query: page, limit, type, purpose,
+            status, city, state, district, priceMin, priceMax, agencyId, search"
+          sortKey: -1782673049421
+        method: GET
+        parameters:
+          - name: page
+            value: "1"
+          - name: limit
+            value: "20"
+          - name: status
+            value: AVAILABLE
+            disabled: false
+          - name: search
+            value: Apartamento Centro
+            description: ""
+            disabled: false
+        authentication:
+          type: bearer
+          token: "{{ _.access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: Users
+    meta:
+      id: fld_9d211d01dcfc4904a637d6e8467a9afb
+      created: 1782673049411
+      modified: 1782682269012
+      sortKey: -1782673049462
+      description: ""
+    children:
+      - url: "{{ base_url }}/users"
+        name: Criar Usuário
+        meta:
+          id: req_410fb81ef4874d70b19ef691a5ad8779
+          created: 1782673049419
+          modified: 1782673049419
+          isPrivate: false
+          description: Cria um novo usuário na imobiliária (requer ADMINISTRATOR)
+          sortKey: -1782673049419
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "name": "Maria Souza",
+              "email": "maria@central.com",
+              "password": "senha123",
+              "role": "AGENT",
+              "licenseNumber": "CRECI-12345"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/users"
+        name: Listar Usuários
+        meta:
+          id: req_d7ca18056acb4077a8839fbac4f185a9
+          created: 1782673049419
+          modified: 1782673049419
+          isPrivate: false
+          description: "Lista usuários da imobiliária com paginação. Query: page, limit,
+            role (ADMINISTRATOR|AGENT), search"
+          sortKey: -1782673049419
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        parameters:
+          - name: page
+            value: "1"
+          - name: limit
+            value: "20"
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/users/0863bd20-cb8f-47d8-ad4a-779074e9b316"
+        name: Buscar Usuário por ID
+        meta:
+          id: req_633904cff61a4c689c55e507e9e009bb
+          created: 1782673049420
+          modified: 1782682317409
+          isPrivate: false
+          description: Busca um usuário pelo ID
+          sortKey: -1782673049420
+        method: GET
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/users/0863bd20-cb8f-47d8-ad4a-779074e9b316"
+        name: Atualizar Usuário
+        meta:
+          id: req_f315f0b5ebef49bfb477b3f0ffca3623
+          created: 1782673049420
+          modified: 1782682320113
+          isPrivate: false
+          description: Atualiza dados de um usuário (requer ADMINISTRATOR)
+          sortKey: -1782673049420
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "name": "Maria Souza Atualizada",
+              "licenseNumber": "CRECI-99999"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: Panoramas
+    meta:
+      id: fld_49e5d59fe68b44269fc0add85a636720
+      created: 1782673049412
+      modified: 1782682288234
+      sortKey: -1782673049418.25
+      description: ""
+    children:
+      - url: "{{ base_url }}/panoramas/1ea89662-629a-4dd9-8315-99907dde1276"
+        name: Atualizar Panorama
+        meta:
+          id: req_2fba14c431884c77a6a243789ca18b47
+          created: 1782673049423
+          modified: 1782683379477
+          isPrivate: false
+          description: Atualiza metadados de um panorama (todos os campos são opcionais)
+          sortKey: -1782673049423
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "roomName": "Sala de Jantar",
+              "order": 1,
+              "initialPanorama": false
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/panoramas"
+        name: Adicionar Panorama ao Tour
+        meta:
+          id: req_a20376ada75a495db8ab15dfa6b5ddae
+          created: 1782673049423
+          modified: 1782683375015
+          isPrivate: false
+          description: Adiciona panorama ao tour. tourId no body. imageData aceita base64.
+            measurements é opcional.
+          sortKey: -1782673049423
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "tourId": "1ea89662-629a-4dd9-8315-99907dde1276",
+              "roomName": "Sala de Estar",
+              "imageData": "data:image/jpeg;base64,/9j/4AAQSkZJRgAB...",
+              "order": 0,
+              "initialPanorama": true,
+              "measurements": [
+                { "description": "Largura", "value": 4.5, "unit": "m" },
+                { "description": "Comprimento", "value": 6.0, "unit": "m" }
+              ]
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/panoramas/1ea89662-629a-4dd9-8315-99907dde1276"
+        name: Deletar Panorama
+        meta:
+          id: req_2c17e2789b3142888734f4ce3be3271e
+          created: 1782673049424
+          modified: 1782683440412
+          isPrivate: false
+          description: Remove um panorama (retorna 204)
+          sortKey: -1782673049323
+        method: DELETE
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+  - name: Hotspots
+    meta:
+      id: fld_8206be45faf240f18618a3c657e82e1b
+      created: 1782673049412
+      modified: 1782673049412
+      sortKey: -1782673049412
+      description: ""
+    children:
+      - url: "{{ base_url }}/hotspots/HOTSPOT_ID_AQUI"
+        name: Deletar Hotspot
+        meta:
+          id: req_366fe8214da744409fbef0faa84ba9d3
+          created: 1782673049424
+          modified: 1782673049424
+          isPrivate: false
+          description: Remove um hotspot (retorna 204)
+          sortKey: -1782673049424
+        method: DELETE
+        body:
+          mimeType: application/json
+          text: ""
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/hotspots"
+        name: Adicionar Hotspot
+        meta:
+          id: req_48061bbf39d240c9996a8bcc1e210ea6
+          created: 1782673049424
+          modified: 1782683620121
+          isPrivate: false
+          description: Adiciona hotspot de navegacao ao panorama. panoramaId e targetId no
+            body.
+          sortKey: -1782673049524
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "panoramaId": "c554a92c-68a7-422b-88ac-ad0f3315d4f3",
+              "label": "Ir para quarto",
+              "positionX": 0.35,
+              "positionY": 0.5,
+              "targetId": "c554a92c-68a7-422b-88ac-ad0f3315d4f3"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+      - url: "{{ base_url }}/hotspots/c554a92c-68a7-422b-88ac-ad0f3315d4f3"
+        name: Atualizar Hotspot
+        meta:
+          id: req_e73eeb9db1574edeab19030634a0eebe
+          created: 1782673049424
+          modified: 1782683414191
+          isPrivate: false
+          description: Atualiza um hotspot (todos os campos são opcionais)
+          sortKey: -1782673049424
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "label": "Ir para sala",
+              "positionX": 0.6,
+              "positionY": 0.4
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+        authentication:
+          type: bearer
+          token: "{{ access_token }}"
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_4efe7b498faf1dc607bd124e51d5fa242a07a835
+    created: 1782673049526
+    modified: 1782673049526
+environments:
+  name: Base Environment
+  meta:
+    id: env_b2fc1c38b9db42dc8eb91531256db0a7
+    created: 1782673049409
+    modified: 1782681816523
+    isPrivate: false
+  data:
+    base_url: http://localhost:3000
+    access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwODYzYmQyMC1jYjhmLTQ3ZDgtYWQ0YS03NzkwNzRlOWIzMTYiLCJlbWFpbCI6ImpvYW9AY2VudHJhbC5jb20iLCJyb2xlIjoiQURNSU5JU1RSQVRPUiIsImFnZW5jeUlkIjoiZTYzZTFlMmUtNWUwZi00YjQ0LWJmOTEtN2E2YzAzMjBkZWNjIiwiaWF0IjoxNzgyNjgxODA1LCJleHAiOjE3ODI3NjgyMDV9.5v-pA3xTfF7xAAYoY8mCtgOp-Mvb0qkrhB6d5nhqgMU
+    refresh_token: ""

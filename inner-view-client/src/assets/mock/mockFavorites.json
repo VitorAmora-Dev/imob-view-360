@@ -1,0 +1,30 @@
+[
+  {
+    "id": "fav001",
+    "name": "Casa Modernista",
+    "descriptions": "Residência com arquitetura modernista brasileira e amplos espaços integrados.",
+    "thumb": "assets/mock/relax_inn.jpg",
+    "panoramicPoints": ["relax_inn.jpg"]
+  },
+  {
+    "id": "fav002",
+    "name": "Cobertura Jardins",
+    "descriptions": "Cobertura duplex com jardim suspenso e vista para o Ibirapuera.",
+    "thumb": "assets/mock/relax_inn.jpg",
+    "panoramicPoints": ["relax_inn.jpg"]
+  },
+  {
+    "id": "fav003",
+    "name": "Estúdio Bela Vista",
+    "descriptions": "Estúdio compacto com design funcional e acabamentos premium.",
+    "thumb": "assets/mock/relax_inn.jpg",
+    "panoramicPoints": ["relax_inn.jpg"]
+  },
+  {
+    "id": "fav004",
+    "name": "Loft Industrial",
+    "descriptions": "Loft com estrutura exposta, pé-direito duplo e decoração contemporânea.",
+    "thumb": "assets/mock/relax_inn.jpg",
+    "panoramicPoints": ["relax_inn.jpg"]
+  }
+]

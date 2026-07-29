@@ -1,0 +1,15 @@
+<ion-content>
+  @if (tour && tour.panoramas.length > 0) {
+    <app-panoramic-viewer [panoramas]="tour.panoramas"></app-panoramic-viewer>
+  }
+  @if (!tour && !loadError) {
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;background:#000;">
+      <ion-spinner name="crescent" style="color:#fff;width:48px;height:48px;"></ion-spinner>
+    </div>
+  }
+  @if (loadError) {
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#fff;background:#000;">
+      <p>Tour virtual não encontrado.</p>
+    </div>
+  }
+</ion-content>

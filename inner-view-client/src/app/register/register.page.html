@@ -1,0 +1,149 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/login"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Criar conta</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="ion-text-center ion-margin-vertical">
+    <h1>Inner View</h1>
+    <p>Cadastre sua imobiliária</p>
+  </div>
+
+  <form (ngSubmit)="submit()">
+    <ion-list>
+      <ion-list-header>
+        <ion-label>Imobiliária</ion-label>
+      </ion-list-header>
+
+      <ion-item>
+        <ion-input
+          label="Nome da imobiliária *"
+          labelPlacement="floating"
+          type="text"
+          [(ngModel)]="agencyName"
+          name="agencyName"
+          autocomplete="organization"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="CNPJ"
+          labelPlacement="floating"
+          type="text"
+          [(ngModel)]="cnpj"
+          name="cnpj"
+          placeholder="12.345.678/0001-90">
+        </ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="E-mail da imobiliária"
+          labelPlacement="floating"
+          type="email"
+          [(ngModel)]="agencyEmail"
+          name="agencyEmail">
+        </ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="Telefone"
+          labelPlacement="floating"
+          type="tel"
+          [(ngModel)]="phone"
+          name="phone"
+          autocomplete="tel">
+        </ion-input>
+      </ion-item>
+    </ion-list>
+
+    <ion-list>
+      <ion-list-header>
+        <ion-label>Administrador</ion-label>
+      </ion-list-header>
+
+      <ion-item>
+        <ion-input
+          label="Nome completo *"
+          labelPlacement="floating"
+          type="text"
+          [(ngModel)]="name"
+          name="name"
+          autocomplete="name"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="E-mail *"
+          labelPlacement="floating"
+          type="email"
+          [(ngModel)]="email"
+          name="email"
+          autocomplete="email"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="Senha *"
+          labelPlacement="floating"
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          autocomplete="new-password"
+          helperText="Mínimo de 6 caracteres"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-input
+          label="Confirmar senha *"
+          labelPlacement="floating"
+          type="password"
+          [(ngModel)]="confirmPassword"
+          name="confirmPassword"
+          autocomplete="new-password"
+          errorText="As senhas não coincidem"
+          [class.ion-touched]="passwordMismatch"
+          [class.ion-invalid]="passwordMismatch"
+          required>
+        </ion-input>
+      </ion-item>
+    </ion-list>
+
+    <ion-button
+      expand="block"
+      type="submit"
+      class="ion-margin-top"
+      [disabled]="loading || !formValid">
+      @if (loading) {
+        <ion-spinner name="crescent" slot="start"></ion-spinner>
+      }
+      Criar conta
+    </ion-button>
+  </form>
+
+  <ion-button fill="clear" expand="block" routerLink="/login">
+    Já tem uma conta? Entrar
+  </ion-button>
+</ion-content>
+
+<ion-toast
+  [isOpen]="showToast"
+  [message]="errorMessage"
+  [duration]="3000"
+  color="danger"
+  position="bottom"
+  (didDismiss)="showToast = false">
+</ion-toast>

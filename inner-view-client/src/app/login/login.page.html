@@ -1,0 +1,62 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Inner View</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="login-container">
+    <div class="login-logo">
+      <h1>Inner View</h1>
+      <p>Tour virtual de imóveis 360°</p>
+    </div>
+
+    <form (ngSubmit)="submit()">
+      <ion-item>
+        <ion-label position="floating">E-mail</ion-label>
+        <ion-input
+          type="email"
+          [(ngModel)]="email"
+          name="email"
+          autocomplete="email"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Senha</ion-label>
+        <ion-input
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          autocomplete="current-password"
+          required>
+        </ion-input>
+      </ion-item>
+
+      <ion-button
+        expand="block"
+        type="submit"
+        class="login-btn"
+        [disabled]="loading || !email || !password">
+        @if (loading) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
+        Entrar
+      </ion-button>
+    </form>
+
+    <ion-button fill="clear" expand="block" routerLink="/register">
+      Não tem uma conta? Criar conta
+    </ion-button>
+  </div>
+</ion-content>
+
+<ion-toast
+  [isOpen]="showToast"
+  [message]="errorMessage"
+  [duration]="3000"
+  color="danger"
+  position="bottom"
+  (didDismiss)="showToast = false">
+</ion-toast>

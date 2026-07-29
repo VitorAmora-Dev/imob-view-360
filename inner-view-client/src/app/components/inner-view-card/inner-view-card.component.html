@@ -1,0 +1,50 @@
+<ion-card (click)="onCardClick()" button="true">
+  @if (item.virtualTour) {
+    <div class="card-thumbnail">
+      <img [src]="thumbnailUrl" alt="" />
+    </div>
+  }
+
+  <div class="card-badge">
+    @if (item.virtualTour) {
+      <span class="badge-tour">360°</span>
+    }
+    @if (item.purpose === 'RENT') {
+      <span class="badge-purpose">Aluguel</span>
+    }
+    @if (item.purpose === 'SALE') {
+      <span class="badge-purpose">Venda</span>
+    }
+  </div>
+
+  <ion-card-header>
+    <ion-card-title>{{ item.title }}</ion-card-title>
+    @if (locationLabel) {
+      <div class="card-location">
+        <ion-icon name="location-outline" size="small"></ion-icon>
+        <ion-label>{{ locationLabel }}</ion-label>
+      </div>
+    }
+  </ion-card-header>
+
+  <ion-card-content>
+    @if (item.description) {
+      <p class="card-description">{{ item.description }}</p>
+    }
+    @if (priceLabel) {
+      <p class="card-price">{{ priceLabel }}</p>
+    }
+  </ion-card-content>
+
+  <div class="card-actions">
+    <ion-button fill="clear" size="small" (click)="onLike($event)" [color]="liked ? 'danger' : 'medium'">
+      <ion-icon slot="icon-only" [name]="liked ? 'heart' : 'heart-outline'"></ion-icon>
+    </ion-button>
+    <ion-button fill="clear" size="small" (click)="onFavorite($event)" [color]="favorited ? 'warning' : 'medium'">
+      <ion-icon slot="icon-only" [name]="favorited ? 'star' : 'star-outline'"></ion-icon>
+    </ion-button>
+    <ion-button fill="clear" size="small" color="medium" (click)="onShare($event)">
+      <ion-icon slot="icon-only" name="share-social-outline"></ion-icon>
+    </ion-button>
+  </div>
+</ion-card>

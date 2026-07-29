@@ -1,0 +1,35 @@
+[
+  {
+    "id": "up001",
+    "name": "Relax Inn Suite",
+    "descriptions": "Vista panorâmica da suíte principal com vista para o jardim.",
+    "thumb": "assets/mock/relax_inn.jpg",
+    "panoramicPoints": ["relax_inn.jpg"],
+    "likes": 42,
+    "shares": 12,
+    "favorites": 8,
+    "createdAt": "2025-03-10"
+  },
+  {
+    "id": "up002",
+    "name": "Lobby Executivo",
+    "descriptions": "Entrada principal com decoração minimalista e iluminação natural.",
+    "thumb": "assets/mock/relax_inn.jpg",
+    "panoramicPoints": ["relax_inn.jpg"],
+    "likes": 27,
+    "shares": 5,
+    "favorites": 11,
+    "createdAt": "2025-04-02"
+  },
+  {
+    "id": "up003",
+    "name": "Terraço Panorâmico",
+    "descriptions": "Área externa com vista 360° para a cidade e piscina.",
+    "thumb": "assets/mock/relax_inn.jpg",
+    "panoramicPoints": ["relax_inn.jpg"],
+    "likes": 89,
+    "shares": 34,
+    "favorites": 21,
+    "createdAt": "2025-05-18"
+  }
+]
