@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ApiThrottlerGuard } from './common/guards/throttler.guard';
 import { validateEnv } from './config/env.schema';
+import { GLOBAL_THROTTLE } from './config/throttle.config';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -12,6 +17,7 @@ import { HotspotsModule } from './modules/hotspots/hotspots.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    ThrottlerModule.forRoot([GLOBAL_THROTTLE]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -19,6 +25,10 @@ import { HotspotsModule } from './modules/hotspots/hotspots.module';
     VirtualToursModule,
     PanoramasModule,
     HotspotsModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ApiThrottlerGuard },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule {}

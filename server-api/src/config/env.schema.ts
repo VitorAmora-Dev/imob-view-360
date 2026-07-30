@@ -6,7 +6,21 @@ const SECRET_MIN_LENGTH = 32;
 
 export const EnvSchema = z
   .object({
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
     DATABASE_URL: z.string().min(1, 'é obrigatória'),
+    /**
+     * Origens liberadas no CORS, separadas por vírgula. Vazio = nenhuma origem
+     * cross-origin, que é o comportamento de dev (o proxy do Angular torna
+     * tudo same-origin).
+     */
+    CORS_ORIGINS: z.string().default(''),
+    /**
+     * Domínios extras liberados em connect-src e img-src da CSP, separados por
+     * vírgula. Reservado para o bucket de imagens (Fase 2 da migração).
+     */
+    CSP_EXTRA_ORIGINS: z.string().default(''),
     JWT_ACCESS_SECRET: z
       .string()
       .min(
