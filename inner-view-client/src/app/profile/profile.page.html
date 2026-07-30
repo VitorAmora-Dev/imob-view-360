@@ -1,13 +1,5 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/home"></ion-back-button>
-    </ion-buttons>
-    <ion-title>{{ 'PROFILE.TITLE' | translate }}</ion-title>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true">
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <app-header backHref="/home" [pageTitle]="'PROFILE.TITLE' | translate"></app-header>
 
   <div class="profile-header" *ngIf="user">
     <div class="profile-avatar-placeholder">
@@ -47,26 +39,28 @@
       (ionInput)="onSearchProperties($event)"
       animated="true">
     </ion-searchbar>
-    <ion-grid>
+    <ion-grid class="page-shell">
       <ion-row>
-        <ion-col size="6" *ngFor="let property of filteredProperties">
+        <ion-col class="card-col" *ngFor="let property of filteredProperties">
           <ion-card class="upload-card">
-            @if (property.virtualTour) {
-              <img class="upload-thumb" [src]="thumbnailUrl(property.virtualTour.id)" alt="" />
-            }
-            <ion-card-header>
-              <ion-card-title class="upload-title">{{ property.title }}</ion-card-title>
-            </ion-card-header>
-            <ion-card-content>
+            <div class="upload-photo">
+              @if (property.virtualTour) {
+                <img [src]="thumbnailUrl(property.virtualTour.id)" alt="" loading="lazy" />
+                <span class="photo-badge">360°</span>
+              } @else {
+                <div class="photo-placeholder">
+                  <ion-icon name="home-outline"></ion-icon>
+                </div>
+              }
+            </div>
+            <div class="upload-meta">
+              <p class="upload-title">{{ property.title }}</p>
               <div class="property-meta">
                 @if (property.price) {
                   <span class="meta-item">R$ {{ property.price | number:'1.0-0':'pt-BR' }}</span>
                 }
                 @if (property.totalArea) {
                   <span class="meta-item">{{ property.totalArea }}m²</span>
-                }
-                @if (property.virtualTour) {
-                  <ion-badge color="primary">360°</ion-badge>
                 }
               </div>
               <div class="upload-actions">
@@ -81,7 +75,7 @@
                   {{ 'PROFILE.BUTTON.EDIT' | translate }}
                 </ion-button>
               </div>
-            </ion-card-content>
+            </div>
           </ion-card>
         </ion-col>
       </ion-row>
@@ -105,9 +99,7 @@
     <ion-content class="ion-padding">
       <div class="embed-section">
         <h3>{{ 'PROFILE.MODAL.DIRECT_LINK' | translate }}</h3>
-        <ion-item>
-          <ion-textarea [value]="embedLink" [readonly]="true" rows="2" autoGrow="false"></ion-textarea>
-        </ion-item>
+        <ion-textarea fill="outline" [value]="embedLink" [readonly]="true" rows="2" autoGrow="false"></ion-textarea>
         <ion-button expand="block" fill="outline" (click)="copyToClipboard(embedLink)">
           <ion-icon name="copy-outline" slot="start"></ion-icon>
           {{ 'PROFILE.MODAL.COPY_LINK' | translate }}
@@ -116,9 +108,7 @@
 
       <div class="embed-section">
         <h3>{{ 'PROFILE.MODAL.EMBED_CODE' | translate }}</h3>
-        <ion-item>
-          <ion-textarea [value]="embedCode" [readonly]="true" rows="4" autoGrow="false"></ion-textarea>
-        </ion-item>
+        <ion-textarea fill="outline" [value]="embedCode" [readonly]="true" rows="4" autoGrow="false"></ion-textarea>
         <ion-button expand="block" fill="outline" (click)="copyToClipboard(embedCode)">
           <ion-icon name="copy-outline" slot="start"></ion-icon>
           {{ 'PROFILE.MODAL.COPY_CODE' | translate }}

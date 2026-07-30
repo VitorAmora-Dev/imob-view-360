@@ -1,38 +1,34 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Inner View</ion-title>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content class="ion-padding">
+  <app-header></app-header>
+
   <div class="login-container">
     <div class="login-logo">
-      <h1>Inner View</h1>
-      <p>Tour virtual de imóveis 360°</p>
+      <h1>Entrar</h1>
+      <p class="brand-tagline">Tour virtual de imóveis 360°</p>
     </div>
 
     <form (ngSubmit)="submit()">
-      <ion-item>
-        <ion-label position="floating">E-mail</ion-label>
-        <ion-input
-          type="email"
-          [(ngModel)]="email"
-          name="email"
-          autocomplete="email"
-          required>
-        </ion-input>
-      </ion-item>
+      <ion-input
+        label="E-mail"
+        labelPlacement="floating"
+        fill="outline"
+        type="email"
+        [(ngModel)]="email"
+        name="email"
+        autocomplete="email"
+        required>
+      </ion-input>
 
-      <ion-item>
-        <ion-label position="floating">Senha</ion-label>
-        <ion-input
-          type="password"
-          [(ngModel)]="password"
-          name="password"
-          autocomplete="current-password"
-          required>
-        </ion-input>
-      </ion-item>
+      <ion-input
+        label="Senha"
+        labelPlacement="floating"
+        fill="outline"
+        type="password"
+        [(ngModel)]="password"
+        name="password"
+        autocomplete="current-password"
+        required>
+      </ion-input>
 
       <ion-button
         expand="block"

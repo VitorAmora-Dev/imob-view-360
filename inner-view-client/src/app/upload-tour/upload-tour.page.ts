@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
-  IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonBackButton,
+  IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
   IonButton, IonIcon, IonItem, IonLabel, IonInput, IonSelect, IonSelectOption,
-  IonList, IonListHeader, IonSpinner, IonModal, IonNote,
+  IonList, IonSpinner, IonModal, IonNote,
   AlertController, ToastController,
 } from '@ionic/angular/standalone';
+import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
 import { addCircleOutline, trashOutline, eyeOutline, closeOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -32,15 +33,21 @@ interface PanoramaItem {
   imports: [
     CommonModule,
     FormsModule,
-    IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonBackButton,
+    IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
     IonButton, IonIcon, IonItem, IonLabel, IonInput, IonSelect, IonSelectOption,
-    IonList, IonListHeader, IonSpinner, IonModal, IonNote,
+    IonList, IonSpinner, IonModal, IonNote,
     PanoramicViewerComponent,
+    AppHeaderComponent,
     TranslatePipe,
   ],
 })
 export class UploadTourPage {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild(AppHeaderComponent) header?: AppHeaderComponent;
+
+  onScroll(event: CustomEvent<{ scrollTop: number }>) {
+    this.header?.onContentScroll(event.detail.scrollTop);
+  }
 
   title = '';
   type = '';

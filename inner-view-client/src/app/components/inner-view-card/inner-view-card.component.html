@@ -1,50 +1,62 @@
-<ion-card (click)="onCardClick()" button="true">
-  @if (item.virtualTour) {
-    <div class="card-thumbnail">
-      <img [src]="thumbnailUrl" alt="" />
-    </div>
-  }
-
-  <div class="card-badge">
+<ion-card class="property-card" (click)="onCardClick()" button="true">
+  <div class="card-photo">
     @if (item.virtualTour) {
-      <span class="badge-tour">360°</span>
-    }
-    @if (item.purpose === 'RENT') {
-      <span class="badge-purpose">Aluguel</span>
-    }
-    @if (item.purpose === 'SALE') {
-      <span class="badge-purpose">Venda</span>
-    }
-  </div>
-
-  <ion-card-header>
-    <ion-card-title>{{ item.title }}</ion-card-title>
-    @if (locationLabel) {
-      <div class="card-location">
-        <ion-icon name="location-outline" size="small"></ion-icon>
-        <ion-label>{{ locationLabel }}</ion-label>
+      <img [src]="thumbnailUrl" alt="" loading="lazy" />
+    } @else {
+      <div class="photo-placeholder">
+        <ion-icon name="home-outline"></ion-icon>
       </div>
     }
-  </ion-card-header>
 
-  <ion-card-content>
+    <div class="photo-badges">
+      @if (item.virtualTour) {
+        <span class="photo-badge">360°</span>
+      }
+      @if (item.purpose === 'RENT') {
+        <span class="photo-badge">Aluguel</span>
+      }
+      @if (item.purpose === 'SALE') {
+        <span class="photo-badge">Venda</span>
+      }
+    </div>
+
+    <button
+      type="button"
+      class="heart-btn"
+      [class.heart-btn--liked]="liked"
+      (click)="onLike($event)"
+      aria-label="Curtir">
+      <ion-icon [name]="liked ? 'heart' : 'heart-outline'"></ion-icon>
+    </button>
+  </div>
+
+  <div class="card-meta">
+    <p class="meta-title">{{ item.title }}</p>
+    @if (locationLabel) {
+      <p class="meta-location">{{ locationLabel }}</p>
+    }
     @if (item.description) {
-      <p class="card-description">{{ item.description }}</p>
+      <p class="meta-description">{{ item.description }}</p>
     }
-    @if (priceLabel) {
-      <p class="card-price">{{ priceLabel }}</p>
-    }
-  </ion-card-content>
-
-  <div class="card-actions">
-    <ion-button fill="clear" size="small" (click)="onLike($event)" [color]="liked ? 'danger' : 'medium'">
-      <ion-icon slot="icon-only" [name]="liked ? 'heart' : 'heart-outline'"></ion-icon>
-    </ion-button>
-    <ion-button fill="clear" size="small" (click)="onFavorite($event)" [color]="favorited ? 'warning' : 'medium'">
-      <ion-icon slot="icon-only" [name]="favorited ? 'star' : 'star-outline'"></ion-icon>
-    </ion-button>
-    <ion-button fill="clear" size="small" color="medium" (click)="onShare($event)">
-      <ion-icon slot="icon-only" name="share-social-outline"></ion-icon>
-    </ion-button>
+    <div class="meta-footer">
+      @if (priceLabel) {
+        <p class="meta-price">{{ priceLabel }}</p>
+      }
+      <div class="meta-actions">
+        <ion-button
+          fill="clear"
+          size="small"
+          class="meta-action"
+          [class.meta-action--active]="favorited"
+          (click)="onFavorite($event)">
+          <ion-icon slot="icon-only" [name]="favorited ? 'star' : 'star-outline'"></ion-icon>
+        </ion-button>
+        @if (item.virtualTour) {
+          <ion-button fill="clear" size="small" class="meta-action" (click)="onShare($event)">
+            <ion-icon slot="icon-only" name="share-social-outline"></ion-icon>
+          </ion-button>
+        }
+      </div>
+    </div>
   </div>
 </ion-card>
