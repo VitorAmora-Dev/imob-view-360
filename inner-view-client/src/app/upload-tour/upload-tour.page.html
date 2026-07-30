@@ -1,186 +1,165 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/home"></ion-back-button>
-    </ion-buttons>
-    <ion-title>{{ 'UPLOAD.TITLE' | translate }}</ion-title>
-  </ion-toolbar>
-</ion-header>
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <app-header backHref="/home" [pageTitle]="'UPLOAD.TITLE' | translate"></app-header>
 
-<ion-content [fullscreen]="true">
   <input type="file" accept="image/*" hidden #fileInput (change)="onFileSelected($event)">
 
-  <ion-list inset="true">
-    <ion-list-header>
-      <ion-label>{{ 'UPLOAD.PROPERTY_SECTION' | translate }}</ion-label>
-    </ion-list-header>
+  <div class="form-shell ion-padding">
+    <section class="form-section">
+      <h3>{{ 'UPLOAD.PROPERTY_SECTION' | translate }}</h3>
 
-    <ion-item>
       <ion-input
         [(ngModel)]="title"
         [label]="'UPLOAD.PROPERTY_TITLE_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         type="text"
         autocomplete="off">
       </ion-input>
-    </ion-item>
 
-    <ion-item>
       <ion-select
         [(ngModel)]="type"
         [label]="'UPLOAD.PROPERTY_TYPE_LABEL' | translate"
-        labelPlacement="floating">
+        labelPlacement="floating"
+        fill="outline">
         @for (t of propertyTypes; track t) {
           <ion-select-option [value]="t">{{ ('UPLOAD.TYPE.' + t) | translate }}</ion-select-option>
         }
       </ion-select>
-    </ion-item>
 
-    <ion-item>
       <ion-select
         [(ngModel)]="purpose"
         [label]="'UPLOAD.PROPERTY_PURPOSE_LABEL' | translate"
-        labelPlacement="floating">
+        labelPlacement="floating"
+        fill="outline">
         @for (p of purposes; track p) {
           <ion-select-option [value]="p">{{ ('UPLOAD.PURPOSE.' + p) | translate }}</ion-select-option>
         }
       </ion-select>
-    </ion-item>
-  </ion-list>
+    </section>
 
-  <ion-list inset="true">
-    <ion-list-header>
-      <ion-label>{{ 'UPLOAD.ADDRESS.SECTION' | translate }}</ion-label>
-    </ion-list-header>
+    <section class="form-section">
+      <h3>{{ 'UPLOAD.ADDRESS.SECTION' | translate }}</h3>
 
-    <ion-item>
       <ion-input
         [ngModel]="cep"
         (ionInput)="onCepInput($event)"
         (ionBlur)="onCepBlur()"
         [label]="'UPLOAD.ADDRESS.CEP_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         [placeholder]="'UPLOAD.ADDRESS.CEP_PLACEHOLDER' | translate"
         type="text"
         inputmode="numeric"
         maxlength="9"
         autocomplete="postal-code">
+        @if (cepLoading) {
+          <ion-spinner slot="end" name="crescent"></ion-spinner>
+        }
       </ion-input>
-      @if (cepLoading) {
-        <ion-spinner slot="end" name="crescent"></ion-spinner>
-      }
-    </ion-item>
 
-    <ion-item>
       <ion-input
         [(ngModel)]="street"
         [label]="'UPLOAD.ADDRESS.STREET_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         type="text"
         [disabled]="cepLoading">
       </ion-input>
-    </ion-item>
 
-    <ion-item>
       <ion-input
         [(ngModel)]="number"
         [label]="'UPLOAD.ADDRESS.NUMBER_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         type="text">
       </ion-input>
-    </ion-item>
 
-    <ion-item>
       <ion-input
         [(ngModel)]="complement"
         [label]="'UPLOAD.ADDRESS.COMPLEMENT_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         type="text"
         [disabled]="cepLoading">
       </ion-input>
-    </ion-item>
 
-    <ion-item>
       <ion-input
         [(ngModel)]="district"
         [label]="'UPLOAD.ADDRESS.DISTRICT_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         type="text"
         [disabled]="cepLoading">
       </ion-input>
-    </ion-item>
 
-    <ion-item>
       <ion-input
         [(ngModel)]="city"
         [label]="'UPLOAD.ADDRESS.CITY_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         type="text"
         [disabled]="cepLoading">
       </ion-input>
-    </ion-item>
 
-    <ion-item>
       <ion-input
         [(ngModel)]="state"
         [label]="'UPLOAD.ADDRESS.STATE_LABEL' | translate"
         labelPlacement="floating"
+        fill="outline"
         type="text"
         maxlength="2"
         autocapitalize="characters"
         [disabled]="cepLoading">
       </ion-input>
-    </ion-item>
 
-    @if (addressIncomplete) {
-      <ion-item lines="none">
-        <ion-note color="medium">{{ 'UPLOAD.ADDRESS.REQUIRED_HINT' | translate }}</ion-note>
-      </ion-item>
-    }
-  </ion-list>
-
-  <ion-list inset="true">
-    <ion-list-header>
-      <ion-label>{{ 'UPLOAD.IMAGES_TITLE' | translate }}</ion-label>
-    </ion-list-header>
-
-    @for (panorama of panoramas; track panorama.fileName + panorama.roomName; let i = $index) {
-      <ion-item>
-        <ion-label>
-          <h3>{{ panorama.roomName }}</h3>
-          <p>{{ panorama.fileName }}</p>
-        </ion-label>
-        <ion-button slot="end" fill="clear" color="danger" (click)="removePanorama(i)">
-          <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
-        </ion-button>
-      </ion-item>
-    } @empty {
-      <ion-item lines="none">
-        <ion-label color="medium">{{ 'UPLOAD.NO_IMAGES' | translate }}</ion-label>
-      </ion-item>
-    }
-
-    <ion-item button detail="false" (click)="openFilePicker()">
-      <ion-icon slot="start" name="add-circle-outline" color="primary"></ion-icon>
-      <ion-label color="primary">{{ 'UPLOAD.ADD_IMAGE' | translate }}</ion-label>
-    </ion-item>
-  </ion-list>
-
-  <div class="submit-container">
-    @if (panoramas.length > 0) {
-      <ion-button expand="block" fill="outline" (click)="openPreview()">
-        <ion-icon slot="start" name="eye-outline"></ion-icon>
-        {{ 'UPLOAD.PREVIEW' | translate }}
-      </ion-button>
-    }
-    <ion-button expand="block" [disabled]="!canSubmit" (click)="onSubmit()">
-      @if (submitting) {
-        <ion-spinner name="crescent" slot="start"></ion-spinner>
-        {{ 'UPLOAD.SUBMITTING' | translate }}
-      } @else {
-        {{ 'UPLOAD.SUBMIT' | translate }}
+      @if (addressIncomplete) {
+        <ion-note>{{ 'UPLOAD.ADDRESS.REQUIRED_HINT' | translate }}</ion-note>
       }
-    </ion-button>
+    </section>
+
+    <section class="form-section">
+      <h3>{{ 'UPLOAD.IMAGES_TITLE' | translate }}</h3>
+
+      <ion-list class="panorama-list" lines="full">
+        @for (panorama of panoramas; track panorama.fileName + panorama.roomName; let i = $index) {
+          <ion-item>
+            <ion-label>
+              <h3>{{ panorama.roomName }}</h3>
+              <p>{{ panorama.fileName }}</p>
+            </ion-label>
+            <ion-button slot="end" fill="clear" color="danger" (click)="removePanorama(i)">
+              <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+            </ion-button>
+          </ion-item>
+        } @empty {
+          <ion-item lines="none">
+            <ion-label color="medium">{{ 'UPLOAD.NO_IMAGES' | translate }}</ion-label>
+          </ion-item>
+        }
+
+        <ion-item button detail="false" lines="none" (click)="openFilePicker()">
+          <ion-icon slot="start" name="add-circle-outline"></ion-icon>
+          <ion-label>{{ 'UPLOAD.ADD_IMAGE' | translate }}</ion-label>
+        </ion-item>
+      </ion-list>
+    </section>
+
+    <div class="submit-container">
+      @if (panoramas.length > 0) {
+        <ion-button expand="block" fill="outline" (click)="openPreview()">
+          <ion-icon slot="start" name="eye-outline"></ion-icon>
+          {{ 'UPLOAD.PREVIEW' | translate }}
+        </ion-button>
+      }
+      <ion-button expand="block" [disabled]="!canSubmit" (click)="onSubmit()">
+        @if (submitting) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+          {{ 'UPLOAD.SUBMITTING' | translate }}
+        } @else {
+          {{ 'UPLOAD.SUBMIT' | translate }}
+        }
+      </ion-button>
+    </div>
   </div>
 </ion-content>
 

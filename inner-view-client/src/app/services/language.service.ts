@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
 
 @Injectable({ providedIn: 'root' })
@@ -6,7 +6,9 @@ export class LanguageService {
   private readonly STORAGE_KEY = 'app_lang';
   currentLang = signal<'pt' | 'en'>('pt');
 
-  constructor(private translate: TranslateService) {
+  private translate = inject(TranslateService);
+
+  constructor() {
     const saved = (localStorage.getItem(this.STORAGE_KEY) as 'pt' | 'en') || 'pt';
     this.translate.addLangs(['pt', 'en']);
     this.use(saved);

@@ -1,0 +1,115 @@
+<header
+  class="app-header"
+  [class.app-header--scrolled]="scrolled() && !menuOpen()"
+  [class.app-header--menu-open]="menuOpen()"
+  [class.app-header--overlay]="variant === 'overlay'">
+  <nav class="header-nav">
+    <div class="header-lead">
+      @if (backHref) {
+        <button type="button" class="back-btn" (click)="goBack()" [attr.aria-label]="'NAV.BACK' | translate">
+          <ion-icon name="arrow-back-outline"></ion-icon>
+        </button>
+      }
+      <a class="wordmark" routerLink="/home" (click)="closeMenu()">Inner View</a>
+      @if (pageTitle) {
+        <span class="page-title">{{ pageTitle }}</span>
+      }
+    </div>
+
+    <!-- Page-specific actions (e.g. the 360 viewer toolbar) -->
+    <div class="header-slot">
+      <ng-content select="[headerActions]"></ng-content>
+    </div>
+
+    @if (isAuthenticated()) {
+      <div class="header-desktop">
+        @for (link of links; track link.href) {
+          <a
+            class="nav-link"
+            [routerLink]="link.href"
+            routerLinkActive="nav-link--active"
+            [routerLinkActiveOptions]="{ exact: true }">
+            {{ link.labelKey | translate }}
+          </a>
+        }
+
+        <div class="header-divider"></div>
+
+        <button
+          type="button"
+          class="circle-control icon-action"
+          (click)="openLanguagePopover($event)"
+          [attr.aria-label]="'NAV.LANGUAGE' | translate">
+          <ion-icon name="globe-outline"></ion-icon>
+        </button>
+        <a class="circle-control icon-action" routerLink="/profile" [attr.aria-label]="'PROFILE.TITLE' | translate">
+          <ion-icon name="person-circle-outline"></ion-icon>
+        </a>
+        <button type="button" class="circle-control icon-action" (click)="signout()" [attr.aria-label]="'NAV.SIGNOUT' | translate">
+          <ion-icon name="log-out-outline"></ion-icon>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        class="circle-control menu-btn"
+        (click)="toggleMenu()"
+        [attr.aria-expanded]="menuOpen()"
+        [attr.aria-label]="'NAV.MENU' | translate">
+        <app-menu-toggle-icon [open]="menuOpen()" [duration]="300"></app-menu-toggle-icon>
+      </button>
+    }
+  </nav>
+
+  @if (isAuthenticated()) {
+    <div class="mobile-sheet" [class.mobile-sheet--open]="menuOpen()">
+      <div class="sheet-inner">
+        <div class="sheet-links">
+          @for (link of links; track link.href) {
+            <a
+              class="sheet-link"
+              [routerLink]="link.href"
+              routerLinkActive="sheet-link--active"
+              [routerLinkActiveOptions]="{ exact: true }"
+              (click)="closeMenu()">
+              {{ link.labelKey | translate }}
+            </a>
+          }
+        </div>
+
+        <div class="sheet-actions">
+          <button type="button" class="sheet-btn sheet-btn--outline" (click)="openLanguagePopover($event)">
+            <ion-icon name="globe-outline"></ion-icon>
+            {{ 'NAV.LANGUAGE' | translate }}
+          </button>
+          <button type="button" class="sheet-btn sheet-btn--outline" (click)="signout()">
+            <ion-icon name="log-out-outline"></ion-icon>
+            {{ 'NAV.SIGNOUT' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</header>
+
+<ion-popover
+  [isOpen]="isLangPopoverOpen"
+  [event]="langPopoverEvent"
+  (didDismiss)="isLangPopoverOpen = false">
+  <ng-template>
+    <ion-list lines="none">
+      <ion-item button [detail]="false" (click)="selectLang('pt')">
+        <ion-label>Português</ion-label>
+        @if (languageService.currentLang() === 'pt') {
+          <ion-icon name="checkmark-outline" slot="end"></ion-icon>
+        }
+      </ion-item>
+      <ion-item button [detail]="false" (click)="selectLang('en')">
+        <ion-label>English</ion-label>
+        @if (languageService.currentLang() === 'en') {
+          <ion-icon name="checkmark-outline" slot="end"></ion-icon>
+        }
+      </ion-item>
+    </ion-list>
+  </ng-template>
+</ion-popover>

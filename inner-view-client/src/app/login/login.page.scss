@@ -12,22 +12,14 @@
   margin-bottom: 40px;
 
   h1 {
-    font-size: 2rem;
-    font-weight: 700;
     margin: 0;
   }
 
   p {
-    color: var(--ion-color-medium);
-    margin-top: 4px;
+    margin-bottom: 0;
   }
 }
 
-ion-item {
-  margin-bottom: 8px;
-  --border-radius: 8px;
-}
-
 .login-btn {
-  margin-top: 24px;
+  margin-top: 8px;
 }

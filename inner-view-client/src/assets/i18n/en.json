@@ -2,6 +2,19 @@
   "HOME": {
     "SEARCH_PLACEHOLDER": "Search places..."
   },
+  "NAV": {
+    "HOME": "Home",
+    "MY_PROPERTIES": "My properties",
+    "NEW_TOUR": "New tour",
+    "LANGUAGE": "Language",
+    "SIGNOUT": "Sign out",
+    "MENU": "Menu",
+    "BACK": "Back"
+  },
+  "CARD": {
+    "LINK_COPIED": "Tour link copied!",
+    "SHARE_ERROR": "Could not share the link."
+  },
   "PROFILE": {
     "TITLE": "My Profile",
     "STATS": {
