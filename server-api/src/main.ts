@@ -10,6 +10,7 @@ import {
 } from './config/body-limit.config';
 import { Env } from './config/env.schema';
 import {
+  corsOptions,
   helmetMiddleware,
   parseOriginList,
   swaggerCspMiddleware,
@@ -30,6 +31,14 @@ async function bootstrap() {
       parseOriginList(env.get('CSP_EXTRA_ORIGINS', { infer: true })),
     ),
   );
+
+  // Allowlist vazia = nenhuma origem cross-origin, que é o comportamento de dev.
+  const allowedOrigins = parseOriginList(
+    env.get('CORS_ORIGINS', { infer: true }),
+  );
+  if (allowedOrigins.length > 0) {
+    app.enableCors(corsOptions(allowedOrigins));
+  }
 
   // /docs expõe toda a superfície da API; fica fora de produção.
   if (env.get('NODE_ENV', { infer: true }) !== 'production') {

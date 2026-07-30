@@ -1,3 +1,4 @@
+import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import helmet from 'helmet';
 
 /** Lista separada por vírgula → array, ignorando espaços e entradas vazias. */
@@ -6,6 +7,18 @@ export function parseOriginList(raw: string): string[] {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+}
+
+export function corsOptions(origins: string[]): CorsOptions {
+  return {
+    // Origem fora da lista simplesmente não recebe Access-Control-Allow-Origin,
+    // e o browser bloqueia. Não lançamos erro: isso quebraria clientes que não
+    // são browser (curl, integrações servidor-a-servidor) sem ganho de segurança.
+    origin: origins,
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  };
 }
 
 /**
