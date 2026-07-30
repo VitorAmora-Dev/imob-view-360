@@ -1,32 +1,30 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/home"></ion-back-button>
-    </ion-buttons>
-    <ion-title>{{ pageTitle }}</ion-title>
-    <ion-buttons slot="end">
+<ion-content [fullscreen]="true">
+  <app-header backHref="/home" [pageTitle]="pageTitle" variant="overlay">
+    <div headerActions class="viewer-actions">
       @if (property && !loading) {
-        <ion-button (click)="openFilePicker()" [disabled]="uploading">
+        <button type="button" class="viewer-action" (click)="openFilePicker()" [disabled]="uploading">
           @if (uploading) {
             <ion-spinner name="crescent"></ion-spinner>
           } @else {
-            <ion-icon slot="icon-only" name="cloud-upload-outline"></ion-icon>
+            <ion-icon name="cloud-upload-outline"></ion-icon>
           }
-        </ion-button>
+        </button>
         @if (tour) {
-          <ion-button (click)="toggleHotspotEdit()" [color]="editingHotspots ? 'primary' : 'medium'">
-            <ion-icon slot="icon-only" name="git-network-outline"></ion-icon>
-          </ion-button>
-          <ion-button color="danger" (click)="onDeleteTour()">
-            <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
-          </ion-button>
+          <button
+            type="button"
+            class="viewer-action"
+            [class.viewer-action--active]="editingHotspots"
+            (click)="toggleHotspotEdit()">
+            <ion-icon name="git-network-outline"></ion-icon>
+          </button>
+          <button type="button" class="viewer-action viewer-action--danger" (click)="onDeleteTour()">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
         }
       }
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
+    </div>
+  </app-header>
 
-<ion-content [fullscreen]="true">
   <input type="file" accept="image/*" hidden #fileInput (change)="onFileSelected($event)">
 
   @if (loading) {

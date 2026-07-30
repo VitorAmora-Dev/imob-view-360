@@ -2,9 +2,9 @@ import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import {
-  IonContent, IonHeader, IonToolbar, IonTitle,
-  IonItem, IonLabel, IonInput, IonButton, IonToast, IonSpinner
+  IonContent, IonInput, IonButton, IonToast, IonSpinner
 } from '@ionic/angular/standalone';
+import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -14,8 +14,8 @@ import { AuthService } from '../services/auth.service';
   standalone: true,
   imports: [
     FormsModule, RouterLink,
-    IonContent, IonHeader, IonToolbar, IonTitle,
-    IonItem, IonLabel, IonInput, IonButton, IonToast, IonSpinner,
+    IonContent, IonInput, IonButton, IonToast, IonSpinner,
+    AppHeaderComponent,
   ],
 })
 export class LoginPage {

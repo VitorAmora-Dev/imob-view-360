@@ -1,47 +1,33 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSearchbar, IonPopover, IonList, IonItem, IonLabel, IonFab, IonFabButton } from '@ionic/angular/standalone';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import { IonContent, IonSearchbar, IonIcon, IonFab, IonFabButton } from '@ionic/angular/standalone';
 import { RouterLink } from '@angular/router';
 import { addIcons } from 'ionicons';
-import { personCircleOutline, globeOutline, checkmarkOutline, logOutOutline, add } from 'ionicons/icons';
+import { add } from 'ionicons/icons';
 import { TranslatePipe } from '@ngx-translate/core';
+import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { InnerViewListComponent } from '../components/inner-view-list/inner-view-list.component';
 import { PropertyService } from '../services/property.service';
-import { AuthService } from '../services/auth.service';
 import { Property } from '../models/property.model';
-import { LanguageService } from '../services/language.service';
 
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
-  imports: [IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonButton, IonIcon, IonSearchbar, IonPopover, IonList, IonItem, IonLabel, IonFab, IonFabButton, InnerViewListComponent, RouterLink, TranslatePipe],
+  imports: [
+    IonContent, IonSearchbar, IonIcon, IonFab, IonFabButton,
+    AppHeaderComponent, InnerViewListComponent, RouterLink, TranslatePipe,
+  ],
 })
 export class HomePage implements OnInit {
+  @ViewChild(AppHeaderComponent) header?: AppHeaderComponent;
+
   properties: Property[] = [];
   filteredItems: Property[] = [];
-  isLangPopoverOpen = false;
-  langPopoverEvent?: Event;
 
   private propertyService = inject(PropertyService);
-  private authService = inject(AuthService);
-  languageService = inject(LanguageService);
 
   constructor() {
-    addIcons({ personCircleOutline, globeOutline, checkmarkOutline, logOutOutline, add });
-  }
-
-  openLanguagePopover(event: Event) {
-    this.langPopoverEvent = event;
-    this.isLangPopoverOpen = true;
-  }
-
-  selectLang(lang: 'pt' | 'en') {
-    this.languageService.use(lang);
-    this.isLangPopoverOpen = false;
-  }
-
-  signout() {
-    this.authService.signout();
+    addIcons({ add });
   }
 
   ngOnInit() {
@@ -54,6 +40,10 @@ export class HomePage implements OnInit {
         console.error('Error loading properties:', error);
       }
     });
+  }
+
+  onScroll(event: CustomEvent<{ scrollTop: number }>) {
+    this.header?.onContentScroll(event.detail.scrollTop);
   }
 
   onSearch(event: any) {

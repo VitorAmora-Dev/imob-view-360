@@ -1,0 +1,35 @@
+// Airbnb marketplace grid: 1-up mobile / 2-up tablet / 4-up desktop,
+// 16px gutters (8px column padding on each side), capped at 1280px.
+//
+// The column widths use explicit media queries rather than Ionic's size-md /
+// size-xl attributes because Ionic's breakpoints (768/1200) do not match the
+// 744/1128 steps in DESIGN.md, which the header already follows. Mixing the
+// two left windows where the header was in desktop mode while cards were
+// still stacked 1-up.
+
+ion-grid {
+  --ion-grid-column-padding: 8px;
+  padding: 8px 16px 24px;
+}
+
+.card-col {
+  width: 100%;
+  max-width: 100%;
+  flex: 0 0 100%;
+}
+
+@media (min-width: 744px) {
+  .card-col {
+    width: 50%;
+    max-width: 50%;
+    flex: 0 0 50%;
+  }
+}
+
+@media (min-width: 1128px) {
+  .card-col {
+    width: 25%;
+    max-width: 25%;
+    flex: 0 0 25%;
+  }
+}

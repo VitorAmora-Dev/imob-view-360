@@ -1,102 +1,85 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/login"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Criar conta</ion-title>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content class="ion-padding">
-  <div class="ion-text-center ion-margin-vertical">
-    <h1>Inner View</h1>
-    <p>Cadastre sua imobiliária</p>
-  </div>
+  <app-header backHref="/login" pageTitle="Criar conta"></app-header>
 
-  <form (ngSubmit)="submit()">
-    <ion-list>
-      <ion-list-header>
-        <ion-label>Imobiliária</ion-label>
-      </ion-list-header>
+  <div class="form-shell">
+    <div class="ion-text-center ion-margin-vertical">
+      <p class="brand-tagline">Cadastre sua imobiliária</p>
+    </div>
 
-      <ion-item>
+    <form (ngSubmit)="submit()">
+      <section class="form-section">
+        <h3>Imobiliária</h3>
+
         <ion-input
           label="Nome da imobiliária *"
           labelPlacement="floating"
+          fill="outline"
           type="text"
           [(ngModel)]="agencyName"
           name="agencyName"
           autocomplete="organization"
           required>
         </ion-input>
-      </ion-item>
 
-      <ion-item>
         <ion-input
           label="CNPJ"
           labelPlacement="floating"
+          fill="outline"
           type="text"
           [(ngModel)]="cnpj"
           name="cnpj"
           placeholder="12.345.678/0001-90">
         </ion-input>
-      </ion-item>
 
-      <ion-item>
         <ion-input
           label="E-mail da imobiliária"
           labelPlacement="floating"
+          fill="outline"
           type="email"
           [(ngModel)]="agencyEmail"
           name="agencyEmail">
         </ion-input>
-      </ion-item>
 
-      <ion-item>
         <ion-input
           label="Telefone"
           labelPlacement="floating"
+          fill="outline"
           type="tel"
           [(ngModel)]="phone"
           name="phone"
           autocomplete="tel">
         </ion-input>
-      </ion-item>
-    </ion-list>
+      </section>
 
-    <ion-list>
-      <ion-list-header>
-        <ion-label>Administrador</ion-label>
-      </ion-list-header>
+      <section class="form-section">
+        <h3>Administrador</h3>
 
-      <ion-item>
         <ion-input
           label="Nome completo *"
           labelPlacement="floating"
+          fill="outline"
           type="text"
           [(ngModel)]="name"
           name="name"
           autocomplete="name"
           required>
         </ion-input>
-      </ion-item>
 
-      <ion-item>
         <ion-input
           label="E-mail *"
           labelPlacement="floating"
+          fill="outline"
           type="email"
           [(ngModel)]="email"
           name="email"
           autocomplete="email"
           required>
         </ion-input>
-      </ion-item>
 
-      <ion-item>
         <ion-input
           label="Senha *"
           labelPlacement="floating"
+          fill="outline"
           type="password"
           [(ngModel)]="password"
           name="password"
@@ -104,12 +87,11 @@
           helperText="Mínimo de 6 caracteres"
           required>
         </ion-input>
-      </ion-item>
 
-      <ion-item>
         <ion-input
           label="Confirmar senha *"
           labelPlacement="floating"
+          fill="outline"
           type="password"
           [(ngModel)]="confirmPassword"
           name="confirmPassword"
@@ -119,24 +101,24 @@
           [class.ion-invalid]="passwordMismatch"
           required>
         </ion-input>
-      </ion-item>
-    </ion-list>
+      </section>
 
-    <ion-button
-      expand="block"
-      type="submit"
-      class="ion-margin-top"
-      [disabled]="loading || !formValid">
-      @if (loading) {
-        <ion-spinner name="crescent" slot="start"></ion-spinner>
-      }
-      Criar conta
+      <ion-button
+        expand="block"
+        type="submit"
+        class="ion-margin-top"
+        [disabled]="loading || !formValid">
+        @if (loading) {
+          <ion-spinner name="crescent" slot="start"></ion-spinner>
+        }
+        Criar conta
+      </ion-button>
+    </form>
+
+    <ion-button fill="clear" expand="block" routerLink="/login">
+      Já tem uma conta? Entrar
     </ion-button>
-  </form>
-
-  <ion-button fill="clear" expand="block" routerLink="/login">
-    Já tem uma conta? Entrar
-  </ion-button>
+  </div>
 </ion-content>
 
 <ion-toast

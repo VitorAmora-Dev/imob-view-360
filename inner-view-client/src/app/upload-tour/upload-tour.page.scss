@@ -1,3 +1,35 @@
+// Panorama rows follow the amenity-row pattern: ink icon + label rows with
+// soft hairline separators, no inset-card chrome.
+ion-list.panorama-list {
+  background: transparent;
+  padding: 0;
+
+  ion-item {
+    --padding-start: 0;
+    --inner-padding-end: 0;
+
+    ion-label h3 {
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: var(--app-ink);
+    }
+
+    ion-label p {
+      font-size: 13px;
+      color: var(--app-muted);
+    }
+
+    ion-icon[slot="start"] {
+      color: var(--app-ink);
+      margin-inline-end: 12px;
+    }
+  }
+}
+
 .submit-container {
-  padding: 16px;
+  padding: 24px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }

@@ -1,0 +1,365 @@
+// Sticky header ported from the React/Tailwind reference onto the Airbnb
+// design tokens: white canvas, ink text, Rausch wordmark, single shadow tier,
+// pill/soft radii. Collapses to a floating bar on desktop scroll and to a
+// full-screen sheet on mobile.
+
+// The sticky element must be the one that paints the surface, otherwise the
+// host's full-width box keeps showing behind the collapsed bar.
+:host {
+  display: block;
+  position: relative;
+  z-index: 50;
+
+  // This header replaces ion-header, which used to consume the status-bar
+  // inset for us. --ion-safe-area-top is set by Ionic from
+  // env(safe-area-inset-top); it is empty on the web, hence the 0px fallback.
+  --header-safe-top: var(--ion-safe-area-top, 0px);
+  --header-nav-height: 64px;
+  // Total occupied height — the fixed mobile sheet anchors to this.
+  --header-total-height: calc(var(--header-nav-height) + var(--header-safe-top));
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-top: var(--header-safe-top);
+  border-bottom: 1px solid transparent;
+  background: #ffffff;
+  transition: max-width 200ms ease-out, top 200ms ease-out,
+    background-color 200ms ease-out, box-shadow 200ms ease-out,
+    border-color 200ms ease-out, border-radius 200ms ease-out;
+}
+
+.app-header--menu-open {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+// Scrolled state: frosted surface + hairline. On desktop it also detaches
+// into a narrower floating bar, mirroring the reference's md:top-4 behaviour.
+.app-header--scrolled {
+  border-bottom-color: var(--app-hairline);
+
+  @supports (backdrop-filter: blur(12px)) {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+  }
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--header-nav-height);
+  padding-inline: 16px;
+  transition: height 200ms ease-out, padding 200ms ease-out;
+}
+
+.header-lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.back-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  background: var(--app-surface-strong);
+  color: var(--app-ink);
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 18px;
+  }
+}
+
+.wordmark {
+  flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.44px;
+  line-height: 1.18;
+  color: var(--ion-color-primary);
+  text-decoration: none;
+}
+
+.page-title {
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 1px solid var(--app-hairline);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--app-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Page-injected actions sit between the wordmark and the nav cluster,
+// pushed to the right so they stay adjacent to the nav on wide screens.
+.header-slot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Desktop cluster                                                            */
+/* -------------------------------------------------------------------------- */
+
+.header-desktop {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  padding: 8px 12px;
+  border-radius: var(--app-radius-sm);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--app-body);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+
+  &:hover {
+    background: var(--app-surface-soft);
+    color: var(--app-ink);
+  }
+}
+
+.nav-link--active {
+  font-weight: 600;
+  color: var(--app-ink);
+}
+
+.header-divider {
+  width: 1px;
+  height: 24px;
+  margin-inline: 8px;
+  background: var(--app-hairline);
+}
+
+// .icon-action and .menu-btn inherit their circular chrome from the shared
+// .circle-control utility in global.scss.
+.menu-btn app-menu-toggle-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile sheet                                                               */
+/* -------------------------------------------------------------------------- */
+
+.mobile-sheet {
+  position: fixed;
+  // Anchors to the header's real height so it stays aligned once the
+  // status-bar inset pads the bar on notched devices.
+  top: var(--header-total-height);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  display: none;
+  flex-direction: column;
+  // Scrolls rather than clipping: in landscape or with enlarged system font
+  // the links plus the action buttons can exceed the available height.
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(255, 255, 255, 0.98);
+  border-top: 1px solid var(--app-hairline);
+
+  @supports (backdrop-filter: blur(12px)) {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+  }
+}
+
+.mobile-sheet--open {
+  display: flex;
+}
+
+.sheet-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  // min-height (not height) lets the sheet grow and scroll when cramped.
+  min-height: 100%;
+  padding: 16px;
+  padding-bottom: calc(16px + var(--ion-safe-area-bottom, 0px));
+  animation: sheet-in 200ms ease-out;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-inner {
+    animation: none;
+  }
+}
+
+.sheet-links {
+  display: grid;
+  gap: 4px;
+}
+
+.sheet-link {
+  padding: 14px 12px;
+  border-radius: var(--app-radius-sm);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--app-ink);
+  text-decoration: none;
+
+  &:active {
+    background: var(--app-surface-soft);
+  }
+}
+
+.sheet-link--active {
+  font-weight: 600;
+  background: var(--app-surface-soft);
+}
+
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sheet-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  border-radius: var(--app-radius-sm);
+  font-size: 16px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 20px;
+  }
+}
+
+.sheet-btn--outline {
+  border: 1px solid var(--app-ink);
+  background: #ffffff;
+  color: var(--app-ink);
+
+  &:active {
+    background: var(--app-surface-soft);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Overlay variant — used over the immersive 360 viewer (dark canvas)         */
+/* -------------------------------------------------------------------------- */
+
+.app-header--overlay {
+  background: transparent;
+  border-bottom-color: transparent;
+
+  .wordmark {
+    color: #ffffff;
+  }
+
+  .page-title {
+    color: #ffffff;
+    border-left-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .back-btn,
+  .icon-action,
+  .menu-btn {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: transparent;
+    color: var(--app-ink);
+    box-shadow: var(--app-shadow-tier);
+  }
+
+  .nav-link {
+    color: rgba(255, 255, 255, 0.85);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+  }
+
+  .nav-link--active {
+    color: #ffffff;
+  }
+
+  .header-divider {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  &.app-header--scrolled {
+    background: rgba(0, 0, 0, 0.55);
+    border-bottom-color: rgba(255, 255, 255, 0.15);
+
+    @supports (backdrop-filter: blur(12px)) {
+      background: rgba(0, 0, 0, 0.4);
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Breakpoints — matches the 744/1128 steps used across the app               */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 744px) {
+  // Set on :host so --header-total-height recomputes with it.
+  :host {
+    --header-nav-height: 56px;
+  }
+
+  .header-desktop {
+    display: flex;
+  }
+
+  .menu-btn,
+  .mobile-sheet {
+    display: none;
+  }
+
+  .app-header--scrolled {
+    top: 12px;
+    max-width: 1080px;
+    border: 1px solid var(--app-hairline);
+    border-radius: var(--app-radius-md);
+    box-shadow: var(--app-shadow-tier);
+
+    .header-nav {
+      padding-inline: 8px;
+    }
+  }
+}

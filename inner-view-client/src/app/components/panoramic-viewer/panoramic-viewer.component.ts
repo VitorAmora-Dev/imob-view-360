@@ -204,26 +204,26 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     canvas.height = 96;
     const ctx = canvas.getContext('2d')!;
 
-    // Background pill
+    // Background pill — white guest-favorite-badge language over the photo
     ctx.beginPath();
     ctx.roundRect(4, 4, 248, 88, 44);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#dddddd';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
     // Arrow icon
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 36px sans-serif';
+    ctx.fillStyle = '#222222';
+    ctx.font = 'bold 36px "Inter Variable", Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⟶', 48, 48);
 
     // Label text
     if (label) {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '600 18px sans-serif';
+      ctx.fillStyle = '#222222';
+      ctx.font = '600 18px "Inter Variable", Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       const maxWidth = 180;

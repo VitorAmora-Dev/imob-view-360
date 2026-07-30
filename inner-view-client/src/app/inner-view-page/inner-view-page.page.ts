@@ -2,10 +2,11 @@ import { Component, OnInit, ViewChild, ElementRef, inject } from '@angular/core'
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import {
-  IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
+  IonContent,
   IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonButton, IonIcon, IonSpinner,
   AlertController, ToastController
 } from '@ionic/angular/standalone';
+import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
 import { eyeOutline, eyeOffOutline, cloudUploadOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -23,9 +24,9 @@ import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoram
   standalone: true,
   imports: [
     CommonModule,
-    IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
+    IonContent,
     IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonButton, IonIcon, IonSpinner,
-    PanoramicViewerComponent, TranslatePipe
+    PanoramicViewerComponent, AppHeaderComponent, TranslatePipe
   ]
 })
 export class InnerViewPagePage implements OnInit {

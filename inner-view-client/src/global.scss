@@ -1,12 +1,7 @@
 /*
- * App Global CSS
- * ----------------------------------------------------------------------------
- * Put style rules here that you want to apply globally. These styles are for
- * the entire app and not just one component. Additionally, this file can be
- * used as an entry point to import other CSS/Sass files to be included in the
- * output CSS.
- * For more information on global stylesheets, visit the documentation:
- * https://ionicframework.com/docs/layout/global-stylesheets
+ * App Global CSS — Airbnb design system skin (see DESIGN.md at repo root).
+ * White canvas, ink text, Rausch as the single accent, one shadow tier,
+ * soft radii everywhere (buttons 8px, cards 14px, pills 9999px).
  */
 
 /* Core CSS required for Ionic components to work properly */
@@ -25,13 +20,422 @@
 @import "@ionic/angular/css/text-transformation.css";
 @import "@ionic/angular/css/flex-utils.css";
 
-/**
- * Ionic Dark Mode
- * -----------------------------------------------------
- * For more info, please see:
- * https://ionicframework.com/docs/theming/dark-mode
- */
+/* No dark mode: the design system is white-canvas only (Airbnb has no dark
+   mode on the public web), so no dark palette is imported. */
 
-/* @import "@ionic/angular/css/palettes/dark.always.css"; */
-/* @import "@ionic/angular/css/palettes/dark.class.css"; */
-@import '@ionic/angular/css/palettes/dark.system.css';
+/* -------------------------------------------------------------------------- */
+/* Typography scale (DESIGN.md typography table)                               */
+/* -------------------------------------------------------------------------- */
+
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.43;
+  letter-spacing: 0;
+  color: var(--app-ink);
+}
+
+h2 {
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.43;
+  color: var(--app-ink);
+}
+
+h3 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.18px;
+  color: var(--app-ink);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Header & toolbar — white surface, soft hairline, no MD shadow               */
+/* -------------------------------------------------------------------------- */
+
+ion-header {
+  box-shadow: none;
+
+  &.header-md {
+    box-shadow: none;
+    border-bottom: 1px solid var(--app-hairline-soft);
+  }
+}
+
+ion-toolbar {
+  --border-width: 0;
+
+  ion-title {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Buttons — 48px, 8px radius, weight 500; press #e00b41; disabled #ffd1da     */
+/* -------------------------------------------------------------------------- */
+
+ion-button {
+  --border-radius: var(--app-radius-sm);
+  --box-shadow: none;
+  --background-activated: var(--ion-color-primary-shade);
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+
+  &[size="small"] {
+    min-height: 40px;
+    font-size: 14px;
+  }
+}
+
+/* Solid primary CTA disabled state: pale Rausch tint, no opacity fade */
+ion-button.button-disabled:not([fill="outline"]):not([fill="clear"]) {
+  --background: var(--app-primary-disabled);
+  --color: #ffffff;
+  opacity: 1;
+}
+
+/* button-secondary: white fill, ink text, 1px ink outline */
+ion-button[fill="outline"]:not([color]) {
+  --background: #ffffff;
+  --color: var(--app-ink);
+  --border-color: var(--app-ink);
+  --border-width: 1px;
+  --background-activated: var(--app-surface-soft);
+}
+
+/* button-tertiary-text: plain ink text */
+ion-button[fill="clear"]:not([color]) {
+  --color: var(--app-ink);
+}
+
+/* Circular icon buttons for toolbars & overlays (icon-button spec) */
+ion-button.icon-btn-outline {
+  --background: #ffffff;
+  --color: var(--app-ink);
+  --border-radius: 9999px;
+  --border-color: var(--app-hairline);
+  --border-style: solid;
+  --border-width: 1px;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+
+  ion-icon {
+    font-size: 20px;
+  }
+}
+
+ion-button.icon-btn-circle {
+  --background: var(--app-surface-strong);
+  --color: var(--app-ink);
+  --border-radius: 9999px;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+
+  ion-icon {
+    font-size: 18px;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Search bar — the signature Airbnb pill                                      */
+/* -------------------------------------------------------------------------- */
+
+ion-searchbar {
+  --border-radius: 9999px;
+  --background: #ffffff;
+  --box-shadow: none;
+  --color: var(--app-ink);
+  --placeholder-color: var(--app-muted);
+  --icon-color: var(--app-ink);
+  --clear-button-color: var(--app-muted);
+  padding-inline: 16px;
+  padding-top: 8px;
+  padding-bottom: 12px;
+  min-height: 64px;
+
+  // Ionic's MD searchbar hardcodes a 2px radius and its own elevation on the
+  // inner input, so the pill shape has to be set on the input itself.
+  // Ionic scopes its rules as `.searchbar-input.sc-ion-searchbar-md` (two
+  // classes), so these need matching specificity to win.
+  .searchbar-input.searchbar-input {
+    height: 56px;
+    border-radius: 9999px;
+    border: 1px solid var(--app-hairline);
+    box-shadow: var(--app-shadow-tier);
+    font-size: 16px;
+    padding-inline-start: 48px;
+    padding-inline-end: 24px;
+    transition: box-shadow 150ms ease-out, border-color 150ms ease-out;
+  }
+
+  .searchbar-search-icon.searchbar-search-icon {
+    inset-inline-start: 20px;
+    margin-top: 8px;
+    width: 20px;
+    height: 20px;
+  }
+
+  // Focus reads as a lift, not a glow — the system has no focus ring.
+  .searchbar-input.searchbar-input:focus {
+    border-color: var(--app-border-strong);
+    box-shadow: rgba(0, 0, 0, 0.04) 0 2px 6px 0, rgba(0, 0, 0, 0.18) 0 6px 16px 0;
+  }
+}
+
+// The Rausch orb terminating the pill (search-orb spec: 48px circle).
+ion-searchbar.has-search-orb {
+  position: relative;
+
+  // Leave room for the orb so typed text never runs under it.
+  .searchbar-input.searchbar-input {
+    padding-inline-end: 72px;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 20px;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    // viewBox is tightened to the glyph's visual bounds (84..464 on both axes,
+    // stroke included) so background-position centers the icon, not the
+    // artboard — a plain 0 0 512 512 box renders it up and to the left.
+    background: var(--ion-color-primary) center / 20px 20px no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='84 84 380 380' fill='none' stroke='%23ffffff' stroke-width='44' stroke-linecap='round'%3E%3Cpath d='M221 336a115 115 0 100-230 115 115 0 000 230z'/%3E%3Cpath d='M338 338l104 104'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Segment — ink underline tabs (product-tab pattern)                          */
+/* -------------------------------------------------------------------------- */
+
+ion-segment {
+  --background: transparent;
+}
+
+ion-segment-button {
+  --color: var(--app-muted);
+  --color-checked: var(--app-ink);
+  --indicator-color: var(--app-ink);
+  --indicator-height: 2px;
+  --background-hover: transparent;
+  --background-focused: transparent;
+  --ripple-color: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  min-height: 48px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Forms — 56px outline fields, hairline border, ink 2px focus (no glow)       */
+/* -------------------------------------------------------------------------- */
+
+ion-input[fill="outline"],
+ion-textarea[fill="outline"],
+ion-select[fill="outline"] {
+  --border-color: var(--app-hairline);
+  --border-radius: var(--app-radius-sm);
+  --highlight-color-focused: var(--app-ink);
+  --highlight-color-valid: var(--app-ink);
+  --placeholder-color: var(--app-muted);
+  min-height: 56px;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+ion-item {
+  --border-color: var(--app-hairline-soft);
+  --background: #ffffff;
+}
+
+ion-list-header {
+  ion-label {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.18px;
+    color: var(--app-ink);
+  }
+}
+
+ion-note {
+  color: var(--app-muted);
+  font-size: 13px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cards — 14px radius, flat by default; .card-elevated gets the shadow tier   */
+/* -------------------------------------------------------------------------- */
+
+ion-card {
+  border-radius: var(--app-radius-md);
+  box-shadow: none;
+  background: var(--ion-card-background);
+  color: var(--app-ink);
+
+  &.card-elevated {
+    border: 1px solid var(--app-hairline);
+    box-shadow: var(--app-shadow-tier);
+  }
+}
+
+ion-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--app-ink);
+}
+
+ion-card-content,
+ion-card-content.card-content-md {
+  font-size: 14px;
+  line-height: 1.43;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Overlays — modal, popover, action sheet, toast                              */
+/* -------------------------------------------------------------------------- */
+
+ion-modal {
+  --border-radius: var(--app-radius-lg);
+}
+
+ion-popover {
+  --box-shadow: var(--app-shadow-tier);
+  --background: #ffffff;
+
+  &::part(content) {
+    border-radius: var(--app-radius-md);
+  }
+}
+
+ion-action-sheet {
+  --background: #ffffff;
+  --button-color: var(--app-ink);
+}
+
+ion-toast {
+  --background: var(--app-ink);
+  --color: #ffffff;
+  --border-radius: var(--app-radius-sm);
+  font-size: 14px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* FAB — Rausch orb (search-orb spec: 48px circle, single shadow tier)         */
+/* -------------------------------------------------------------------------- */
+
+ion-fab-button {
+  --box-shadow: var(--app-shadow-tier);
+  --background-activated: var(--ion-color-primary-shade);
+  width: 48px;
+  height: 48px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Badges — white guest-favorite pill by default                               */
+/* -------------------------------------------------------------------------- */
+
+ion-badge {
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  padding: 4px 10px;
+  text-transform: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared page shells & brand utilities                                        */
+/* -------------------------------------------------------------------------- */
+
+/* Marketplace grid shell: caps content at 1280px like Airbnb's editorial max */
+.page-shell {
+  max-width: 1280px;
+  margin-inline: auto;
+}
+
+/* Narrow shell for long forms (register, upload) */
+.form-shell {
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+/* Brand wordmark — the one place besides CTAs where Rausch appears */
+.brand-wordmark {
+  color: var(--ion-color-primary);
+}
+
+ion-title.brand-wordmark {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.44px;
+}
+
+.brand-tagline {
+  color: var(--app-muted);
+  margin-top: 4px;
+}
+
+/* Set while the header's mobile menu is open. The real scroll container is
+   ion-content's own div (locked via --overflow in the component), so this only
+   covers any non-Ionic scroller on the page. */
+body.menu-scroll-lock {
+  overflow: hidden;
+}
+
+/* Circular icon control used in the header and over photos/viewer surfaces */
+.circle-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 9999px;
+  background: #ffffff;
+  color: var(--app-ink);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 150ms ease-out;
+
+  &:hover {
+    background: var(--app-surface-soft);
+  }
+
+  ion-icon {
+    font-size: 20px;
+  }
+}
+
+/* Form sections: display-sm title + soft hairline between sections */
+.form-section {
+  display: block;
+
+  h3 {
+    margin: 0 0 16px;
+  }
+
+  & + .form-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--app-hairline-soft);
+  }
+}

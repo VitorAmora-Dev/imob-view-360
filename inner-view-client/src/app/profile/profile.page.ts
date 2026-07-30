@@ -1,11 +1,12 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
-  IonHeader, IonToolbar, IonTitle, IonContent, IonBackButton, IonButtons,
+  IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
   IonSegment, IonSegmentButton, IonLabel,
-  IonGrid, IonRow, IonCol, IonCard, IonCardHeader, IonCardTitle, IonCardContent,
-  IonButton, IonIcon, IonModal, IonActionSheet, IonItem, IonTextarea, IonToast, IonSearchbar, IonBadge
+  IonGrid, IonRow, IonCol, IonCard,
+  IonButton, IonIcon, IonModal, IonActionSheet, IonTextarea, IonToast, IonSearchbar
 } from '@ionic/angular/standalone';
+import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
 import {
   shareSocialOutline, pencilOutline, trashOutline, closeOutline, copyOutline,
@@ -27,14 +28,16 @@ import { environment } from '../../environments/environment';
   standalone: true,
   imports: [
     CommonModule,
-    IonHeader, IonToolbar, IonTitle, IonContent, IonBackButton, IonButtons,
+    IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
     IonSegment, IonSegmentButton, IonLabel,
-    IonGrid, IonRow, IonCol, IonCard, IonCardHeader, IonCardTitle, IonCardContent,
-    IonButton, IonIcon, IonModal, IonActionSheet, IonItem, IonTextarea, IonToast, IonSearchbar, IonBadge,
-    TranslatePipe
+    IonGrid, IonRow, IonCol, IonCard,
+    IonButton, IonIcon, IonModal, IonActionSheet, IonTextarea, IonToast, IonSearchbar,
+    AppHeaderComponent, TranslatePipe
   ]
 })
 export class ProfilePage implements OnInit {
+  @ViewChild(AppHeaderComponent) header?: AppHeaderComponent;
+
   private userService = inject(UserService);
   private propertyService = inject(PropertyService);
   private alertController = inject(AlertController);
@@ -68,6 +71,10 @@ export class ProfilePage implements OnInit {
         this.filteredProperties = res.data;
       }
     });
+  }
+
+  onScroll(event: CustomEvent<{ scrollTop: number }>) {
+    this.header?.onContentScroll(event.detail.scrollTop);
   }
 
   onSegmentChange(event: any) {
