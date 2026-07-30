@@ -15,8 +15,9 @@ Branch: `chore/sprint-2-testes-e-storage-fase-0`.
 | 1 | Runner de teste destravado (jest 29, ts-jest 29, Nest ^11) | `9ab6360` |
 | — | Oráculo de existência em views e shares | `f0344d4` |
 | — | Postgres de dev movido para a porta 5433 | `4f51904` |
-| 2a | Harness de integração + guarda do banco de teste | em revisão |
-| 2b | Isolamento entre tenants — 19 pontos de `agencyId` | 3 de 19 escritos |
+| 2a | Harness de integração + guarda do banco de teste | `695c80a` |
+| 20 | Tenancy do `targetId` no update de hotspot (achado durante o 2b) | em revisão |
+| 2b | Isolamento entre tenants — 20 pontos de `agencyId` | 3 de 20 escritos |
 | 3 | `trust proxy` (promovido: sem ele o rate limiting do Sprint 1 não protege) | pendente |
 | 4 | Migração base64 → object storage, Fases 0 e 1 | pendente |
 | 5 | Vazamento de textura no `panoramic-viewer` | **CONDICIONADO** — arquivo do outro dev, não tocar sem ok explícito |
@@ -62,6 +63,40 @@ Duas saídas, a escolher:
 
 Enquanto não resolver, a seção 7 do `server-api/README.md` documenta um comando
 que ninguém confirmou que funciona.
+
+### 3. O filtro global de exceção não mapeia erros conhecidos do Prisma
+
+Não há nenhuma referência a `PrismaClientKnownRequestError`, `P2003` ou `P2025`
+em `src/`. Então uma violação de chave estrangeira ou um update em registro
+inexistente escapam do contrato de erro do Sprint 1 e caem no caso genérico:
+`500 Erro interno do servidor` — **com stack no log**, porque o filtro loga 5xx
+com stack.
+
+O efeito prático é duplo. Um usuário autenticado consegue produzir 500 e ruído
+de log com entrada que o schema Zod considera perfeitamente válida (era o caso
+do `targetId` inexistente no update de hotspot, antes do fix do ponto 20). E um
+500 onde cabia um 400 confunde o cliente e polui métrica de erro de servidor com
+erro de cliente.
+
+Descoberto ao investigar o ponto 20. **Não corrigido agora** porque mapear
+códigos do Prisma é decisão de contrato de erro que vale para a API inteira, não
+um remendo num service — merece o próprio item, com a lista de códigos e o
+status de cada um.
+
+**A Fase 2 da migração de storage é boa hora para pegar junto**, já que ela mexe
+justamente nos caminhos do Prisma que leem panorama.
+
+---
+
+## Convenções firmadas neste sprint
+
+- **Achado adiado nasce com `test.failing`, não com `it.skip`.** Quando um
+  buraco é encontrado e a correção fica para depois, o teste do comportamento
+  esperado entra na suíte marcado como `test.failing`: ele documenta o que
+  deveria acontecer e **falha o build no dia em que alguém corrigir o bug**,
+  obrigando a remover a marcação. Um `skip` faz o oposto — some da vista e
+  continua mentindo depois que o problema acabou. (Regra firmada ao decidir o
+  ponto 20; não chegou a ser aplicada lá, porque a correção entrou na hora.)
 
 ---
 
