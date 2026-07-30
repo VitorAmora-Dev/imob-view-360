@@ -7,7 +7,10 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - '${DB_PORT}:5432'
+      # 5433 no host de propósito — ver o comentário de DB_PORT no .env.example.
+      # O default vale quando DB_PORT não está definida; dentro da rede do compose
+      # o serviço api continua falando com db:5432, que não muda.
+      - '${DB_PORT:-5433}:5432'
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
