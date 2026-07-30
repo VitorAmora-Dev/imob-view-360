@@ -151,6 +151,58 @@ Acesse no navegador ou via Insomnia/Postman:
 
 ---
 
+## 7. Rodar os testes
+
+**Um comando, do zero:**
+
+```bash
+yarn test:local
+```
+
+Ele sobe o container do banco (`--wait`, então só segue quando o Postgres estiver
+saudável) e roda a suíte. Se o banco já estiver no ar, use `yarn test` direto —
+é o mesmo, sem a etapa do Docker.
+
+Não é preciso criar nada à mão. Na primeira execução o harness cria o banco
+`property-360-test` e aplica as migrations; nas seguintes, reaproveita.
+
+**Como o isolamento funciona:**
+
+- Os testes usam um banco **separado** (`property-360-test`), nunca o de
+  desenvolvimento. A configuração está em `.env.test`, versionado de propósito
+  para que a suíte rode sem setup manual — ele só contém valores locais
+  descartáveis.
+- Entre cada teste, todas as tabelas levam `TRUNCATE ... CASCADE` e as fixtures
+  são recriadas. Cada teste começa do zero.
+- Antes de qualquer migrate ou truncate, uma guarda verifica que a
+  `DATABASE_URL` aponta para `property-360-test` e **aborta** caso contrário
+  (`test/setup/require-test-database.ts`). É a proteção contra apontar o
+  truncate para o banco errado.
+- A suíte roda **em série** (`maxWorkers: 1`). O truncate global pressupõe posse
+  exclusiva do banco; com workers em paralelo compartilhando o mesmo banco, o
+  truncate de um apaga as fixtures que o outro acabou de criar (violação de FK) e
+  dois truncates simultâneos travam entre si (deadlock `40P01`). Os sintomas
+  variam a cada execução e dependem de timing — sem a serialização a suíte passa
+  de vez em quando, o que é pior do que falhar sempre. A configuração está no
+  `package.json`, e não como `--runInBand` no script, para valer também quando
+  alguém chama o jest direto.
+
+  Quando a suíte crescer a ponto de a serialização incomodar, a saída é um banco
+  por worker (`property-360-test_${JEST_WORKER_ID}`) — o que exige afrouxar a
+  guarda para aceitar o sufixo. Só vale a pena quando o tempo economizado
+  justificar mexer justamente na peça que protege o banco de desenvolvimento.
+
+**Para apontar a outro banco** (CI, container em outra porta), defina a variável
+no ambiente — ela vence o `.env.test`, que não sobrescreve o que já existe:
+
+```bash
+DATABASE_URL=postgresql://user:senha@host:5432/property-360-test yarn test
+```
+
+O nome do banco continua tendo que ser `property-360-test`.
+
+---
+
 ## Comandos úteis
 
 ```bash

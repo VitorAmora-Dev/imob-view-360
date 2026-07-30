@@ -7,7 +7,13 @@ export class RecordViewService {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute(virtualTourId: string, dto: RecordViewDto) {
-    const tour = await this.prisma.virtualTour.findUnique({ where: { id: virtualTourId } });
+    // Rota pública: mesmo critério de find e thumbnail. DRAFT e ARCHIVED caem
+    // no mesmo 404 de tour inexistente, sem revelar que o id existe — e sem
+    // deixar registrar view em tour não publicado.
+    // findFirst (e não findUnique) porque o where combina id + status.
+    const tour = await this.prisma.virtualTour.findFirst({
+      where: { id: virtualTourId, status: 'PUBLISHED' },
+    });
     if (!tour) throw new NotFoundException('Virtual tour not found');
 
     const visitor = await this.prisma.visitor.upsert({

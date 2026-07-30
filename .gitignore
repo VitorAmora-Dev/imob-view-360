@@ -6,11 +6,17 @@
 
 # --------------------------------------------------------------------------
 # SEGREDOS — a regra mais importante deste arquivo.
-# Ignora .env e todas as variantes, EXCETO o .env.example.
+# Ignora .env e todas as variantes, EXCETO os dois arquivos abaixo.
+#
+# .env.example  — só placeholders, nenhum valor.
+# .env.test     — valores de teste local descartáveis, versionado de propósito
+#                 para que `yarn test` rode sem configuração manual. Qualquer
+#                 credencial real ali é vazamento; ver o cabeçalho do arquivo.
 # --------------------------------------------------------------------------
 .env
 .env.*
 !.env.example
+!.env.test
 
 # --------------------------------------------------------------------------
 # Dependências
