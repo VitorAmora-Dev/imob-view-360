@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -7,6 +8,12 @@ import {
   bodyLimitMiddleware,
   urlencodedMiddleware,
 } from './config/body-limit.config';
+import { Env } from './config/env.schema';
+import {
+  helmetMiddleware,
+  parseOriginList,
+  swaggerCspMiddleware,
+} from './config/security.config';
 
 async function bootstrap() {
   // bodyParser: false para que os parsers abaixo rodem antes do roteador do Nest
@@ -14,26 +21,37 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
+  const env: ConfigService<Env, true> = app.get(ConfigService);
 
   app.use(bodyLimitMiddleware());
   app.use(urlencodedMiddleware());
+  app.use(
+    helmetMiddleware(
+      parseOriginList(env.get('CSP_EXTRA_ORIGINS', { infer: true })),
+    ),
+  );
 
-  const config = new DocumentBuilder()
-    .setTitle('Inner View API')
-    .setDescription('API do sistema de tours virtuais imobiliários')
-    .setVersion('1.0')
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'access-token',
-    )
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'refresh-token',
-    )
-    .build();
+  // /docs expõe toda a superfície da API; fica fora de produção.
+  if (env.get('NODE_ENV', { infer: true }) !== 'production') {
+    app.use('/docs', swaggerCspMiddleware());
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+    const config = new DocumentBuilder()
+      .setTitle('Inner View API')
+      .setDescription('API do sistema de tours virtuais imobiliários')
+      .setVersion('1.0')
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'access-token',
+      )
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'refresh-token',
+      )
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }

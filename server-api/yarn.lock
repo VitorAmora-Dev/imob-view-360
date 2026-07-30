@@ -4050,6 +4050,11 @@ hasown@^2.0.0, hasown@^2.0.2, hasown@^2.0.3, hasown@^2.0.4:
   dependencies:
     function-bind "^1.1.2"
 
+helmet@^8.3.0:
+  version "8.3.0"
+  resolved "https://registry.yarnpkg.com/helmet/-/helmet-8.3.0.tgz#3842eea921e7c7015d11f217910c710c434efb26"
+  integrity sha512-Qgpiaws3Sm30Av8Eah6sjMCZZwjlBu+E68rhpCWBshY1lb09HtLwj5GviX0OyQIn+ulUS0iX0AxN5n3tLZzz1w==
+
 hono@^4.12.8:
   version "4.12.27"
   resolved "https://registry.npmjs.org/hono/-/hono-4.12.27.tgz#d9527b2c6e1da331731610889d1ddaea2c1d2b40"

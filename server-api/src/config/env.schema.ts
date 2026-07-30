@@ -6,7 +6,15 @@ const SECRET_MIN_LENGTH = 32;
 
 export const EnvSchema = z
   .object({
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
     DATABASE_URL: z.string().min(1, 'é obrigatória'),
+    /**
+     * Domínios extras liberados em connect-src e img-src da CSP, separados por
+     * vírgula. Reservado para o bucket de imagens (Fase 2 da migração).
+     */
+    CSP_EXTRA_ORIGINS: z.string().default(''),
     JWT_ACCESS_SECRET: z
       .string()
       .min(
