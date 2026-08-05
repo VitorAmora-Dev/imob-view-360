@@ -4,12 +4,14 @@ import {
   AxisTriple,
   FrameView,
   applyCorrection,
+  forwardOf,
   loopClosureResidual,
   measurePair,
   solveRingCorrections,
 } from './frame-align';
 import { CapturedFrame, closeDecoded, decodeFrame } from './frame-store';
 import { wrapDeg180, yprFromQuaternion } from './orientation-math';
+import { disagreementCost, shortestVerticalPath } from './seam-path';
 
 /**
  * Projects the captured shots onto an equirectangular canvas using the gyro
@@ -56,6 +58,12 @@ export interface StitchOptions {
   blendMode?: BlendMode;
   /** Seam sharpness: higher makes the cross-fade at the seam narrower. */
   seamK?: number;
+  /**
+   * Route the cut through where the photos agree, instead of down the
+   * geometric midpoint. On by default; the switch exists so the two can be
+   * measured over identical input.
+   */
+  routeSeam?: boolean;
   onProgress?: (fraction: number) => void;
 }
 
@@ -78,6 +86,11 @@ export interface StitchResult {
    * but it is worth seeing.
    */
   loopClosureDeg: AxisTriple;
+  /**
+   * How far the routed cuts wandered from the geometric midpoint. Zero means
+   * the routing found no reason to move — or that it never ran.
+   */
+  seamSpreadDeg: number;
 }
 
 /** Used only until the fit runs; deliberately conservative (see PatternOptions). */
@@ -156,19 +169,31 @@ export async function stitchEquirect(
   }
   report(0.35);
 
+  const blendMode = options.blendMode ?? 'seam';
+  // Routing the cuts needs the frames read back, so it only happens when the
+  // cuts are what the result is actually made of.
+  const seams =
+    blendMode === 'seam' && options.routeSeam !== false ? buildSeamMap(adjusted) : null;
+  report(0.45);
+
   const { outWidth, outHeight } = pickOutputSize(options, spec);
   const { canvas, coverage } = await renderEquirect(
-    adjusted, outWidth, outHeight,
-    options.blendMode ?? 'seam',
-    options.seamK ?? DEFAULT_SEAM_K,
-    (fraction) => report(0.35 + fraction * 0.5),
+    adjusted, outWidth, outHeight, blendMode,
+    options.seamK ?? DEFAULT_SEAM_K, seams,
+    (fraction) => report(0.5 + fraction * 0.35),
   );
   report(0.85);
 
   const composed = fillUncovered(canvas, outWidth, outHeight);
   const imageData = composed.toDataURL('image/jpeg', 0.85);
   report(1);
-  return { imageData, fittedVfovDeg: fittedVfov, coverage, loopClosureDeg };
+  return {
+    imageData,
+    fittedVfovDeg: fittedVfov,
+    coverage,
+    loopClosureDeg,
+    seamSpreadDeg: seams?.spreadDeg ?? 0,
+  };
 }
 
 interface AdjustedShot {
@@ -635,6 +660,169 @@ function correlatePair(
 }
 
 /* ------------------------------------------------------------------------- */
+/* Where the cut between two neighbours runs                                  */
+/* ------------------------------------------------------------------------- */
+
+/** Latitude resolution of the seam. One bin is ~1.4° of the sphere. */
+const SEAM_LAT_BINS = 128;
+/** How many yaw positions the path may choose between. */
+const SEAM_COLUMNS = 128;
+/** Fraction of the available overlap the cut is allowed to wander through. */
+const SEAM_SEARCH_FRACTION = 0.6;
+/** Cross-fade across the chosen cut. Wide enough to hide it, narrow enough not to ghost. */
+export const SEAM_FEATHER_DEG = 1.5;
+/**
+ * Pull back toward the midpoint, in cost units (which are luminance
+ * differences). Without it the path is free to hand one frame most of the
+ * sphere, and latitudes where neither frame reaches would have no reason to
+ * choose anything at all.
+ */
+const SEAM_CENTRE_PULL = 12;
+
+/** Samples one shot on an equirectangular grid; NaN where it does not reach. */
+function sampleShotGrid(
+  shot: AdjustedShot,
+  yawFromDeg: number,
+  yawToDeg: number,
+  columns: number,
+  rows: number,
+): Float32Array {
+  const source = shot.frame.thumbnail;
+  const pixels = source
+    .getContext('2d', { willReadFrequently: true })!
+    .getImageData(0, 0, source.width, source.height).data;
+
+  const inverse = shot.q.clone().invert();
+  const tanHalfH = Math.tan((shot.hfovDeg * Math.PI) / 360);
+  const tanHalfV = Math.tan((shot.vfovDeg * Math.PI) / 360);
+  const dir = new THREE.Vector3();
+  const out = new Float32Array(columns * rows);
+
+  for (let row = 0; row < rows; row++) {
+    const theta = ((row + 0.5) / rows) * Math.PI;
+    const sinTheta = Math.sin(theta);
+    const cosTheta = Math.cos(theta);
+    for (let col = 0; col < columns; col++) {
+      const yawDeg = yawFromDeg + ((yawToDeg - yawFromDeg) * (col + 0.5)) / columns;
+      const phi = (yawDeg * Math.PI) / 180;
+      dir.set(Math.cos(phi) * sinTheta, cosTheta, Math.sin(phi) * sinTheta)
+        .applyQuaternion(inverse);
+
+      const index = row * columns + col;
+      if (dir.z >= -1e-4) { out[index] = NaN; continue; }
+      const ndcX = dir.x / -dir.z / tanHalfH;
+      const ndcY = dir.y / -dir.z / tanHalfV;
+      if (Math.abs(ndcX) >= 1 || Math.abs(ndcY) >= 1) { out[index] = NaN; continue; }
+
+      const px = Math.round((ndcX * 0.5 + 0.5) * (source.width - 1));
+      const py = Math.round((0.5 - ndcY * 0.5) * (source.height - 1));
+      const s = (py * source.width + px) * 4;
+      out[index] = 0.299 * pixels[s] + 0.587 * pixels[s + 1] + 0.114 * pixels[s + 2];
+    }
+  }
+  return out;
+}
+
+/**
+ * One boundary per neighbouring pair, as a yaw for every latitude, routed
+ * through wherever the two photos agree.
+ *
+ * Row k is the cut between the k-th and (k+1)-th shot around the turn, so a
+ * shot owns the arc from the row before it to its own.
+ */
+interface SeamMap {
+  /** SEAM_LAT_BINS × count × 4 (RGBA), red channel holding the yaw. */
+  boundaries: Float32Array;
+  count: number;
+  /** Position of each shot around the turn, by its index in the shots array. */
+  positionOf: number[];
+  /** Furthest any cut wandered from the midpoint — zero means routing did nothing. */
+  spreadDeg: number;
+}
+
+/** Routes every cut in the ring; null when there is nothing to route. */
+function buildSeamMap(shots: AdjustedShot[]): SeamMap | null {
+  if (shots.length < 3) return null;
+  const order = shots
+    .map((_, index) => index)
+    .sort((a, b) => shots[a].ypr.yawDeg - shots[b].ypr.yawDeg);
+
+  const positionOf = new Array<number>(shots.length).fill(0);
+  order.forEach((shotIndex, k) => (positionOf[shotIndex] = k));
+
+  const { boundaries, spreadDeg } = buildSeamBoundaries(shots, order);
+  return { boundaries, count: order.length, positionOf, spreadDeg };
+}
+
+/**
+ * Stored as RGBA rather than a single channel: a one-channel float texture is
+ * the kind of format a driver may quietly decline, and a silent zero here
+ * reads as "no arc belongs to anyone", which looks exactly like the routing
+ * having no effect at all.
+ */
+function buildSeamBoundaries(
+  shots: AdjustedShot[],
+  order: number[],
+): { boundaries: Float32Array; spreadDeg: number } {
+  const count = order.length;
+  const boundaries = new Float32Array(SEAM_LAT_BINS * count * 4);
+  let spreadDeg = 0;
+
+  // Longitudes, not yaws. The equirect's phi and the session's yaw differ by a
+  // quarter turn, and the boundary is read back in the shader against phi — so
+  // it is taken straight from where each frame points rather than converted.
+  const longitudeOf = (shot: AdjustedShot): number => {
+    const forward = forwardOf(shot.q);
+    return (Math.atan2(forward.z, forward.x) * 180) / Math.PI;
+  };
+
+  for (let k = 0; k < count; k++) {
+    const a = shots[order[k]];
+    const b = shots[order[(k + 1) % count]];
+    const phiA = longitudeOf(a);
+    const phiB = longitudeOf(b);
+    const step = wrapDeg180(phiB - phiA);
+    const spacing = Math.abs(step);
+    const midYaw = phiA + step / 2;
+    const overlap = a.hfovDeg - spacing;
+
+    const write = (bin: number, yawDeg: number) => {
+      boundaries[(k * SEAM_LAT_BINS + bin) * 4] = ((yawDeg % 360) + 360) % 360;
+    };
+
+    // Too little shared field to choose anything: cut down the middle.
+    if (overlap <= 4 || count < 2) {
+      for (let bin = 0; bin < SEAM_LAT_BINS; bin++) write(bin, midYaw);
+      continue;
+    }
+
+    const half = Math.min((overlap / 2) * SEAM_SEARCH_FRACTION, 25);
+    const from = midYaw - half;
+    const to = midYaw + half;
+
+    const gridA = sampleShotGrid(a, from, to, SEAM_COLUMNS, SEAM_LAT_BINS);
+    const gridB = sampleShotGrid(b, from, to, SEAM_COLUMNS, SEAM_LAT_BINS);
+    const cost = disagreementCost(gridA, gridB, SEAM_COLUMNS, SEAM_LAT_BINS);
+
+    const centre = (SEAM_COLUMNS - 1) / 2;
+    for (let row = 0; row < SEAM_LAT_BINS; row++) {
+      for (let col = 0; col < SEAM_COLUMNS; col++) {
+        cost[row * SEAM_COLUMNS + col] +=
+          (SEAM_CENTRE_PULL * Math.abs(col - centre)) / centre;
+      }
+    }
+
+    const path = shortestVerticalPath(cost, SEAM_COLUMNS, SEAM_LAT_BINS);
+    for (let bin = 0; bin < SEAM_LAT_BINS; bin++) {
+      const yawDeg = from + ((to - from) * (path[bin] + 0.5)) / SEAM_COLUMNS;
+      write(bin, yawDeg);
+      spreadDeg = Math.max(spreadDeg, Math.abs(yawDeg - midYaw));
+    }
+  }
+  return { boundaries, spreadDeg };
+}
+
+/* ------------------------------------------------------------------------- */
 /* WebGL projection: pick the best frame per pixel, blend only at the seam    */
 /* ------------------------------------------------------------------------- */
 
@@ -705,12 +893,37 @@ const ACCUM_FRAGMENT = PROJECT_GLSL + /* glsl */ `
   uniform float uSeamK;
   uniform float uAverageMode;
 
+  // The two cuts this frame lies between, as rows of the boundary map, and how
+  // wide to cross-fade over them. uSeamRows.x < 0 means no routed seam exists
+  // and the geometric rule stands.
+  uniform sampler2D uSeams;
+  uniform vec2 uSeamRows;
+  uniform float uFeatherDeg;
+
   void main() {
     vec2 ndc; float quality;
     if (!projectPixel(ndc, quality)) { discard; }
 
     float best = texture2D(uBestQuality, vUv).r;
     float seamWeight = exp(-uSeamK * max(best - quality, 0.0));
+
+    if (uSeamRows.x >= 0.0) {
+      // Latitude runs 0 at the north pole to 1 at the south, matching how the
+      // boundary map was built.
+      float lat = 1.0 - (uVRange.x + vUv.y * uVRange.y);
+      float loYaw = texture2D(uSeams, vec2(lat, uSeamRows.x)).r;
+      float hiYaw = texture2D(uSeams, vec2(lat, uSeamRows.y)).r;
+
+      float phi = vUv.x * 360.0;
+      float into = mod(phi - loYaw, 360.0);
+      float arc = mod(hiYaw - loYaw, 360.0);
+      float owned = smoothstep(0.0, uFeatherDeg, into)
+                  * smoothstep(0.0, uFeatherDeg, arc - into);
+      // A whisper of the geometric rule underneath, so a pixel no arc happens
+      // to claim still gets its best available frame instead of a hole.
+      seamWeight = owned + 0.001 * seamWeight;
+    }
+
     // uAverageMode reproduces the old wash for before/after measurements.
     float weight = mix(seamWeight, smoothstep(0.0, 0.35, quality), uAverageMode);
 
@@ -741,6 +954,7 @@ async function renderEquirect(
   outHeight: number,
   blendMode: BlendMode,
   seamK: number,
+  seams: SeamMap | null,
   onProgress: (fraction: number) => void,
 ): Promise<{ canvas: HTMLCanvasElement; coverage: number }> {
   const tileHeight = tileHeightFor(outWidth, outHeight);
@@ -799,6 +1013,21 @@ async function renderEquirect(
     blendDst: THREE.OneFactor,
   });
 
+  // The routed cuts, as a yaw per latitude per boundary. Nearest sampling
+  // across latitude keeps the path exactly where the search put it; a linear
+  // filter between neighbouring bins would round the corners off it.
+  let seamTexture: THREE.DataTexture | null = null;
+  if (seams) {
+    seamTexture = new THREE.DataTexture(
+      seams.boundaries, SEAM_LAT_BINS, seams.count, THREE.RGBAFormat, THREE.FloatType,
+    );
+    seamTexture.minFilter = THREE.NearestFilter;
+    seamTexture.magFilter = THREE.NearestFilter;
+    seamTexture.wrapS = THREE.ClampToEdgeWrapping;
+    seamTexture.wrapT = THREE.ClampToEdgeWrapping;
+    seamTexture.needsUpdate = true;
+  }
+
   const accumMaterial = new THREE.ShaderMaterial({
     vertexShader: PASS_VERTEX,
     fragmentShader: ACCUM_FRAGMENT,
@@ -809,6 +1038,9 @@ async function renderEquirect(
       uGain: { value: new THREE.Vector3(1, 1, 1) },
       uSeamK: { value: seamK },
       uAverageMode: { value: blendMode === 'average' ? 1 : 0 },
+      uSeams: { value: seamTexture },
+      uSeamRows: { value: new THREE.Vector2(-1, -1) },
+      uFeatherDeg: { value: SEAM_FEATHER_DEG },
     },
     depthTest: false,
     depthWrite: false,
@@ -878,7 +1110,7 @@ async function renderEquirect(
     renderer.clear(true, false, false);
     setRange(accumMaterial.uniforms);
 
-    for (const shot of shots) {
+    for (const [shotIndex, shot] of shots.entries()) {
       // One frame decoded at a time: the JPEG bytes stay in memory, the pixels
       // exist only between here and the upload a few lines down.
       const decoded = await decodeFrame(shot.frame);
@@ -895,6 +1127,16 @@ async function renderEquirect(
       aimFor(shot, accumMaterial.uniforms);
       accumMaterial.uniforms['uFrame'].value = texture;
       (accumMaterial.uniforms['uGain'].value as THREE.Vector3).copy(shot.gain);
+
+      // A shot owns the arc from the cut behind it to the cut in front.
+      const rows = accumMaterial.uniforms['uSeamRows'].value as THREE.Vector2;
+      if (seams) {
+        const position = seams.positionOf[shotIndex];
+        const before = (position - 1 + seams.count) % seams.count;
+        rows.set((before + 0.5) / seams.count, (position + 0.5) / seams.count);
+      } else {
+        rows.set(-1, -1);
+      }
       renderer.render(scene, camera);
 
       texture.dispose();
@@ -915,6 +1157,7 @@ async function renderEquirect(
   }
 
   geometry.dispose();
+  seamTexture?.dispose();
   qualityMaterial.dispose();
   accumMaterial.dispose();
   normalizeMaterial.dispose();
