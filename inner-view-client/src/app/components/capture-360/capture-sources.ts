@@ -36,8 +36,11 @@ export interface LensOption {
 export interface CaptureCameraSource {
   start(): Promise<void>;
   attach(container: HTMLElement): void;
-  /** Grabs the current frame, already downscaled and upright for stitching. */
-  grabFrame(): HTMLCanvasElement;
+  /**
+   * Grabs the current frame, upright and downscaled so the whole capture fits
+   * the memory budget — `maxSide` shrinks as the plan grows.
+   */
+  grabFrame(maxSide?: number): HTMLCanvasElement;
   getSpec(): CameraSpec;
   /** Back cameras the browser exposed; empty when there is no choice to make. */
   lenses(): LensOption[];
@@ -63,10 +66,19 @@ export interface CaptureOrientationSource {
   stop(): void;
 }
 
-/** Longest frame side kept for stitching. */
-const MAX_FRAME_SIDE = 2048;
-
 const LENS_PREFERENCE_KEY = 'capture360.lensId';
+
+/**
+ * Tried in order until one is accepted. Exact 4:3 first, then concrete 4:3
+ * resolutions phones actually offer — a plain `aspectRatio: 4/3` is sometimes
+ * honoured, sometimes silently rounded to the nearest 16:9 mode.
+ */
+const FOUR_THREE_SHAPES: MediaTrackConstraints[] = [
+  { width: { exact: 2048 }, height: { exact: 1536 } },
+  { width: { exact: 1440 }, height: { exact: 1080 } },
+  { width: { exact: 1280 }, height: { exact: 960 } },
+  { aspectRatio: { exact: 4 / 3 }, width: { ideal: 1600 } },
+];
 
 /**
  * Conservative priors, well under the real figures (~108° / ~69° in portrait
@@ -108,16 +120,29 @@ export class RealCameraSource implements CaptureCameraSource {
   }
 
   private async open(deviceId: string | undefined): Promise<void> {
-    const video: MediaTrackConstraints = deviceId
+    const base: MediaTrackConstraints = deviceId
       ? { deviceId: { exact: deviceId } }
       : { facingMode: { ideal: 'environment' } };
-    // 4:3 is the sensor-native shape; in portrait it gives the widest vertical
-    // field, which is the scarce resource for a panorama.
-    video.width = { ideal: 2048 };
-    video.height = { ideal: 1536 };
-    video.aspectRatio = { ideal: 4 / 3 };
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video });
+    // 4:3 is the sensor-native shape and matters more than it looks: cropping
+    // to 16:9 costs ~17° of horizontal field, and the capture plan pays for
+    // that with two extra rings. `ideal` is only a preference and Safari
+    // ignores it, so ask for it exactly first and fall back if refused.
+    let stream: MediaStream | null = null;
+    for (const shape of FOUR_THREE_SHAPES) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...base, ...shape } });
+        break;
+      } catch {
+        // Resolution or aspect unsupported on this camera; try the next.
+      }
+    }
+    if (!stream) {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { ...base, width: { ideal: 1600 }, height: { ideal: 1200 } },
+      });
+    }
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = stream;
     this.activeId = stream.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId ?? null;
@@ -173,7 +198,7 @@ export class RealCameraSource implements CaptureCameraSource {
     if (this.video) container.appendChild(this.video);
   }
 
-  grabFrame(): HTMLCanvasElement {
+  grabFrame(maxSide = 2048): HTMLCanvasElement {
     const video = this.video!;
     const rotation = this.frameRotationDeg();
     const swap = rotation === 90 || rotation === 270;
@@ -182,7 +207,7 @@ export class RealCameraSource implements CaptureCameraSource {
     const outW = swap ? srcH : srcW;
     const outH = swap ? srcW : srcH;
 
-    const scale = Math.min(1, MAX_FRAME_SIDE / Math.max(outW, outH));
+    const scale = Math.min(1, maxSide / Math.max(outW, outH));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(outW * scale);
     canvas.height = Math.round(outH * scale);
@@ -302,8 +327,8 @@ export class SimCameraSource implements CaptureCameraSource {
     this.env.attach(container);
   }
 
-  grabFrame(): HTMLCanvasElement {
-    return this.env.grabFrame();
+  grabFrame(maxSide?: number): HTMLCanvasElement {
+    return this.env.grabFrame(maxSide);
   }
 
   getSpec(): CameraSpec {

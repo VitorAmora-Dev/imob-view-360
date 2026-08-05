@@ -17,17 +17,26 @@ import type { LensOption } from './capture-sources';
 interface SimLens extends LensOption {
   trueVfovDeg: number;
   priorVfovDeg: number;
+  frameWidth: number;
+  frameHeight: number;
 }
 
 const SIM_LENSES: SimLens[] = [
-  { deviceId: 'sim-ultrawide', label: 'Câmera Grande-Angular Traseira', kind: 'ultrawide', trueVfovDeg: 108, priorVfovDeg: 95 },
-  { deviceId: 'sim-wide', label: 'Câmera Traseira', kind: 'wide', trueVfovDeg: 69, priorVfovDeg: 62 },
+  { deviceId: 'sim-ultrawide', label: 'Câmera Grande-Angular Traseira', kind: 'ultrawide', trueVfovDeg: 108, priorVfovDeg: 95, frameWidth: 1080, frameHeight: 1440 },
+  { deviceId: 'sim-wide', label: 'Câmera Traseira', kind: 'wide', trueVfovDeg: 69, priorVfovDeg: 62, frameWidth: 1080, frameHeight: 1440 },
+  // Reproduces the shape Safari hands back when it refuses 4:3: the vertical
+  // field survives but the horizontal is cropped, which costs two extra rings.
+  { deviceId: 'sim-ultrawide-169', label: 'Grande-Angular 16:9 (teste)', kind: 'ultrawide', trueVfovDeg: 108, priorVfovDeg: 95, frameWidth: 1080, frameHeight: 1920 },
 ];
 
 export class SimEnvironment {
-  /** Virtual portrait camera: 4:3 sensor like most phone main cameras. */
-  readonly frameWidth = 1080;
-  readonly frameHeight = 1440;
+  get frameWidth(): number {
+    return this.lens.frameWidth;
+  }
+
+  get frameHeight(): number {
+    return this.lens.frameHeight;
+  }
 
   yawDeg = 0;
   pitchDeg = 0;
@@ -72,7 +81,9 @@ export class SimEnvironment {
     if (!found) return;
     this.lens = found;
     this.camera.fov = found.trueVfovDeg;
+    this.camera.aspect = found.frameWidth / found.frameHeight;
     this.camera.updateProjectionMatrix();
+    this.renderer?.setSize(found.frameWidth, found.frameHeight, false);
   }
 
   start(): void {
@@ -129,12 +140,13 @@ export class SimEnvironment {
     window.addEventListener('keyup', this.onKeyUp);
   }
 
-  grabFrame(): HTMLCanvasElement {
+  grabFrame(maxSide = 2048): HTMLCanvasElement {
     this.render();
+    const scale = Math.min(1, maxSide / Math.max(this.frameWidth, this.frameHeight));
     const copy = document.createElement('canvas');
-    copy.width = this.frameWidth;
-    copy.height = this.frameHeight;
-    copy.getContext('2d')!.drawImage(this.renderer!.domElement, 0, 0);
+    copy.width = Math.round(this.frameWidth * scale);
+    copy.height = Math.round(this.frameHeight * scale);
+    copy.getContext('2d')!.drawImage(this.renderer!.domElement, 0, 0, copy.width, copy.height);
     return copy;
   }
 

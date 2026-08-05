@@ -20,7 +20,9 @@ import {
   SimOrientationSource,
 } from './capture-sources';
 import { SimEnvironment } from './sim-environment';
-import { StitchShot, fitVfovFromShots, hfovFromSpec, hfovFromVfov, stitchEquirect } from './stitcher';
+import {
+  StitchShot, fitVfovFromShots, frameSideBudget, hfovFromSpec, hfovFromVfov, stitchEquirect,
+} from './stitcher';
 
 type CaptureState = 'intro' | 'capturing' | 'stitching' | 'preview' | 'error';
 
@@ -287,7 +289,11 @@ export class Capture360Component implements OnDestroy {
 
   private captureShot(reading: OrientationReading): void {
     if (!this.camera) return;
-    const frame = this.camera.grabFrame();
+    // Frame size follows the plan: a long capture keeps smaller frames so the
+    // whole set stays inside the memory a phone browser will grant the tab.
+    const frame = this.camera.grabFrame(
+      frameSideBudget(this.session!.total, this.camera.getSpec().frameAspect),
+    );
     const q = reading.q;
     this.shots.push({ frame, quaternion: { x: q.x, y: q.y, z: q.z, w: q.w } });
     Haptics.impact({ style: ImpactStyle.Medium }).catch(() => navigator.vibrate?.(40));

@@ -122,23 +122,41 @@ interface AdjustedShot {
 }
 
 /**
- * Output resolution is capped by the GPU's texture limit — 4096 on plenty of
- * mobile parts, and a render target above it fails outright.
+ * Ceiling for the equirect. A phone's GPU will happily report MAX_TEXTURE_SIZE
+ * of 16384, but the limit that matters is the memory the browser lets the tab
+ * keep: at 4096×2048 the half-float accumulation target costs 64 MB, and at
+ * 6144×3072 it costs 144 MB — enough, with the frames, to get an iOS tab
+ * terminated mid-stitch (which reloads the page and loses the capture).
  */
-function pickOutputSize(options: StitchOptions, spec: CameraSpec): { outWidth: number; outHeight: number } {
+export const MAX_OUTPUT_WIDTH = 4096;
+
+/** Total budget for the frames held in memory during a capture. */
+export const FRAME_MEMORY_BUDGET_MB = 96;
+
+/**
+ * Longest side to keep per frame so the whole set fits the budget. More shots
+ * means smaller frames — which costs nothing real, because a frame only has to
+ * carry the pixels its own slice of the panorama can show.
+ */
+export function frameSideBudget(shotCount: number, frameAspect: number): number {
+  const bytes = FRAME_MEMORY_BUDGET_MB * 1048576;
+  // side² · aspect · 4 bytes · count ≤ bytes
+  const side = Math.sqrt(bytes / (4 * Math.max(1, shotCount) * Math.max(0.1, frameAspect)));
+  // The budget always wins: running out of memory loses the entire capture,
+  // while a smaller frame only costs detail. It costs little in practice —
+  // a plan with more shots gives each frame a narrower slice to carry.
+  return Math.floor(Math.min(2048, Math.max(720, side)));
+}
+
+export function pickOutputSize(
+  options: StitchOptions,
+  spec: CameraSpec,
+): { outWidth: number; outHeight: number } {
   if (options.outWidth && options.outHeight) {
     return { outWidth: options.outWidth, outHeight: options.outHeight };
   }
-  let limit = 4096;
-  try {
-    const probe = document.createElement('canvas').getContext('webgl2')
-      ?? document.createElement('canvas').getContext('webgl');
-    if (probe) limit = (probe as WebGLRenderingContext).getParameter(0x0d33) as number; // MAX_TEXTURE_SIZE
-  } catch {
-    // Keep the conservative default when the probe context cannot be created.
-  }
-  const width = Math.min(6144, Math.max(2048, limit));
-  return { outWidth: width, outHeight: width / 2 };
+  void spec;
+  return { outWidth: MAX_OUTPUT_WIDTH, outHeight: MAX_OUTPUT_WIDTH / 2 };
 }
 
 /* ------------------------------------------------------------------------- */
@@ -573,7 +591,6 @@ function renderEquirect(
   scene.add(mesh);
 
   const rotation = new THREE.Matrix4();
-  const textures: THREE.Texture[] = [];
 
   renderer.setRenderTarget(accumTarget);
   renderer.setClearColor(0x000000, 0);
@@ -586,7 +603,6 @@ function renderEquirect(
     texture.colorSpace = THREE.NoColorSpace;
     texture.minFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
-    textures.push(texture);
 
     rotation.makeRotationFromQuaternion(shot.q.clone().invert());
     accumMaterial.uniforms['uFrame'].value = texture;
@@ -597,6 +613,13 @@ function renderEquirect(
     );
     (accumMaterial.uniforms['uGain'].value as THREE.Vector3).copy(shot.gain);
     renderer.render(scene, camera);
+
+    // The pixels now live in the texture, so the source canvas can go. On a
+    // 22-shot capture this hands back well over 100 MB before the normalize
+    // pass allocates its own buffers.
+    texture.dispose();
+    shot.frame.width = 0;
+    shot.frame.height = 0;
   }
 
   const normalizeMaterial = new THREE.ShaderMaterial({
@@ -619,7 +642,6 @@ function renderEquirect(
   out.height = outHeight;
   out.getContext('2d')!.drawImage(renderer.domElement, 0, 0);
 
-  textures.forEach((t) => t.dispose());
   geometry.dispose();
   accumMaterial.dispose();
   normalizeMaterial.dispose();
@@ -684,13 +706,6 @@ function fillUncovered(source: HTMLCanvasElement, outWidth: number, outHeight: n
   const lastCovered = rowCovered.lastIndexOf(true);
   if (firstCovered < 0) return source; // nothing to work with
 
-  const out = document.createElement('canvas');
-  out.width = outWidth;
-  out.height = outHeight;
-  const octx = out.getContext('2d')!;
-  octx.imageSmoothingEnabled = true;
-  octx.imageSmoothingQuality = 'high';
-
   const topRow = Math.round((firstCovered / probeH) * outHeight);
   const bottomRow = Math.round(((lastCovered + 1) / probeH) * outHeight);
   const band = Math.max(4, Math.round(outHeight * 0.01));
@@ -705,11 +720,18 @@ function fillUncovered(source: HTMLCanvasElement, outWidth: number, outHeight: n
     return tiny;
   };
 
-  if (topRow > 0) octx.drawImage(strip(topRow), 0, 0, 64, 1, 0, 0, outWidth, topRow + 2);
-  if (bottomRow < outHeight) {
-    octx.drawImage(strip(Math.max(0, bottomRow - band)), 0, 0, 64, 1, 0, bottomRow - 2, outWidth, outHeight - bottomRow + 2);
-  }
+  const top = topRow > 0 ? strip(topRow) : null;
+  const bottom = bottomRow < outHeight ? strip(Math.max(0, bottomRow - band)) : null;
 
-  octx.drawImage(source, 0, 0);
-  return out;
+  // Painting UNDER the existing pixels fills the transparent gaps in place —
+  // compositing onto a second full-size canvas would cost another 32 MB.
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.globalCompositeOperation = 'destination-over';
+  if (top) ctx.drawImage(top, 0, 0, 64, 1, 0, 0, outWidth, topRow + 2);
+  if (bottom) {
+    ctx.drawImage(bottom, 0, 0, 64, 1, 0, bottomRow - 2, outWidth, outHeight - bottomRow + 2);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  return source;
 }
