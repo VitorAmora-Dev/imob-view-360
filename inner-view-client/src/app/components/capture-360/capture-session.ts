@@ -1,17 +1,18 @@
 import { wrapDeg180 } from './orientation-math';
+import { CaptureTarget } from './capture-pattern';
 
 /**
- * Pure state machine for the guided ring capture (no DOM, no Three.js):
- * feed it timestamped orientation samples and it tells the UI where the next
- * target is, how far the dwell progressed and when to actually grab a frame.
+ * Pure state machine for the guided capture (no DOM, no Three.js): feed it
+ * timestamped orientation samples and it tells the UI where the next target
+ * is, how far the dwell progressed and when to actually grab a frame.
+ *
+ * Targets come from capture-pattern.ts and carry a pitch, so the same machine
+ * drives the horizon ring, the extra rings a narrow lens needs, and the two
+ * caps that close the poles.
  */
 export interface CaptureTuning {
-  /** Yellow dots on the ring. Derived from the camera FOV; 12 is the default. */
-  targetCount: number;
   /** How close (deg) the reticle must be to the target, in yaw and pitch. */
   centerToleranceDeg: number;
-  /** How level the phone must be (pitch of the ring is 0°). */
-  pitchToleranceDeg: number;
   /** How long the user holds the target before the frame is captured. */
   dwellMs: number;
   /** Above this angular speed the dwell will not start (avoids motion blur). */
@@ -19,22 +20,10 @@ export interface CaptureTuning {
 }
 
 export const DEFAULT_TUNING: CaptureTuning = {
-  targetCount: 12,
   centerToleranceDeg: 5,
-  pitchToleranceDeg: 7,
   dwellMs: 2000,
   maxAngularVelocityDegS: 8,
 };
-
-/**
- * Targets must overlap even when both neighbouring shots drift to opposite
- * tolerance edges, or the panorama gets a hole: spacing ≤ hfov − 2·tol − margin.
- */
-export function targetCountForHfov(hfovDeg: number, tuning: Pick<CaptureTuning, 'centerToleranceDeg'>): number {
-  const minOverlapDeg = 4;
-  const usable = Math.max(10, hfovDeg - 2 * tuning.centerToleranceDeg - minOverlapDeg);
-  return Math.max(12, Math.ceil(360 / usable));
-}
 
 export interface OrientationSample {
   yawDeg: number;
@@ -43,29 +32,35 @@ export interface OrientationSample {
 }
 
 export type SessionEvent =
-  | { type: 'capture'; targetIndex: number; targetYawDeg: number }
+  | { type: 'capture'; targetIndex: number; target: CaptureTarget }
   | { type: 'complete' };
 
 export interface SessionSnapshot {
   status: 'seeking' | 'dwelling' | 'complete';
   capturedCount: number;
   totalCount: number;
-  /** Yaw of the target currently being hunted (session frame). */
-  currentTargetYawDeg: number;
+  /** The target currently being hunted. */
+  currentTarget: CaptureTarget;
   /** Signed yaw distance reticle→target: positive = target is to the right. */
   offsetYawDeg: number;
-  /** Signed pitch distance reticle→ring (ring sits at pitch 0). */
+  /** Signed pitch distance reticle→target: positive = target is above. */
   offsetPitchDeg: number;
   withinTolerance: boolean;
   steady: boolean;
-  levelOk: boolean;
   /** 0..1 while dwelling. */
   dwellProgress: number;
 }
 
+/**
+ * Near the poles every yaw points at nearly the same place, so demanding a
+ * specific yaw would be both impossible and pointless — only pitch matters.
+ */
+const CAP_PITCH_THRESHOLD_DEG = 75;
+
 export class CaptureSession {
   private readonly tuning: CaptureTuning;
-  private readonly targets: number[];
+  private readonly targets: CaptureTarget[];
+  private readonly initialTargets: CaptureTarget[];
   private captured = 0;
   private dwellStartMs: number | null = null;
   private lastSample: OrientationSample | null = null;
@@ -73,10 +68,11 @@ export class CaptureSession {
   private velocityDegS = 0;
   private snapshotState: SessionSnapshot;
 
-  constructor(tuning: Partial<CaptureTuning> = {}) {
+  constructor(targets: CaptureTarget[], tuning: Partial<CaptureTuning> = {}) {
+    if (targets.length === 0) throw new Error('capture session needs at least one target');
     this.tuning = { ...DEFAULT_TUNING, ...tuning };
-    const spacing = 360 / this.tuning.targetCount;
-    this.targets = Array.from({ length: this.tuning.targetCount }, (_, i) => wrapDeg180(i * spacing));
+    this.targets = [...targets];
+    this.initialTargets = [...targets];
     this.snapshotState = this.buildSnapshot({ yawDeg: 0, pitchDeg: 0, rollDeg: 0 });
   }
 
@@ -84,7 +80,11 @@ export class CaptureSession {
     return this.snapshotState;
   }
 
-  targetYaws(): number[] {
+  get total(): number {
+    return this.targets.length;
+  }
+
+  allTargets(): CaptureTarget[] {
     return [...this.targets];
   }
 
@@ -93,7 +93,27 @@ export class CaptureSession {
     this.dwellStartMs = null;
     this.lastSample = null;
     this.velocityDegS = 0;
+    // A retry starts from the conservative plan again; the fit will re-run.
+    this.targets.length = 0;
+    this.targets.push(...this.initialTargets);
     this.snapshotState = this.buildSnapshot({ yawDeg: 0, pitchDeg: 0, rollDeg: 0 });
+  }
+
+  /** Targets already shot, so a re-plan knows which rings are done. */
+  capturedTargets(): CaptureTarget[] {
+    return this.targets.slice(0, this.captured);
+  }
+
+  /**
+   * Swaps the not-yet-shot targets. The initial plan comes from a conservative
+   * FOV prior; once the real value is fitted from the first ring this usually
+   * drops work rather than adding it.
+   */
+  retarget(remaining: CaptureTarget[]): void {
+    if (remaining.length === 0) return;
+    this.targets.length = this.captured;
+    this.targets.push(...remaining);
+    this.dwellStartMs = null;
   }
 
   update(nowMs: number, sample: OrientationSample): SessionEvent[] {
@@ -106,13 +126,12 @@ export class CaptureSession {
     this.trackVelocity(nowMs, sample);
     const snap = this.buildSnapshot(sample);
 
-    if (snap.withinTolerance && snap.steady && snap.levelOk) {
+    if (snap.withinTolerance && snap.steady) {
       if (this.dwellStartMs === null) {
         this.dwellStartMs = nowMs;
       }
-      const progress = (nowMs - this.dwellStartMs) / this.tuning.dwellMs;
-      if (progress >= 1) {
-        events.push({ type: 'capture', targetIndex: this.captured, targetYawDeg: this.targets[this.captured] });
+      if ((nowMs - this.dwellStartMs) / this.tuning.dwellMs >= 1) {
+        events.push({ type: 'capture', targetIndex: this.captured, target: this.targets[this.captured] });
         this.captured += 1;
         this.dwellStartMs = null;
         if (this.captured >= this.targets.length) {
@@ -134,7 +153,10 @@ export class CaptureSession {
       if (dt > 0.001) {
         const dYaw = wrapDeg180(sample.yawDeg - this.lastSample.yawDeg);
         const dPitch = sample.pitchDeg - this.lastSample.pitchDeg;
-        const speed = Math.hypot(dYaw, dPitch) / dt;
+        // Yaw sweeps a smaller arc near the poles; weighting by cos keeps the
+        // steadiness test from rejecting a nearly still phone aimed upward.
+        const cos = Math.cos((sample.pitchDeg * Math.PI) / 180);
+        const speed = Math.hypot(dYaw * cos, dPitch) / dt;
         // Light smoothing so a single noisy sensor event does not cancel a dwell.
         this.velocityDegS = this.velocityDegS * 0.6 + speed * 0.4;
       }
@@ -145,13 +167,17 @@ export class CaptureSession {
 
   private buildSnapshot(sample: OrientationSample, nowMs?: number): SessionSnapshot {
     const done = this.captured >= this.targets.length;
-    const targetYaw = done ? this.targets[this.targets.length - 1] : this.targets[this.captured];
-    const offsetYaw = wrapDeg180(targetYaw - sample.yawDeg);
-    const offsetPitch = -sample.pitchDeg;
-    const withinTolerance =
-      Math.abs(offsetYaw) <= this.tuning.centerToleranceDeg &&
-      Math.abs(sample.pitchDeg) <= this.tuning.centerToleranceDeg;
-    const levelOk = Math.abs(sample.pitchDeg) <= this.tuning.pitchToleranceDeg;
+    const target = done ? this.targets[this.targets.length - 1] : this.targets[this.captured];
+
+    const offsetYaw = wrapDeg180(target.yawDeg - sample.yawDeg);
+    const offsetPitch = target.pitchDeg - sample.pitchDeg;
+
+    const tol = this.tuning.centerToleranceDeg;
+    const aimingAtPole = Math.abs(target.pitchDeg) >= CAP_PITCH_THRESHOLD_DEG;
+    const withinTolerance = aimingAtPole
+      ? Math.abs(offsetPitch) <= tol
+      : Math.abs(offsetYaw) <= tol && Math.abs(offsetPitch) <= tol;
+
     const steady = this.velocityDegS <= this.tuning.maxAngularVelocityDegS;
     const dwelling = this.dwellStartMs !== null && nowMs !== undefined;
 
@@ -159,12 +185,11 @@ export class CaptureSession {
       status: done ? 'complete' : dwelling ? 'dwelling' : 'seeking',
       capturedCount: this.captured,
       totalCount: this.targets.length,
-      currentTargetYawDeg: targetYaw,
+      currentTarget: target,
       offsetYawDeg: offsetYaw,
       offsetPitchDeg: offsetPitch,
       withinTolerance,
       steady,
-      levelOk,
       dwellProgress: dwelling
         ? Math.min(1, (nowMs! - this.dwellStartMs!) / this.tuning.dwellMs)
         : 0,

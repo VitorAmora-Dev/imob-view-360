@@ -70,5 +70,45 @@ export function drawSyntheticPano(width = 4096, height = 2048): HTMLCanvasElemen
   ctx.lineTo(width, horizon);
   ctx.stroke();
 
+  drawPoleFeatures(ctx, width, height);
+
   return canvas;
+}
+
+/**
+ * Ceiling and floor need real detail, otherwise a cap shot that landed in the
+ * wrong place would still score well against a flat gradient and the coverage
+ * check would pass on a broken stitch.
+ */
+function drawPoleFeatures(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const marks: ReadonlyArray<{ latDeg: number; label: string; color: string }> = [
+    { latDeg: 20, label: 'TETO', color: '#2b4c7e' },
+    { latDeg: 55, label: '▲', color: '#1f3557' },
+    { latDeg: 160, label: 'CHAO', color: '#5b3a1f' },
+    { latDeg: 125, label: '▼', color: '#7a5230' },
+  ];
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const mark of marks) {
+    const y = (mark.latDeg / 180) * height;
+    ctx.fillStyle = mark.color;
+    ctx.font = `bold ${Math.round(height * 0.05)}px Inter, sans-serif`;
+    // Repeated around the full turn: near the poles longitude compresses, so a
+    // single label would occupy only a sliver of the sphere.
+    for (let lon = 0; lon < 360; lon += 45) {
+      ctx.fillText(mark.label, ((lon + 22.5) / 360) * width, y);
+    }
+  }
+
+  // Bullseye rings centred on each pole, to expose cap rotation errors.
+  ctx.strokeStyle = 'rgba(34, 34, 34, 0.45)';
+  ctx.lineWidth = 3;
+  for (const latDeg of [6, 12, 168, 174]) {
+    const y = (latDeg / 180) * height;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
 }

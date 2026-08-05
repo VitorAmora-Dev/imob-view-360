@@ -32,7 +32,9 @@
         </div>
 
         <div class="reticle" #reticleEl></div>
-        <div class="edge-arrow" #arrowEl aria-hidden="true"></div>
+        <div class="edge-arrow-wrap" #arrowEl aria-hidden="true">
+          <div class="edge-arrow"></div>
+        </div>
 
         <div class="top-bar">
           <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
@@ -50,6 +52,23 @@
 
         <div class="bottom-bar">
           <span class="hint-pill">{{ hintKey() | translate }}</span>
+
+          @if (lenses().length > 1) {
+            <div class="lens-picker" role="group" [attr.aria-label]="'CAPTURE.LENS' | translate">
+              @for (lens of lenses(); track lens.deviceId) {
+                <button
+                  type="button"
+                  class="lens-chip"
+                  [class.lens-chip--active]="lens.deviceId === activeLensId()"
+                  [attr.aria-pressed]="lens.deviceId === activeLensId()"
+                  [title]="lens.label"
+                  (click)="selectLens(lens)">
+                  {{ lensLabel(lens) }}
+                </button>
+              }
+            </div>
+          }
+
           @if (simMode) {
             <span class="sim-badge">{{ 'CAPTURE.SIM_BADGE' | translate }}</span>
           }

@@ -3,14 +3,15 @@ import { CameraSpec } from './capture-sources';
 import { quaternionFromYpr, wrapDeg180, yprFromQuaternion } from './orientation-math';
 
 /**
- * Projects the captured ring of photos onto an equirectangular canvas using
- * the gyro quaternion recorded with each shot — no feature detection. Three
- * cheap software refinements close the gap to a "real" stitcher:
- *   1. per-pair yaw + global FOV correction via 1D correlation of overlaps,
- *   2. per-frame exposure gain matched on overlap luminance,
- *   3. feathered accumulation (weighted average) instead of hard seams.
- * Poles (outside the single ring's vertical FOV) get a blurred edge fill; the
- * future server-side AI stage can outpaint them properly.
+ * Projects the captured shots onto an equirectangular canvas using the gyro
+ * quaternion recorded with each one — no feature detection. Software steps
+ * close the gap to a "real" stitcher:
+ *   1. the camera's true field of view is FITTED from the data (the gyro knows
+ *      the angle between shots, so the only unknown is the degrees-per-pixel),
+ *   2. per-frame yaw touch-up and per-channel exposure gain from the overlaps,
+ *   3. feathered weighted accumulation instead of hard seams.
+ * Whatever the shots genuinely miss is filled from the coverage mask, not from
+ * an assumed FOV — with caps captured there is usually nothing left to fill.
  */
 export interface StitchShot {
   frame: HTMLCanvasElement;
@@ -26,153 +27,149 @@ export interface StitchOptions {
   onProgress?: (fraction: number) => void;
 }
 
-/** Phone main cameras cluster around this vertical FOV in portrait. */
+export interface StitchResult {
+  imageData: string;
+  /** Vertical FOV the fit settled on — surfaced for diagnostics and tests. */
+  fittedVfovDeg: number;
+  /** Fraction of the sphere covered by real pixels, 0..1. */
+  coverage: number;
+}
+
+/** Used only until the fit runs; deliberately conservative (see PatternOptions). */
 export const DEFAULT_VFOV_DEG = 65;
 
+/** The fit refuses to leave this range — outside it, no phone lens exists. */
+export const MIN_VFOV_DEG = 40;
+export const MAX_VFOV_DEG = 130;
+
+export function hfovFromVfov(vfovDeg: number, frameAspect: number): number {
+  return (2 * Math.atan(Math.tan((vfovDeg * Math.PI) / 360) * frameAspect) * 180) / Math.PI;
+}
+
 export function hfovFromSpec(spec: CameraSpec): number {
-  const vfov = spec.vfovDeg ?? DEFAULT_VFOV_DEG;
-  return (2 * Math.atan(Math.tan((vfov * Math.PI) / 360) * spec.frameAspect) * 180) / Math.PI;
+  return hfovFromVfov(spec.vfovDeg ?? DEFAULT_VFOV_DEG, spec.frameAspect);
+}
+
+/**
+ * Fits the true vertical FOV from shots already taken. Called mid-capture with
+ * the first ring so the rest of the plan can be sized to the real lens, and
+ * again inside the stitch. Returns the prior unchanged when the shots do not
+ * give the fit enough to work with (too few, or a textureless wall).
+ */
+export function fitVfovFromShots(shots: StitchShot[], spec: CameraSpec): number {
+  const prior = spec.vfovDeg ?? DEFAULT_VFOV_DEG;
+  if (shots.length < 3) return prior;
+  const adjusted = toAdjusted(shots, prior, spec.frameAspect);
+  const profiles = adjusted.map((s) => buildFrameProfile(s.frame));
+  return fitVerticalFov(adjusted, profiles, spec.frameAspect);
+}
+
+function toAdjusted(shots: StitchShot[], vfovDeg: number, frameAspect: number): AdjustedShot[] {
+  return shots.map((s) => {
+    const q = new THREE.Quaternion(s.quaternion.x, s.quaternion.y, s.quaternion.z, s.quaternion.w);
+    return {
+      frame: s.frame,
+      q,
+      ypr: yprFromQuaternion(q),
+      gain: new THREE.Vector3(1, 1, 1),
+      vfovDeg,
+      hfovDeg: hfovFromVfov(vfovDeg, frameAspect),
+    };
+  });
 }
 
 export async function stitchEquirect(
   shots: StitchShot[],
   spec: CameraSpec,
   options: StitchOptions = {},
-): Promise<string> {
-  const outWidth = options.outWidth ?? 4096;
-  const outHeight = options.outHeight ?? 2048;
-  const vfovDeg = spec.vfovDeg ?? DEFAULT_VFOV_DEG;
-  const hfovDeg = hfovFromSpec(spec);
+): Promise<StitchResult> {
   const report = options.onProgress ?? (() => undefined);
+  const priorVfov = spec.vfovDeg ?? DEFAULT_VFOV_DEG;
 
-  let adjusted = shots.map((s) => ({
-    frame: s.frame,
-    q: new THREE.Quaternion(s.quaternion.x, s.quaternion.y, s.quaternion.z, s.quaternion.w),
-    gain: 1,
-    hfovDeg,
-    vfovDeg,
-  }));
+  let adjusted = toAdjusted(shots, priorVfov, spec.frameAspect);
 
   report(0.05);
+  let fittedVfov = priorVfov;
   if (options.refine !== false && shots.length >= 3) {
-    adjusted = refineRing(adjusted);
+    const profiles = adjusted.map((s) => buildFrameProfile(s.frame));
+    fittedVfov = fitVerticalFov(adjusted, profiles, spec.frameAspect);
+    for (const s of adjusted) {
+      s.vfovDeg = fittedVfov;
+      s.hfovDeg = hfovFromVfov(fittedVfov, spec.frameAspect);
+    }
+    report(0.2);
+    adjusted = refineRings(adjusted, profiles);
   }
-  report(0.3);
+  report(0.35);
 
-  const glCanvas = renderEquirect(adjusted, outWidth, outHeight);
-  report(0.8);
+  const { outWidth, outHeight } = pickOutputSize(options, spec);
+  const { canvas, coverage } = renderEquirect(adjusted, outWidth, outHeight);
+  report(0.85);
 
-  const composed = fillPoles(glCanvas, outWidth, outHeight, vfovDeg);
-  const dataUrl = composed.toDataURL('image/jpeg', 0.85);
+  const composed = fillUncovered(canvas, outWidth, outHeight);
+  const imageData = composed.toDataURL('image/jpeg', 0.85);
   report(1);
-  return dataUrl;
+  return { imageData, fittedVfovDeg: fittedVfov, coverage };
 }
 
 interface AdjustedShot {
   frame: HTMLCanvasElement;
   q: THREE.Quaternion;
-  gain: number;
+  ypr: { yawDeg: number; pitchDeg: number; rollDeg: number };
+  gain: THREE.Vector3;
   hfovDeg: number;
   vfovDeg: number;
 }
 
+/**
+ * Output resolution is capped by the GPU's texture limit — 4096 on plenty of
+ * mobile parts, and a render target above it fails outright.
+ */
+function pickOutputSize(options: StitchOptions, spec: CameraSpec): { outWidth: number; outHeight: number } {
+  if (options.outWidth && options.outHeight) {
+    return { outWidth: options.outWidth, outHeight: options.outHeight };
+  }
+  let limit = 4096;
+  try {
+    const probe = document.createElement('canvas').getContext('webgl2')
+      ?? document.createElement('canvas').getContext('webgl');
+    if (probe) limit = (probe as WebGLRenderingContext).getParameter(0x0d33) as number; // MAX_TEXTURE_SIZE
+  } catch {
+    // Keep the conservative default when the probe context cannot be created.
+  }
+  const width = Math.min(6144, Math.max(2048, limit));
+  return { outWidth: width, outHeight: width / 2 };
+}
+
 /* ------------------------------------------------------------------------- */
-/* Refinement: 1D angular luminance profiles correlated across overlaps       */
+/* Frame profiles: sampled once in frame space, resampled per FOV candidate    */
 /* ------------------------------------------------------------------------- */
 
+const NDC_SAMPLES = 512;
 const PROFILE_STEP_DEG = 0.25;
-const SEARCH_RANGE_DEG = 6;
+const MIN_CORRELATION = 0.45;
 const MAX_YAW_CORRECTION_DEG = 3;
-const MIN_CORRELATION = 0.5;
 /**
- * Deadbands. Correlation resolves angles to ~PROFILE_STEP_DEG at best, and on
+ * Deadband. Correlation resolves angles to ~PROFILE_STEP_DEG at best, and on
  * low-texture walls the peak wanders further. Correcting inside that noise
  * floor degrades an already-good gyro instead of helping it, so small
  * disagreements are treated as measurement error and left alone.
  */
 const YAW_DEADBAND_DEG = 0.75;
-const FOV_DEADBAND_RATIO = 0.02;
 
-function refineRing(shots: AdjustedShot[]): AdjustedShot[] {
-  const n = shots.length;
-  const yaws = shots.map((s) => yprFromQuaternion(s.q).yawDeg);
-
-  const firstPass = measurePairs(shots, yaws);
-
-  // A consistent bias between gyro spacing and image spacing means the FOV
-  // guess is off: the same pixel shift reads as a different angle.
-  const valid = firstPass.filter((p) => p.confident);
-  if (valid.length >= Math.ceil(n / 2)) {
-    const ratio =
-      valid.reduce((acc, p) => acc + p.recordedDeg / p.measuredDeg, 0) / valid.length;
-    if (Math.abs(ratio - 1) > FOV_DEADBAND_RATIO) {
-      const clamped = Math.min(1.15, Math.max(0.85, ratio));
-      for (const s of shots) {
-        s.hfovDeg *= clamped;
-        s.vfovDeg *= clamped;
-      }
-    }
-  }
-
-  const pairs = measurePairs(shots, yaws);
-
-  // Per-frame yaw residuals, accumulated around the ring then closed so the
-  // 360° total is preserved (the gyro is trusted for the global loop).
-  const corrections = new Array<number>(n).fill(0);
-  let running = 0;
-  let closure = 0;
-  const residuals = pairs.map((p) => {
-    if (!p.confident) return 0;
-    const e = p.measuredDeg - p.recordedDeg;
-    if (Math.abs(e) <= YAW_DEADBAND_DEG || Math.abs(e) > MAX_YAW_CORRECTION_DEG) return 0;
-    // Shrink by the deadband so corrections enter continuously rather than
-    // jumping by 0.75° the moment the threshold is crossed.
-    return e - Math.sign(e) * YAW_DEADBAND_DEG;
-  });
-  closure = residuals.reduce((a, b) => a + b, 0);
-  for (let i = 1; i < n; i++) {
-    running += residuals[i - 1] - closure / n;
-    corrections[i] = running;
-  }
-
-  // Exposure: chain overlap luminance ratios, then normalize the ring.
-  const gains = new Array<number>(n).fill(1);
-  for (let i = 1; i < n; i++) {
-    const p = pairs[i - 1];
-    const ratio = p.confident && p.lumaB > 1 ? p.lumaA / p.lumaB : 1;
-    gains[i] = gains[i - 1] * Math.min(1.25, Math.max(0.8, ratio));
-  }
-  const mean = gains.reduce((a, b) => a * b, 1) ** (1 / n);
-
-  return shots.map((s, i) => ({
-    ...s,
-    gain: Math.min(1.35, Math.max(0.75, gains[i] / mean)),
-    q: quaternionFromYpr(corrections[i], 0, 0).multiply(s.q),
-  }));
+interface FrameProfile {
+  /** Luminance vs normalised x ∈ [-1,1], averaged over the central band. */
+  luma: Float32Array;
+  /** Per-channel means over the same band — drives white-balance matching. */
+  channels: [Float32Array, Float32Array, Float32Array];
 }
 
-interface PairMeasure {
-  recordedDeg: number;
-  measuredDeg: number;
-  confident: boolean;
-  lumaA: number;
-  lumaB: number;
-}
-
-function measurePairs(shots: AdjustedShot[], yaws: number[]): PairMeasure[] {
-  const profiles = shots.map((s) => angularProfile(s.frame, s.hfovDeg, s.vfovDeg));
-  const out: PairMeasure[] = [];
-  for (let i = 0; i < shots.length; i++) {
-    const j = (i + 1) % shots.length;
-    const recorded = Math.abs(wrapDeg180(yaws[j] - yaws[i]));
-    out.push(correlatePair(profiles[i], profiles[j], shots[i].hfovDeg, recorded));
-  }
-  return out;
-}
-
-/** Mean luminance per horizontal view angle, averaged over the central band. */
-function angularProfile(frame: HTMLCanvasElement, hfovDeg: number, vfovDeg: number): Float32Array {
-  const w = 256;
+/**
+ * Sampling in frame space (not angle) means the FOV search can resample this
+ * cheaply instead of re-rasterising the frame for every candidate.
+ */
+function buildFrameProfile(frame: HTMLCanvasElement): FrameProfile {
+  const w = NDC_SAMPLES;
   const h = Math.max(32, Math.round((w * frame.height) / frame.width));
   const small = document.createElement('canvas');
   small.width = w;
@@ -181,27 +178,237 @@ function angularProfile(frame: HTMLCanvasElement, hfovDeg: number, vfovDeg: numb
   ctx.drawImage(frame, 0, 0, w, h);
   const data = ctx.getImageData(0, 0, w, h).data;
 
-  const tanHalfH = Math.tan((hfovDeg * Math.PI) / 360);
-  const bandHalf = Math.min(0.9, Math.tan((15 * Math.PI) / 180) / Math.tan((vfovDeg * Math.PI) / 360));
-  const rowStart = Math.round(((1 - bandHalf) / 2) * h);
-  const rowEnd = Math.round(((1 + bandHalf) / 2) * h);
+  // Central half of the frame: away from the edges, where lens distortion and
+  // vignetting are worst, and common to every candidate FOV.
+  const rowStart = Math.round(h * 0.25);
+  const rowEnd = Math.round(h * 0.75);
 
-  const samples = Math.round(hfovDeg / PROFILE_STEP_DEG);
-  const profile = new Float32Array(samples);
-  for (let s = 0; s < samples; s++) {
-    const angle = -hfovDeg / 2 + s * PROFILE_STEP_DEG;
-    const ndcX = Math.tan((angle * Math.PI) / 180) / tanHalfH;
-    const px = Math.min(w - 1, Math.max(0, Math.round((ndcX * 0.5 + 0.5) * (w - 1))));
-    let sum = 0;
-    let count = 0;
+  const luma = new Float32Array(w);
+  const channels: [Float32Array, Float32Array, Float32Array] = [
+    new Float32Array(w), new Float32Array(w), new Float32Array(w),
+  ];
+  for (let x = 0; x < w; x++) {
+    let r = 0, g = 0, b = 0, n = 0;
     for (let row = rowStart; row < rowEnd; row += 2) {
-      const idx = (row * w + px) * 4;
-      sum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-      count++;
+      const i = (row * w + x) * 4;
+      r += data[i]; g += data[i + 1]; b += data[i + 2];
+      n++;
     }
-    profile[s] = count > 0 ? sum / count : 0;
+    r /= n; g /= n; b /= n;
+    channels[0][x] = r; channels[1][x] = g; channels[2][x] = b;
+    luma[x] = 0.299 * r + 0.587 * g + 0.114 * b;
   }
-  return profile;
+  return { luma, channels };
+}
+
+/** Resamples a frame-space profile onto uniform view angles for a given FOV. */
+function angularResample(source: Float32Array, hfovDeg: number): Float32Array {
+  const tanHalf = Math.tan((hfovDeg * Math.PI) / 360);
+  const samples = Math.round(hfovDeg / PROFILE_STEP_DEG);
+  const out = new Float32Array(samples);
+  for (let s = 0; s < samples; s++) {
+    const angle = (-hfovDeg / 2 + s * PROFILE_STEP_DEG) * (Math.PI / 180);
+    const ndc = Math.tan(angle) / tanHalf;
+    const pos = (ndc * 0.5 + 0.5) * (source.length - 1);
+    const i = Math.max(0, Math.min(source.length - 2, Math.floor(pos)));
+    const t = pos - i;
+    out[s] = source[i] * (1 - t) + source[i + 1] * t;
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------------- */
+/* FOV fit: the angle the image reports must agree with the angle the gyro did */
+/* ------------------------------------------------------------------------- */
+
+interface RingPair {
+  a: number;
+  b: number;
+  recordedDeg: number;
+}
+
+/** Consecutive same-ring neighbours; caps and lone shots contribute nothing. */
+function ringPairs(shots: AdjustedShot[]): RingPair[] {
+  const byPitch = new Map<number, number[]>();
+  shots.forEach((s, i) => {
+    if (Math.abs(s.ypr.pitchDeg) >= 70) return; // cap shot
+    const key = Math.round(s.ypr.pitchDeg / 10) * 10;
+    const list = byPitch.get(key) ?? [];
+    list.push(i);
+    byPitch.set(key, list);
+  });
+
+  const pairs: RingPair[] = [];
+  for (const indices of byPitch.values()) {
+    if (indices.length < 3) continue;
+    const sorted = indices.sort((i, j) => shots[i].ypr.yawDeg - shots[j].ypr.yawDeg);
+    for (let k = 0; k < sorted.length; k++) {
+      const a = sorted[k];
+      const b = sorted[(k + 1) % sorted.length];
+      const recorded = Math.abs(wrapDeg180(shots[b].ypr.yawDeg - shots[a].ypr.yawDeg));
+      // A ring's wrap-around pair spans the whole remaining arc; skip anything
+      // too wide to overlap at any plausible FOV.
+      if (recorded > 5 && recorded < MAX_VFOV_DEG) pairs.push({ a, b, recordedDeg: recorded });
+    }
+  }
+  return pairs;
+}
+
+/**
+ * Scans candidate FOVs and keeps the one where image-measured spacing best
+ * matches gyro-recorded spacing, then polishes with the direct ratio solve
+ * (assumed × recorded/measured ≈ true).
+ */
+export function fitVerticalFov(
+  shots: AdjustedShot[],
+  profiles: FrameProfile[],
+  frameAspect: number,
+): number {
+  const pairs = ringPairs(shots);
+  if (pairs.length < 2) return shots[0].vfovDeg;
+
+  const score = (vfov: number): { err: number; n: number } => {
+    const hfov = hfovFromVfov(vfov, frameAspect);
+    // Search wide enough to still find the peak when the candidate is far off.
+    const window = Math.max(8, hfov * 0.25);
+    let err = 0;
+    let n = 0;
+    for (const p of pairs) {
+      if (p.recordedDeg >= hfov) continue; // no overlap at this candidate
+      const pa = angularResample(profiles[p.a].luma, hfov);
+      const pb = angularResample(profiles[p.b].luma, hfov);
+      const m = correlatePair(pa, pb, hfov, p.recordedDeg, window);
+      if (!m.confident) continue;
+      err += Math.abs(m.measuredDeg - p.recordedDeg);
+      n++;
+    }
+    return { err, n };
+  };
+
+  let best = { vfov: shots[0].vfovDeg, mean: Infinity };
+  for (let vfov = MIN_VFOV_DEG; vfov <= MAX_VFOV_DEG; vfov += 6) {
+    const { err, n } = score(vfov);
+    // Require most pairs to agree, otherwise a candidate that matched a single
+    // lucky pair would win on a tiny error.
+    if (n < Math.max(2, pairs.length * 0.4)) continue;
+    const mean = err / n;
+    if (mean < best.mean) best = { vfov, mean };
+  }
+
+  // Ratio polish: the residual bias maps directly onto a FOV scale factor.
+  let vfov = best.vfov;
+  for (let iter = 0; iter < 3; iter++) {
+    const hfov = hfovFromVfov(vfov, frameAspect);
+    const window = Math.max(6, hfov * 0.2);
+    let sum = 0;
+    let n = 0;
+    for (const p of pairs) {
+      if (p.recordedDeg >= hfov) continue;
+      const m = correlatePair(
+        angularResample(profiles[p.a].luma, hfov),
+        angularResample(profiles[p.b].luma, hfov),
+        hfov, p.recordedDeg, window,
+      );
+      if (!m.confident || m.measuredDeg <= 0.5) continue;
+      sum += p.recordedDeg / m.measuredDeg;
+      n++;
+    }
+    if (n < 2) break;
+    const ratio = Math.min(1.3, Math.max(0.77, sum / n));
+    if (Math.abs(ratio - 1) < 0.005) break;
+    vfov = Math.min(MAX_VFOV_DEG, Math.max(MIN_VFOV_DEG, vfov * ratio));
+  }
+  return vfov;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Per-frame yaw touch-up and per-channel exposure                            */
+/* ------------------------------------------------------------------------- */
+
+interface PairMeasure {
+  measuredDeg: number;
+  confident: boolean;
+  /** Overlap window in frame A / frame B, as profile index ranges. */
+  overlapA: [number, number];
+  overlapB: [number, number];
+}
+
+function refineRings(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedShot[] {
+  const pairs = ringPairs(shots);
+  const yawCorrection = new Array<number>(shots.length).fill(0);
+  const gains = shots.map(() => new THREE.Vector3(1, 1, 1));
+
+  const measured = pairs.map((p) => {
+    const hfov = shots[p.a].hfovDeg;
+    return correlatePair(
+      angularResample(profiles[p.a].luma, hfov),
+      angularResample(profiles[p.b].luma, hfov),
+      hfov, p.recordedDeg, Math.max(6, hfov * 0.15),
+    );
+  });
+
+  // Yaw: nudge each frame by the residual its own pair reports. Corrections
+  // stay local (no accumulation) so one bad pair cannot skew the whole ring.
+  pairs.forEach((p, i) => {
+    const m = measured[i];
+    if (!m.confident) return;
+    const e = m.measuredDeg - p.recordedDeg;
+    if (Math.abs(e) <= YAW_DEADBAND_DEG || Math.abs(e) > MAX_YAW_CORRECTION_DEG) return;
+    // Shrink by the deadband so corrections enter continuously rather than
+    // jumping the moment the threshold is crossed; split across both frames.
+    const shrunk = (e - Math.sign(e) * YAW_DEADBAND_DEG) / 2;
+    yawCorrection[p.b] += shrunk;
+    yawCorrection[p.a] -= shrunk;
+  });
+
+  // Exposure and white balance: per channel, so a warm room next to a cool one
+  // matches in colour and not merely in brightness.
+  pairs.forEach((p, i) => {
+    const m = measured[i];
+    if (!m.confident) return;
+    const hfov = shots[p.a].hfovDeg;
+    for (let c = 0; c < 3; c++) {
+      const ca = angularResample(profiles[p.a].channels[c], hfov);
+      const cb = angularResample(profiles[p.b].channels[c], hfov);
+      const meanA = meanOf(ca, m.overlapA);
+      const meanB = meanOf(cb, m.overlapB);
+      if (meanA < 4 || meanB < 4) continue;
+      const ratio = Math.min(1.25, Math.max(0.8, meanA / meanB));
+      gains[p.b].setComponent(c, gains[p.b].getComponent(c) * ratio);
+    }
+  });
+
+  // Normalise so the set keeps its overall exposure instead of drifting.
+  const geo = new THREE.Vector3(1, 1, 1);
+  for (let c = 0; c < 3; c++) {
+    const product = gains.reduce((acc, g) => acc * g.getComponent(c), 1);
+    geo.setComponent(c, product ** (1 / gains.length));
+  }
+
+  return shots.map((s, i) => {
+    const g = gains[i].clone().divide(geo);
+    return {
+      ...s,
+      gain: new THREE.Vector3(
+        clamp(g.x, 0.75, 1.35), clamp(g.y, 0.75, 1.35), clamp(g.z, 0.75, 1.35),
+      ),
+      q: quaternionFromYpr(yawCorrection[i], 0, 0).multiply(s.q),
+    };
+  });
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
+
+function meanOf(arr: Float32Array, range: [number, number]): number {
+  let sum = 0;
+  let n = 0;
+  for (let i = Math.max(0, range[0]); i < Math.min(arr.length, range[1]); i++) {
+    sum += arr[i];
+    n++;
+  }
+  return n > 0 ? sum / n : 0;
 }
 
 function correlatePair(
@@ -209,54 +416,56 @@ function correlatePair(
   b: Float32Array,
   hfovDeg: number,
   recordedDeg: number,
+  windowDeg: number,
 ): PairMeasure {
-  let best = { delta: recordedDeg, score: -Infinity, lumaA: 0, lumaB: 0 };
+  let best = {
+    delta: recordedDeg, score: -Infinity,
+    overlapA: [0, 0] as [number, number], overlapB: [0, 0] as [number, number],
+  };
 
-  for (let delta = recordedDeg - SEARCH_RANGE_DEG; delta <= recordedDeg + SEARCH_RANGE_DEG; delta += PROFILE_STEP_DEG) {
+  const lo = Math.max(1, recordedDeg - windowDeg);
+  const hi = Math.min(hfovDeg - 1, recordedDeg + windowDeg);
+
+  for (let delta = lo; delta <= hi; delta += PROFILE_STEP_DEG) {
     // Frame A angle x maps to frame B angle x − delta; overlap window in A:
     const startDeg = Math.max(-hfovDeg / 2, delta - hfovDeg / 2);
-    const endDeg = hfovDeg / 2;
-    if (endDeg - startDeg < 3) continue;
-
-    const offsetB = Math.round(-delta / PROFILE_STEP_DEG);
     const s0 = Math.round((startDeg + hfovDeg / 2) / PROFILE_STEP_DEG);
-    const s1 = Math.round((endDeg + hfovDeg / 2) / PROFILE_STEP_DEG);
+    const s1 = a.length;
+    const offsetB = Math.round(-delta / PROFILE_STEP_DEG);
+    if (s1 - s0 < 12) continue;
 
     let sumA = 0, sumB = 0, count = 0;
     for (let s = s0; s < s1; s++) {
       const sb = s + offsetB;
-      if (sb < 0 || sb >= b.length || s >= a.length) continue;
-      sumA += a[s];
-      sumB += b[sb];
-      count++;
+      if (sb < 0 || sb >= b.length) continue;
+      sumA += a[s]; sumB += b[sb]; count++;
     }
-    if (count < 8) continue;
-    const meanA = sumA / count;
-    const meanB = sumB / count;
+    if (count < 12) continue;
+    const meanA = sumA / count, meanB = sumB / count;
 
     let num = 0, varA = 0, varB = 0;
     for (let s = s0; s < s1; s++) {
       const sb = s + offsetB;
-      if (sb < 0 || sb >= b.length || s >= a.length) continue;
-      const da = a[s] - meanA;
-      const db = b[sb] - meanB;
-      num += da * db;
-      varA += da * da;
-      varB += db * db;
+      if (sb < 0 || sb >= b.length) continue;
+      const da = a[s] - meanA, db = b[sb] - meanB;
+      num += da * db; varA += da * da; varB += db * db;
     }
     const denom = Math.sqrt(varA * varB);
     const score = denom > 1e-3 ? num / denom : 0;
     if (score > best.score) {
-      best = { delta, score, lumaA: meanA, lumaB: meanB };
+      best = {
+        delta, score,
+        overlapA: [s0, s1],
+        overlapB: [Math.max(0, s0 + offsetB), Math.min(b.length, s1 + offsetB)],
+      };
     }
   }
 
   return {
-    recordedDeg,
     measuredDeg: best.delta,
     confident: best.score >= MIN_CORRELATION,
-    lumaA: best.lumaA,
-    lumaB: best.lumaB,
+    overlapA: best.overlapA,
+    overlapB: best.overlapB,
   };
 }
 
@@ -278,7 +487,7 @@ const ACCUM_FRAGMENT = /* glsl */ `
   uniform sampler2D uFrame;
   uniform mat3 uWorldToCamera;
   uniform vec2 uTanHalfFov; // (tan(hfov/2), tan(vfov/2))
-  uniform float uGain;
+  uniform vec3 uGain;
 
   const float PI = 3.14159265358979;
 
@@ -309,14 +518,21 @@ const NORMALIZE_FRAGMENT = /* glsl */ `
   void main() {
     vec4 acc = texture2D(uAccum, vUv);
     vec3 color = acc.a > 1e-4 ? acc.rgb / acc.a : vec3(0.0);
-    gl_FragColor = vec4(color, 1.0);
+    // Alpha carries the coverage mask into the 2D pass, which fills only the
+    // pixels no shot actually reached.
+    gl_FragColor = vec4(color, acc.a > 1e-4 ? 1.0 : 0.0);
   }
 `;
 
-function renderEquirect(shots: AdjustedShot[], outWidth: number, outHeight: number): HTMLCanvasElement {
+function renderEquirect(
+  shots: AdjustedShot[],
+  outWidth: number,
+  outHeight: number,
+): { canvas: HTMLCanvasElement; coverage: number } {
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
-    alpha: false,
+    alpha: true,
+    premultipliedAlpha: false,
     preserveDrawingBuffer: true,
   });
   renderer.setPixelRatio(1);
@@ -343,7 +559,7 @@ function renderEquirect(shots: AdjustedShot[], outWidth: number, outHeight: numb
       uFrame: { value: null },
       uWorldToCamera: { value: new THREE.Matrix3() },
       uTanHalfFov: { value: new THREE.Vector2(1, 1) },
-      uGain: { value: 1 },
+      uGain: { value: new THREE.Vector3(1, 1, 1) },
     },
     depthTest: false,
     depthWrite: false,
@@ -379,7 +595,7 @@ function renderEquirect(shots: AdjustedShot[], outWidth: number, outHeight: numb
       Math.tan((shot.hfovDeg * Math.PI) / 360),
       Math.tan((shot.vfovDeg * Math.PI) / 360),
     );
-    accumMaterial.uniforms['uGain'].value = shot.gain;
+    (accumMaterial.uniforms['uGain'].value as THREE.Vector3).copy(shot.gain);
     renderer.render(scene, camera);
   }
 
@@ -389,9 +605,11 @@ function renderEquirect(shots: AdjustedShot[], outWidth: number, outHeight: numb
     uniforms: { uAccum: { value: accumTarget.texture } },
     depthTest: false,
     depthWrite: false,
+    transparent: true,
   });
   mesh.material = normalizeMaterial;
   renderer.setRenderTarget(null);
+  renderer.setClearColor(0x000000, 0);
   renderer.clear(true, false, false);
   renderer.render(scene, camera);
 
@@ -409,57 +627,89 @@ function renderEquirect(shots: AdjustedShot[], outWidth: number, outHeight: numb
   renderer.dispose();
   renderer.forceContextLoss();
 
-  return out;
+  return { canvas: out, coverage: measureCoverage(out) };
+}
+
+/** Solid-angle weighted, so rows near the poles do not dominate the ratio. */
+function measureCoverage(canvas: HTMLCanvasElement): number {
+  const w = 256, h = 128;
+  const small = document.createElement('canvas');
+  small.width = w;
+  small.height = h;
+  const ctx = small.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(canvas, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h).data;
+
+  let covered = 0, total = 0;
+  for (let y = 0; y < h; y++) {
+    const theta = ((y + 0.5) / h) * Math.PI;
+    const weight = Math.sin(theta);
+    for (let x = 0; x < w; x++) {
+      total += weight;
+      if (data[(y * w + x) * 4 + 3] > 128) covered += weight;
+    }
+  }
+  return total > 0 ? covered / total : 0;
 }
 
 /* ------------------------------------------------------------------------- */
-/* Poles: stretch + blur the coverage edge into the empty caps                */
+/* Uncovered pixels: filled from the nearest covered row, then blurred        */
 /* ------------------------------------------------------------------------- */
 
-function fillPoles(
-  source: HTMLCanvasElement,
-  outWidth: number,
-  outHeight: number,
-  vfovDeg: number,
-): HTMLCanvasElement {
-  const ctx = source.getContext('2d')!;
+/**
+ * Reads the coverage mask the normalize pass wrote into alpha and fills only
+ * what the shots genuinely missed — no assumption about the lens. With caps
+ * captured this usually touches nothing.
+ */
+function fillUncovered(source: HTMLCanvasElement, outWidth: number, outHeight: number): HTMLCanvasElement {
+  const ctx = source.getContext('2d', { willReadFrequently: true })!;
 
-  // Conservative coverage: half the vertical FOV minus pitch-drift margin.
-  const coveredLatDeg = Math.max(20, vfovDeg / 2 - 6);
-  const topRow = Math.round(((90 - coveredLatDeg) / 180) * outHeight);
-  const bottomRow = Math.round(((90 + coveredLatDeg) / 180) * outHeight);
-  const bandRows = Math.max(4, Math.round(outHeight * 0.01));
+  // Row coverage from a cheap downscale — gaps are whole latitude bands.
+  const probeH = 256;
+  const probe = document.createElement('canvas');
+  probe.width = 8;
+  probe.height = probeH;
+  const pctx = probe.getContext('2d', { willReadFrequently: true })!;
+  pctx.drawImage(source, 0, 0, 8, probeH);
+  const pdata = pctx.getImageData(0, 0, 8, probeH).data;
 
-  const blurredStrip = (srcY: number): HTMLCanvasElement => {
-    // Downscale-upscale acts as a cheap large-radius blur.
+  const rowCovered: boolean[] = [];
+  for (let y = 0; y < probeH; y++) {
+    let hits = 0;
+    for (let x = 0; x < 8; x++) if (pdata[(y * 8 + x) * 4 + 3] > 128) hits++;
+    rowCovered.push(hits >= 4);
+  }
+
+  const firstCovered = rowCovered.indexOf(true);
+  const lastCovered = rowCovered.lastIndexOf(true);
+  if (firstCovered < 0) return source; // nothing to work with
+
+  const out = document.createElement('canvas');
+  out.width = outWidth;
+  out.height = outHeight;
+  const octx = out.getContext('2d')!;
+  octx.imageSmoothingEnabled = true;
+  octx.imageSmoothingQuality = 'high';
+
+  const topRow = Math.round((firstCovered / probeH) * outHeight);
+  const bottomRow = Math.round(((lastCovered + 1) / probeH) * outHeight);
+  const band = Math.max(4, Math.round(outHeight * 0.01));
+
+  // Stretch a heavily downscaled strip of the edge row across the gap: a cheap
+  // large-radius blur that keeps the ambient colour without inventing detail.
+  const strip = (srcY: number): HTMLCanvasElement => {
     const tiny = document.createElement('canvas');
     tiny.width = 64;
     tiny.height = 1;
-    const tctx = tiny.getContext('2d')!;
-    tctx.drawImage(source, 0, srcY, outWidth, bandRows, 0, 0, 64, 1);
+    tiny.getContext('2d')!.drawImage(source, 0, srcY, outWidth, band, 0, 0, 64, 1);
     return tiny;
   };
 
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-
-  if (topRow > 0) {
-    ctx.drawImage(blurredStrip(topRow), 0, 0, 64, 1, 0, 0, outWidth, topRow + 2);
-    const fade = ctx.createLinearGradient(0, 0, 0, topRow);
-    fade.addColorStop(0, 'rgba(0, 0, 0, 0.25)');
-    fade.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = fade;
-    ctx.fillRect(0, 0, outWidth, topRow);
-  }
-
+  if (topRow > 0) octx.drawImage(strip(topRow), 0, 0, 64, 1, 0, 0, outWidth, topRow + 2);
   if (bottomRow < outHeight) {
-    ctx.drawImage(blurredStrip(bottomRow - bandRows), 0, 0, 64, 1, 0, bottomRow - 2, outWidth, outHeight - bottomRow + 2);
-    const fade = ctx.createLinearGradient(0, bottomRow, 0, outHeight);
-    fade.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    fade.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
-    ctx.fillStyle = fade;
-    ctx.fillRect(0, bottomRow, outWidth, outHeight - bottomRow);
+    octx.drawImage(strip(Math.max(0, bottomRow - band)), 0, 0, 64, 1, 0, bottomRow - 2, outWidth, outHeight - bottomRow + 2);
   }
 
-  return source;
+  octx.drawImage(source, 0, 0);
+  return out;
 }

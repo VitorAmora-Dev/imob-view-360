@@ -6,10 +6,13 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../panoramic-viewer/panoramic-viewer.component';
-import { CaptureSession, targetCountForHfov, DEFAULT_TUNING } from './capture-session';
+import { CaptureSession, DEFAULT_TUNING } from './capture-session';
+import { CaptureTarget, PatternOptions, buildCapturePattern, buildRemainingPattern } from './capture-pattern';
+import { directionForYawPitch } from './orientation-math';
 import {
   CaptureCameraSource,
   CaptureOrientationSource,
+  LensOption,
   OrientationReading,
   RealCameraSource,
   RealOrientationSource,
@@ -17,21 +20,22 @@ import {
   SimOrientationSource,
 } from './capture-sources';
 import { SimEnvironment } from './sim-environment';
-import { StitchShot, hfovFromSpec, stitchEquirect } from './stitcher';
+import { StitchShot, fitVfovFromShots, hfovFromSpec, hfovFromVfov, stitchEquirect } from './stitcher';
 
 type CaptureState = 'intro' | 'capturing' | 'stitching' | 'preview' | 'error';
 
 /**
- * Full-screen guided 360° capture modal (BANIB-style): horizon line, center
- * reticle and a ring of target dots; holding the reticle on a dot for the
- * dwell time captures that angle, and the ring of shots is stitched into an
- * equirectangular panorama returned as `{ imageData }` on dismiss.
+ * Full-screen guided 360° capture modal (BANIB-style): horizon line, centre
+ * reticle and aim points that close the whole sphere — a ring at eye level,
+ * extra rings when the lens is narrow, and caps for ceiling and floor.
+ * Holding the reticle on a point captures that angle; the set is stitched into
+ * an equirectangular panorama returned as `{ imageData }` on dismiss.
  *
- * With `?sim=1` in the URL the camera and sensors are replaced by a synthetic
- * Three.js room driven by mouse/arrow keys, so the whole flow runs on desktop.
+ * With `?sim=1` the camera and sensors are replaced by a synthetic Three.js
+ * room driven by mouse/arrow keys, so the whole flow runs on desktop.
  *
- * The 60fps overlay (horizon/dots/dwell ring) is updated imperatively outside
- * Angular; signals only carry discrete state changes.
+ * The 60fps overlay is updated imperatively outside Angular; signals only
+ * carry discrete state changes.
  */
 @Component({
   selector: 'app-capture-360',
@@ -51,10 +55,12 @@ export class Capture360Component implements OnDestroy {
 
   readonly state = signal<CaptureState>('intro');
   readonly capturedCount = signal(0);
-  readonly totalCount = signal(DEFAULT_TUNING.targetCount);
+  readonly totalCount = signal(0);
   readonly hintKey = signal('CAPTURE.ALIGN_HINT');
   readonly errorKey = signal('CAPTURE.CAMERA_ERROR');
   readonly previewPanoramas = signal<Panorama[]>([]);
+  readonly lenses = signal<LensOption[]>([]);
+  readonly activeLensId = signal<string | null>(null);
   readonly simMode = new URLSearchParams(window.location.search).has('sim');
 
   private readonly modalCtrl = inject(ModalController);
@@ -68,6 +74,7 @@ export class Capture360Component implements OnDestroy {
   private rafId: number | null = null;
   private viewport = { width: 0, height: 0 };
   private lastHint = '';
+  private replanned = false;
 
   /** Dwell ring geometry: r=34 in an 80×80 viewBox. */
   readonly dwellCircumference = 2 * Math.PI * 34;
@@ -91,6 +98,21 @@ export class Capture360Component implements OnDestroy {
     this.modalCtrl.dismiss(imageData ? { imageData } : null, imageData ? 'confirm' : 'cancel');
   }
 
+  lensLabel(lens: LensOption): string {
+    return lens.kind === 'ultrawide' ? '0,5×' : lens.kind === 'tele' ? '2×' : '1×';
+  }
+
+  async selectLens(lens: LensOption): Promise<void> {
+    if (!this.camera || lens.deviceId === this.activeLensId()) return;
+    try {
+      await this.camera.switchLens(lens.deviceId);
+      this.activeLensId.set(this.camera.activeLensId());
+      this.rebuildPattern();
+    } catch {
+      this.fail('CAPTURE.CAMERA_ERROR');
+    }
+  }
+
   async begin(): Promise<void> {
     try {
       if (this.simMode) {
@@ -98,9 +120,7 @@ export class Capture360Component implements OnDestroy {
         this.camera = new SimCameraSource(this.simEnv);
         this.orientation = new SimOrientationSource(this.simEnv);
       } else {
-        if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('camera-unsupported');
-        }
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('camera-unsupported');
         this.camera = new RealCameraSource();
         this.orientation = new RealOrientationSource();
       }
@@ -114,33 +134,63 @@ export class Capture360Component implements OnDestroy {
       await this.camera.start();
       this.orientation.start();
 
-      const gotSensor = await this.waitForSensor();
-      if (!gotSensor) {
+      if (!(await this.waitForSensor())) {
         this.fail('CAPTURE.SENSOR_ERROR');
         return;
       }
 
-      const spec = this.camera.getSpec();
-      const targetCount = targetCountForHfov(hfovFromSpec(spec), DEFAULT_TUNING);
-      this.session = new CaptureSession({ targetCount, dwellMs: this.dwellMs() });
-      this.shots = [];
-      this.totalCount.set(targetCount);
-      this.capturedCount.set(0);
+      this.lenses.set(this.camera.lenses());
+      this.activeLensId.set(this.camera.activeLensId());
+      this.rebuildPattern();
 
       this.state.set('capturing');
       await new Promise((resolve) => setTimeout(resolve));
 
-      const container = this.previewContainer!.nativeElement;
-      this.camera.attach(container);
-      if (this.simEnv && this.overlay) {
-        this.simEnv.bindInput(this.overlay.nativeElement);
-      }
+      this.camera.attach(this.previewContainer!.nativeElement);
+      if (this.simEnv && this.overlay) this.simEnv.bindInput(this.overlay.nativeElement);
       this.onResize();
       this.orientation.rezero();
       this.startLoop();
     } catch {
       this.fail('CAPTURE.CAMERA_ERROR');
     }
+  }
+
+  /** Recomputes the aim points — the lens decides how many rings are needed. */
+  private rebuildPattern(): void {
+    const spec = this.camera!.getSpec();
+    const targets = buildCapturePattern({
+      vfovDeg: spec.vfovDeg ?? 65,
+      hfovDeg: hfovFromSpec(spec),
+      centerToleranceDeg: DEFAULT_TUNING.centerToleranceDeg,
+    });
+    this.session = new CaptureSession(targets, { dwellMs: this.dwellMs() });
+    this.shots = [];
+    this.replanned = false;
+    this.totalCount.set(targets.length);
+    this.capturedCount.set(0);
+  }
+
+  /**
+   * The opening plan is sized from a deliberately low FOV guess, which would
+   * cost the user extra rings. Once the horizon ring is in hand its overlaps
+   * reveal the real field of view, so the rest of the plan is rebuilt — almost
+   * always shorter than advertised, never with a gap.
+   */
+  private replanFromFittedFov(): void {
+    this.replanned = true;
+    const spec = this.camera!.getSpec();
+    const fitted = fitVfovFromShots(this.shots, spec);
+    const options: PatternOptions = {
+      vfovDeg: fitted,
+      hfovDeg: hfovFromVfov(fitted, spec.frameAspect),
+      centerToleranceDeg: DEFAULT_TUNING.centerToleranceDeg,
+    };
+    const donePitches = this.session!.capturedTargets()
+      .filter((t) => t.kind === 'ring')
+      .map((t) => t.pitchDeg);
+    this.session!.retarget(buildRemainingPattern(options, donePitches));
+    this.zone.run(() => this.totalCount.set(this.session!.total));
   }
 
   restart(): void {
@@ -206,16 +256,33 @@ export class Capture360Component implements OnDestroy {
 
     const events = this.session.update(now, reading.ypr);
     this.paintOverlay(reading);
+    if (this.simMode) {
+      // Lets an automated run aim at the current point without guessing the plan.
+      (window as unknown as Record<string, unknown>)['__captureTarget'] = this.session.snapshot.currentTarget;
+    }
 
     for (const event of events) {
       if (event.type === 'capture') {
         this.captureShot(reading);
+        if (!this.replanned && this.horizonRingComplete()) {
+          this.replanFromFittedFov();
+        }
       } else {
         this.stopLoop();
         this.zone.run(() => void this.stitch());
         return;
       }
     }
+  }
+
+  private horizonRingComplete(): boolean {
+    const snap = this.session!.snapshot;
+    // The plan always opens with the eye-level ring, so the ring is done the
+    // moment the next target leaves pitch 0 — replan before shooting it. Once
+    // the session is complete there is nothing left to plan.
+    return snap.status !== 'complete'
+      && snap.capturedCount >= 3
+      && snap.currentTarget.pitchDeg !== 0;
   }
 
   private captureShot(reading: OrientationReading): void {
@@ -232,16 +299,15 @@ export class Capture360Component implements OnDestroy {
     try {
       // Let the spinner paint before the heavy synchronous stretch begins.
       await new Promise((resolve) => setTimeout(resolve, 50));
-      const spec = this.camera!.getSpec();
-      const imageData = await stitchEquirect(this.shots, spec);
+      const result = await stitchEquirect(this.shots, this.camera!.getSpec());
       if (this.simMode) {
         // Lets an automated run diff the stitch against SimEnvironment.groundTruth.
-        (window as unknown as Record<string, unknown>)['__captureResult'] = imageData;
+        (window as unknown as Record<string, unknown>)['__captureResult'] = result;
       }
       this.previewPanoramas.set([{
         id: 'capture-preview',
         roomName: '',
-        imageData,
+        imageData: result.imageData,
         order: 0,
         initialPanorama: true,
         originHotspots: [],
@@ -273,9 +339,7 @@ export class Capture360Component implements OnDestroy {
 
   private readonly onResize = (): void => {
     const el = this.overlay?.nativeElement;
-    if (el) {
-      this.viewport = { width: el.clientWidth, height: el.clientHeight };
-    }
+    if (el) this.viewport = { width: el.clientWidth, height: el.clientHeight };
   };
 
   /** Imperative 60fps overlay update — no Angular change detection involved. */
@@ -290,20 +354,28 @@ export class Capture360Component implements OnDestroy {
     const spec = this.camera!.getSpec();
     const vfov = spec.vfovDeg ?? 65;
     const hfov = hfovFromSpec(spec);
-    // object-fit: cover — angular density of the visible crop.
-    const pxPerDegX = Math.max(width, height * spec.frameAspect) / hfov;
-    const pxPerDegY = Math.max(width / spec.frameAspect, height) / vfov;
+    // object-fit: cover — half-extent in px of the ±1 normalised frame axes.
+    const halfX = Math.max(width, height * spec.frameAspect) / 2;
+    const halfY = Math.max(width / spec.frameAspect, height) / 2;
+    const tanHalfH = Math.tan((hfov * Math.PI) / 360);
+    const tanHalfV = Math.tan((vfov * Math.PI) / 360);
 
     const ypr = reading.ypr;
     if (this.horizonEl) {
+      const pxPerDegY = halfY / (vfov / 2);
       this.horizonEl.nativeElement.style.transform =
         `translateY(${(ypr.pitchDeg * pxPerDegY).toFixed(1)}px) rotate(${(-ypr.rollDeg).toFixed(1)}deg)`;
-      this.horizonEl.nativeElement.classList.toggle('horizon--off', !snap.levelOk);
     }
 
-    const dotX = snap.offsetYawDeg * pxPerDegX;
-    const dotY = -snap.offsetPitchDeg * pxPerDegY;
-    const onScreen = Math.abs(snap.offsetYawDeg) < hfov / 2 + 4;
+    // Same projection the stitcher's shader uses, so the dot sits exactly where
+    // the frame will land — a linear approximation breaks down for the caps.
+    const target = snap.currentTarget;
+    const dir = directionForYawPitch(target.yawDeg, target.pitchDeg);
+    const cam = dir.clone().applyQuaternion(reading.q.clone().invert());
+    const inFront = cam.z < -0.001;
+    const dotX = inFront ? (cam.x / -cam.z / tanHalfH) * halfX : 0;
+    const dotY = inFront ? -(cam.y / -cam.z / tanHalfV) * halfY : 0;
+    const onScreen = inFront && Math.abs(dotX) < width * 0.62 && Math.abs(dotY) < height * 0.62;
 
     if (this.targetEl) {
       const el = this.targetEl.nativeElement;
@@ -315,7 +387,9 @@ export class Capture360Component implements OnDestroy {
     if (this.arrowEl) {
       const el = this.arrowEl.nativeElement;
       el.style.visibility = onScreen ? 'hidden' : 'visible';
-      el.classList.toggle('edge-arrow--left', snap.offsetYawDeg < 0);
+      // Point along the shortest turn toward the target, including up/down.
+      const dirDeg = Math.atan2(-snap.offsetPitchDeg, snap.offsetYawDeg) * (180 / Math.PI);
+      el.style.transform = `rotate(${dirDeg.toFixed(1)}deg)`;
     }
 
     if (this.reticleEl) {
@@ -327,11 +401,17 @@ export class Capture360Component implements OnDestroy {
         String(this.dwellCircumference * (1 - snap.dwellProgress));
     }
 
-    const hint = !snap.levelOk
-      ? 'CAPTURE.LEVEL_HINT'
-      : snap.status === 'dwelling'
-        ? 'CAPTURE.HOLD_HINT'
-        : 'CAPTURE.ALIGN_HINT';
+    this.updateHint(snap, target);
+  }
+
+  private updateHint(snap: CaptureSession['snapshot'], target: CaptureTarget): void {
+    const hint = snap.status === 'dwelling'
+      ? 'CAPTURE.HOLD_HINT'
+      : target.kind === 'cap'
+        ? (target.pitchDeg > 0 ? 'CAPTURE.AIM_UP_HINT' : 'CAPTURE.AIM_DOWN_HINT')
+        : !snap.steady
+          ? 'CAPTURE.STEADY_HINT'
+          : 'CAPTURE.ALIGN_HINT';
     if (hint !== this.lastHint) {
       this.lastHint = hint;
       this.zone.run(() => this.hintKey.set(hint));

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { quaternionFromYpr } from './orientation-math';
 import { drawSyntheticPano } from './synthetic-pano';
+import type { LensOption } from './capture-sources';
 
 /**
  * Desktop stand-in for phone + room: renders a synthetic equirectangular
@@ -8,10 +9,23 @@ import { drawSyntheticPano } from './synthetic-pano';
  * phone camera driven by mouse drag / arrow keys (Q/E tilt). Both the camera
  * preview and the orientation sensor read from this single state, and the
  * synthetic pano doubles as ground truth for verifying the stitcher.
+ *
+ * The virtual lenses carry a TRUE field of view that is deliberately different
+ * from the prior handed to the pipeline, so the FOV fit has to actually work
+ * for the stitch to come out aligned.
  */
+interface SimLens extends LensOption {
+  trueVfovDeg: number;
+  priorVfovDeg: number;
+}
+
+const SIM_LENSES: SimLens[] = [
+  { deviceId: 'sim-ultrawide', label: 'Câmera Grande-Angular Traseira', kind: 'ultrawide', trueVfovDeg: 108, priorVfovDeg: 95 },
+  { deviceId: 'sim-wide', label: 'Câmera Traseira', kind: 'wide', trueVfovDeg: 69, priorVfovDeg: 62 },
+];
+
 export class SimEnvironment {
   /** Virtual portrait camera: 4:3 sensor like most phone main cameras. */
-  readonly vfovDeg = 65;
   readonly frameWidth = 1080;
   readonly frameHeight = 1440;
 
@@ -22,9 +36,11 @@ export class SimEnvironment {
   /** The equirectangular the virtual room is built from — stitching ground truth. */
   groundTruth: HTMLCanvasElement | null = null;
 
+  private lens: SimLens = SIM_LENSES[0];
+
   private renderer: THREE.WebGLRenderer | null = null;
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(this.vfovDeg, this.frameWidth / this.frameHeight, 0.1, 1100);
+  private camera = new THREE.PerspectiveCamera(108, 1080 / 1440, 0.1, 1100);
   private texture: THREE.CanvasTexture | null = null;
   private rafId: number | null = null;
   private readonly keysDown = new Set<string>();
@@ -32,6 +48,32 @@ export class SimEnvironment {
   private dragPointerId: number | null = null;
   private dragLast = { x: 0, y: 0 };
   private inputEl: HTMLElement | null = null;
+
+  get lenses(): LensOption[] {
+    return SIM_LENSES.map(({ deviceId, label, kind }) => ({ deviceId, label, kind }));
+  }
+
+  get activeLensId(): string {
+    return this.lens.deviceId;
+  }
+
+  /** What the pipeline is told — an under-estimate, as on a real device. */
+  get priorVfovDeg(): number {
+    return this.lens.priorVfovDeg;
+  }
+
+  /** What the virtual camera actually sees; the fit must recover this. */
+  get trueVfovDeg(): number {
+    return this.lens.trueVfovDeg;
+  }
+
+  switchLens(deviceId: string): void {
+    const found = SIM_LENSES.find((l) => l.deviceId === deviceId);
+    if (!found) return;
+    this.lens = found;
+    this.camera.fov = found.trueVfovDeg;
+    this.camera.updateProjectionMatrix();
+  }
 
   start(): void {
     if (this.renderer) return;
@@ -46,6 +88,10 @@ export class SimEnvironment {
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
     this.scene.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: this.texture })));
+
+    this.camera.fov = this.lens.trueVfovDeg;
+    this.camera.aspect = this.frameWidth / this.frameHeight;
+    this.camera.updateProjectionMatrix();
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(this.frameWidth, this.frameHeight, false);
@@ -121,8 +167,8 @@ export class SimEnvironment {
     const turn = 45 * dt;
     if (this.keysDown.has('ArrowRight')) this.yawDeg += turn;
     if (this.keysDown.has('ArrowLeft')) this.yawDeg -= turn;
-    if (this.keysDown.has('ArrowUp')) this.pitchDeg = Math.min(80, this.pitchDeg + turn);
-    if (this.keysDown.has('ArrowDown')) this.pitchDeg = Math.max(-80, this.pitchDeg - turn);
+    if (this.keysDown.has('ArrowUp')) this.pitchDeg = Math.min(90, this.pitchDeg + turn);
+    if (this.keysDown.has('ArrowDown')) this.pitchDeg = Math.max(-90, this.pitchDeg - turn);
     if (this.keysDown.has('KeyE')) this.rollDeg += turn;
     if (this.keysDown.has('KeyQ')) this.rollDeg -= turn;
   }
@@ -147,7 +193,7 @@ export class SimEnvironment {
     if (e.pointerId !== this.dragPointerId) return;
     // Dragging right turns right, like panning a phone.
     this.yawDeg += (e.clientX - this.dragLast.x) * 0.15;
-    this.pitchDeg = THREE.MathUtils.clamp(this.pitchDeg + (e.clientY - this.dragLast.y) * -0.15, -80, 80);
+    this.pitchDeg = THREE.MathUtils.clamp(this.pitchDeg + (e.clientY - this.dragLast.y) * -0.15, -90, 90);
     this.dragLast = { x: e.clientX, y: e.clientY };
   };
 

@@ -97,23 +97,27 @@
   }
 }
 
-.edge-arrow {
+// A rotating pointer instead of a fixed side chevron: with rings above and
+// below the horizon plus the two caps, the target can be in any direction.
+.edge-arrow-wrap {
   position: absolute;
   top: 50%;
-  right: 20px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  animation: edge-pulse 1s ease-in-out infinite;
+}
+
+.edge-arrow {
+  position: absolute;
+  // Sits on a circle around the reticle; the wrapper's rotation aims it.
+  left: 74px;
+  top: -9px;
   width: 18px;
   height: 18px;
-  margin-top: -9px;
   border-top: 3px solid #fff;
   border-right: 3px solid #fff;
   transform: rotate(45deg);
-  animation: edge-pulse 1s ease-in-out infinite;
-
-  &.edge-arrow--left {
-    right: auto;
-    left: 20px;
-    transform: rotate(-135deg);
-  }
 }
 
 @keyframes edge-pulse {
@@ -174,6 +178,34 @@
   font-size: 14px;
   backdrop-filter: blur(8px);
   text-align: center;
+}
+
+// Lens switcher in the language of a camera app: 0,5× / 1× / 2×
+.lens-picker {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: rgba(34, 34, 34, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.lens-chip {
+  min-width: 44px;
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &--active {
+    background: #fff;
+    color: var(--app-ink);
+  }
 }
 
 .sim-badge {
