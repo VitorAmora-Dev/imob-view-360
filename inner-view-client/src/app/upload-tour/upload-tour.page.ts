@@ -6,11 +6,11 @@ import {
   IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
   IonButton, IonIcon, IonItem, IonLabel, IonInput, IonSelect, IonSelectOption,
   IonList, IonSpinner, IonModal, IonNote,
-  AlertController, ToastController,
+  ActionSheetController, AlertController, ModalController, ToastController,
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
-import { addCircleOutline, trashOutline, eyeOutline, closeOutline } from 'ionicons/icons';
+import { addCircleOutline, cameraOutline, imageOutline, trashOutline, eyeOutline, closeOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { PropertyService } from '../services/property.service';
@@ -18,6 +18,8 @@ import { CepService, CepNotFoundError } from '../services/cep.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { Panorama } from '../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
+import { Capture360Component } from '../components/capture-360/capture-360.component';
+import { captureSupported } from '../components/capture-360/capture-support';
 
 interface PanoramaItem {
   roomName: string;
@@ -74,11 +76,13 @@ export class UploadTourPage {
   private cepService = inject(CepService);
   private virtualTourService = inject(VirtualTourService);
   private alertController = inject(AlertController);
+  private actionSheetController = inject(ActionSheetController);
+  private modalController = inject(ModalController);
   private toastController = inject(ToastController);
   private translate = inject(TranslateService);
 
   constructor() {
-    addIcons({ addCircleOutline, trashOutline, eyeOutline, closeOutline });
+    addIcons({ addCircleOutline, cameraOutline, imageOutline, trashOutline, eyeOutline, closeOutline });
   }
 
   get canSubmit(): boolean {
@@ -140,6 +144,47 @@ export class UploadTourPage {
 
   openFilePicker() {
     this.fileInput.nativeElement.click();
+  }
+
+  async addImage() {
+    if (!captureSupported()) {
+      this.openFilePicker();
+      return;
+    }
+    const sheet = await this.actionSheetController.create({
+      header: this.translate.instant('CAPTURE.ADD_METHOD_TITLE'),
+      buttons: [
+        { text: this.translate.instant('CAPTURE.WITH_CAMERA'), icon: 'camera-outline', data: 'capture' },
+        { text: this.translate.instant('CAPTURE.FROM_FILE'), icon: 'image-outline', data: 'file' },
+        { text: this.translate.instant('INNER_VIEW.CANCEL'), role: 'cancel' },
+      ],
+    });
+    await sheet.present();
+    const { data } = await sheet.onDidDismiss();
+    if (data === 'capture') {
+      await this.openCapture();
+    } else if (data === 'file') {
+      this.openFilePicker();
+    }
+  }
+
+  private async openCapture() {
+    const modal = await this.modalController.create({
+      component: Capture360Component,
+      cssClass: 'capture-360-modal',
+    });
+    await modal.present();
+    const { role, data } = await modal.onDidDismiss<{ imageData: string }>();
+    if (role !== 'confirm' || !data?.imageData) return;
+
+    const roomName = await this.promptRoomName();
+    if (!roomName) return;
+
+    this.panoramas.push({
+      roomName,
+      imageData: data.imageData,
+      fileName: `captura-360-${this.panoramas.length + 1}.jpg`,
+    });
   }
 
   async onFileSelected(event: Event) {

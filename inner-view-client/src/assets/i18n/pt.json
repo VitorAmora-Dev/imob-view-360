@@ -15,6 +15,30 @@
     "LINK_COPIED": "Link do tour copiado!",
     "SHARE_ERROR": "Não foi possível compartilhar o link."
   },
+  "CAPTURE": {
+    "ADD_METHOD_TITLE": "Adicionar imagem 360°",
+    "WITH_CAMERA": "Capturar com a câmera",
+    "FROM_FILE": "Enviar arquivo",
+    "INTRO_TITLE": "Captura 360° guiada",
+    "INTRO_TEXT": "Gire lentamente seguindo as bolinhas na tela. Quando a mira estiver dentro da bolinha, segure parado até o anel completar — a foto daquele ângulo será capturada.",
+    "TRIPOD_HINT": "Para o melhor resultado, use um tripé e gire o celular no lugar.",
+    "START": "Começar",
+    "CANCEL": "Cancelar",
+    "PROGRESS": "Capturas {{captured}} de {{total}}",
+    "ALIGN_HINT": "Leve a mira até a bolinha",
+    "HOLD_HINT": "Segure parado…",
+    "LEVEL_HINT": "Nivele o celular com a linha",
+    "STITCHING": "Montando o panorama…",
+    "PREVIEW_TITLE": "Confira o resultado",
+    "USE": "Usar este panorama",
+    "RETAKE": "Refazer",
+    "RETRY": "Tentar novamente",
+    "ERROR_TITLE": "Não foi possível capturar",
+    "CAMERA_ERROR": "A câmera não pôde ser iniciada. Verifique as permissões do navegador.",
+    "SENSOR_ERROR": "Os sensores de movimento não estão disponíveis ou a permissão foi negada.",
+    "STITCH_ERROR": "Erro ao montar o panorama. Tente capturar novamente.",
+    "SIM_BADGE": "Simulação"
+  },
   "PROFILE": {
     "TITLE": "Meu Perfil",
     "STATS": {

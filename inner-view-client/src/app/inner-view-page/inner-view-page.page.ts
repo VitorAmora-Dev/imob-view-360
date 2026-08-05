@@ -4,11 +4,11 @@ import { Router, ActivatedRoute } from '@angular/router';
 import {
   IonContent,
   IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonButton, IonIcon, IonSpinner,
-  AlertController, ToastController
+  ActionSheetController, AlertController, ModalController, ToastController
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
-import { eyeOutline, eyeOffOutline, cloudUploadOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
+import { cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Property } from '../models/property.model';
@@ -16,6 +16,8 @@ import { VirtualTour, Panorama } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
+import { Capture360Component } from '../components/capture-360/capture-360.component';
+import { captureSupported } from '../components/capture-360/capture-support';
 
 @Component({
   selector: 'app-inner-view-page',
@@ -47,11 +49,13 @@ export class InnerViewPagePage implements OnInit {
   private propertyService = inject(PropertyService);
   private virtualTourService = inject(VirtualTourService);
   private alertController = inject(AlertController);
+  private actionSheetController = inject(ActionSheetController);
+  private modalController = inject(ModalController);
   private toastController = inject(ToastController);
   private translate = inject(TranslateService);
 
   constructor() {
-    addIcons({ eyeOutline, eyeOffOutline, cloudUploadOutline, trashOutline, gitNetworkOutline, informationCircleOutline });
+    addIcons({ cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline });
   }
 
   ngOnInit() {
@@ -179,19 +183,57 @@ export class InnerViewPagePage implements OnInit {
     this.fileInput.nativeElement.click();
   }
 
+  async addImage() {
+    if (!captureSupported()) {
+      this.openFilePicker();
+      return;
+    }
+    const sheet = await this.actionSheetController.create({
+      header: this.translate.instant('CAPTURE.ADD_METHOD_TITLE'),
+      buttons: [
+        { text: this.translate.instant('CAPTURE.WITH_CAMERA'), icon: 'camera-outline', data: 'capture' },
+        { text: this.translate.instant('CAPTURE.FROM_FILE'), icon: 'image-outline', data: 'file' },
+        { text: this.translate.instant('INNER_VIEW.CANCEL'), role: 'cancel' },
+      ],
+    });
+    await sheet.present();
+    const { data } = await sheet.onDidDismiss();
+    if (data === 'capture') {
+      await this.openCapture();
+    } else if (data === 'file') {
+      this.openFilePicker();
+    }
+  }
+
+  private async openCapture() {
+    const modal = await this.modalController.create({
+      component: Capture360Component,
+      cssClass: 'capture-360-modal',
+    });
+    await modal.present();
+    const { role, data } = await modal.onDidDismiss<{ imageData: string }>();
+    if (role === 'confirm' && data?.imageData) {
+      await this.savePanorama(data.imageData);
+    }
+  }
+
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
-    if (!file || !this.property) return;
+    if (!file) return;
+    const imageData = await this.readFileAsDataUrl(file);
+    await this.savePanorama(imageData);
+  }
+
+  private async savePanorama(imageData: string) {
+    if (!this.property) return;
 
     const roomName = await this.promptRoomName();
     if (!roomName) return;
 
     this.uploading = true;
     try {
-      const imageData = await this.readFileAsDataUrl(file);
-
       let tourId: string;
       if (this.tour) {
         await firstValueFrom(this.virtualTourService.addPanorama(this.tour.id, {

@@ -15,6 +15,30 @@
     "LINK_COPIED": "Tour link copied!",
     "SHARE_ERROR": "Could not share the link."
   },
+  "CAPTURE": {
+    "ADD_METHOD_TITLE": "Add 360° image",
+    "WITH_CAMERA": "Capture with camera",
+    "FROM_FILE": "Upload a file",
+    "INTRO_TITLE": "Guided 360° capture",
+    "INTRO_TEXT": "Turn slowly following the dots on screen. When the reticle sits inside a dot, hold still until the ring completes — that angle gets captured.",
+    "TRIPOD_HINT": "For best results, use a tripod and rotate the phone in place.",
+    "START": "Start",
+    "CANCEL": "Cancel",
+    "PROGRESS": "Captures {{captured}} of {{total}}",
+    "ALIGN_HINT": "Move the reticle into the dot",
+    "HOLD_HINT": "Hold still…",
+    "LEVEL_HINT": "Level the phone with the line",
+    "STITCHING": "Building the panorama…",
+    "PREVIEW_TITLE": "Review the result",
+    "USE": "Use this panorama",
+    "RETAKE": "Retake",
+    "RETRY": "Try again",
+    "ERROR_TITLE": "Capture unavailable",
+    "CAMERA_ERROR": "The camera could not start. Check the browser permissions.",
+    "SENSOR_ERROR": "Motion sensors are unavailable or permission was denied.",
+    "STITCH_ERROR": "Failed to build the panorama. Please capture again.",
+    "SIM_BADGE": "Simulation"
+  },
   "PROFILE": {
     "TITLE": "My Profile",
     "STATS": {

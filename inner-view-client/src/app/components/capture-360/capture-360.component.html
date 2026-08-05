@@ -1,0 +1,98 @@
+<div class="capture-root">
+  @switch (state()) {
+    @case ('intro') {
+      <div class="panel">
+        <ion-icon class="panel-icon" name="camera-outline" aria-hidden="true"></ion-icon>
+        <h2>{{ 'CAPTURE.INTRO_TITLE' | translate }}</h2>
+        <p>{{ 'CAPTURE.INTRO_TEXT' | translate }}</p>
+        <p class="tripod-hint">{{ 'CAPTURE.TRIPOD_HINT' | translate }}</p>
+        <ion-button expand="block" (click)="begin()">{{ 'CAPTURE.START' | translate }}</ion-button>
+        <ion-button expand="block" fill="clear" class="on-dark" (click)="cancel()">
+          {{ 'CAPTURE.CANCEL' | translate }}
+        </ion-button>
+      </div>
+    }
+
+    @case ('capturing') {
+      <div class="preview" #previewContainer></div>
+
+      <div class="guide-overlay" #overlay>
+        <div class="horizon" #horizonEl></div>
+
+        <div class="target" #targetEl>
+          <svg class="dwell" viewBox="0 0 80 80" aria-hidden="true">
+            <circle class="dwell-track" cx="40" cy="40" r="34" />
+            <circle
+              class="dwell-progress"
+              #dwellCircle
+              cx="40" cy="40" r="34"
+              [style.stroke-dasharray]="dwellCircumference"
+              [style.stroke-dashoffset]="dwellCircumference" />
+          </svg>
+        </div>
+
+        <div class="reticle" #reticleEl></div>
+        <div class="edge-arrow" #arrowEl aria-hidden="true"></div>
+
+        <div class="top-bar">
+          <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
+            [attr.aria-label]="'CAPTURE.CANCEL' | translate">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+          <span class="count-chip">
+            {{ 'CAPTURE.PROGRESS' | translate: { captured: capturedCount(), total: totalCount() } }}
+          </span>
+          <button type="button" class="circle-control circle-control--overlay" (click)="restart()"
+            [attr.aria-label]="'CAPTURE.RETAKE' | translate">
+            <ion-icon name="refresh-outline"></ion-icon>
+          </button>
+        </div>
+
+        <div class="bottom-bar">
+          <span class="hint-pill">{{ hintKey() | translate }}</span>
+          @if (simMode) {
+            <span class="sim-badge">{{ 'CAPTURE.SIM_BADGE' | translate }}</span>
+          }
+        </div>
+      </div>
+    }
+
+    @case ('stitching') {
+      <div class="panel">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>{{ 'CAPTURE.STITCHING' | translate }}</p>
+      </div>
+    }
+
+    @case ('preview') {
+      <div class="result-viewer">
+        <app-panoramic-viewer [panoramas]="previewPanoramas()"></app-panoramic-viewer>
+      </div>
+      <div class="top-bar">
+        <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
+          [attr.aria-label]="'CAPTURE.CANCEL' | translate">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+        <span class="count-chip">{{ 'CAPTURE.PREVIEW_TITLE' | translate }}</span>
+        <span class="top-bar-spacer"></span>
+      </div>
+      <div class="result-actions">
+        <ion-button fill="outline" class="on-dark" (click)="restart()">
+          {{ 'CAPTURE.RETAKE' | translate }}
+        </ion-button>
+        <ion-button (click)="usePanorama()">{{ 'CAPTURE.USE' | translate }}</ion-button>
+      </div>
+    }
+
+    @case ('error') {
+      <div class="panel">
+        <h2>{{ 'CAPTURE.ERROR_TITLE' | translate }}</h2>
+        <p>{{ errorKey() | translate }}</p>
+        <ion-button expand="block" (click)="retryFromError()">{{ 'CAPTURE.RETRY' | translate }}</ion-button>
+        <ion-button expand="block" fill="clear" class="on-dark" (click)="cancel()">
+          {{ 'CAPTURE.CANCEL' | translate }}
+        </ion-button>
+      </div>
+    }
+  }
+</div>
