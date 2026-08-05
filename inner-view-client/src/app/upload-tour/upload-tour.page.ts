@@ -15,7 +15,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { PropertyService } from '../services/property.service';
 import { CepService, CepNotFoundError } from '../services/cep.service';
-import { VirtualTourService } from '../services/virtual-tour.service';
+import { CaptureFrameUpload, VirtualTourService } from '../services/virtual-tour.service';
 import { Panorama } from '../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
@@ -25,6 +25,8 @@ interface PanoramaItem {
   roomName: string;
   imageData: string;
   fileName: string;
+  /** Originals from a guided capture; empty for an uploaded file. */
+  frames?: CaptureFrameUpload[];
 }
 
 @Component({
@@ -174,7 +176,8 @@ export class UploadTourPage {
       cssClass: 'capture-360-modal',
     });
     await modal.present();
-    const { role, data } = await modal.onDidDismiss<{ imageData: string }>();
+    const { role, data } =
+      await modal.onDidDismiss<{ imageData: string; frames: CaptureFrameUpload[] }>();
     if (role !== 'confirm' || !data?.imageData) return;
 
     const roomName = await this.promptRoomName();
@@ -184,6 +187,7 @@ export class UploadTourPage {
       roomName,
       imageData: data.imageData,
       fileName: `captura-360-${this.panoramas.length + 1}.jpg`,
+      frames: data.frames,
     });
   }
 
@@ -245,7 +249,7 @@ export class UploadTourPage {
       );
 
       if (this.panoramas.length > 0) {
-        await firstValueFrom(
+        const tour = await firstValueFrom(
           this.virtualTourService.createTour(
             property.id,
             this.panoramas.map((p, i) => ({
@@ -256,6 +260,14 @@ export class UploadTourPage {
             }))
           )
         );
+        // The tour is saved; the originals are an archive that follows it up in
+        // the background, matched to the panorama that came from them by order.
+        for (const [i, item] of this.panoramas.entries()) {
+          const panorama = tour.panoramas.find((p) => p.order === i);
+          if (panorama && item.frames?.length) {
+            void this.virtualTourService.uploadCaptureFrames(panorama.id, item.frames);
+          }
+        }
       }
 
       await this.showToast('UPLOAD.SUCCESS', 'success');

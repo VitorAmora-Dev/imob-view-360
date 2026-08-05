@@ -20,6 +20,7 @@ import {
   SimOrientationSource,
 } from './capture-sources';
 import { SimEnvironment } from './sim-environment';
+import { CaptureFrameUpload } from '../../services/virtual-tour.service';
 import { releaseCanvas, sharpnessScore, storeFrame } from './frame-store';
 import { StitchShot, hfovFromSpec, stitchEquirect } from './stitcher';
 
@@ -100,6 +101,8 @@ export class Capture360Component implements OnDestroy {
    * Position in the array keeps the capture order without a queue.
    */
   private shots: Promise<StitchShot>[] = [];
+  /** Resolved shots kept past the stitch so the originals can be archived. */
+  private stitchedShots: StitchShot[] = [];
   private candidates: Candidate[] = [];
   private lastCandidateMs = 0;
   private rafId: number | null = null;
@@ -125,7 +128,19 @@ export class Capture360Component implements OnDestroy {
 
   usePanorama(): void {
     const imageData = this.previewPanoramas()[0]?.imageData;
-    this.modalCtrl.dismiss(imageData ? { imageData } : null, imageData ? 'confirm' : 'cancel');
+    if (!imageData) {
+      this.modalCtrl.dismiss(null, 'cancel');
+      return;
+    }
+    // The originals ride along so the caller can archive them once the
+    // panorama has an id. They stay Blobs: expanding a whole capture to base64
+    // here would cost more memory than the stitch itself.
+    const frames: CaptureFrameUpload[] = this.stitchedShots.map((shot, index) => ({
+      index,
+      blob: shot.frame.blob,
+      quaternion: shot.quaternion,
+    }));
+    this.modalCtrl.dismiss({ imageData, frames }, 'confirm');
   }
 
   /**
@@ -231,6 +246,7 @@ export class Capture360Component implements OnDestroy {
     this.stopLoop();
     this.discardCandidates();
     this.shots = [];
+    this.stitchedShots = [];
     this.session?.reset();
     this.orientation?.rezero();
     this.capturedCount.set(0);
@@ -356,6 +372,7 @@ export class Capture360Component implements OnDestroy {
       await new Promise((resolve) => setTimeout(resolve, 50));
       const spec = this.camera!.getSpec();
       const shots = await Promise.all(this.shots);
+      this.stitchedShots = shots;
       if (this.simMode) {
         // Re-stitching the same capture with different settings is free now
         // that the frames are kept as bytes rather than consumed as canvases.

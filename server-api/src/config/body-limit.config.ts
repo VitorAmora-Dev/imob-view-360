@@ -7,13 +7,19 @@ export const DEFAULT_BODY_LIMIT = '1mb';
 export const IMAGE_BODY_LIMIT = '50mb';
 
 /**
- * As três rotas cujo DTO aceita `imageData`. Confirmado pelos schemas:
- * create-virtual-tour.dto.ts, create-panorama.dto.ts e update-panorama.dto.ts.
+ * As rotas cujo DTO aceita `imageData`. Confirmado pelos schemas:
+ * create-virtual-tour.dto.ts, create-panorama.dto.ts, update-panorama.dto.ts e
+ * upload-capture-frame.dto.ts.
  * Qualquer rota nova que receba imagem precisa entrar aqui.
+ *
+ * A rota de frames aparece antes da de atualização porque a de atualização
+ * casaria `/panoramas/:id` mas não `/panoramas/:id/frames` — a ordem não muda
+ * o resultado, mas deixa a diferença visível.
  */
 const IMAGE_UPLOAD_ROUTES: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: 'POST', path: /^\/virtual-tours\/?$/ },
   { method: 'POST', path: /^\/panoramas\/?$/ },
+  { method: 'POST', path: /^\/panoramas\/[^/]+\/frames\/?$/ },
   { method: 'PATCH', path: /^\/panoramas\/[^/]+\/?$/ },
 ];
 

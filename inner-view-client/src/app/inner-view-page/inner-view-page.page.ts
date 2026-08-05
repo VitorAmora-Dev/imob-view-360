@@ -14,7 +14,7 @@ import { firstValueFrom } from 'rxjs';
 import { Property } from '../models/property.model';
 import { VirtualTour, Panorama } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
-import { VirtualTourService } from '../services/virtual-tour.service';
+import { CaptureFrameUpload, VirtualTourService } from '../services/virtual-tour.service';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
 import { captureSupported } from '../components/capture-360/capture-support';
@@ -211,9 +211,10 @@ export class InnerViewPagePage implements OnInit {
       cssClass: 'capture-360-modal',
     });
     await modal.present();
-    const { role, data } = await modal.onDidDismiss<{ imageData: string }>();
+    const { role, data } =
+      await modal.onDidDismiss<{ imageData: string; frames: CaptureFrameUpload[] }>();
     if (role === 'confirm' && data?.imageData) {
-      await this.savePanorama(data.imageData);
+      await this.savePanorama(data.imageData, data.frames);
     }
   }
 
@@ -226,7 +227,7 @@ export class InnerViewPagePage implements OnInit {
     await this.savePanorama(imageData);
   }
 
-  private async savePanorama(imageData: string) {
+  private async savePanorama(imageData: string, frames: CaptureFrameUpload[] = []) {
     if (!this.property) return;
 
     const roomName = await this.promptRoomName();
@@ -235,24 +236,30 @@ export class InnerViewPagePage implements OnInit {
     this.uploading = true;
     try {
       let tourId: string;
+      let panoramaId: string;
       if (this.tour) {
-        await firstValueFrom(this.virtualTourService.addPanorama(this.tour.id, {
+        const added = await firstValueFrom(this.virtualTourService.addPanorama(this.tour.id, {
           roomName,
           imageData,
           order: this.tour.panoramas.length,
         }));
         tourId = this.tour.id;
+        panoramaId = added.id;
       } else {
         const created = await firstValueFrom(this.virtualTourService.createTour(this.property.id, [
           { roomName, imageData, order: 0, initialPanorama: true },
         ]));
         tourId = created.id;
+        panoramaId = created.panoramas[0].id;
         this.property.virtualTour = { id: created.id, status: created.status };
       }
 
       // Create endpoints omit imageData in the response, so re-fetch the full tour
       this.tour = await firstValueFrom(this.virtualTourService.findTour(tourId));
       this.showToast('INNER_VIEW.UPLOAD_SUCCESS', 'success');
+      // The archive is not the deliverable: the tour is already saved and shown
+      // before the originals start going up, and a failure there stays quiet.
+      void this.virtualTourService.uploadCaptureFrames(panoramaId, frames);
     } catch {
       this.showToast('INNER_VIEW.UPLOAD_ERROR', 'danger');
     } finally {

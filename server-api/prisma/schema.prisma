@@ -157,8 +157,34 @@ model Panorama {
   originHotspots Hotspot[]     @relation("origin") // hotspotsOrigem
   targetHotspots Hotspot[]     @relation("target") // hotspotsDestino
   measurements   Measurement[] // medidas
+  captureFrames  CaptureFrame[] // fotosOriginais
 
   @@index([virtualTourId])
+}
+
+/// Foto individual da captura 360°, guardada como veio da câmera.
+/// O panorama é um resultado montado e, portanto, recalculável: guardando as
+/// fotos originais com a orientação de cada uma, uma costura melhor (ou a
+/// etapa de IA) pode ser refeita depois sem pedir nova captura ao corretor.
+model CaptureFrame {
+  id        String @id @default(uuid())
+  index     Int // ordem do disparo na captura
+  imageData String @db.Text // base64 JPEG
+
+  // Orientação da câmera no instante do disparo, no referencial da sessão.
+  qx Float
+  qy Float
+  qz Float
+  qw Float
+
+  panorama   Panorama @relation(fields: [panoramaId], references: [id], onDelete: Cascade)
+  panoramaId String
+
+  createdAt DateTime @default(now())
+
+  // Um reenvio depois de falha de rede repõe a mesma foto em vez de duplicá-la.
+  @@unique([panoramaId, index])
+  @@index([panoramaId])
 }
 
 model Hotspot {
