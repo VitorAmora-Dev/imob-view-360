@@ -52,6 +52,27 @@ export class SimEnvironment {
   /** Simulates the camera's automatic exposure reacting to what it sees. */
   autoExposure = true;
 
+  /**
+   * Error the orientation SENSOR reports, on top of where the camera really is.
+   *
+   * Without this the simulated gyro was perfect, which quietly made every
+   * alignment measurement look useless: there was nothing to recover. A real
+   * `deviceorientation` stream wanders — its tilt axes are fused with gravity
+   * and settle within about a degree, while its heading has no absolute
+   * reference at all and drifts through the capture.
+   *
+   * Modelled as a slow random walk rather than white noise, because that is
+   * what a fused sensor does and it is the part alignment could ever fix; a
+   * per-sample jitter would just be averaged away by the hold.
+   */
+  sensorTiltErrorDeg = 0;
+  sensorYawDriftDegPerMin = 0;
+
+  private sensorSeed = 1;
+  private sensorWalk = { pitch: 0, roll: 0 };
+  private sensorStartMs = 0;
+  private sensorWalkMs = 0;
+
   /** Panorama rendered from the exact rotation centre — the honest reference. */
   groundTruth: HTMLCanvasElement | null = null;
 
@@ -77,6 +98,43 @@ export class SimEnvironment {
   /** What the pipeline is told — an under-estimate, as on a real device. */
   get priorVfovDeg(): number {
     return this.lens.priorVfovDeg;
+  }
+
+  /**
+   * Where the SENSOR says the camera is, which is not quite where it is. The
+   * app only ever sees this; `yawDeg`/`pitchDeg`/`rollDeg` stay the truth the
+   * measurements are scored against.
+   */
+  reportedOrientation(): { yawDeg: number; pitchDeg: number; rollDeg: number } {
+    if (!this.sensorTiltErrorDeg && !this.sensorYawDriftDegPerMin) {
+      return { yawDeg: this.yawDeg, pitchDeg: this.pitchDeg, rollDeg: this.rollDeg };
+    }
+    const now = performance.now();
+    if (!this.sensorStartMs) {
+      this.sensorStartMs = now;
+      this.sensorWalkMs = now;
+    }
+
+    const step = () => {
+      this.sensorSeed = (this.sensorSeed * 1103515245 + 12345) % 2147483648;
+      return this.sensorSeed / 2147483648 - 0.5;
+    };
+    // Advanced on a clock, not per call. The app samples this at 60Hz, so a
+    // step per call would be fast noise rather than a slow wander — and the
+    // capture would read it as a shaking hand and never settle.
+    const limit = this.sensorTiltErrorDeg;
+    while (now - this.sensorWalkMs >= SENSOR_WALK_STEP_MS) {
+      this.sensorWalkMs += SENSOR_WALK_STEP_MS;
+      this.sensorWalk.pitch = clampWalk(this.sensorWalk.pitch + step() * limit * 0.4, limit);
+      this.sensorWalk.roll = clampWalk(this.sensorWalk.roll + step() * limit * 0.4, limit);
+    }
+
+    const minutes = (now - this.sensorStartMs) / 60000;
+    return {
+      yawDeg: this.yawDeg + minutes * this.sensorYawDriftDegPerMin,
+      pitchDeg: this.pitchDeg + this.sensorWalk.pitch,
+      rollDeg: this.rollDeg + this.sensorWalk.roll,
+    };
   }
 
   /** What the virtual camera actually sees; the fit must recover this. */
@@ -306,4 +364,12 @@ export class SimEnvironment {
   private readonly onPointerUp = (e: PointerEvent) => {
     if (e.pointerId === this.dragPointerId) this.dragPointerId = null;
   };
+}
+
+/** How often the sensor's tilt reading wanders, independent of sampling rate. */
+const SENSOR_WALK_STEP_MS = 250;
+
+/** Keeps a random walk from wandering off; a fused sensor does not either. */
+function clampWalk(value: number, limit: number): number {
+  return Math.max(-limit, Math.min(limit, value));
 }

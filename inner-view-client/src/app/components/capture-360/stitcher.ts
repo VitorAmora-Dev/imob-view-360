@@ -1,7 +1,15 @@
 import * as THREE from 'three';
 import { CameraSpec } from './capture-sources';
+import {
+  AxisTriple,
+  FrameView,
+  applyCorrection,
+  loopClosureResidual,
+  measurePair,
+  solveRingCorrections,
+} from './frame-align';
 import { CapturedFrame, closeDecoded, decodeFrame } from './frame-store';
-import { quaternionFromYpr, wrapDeg180, yprFromQuaternion } from './orientation-math';
+import { wrapDeg180, yprFromQuaternion } from './orientation-math';
 
 /**
  * Projects the captured shots onto an equirectangular canvas using the gyro
@@ -9,7 +17,9 @@ import { quaternionFromYpr, wrapDeg180, yprFromQuaternion } from './orientation-
  * close the gap to a "real" stitcher:
  *   1. the camera's true field of view is FITTED from the data (the gyro knows
  *      the angle between shots, so the only unknown is the degrees-per-pixel),
- *   2. per-frame yaw touch-up and per-channel exposure gain from the overlaps,
+ *   2. the ring is aligned as images in all three axes and solved as a loop,
+ *      so the closing error is spread rather than left at the last seam
+ *      (see frame-align.ts), then per-channel exposure gain from the overlaps,
  *   3. each pixel taken from the single frame that owns it, blended only along
  *      the seam.
  * Whatever the shots genuinely miss is filled from the coverage mask, not from
@@ -38,6 +48,11 @@ export interface StitchOptions {
   outHeight?: number;
   /** Disable the correlation refinement (used by tests / troubleshooting). */
   refine?: boolean;
+  /**
+   * Apply the measured ring alignment instead of only reporting it. OFF by
+   * default — see `alignRing` for the measurements that put it there.
+   */
+  align?: boolean;
   blendMode?: BlendMode;
   /** Seam sharpness: higher makes the cross-fade at the seam narrower. */
   seamK?: number;
@@ -57,6 +72,12 @@ export interface StitchResult {
   fittedVfovDeg: number;
   /** Fraction of the sphere covered by real pixels, 0..1. */
   coverage: number;
+  /**
+   * How far the ring was from closing before the correction was distributed.
+   * Large values mean the gyro drifted over the capture; the stitch absorbs it,
+   * but it is worth seeing.
+   */
+  loopClosureDeg: AxisTriple;
 }
 
 /** Used only until the fit runs; deliberately conservative (see PatternOptions). */
@@ -114,6 +135,7 @@ export async function stitchEquirect(
 
   report(0.05);
   let fittedVfov = priorVfov;
+  let loopClosureDeg: AxisTriple = { yawDeg: 0, pitchDeg: 0, rollDeg: 0 };
   if (options.refine !== false && shots.length >= 3) {
     const profiles = adjusted.map((s) => buildFrameProfile(s.frame.thumbnail));
     fittedVfov = fitVerticalFov(adjusted, profiles, spec.frameAspect);
@@ -121,8 +143,16 @@ export async function stitchEquirect(
       s.vfovDeg = fittedVfov;
       s.hfovDeg = hfovFromVfov(fittedVfov, spec.frameAspect);
     }
-    report(0.2);
-    adjusted = refineRings(adjusted, profiles);
+    report(0.15);
+
+    const aligned = alignRing(adjusted);
+    loopClosureDeg = aligned.residual;
+    if (options.align) adjusted = aligned.shots;
+    report(0.3);
+
+    // After alignment, so the overlap window the gain is read from is the one
+    // the frames actually share rather than the one the gyro assumed.
+    adjusted = matchExposure(adjusted, profiles);
   }
   report(0.35);
 
@@ -138,7 +168,7 @@ export async function stitchEquirect(
   const composed = fillUncovered(canvas, outWidth, outHeight);
   const imageData = composed.toDataURL('image/jpeg', 0.85);
   report(1);
-  return { imageData, fittedVfovDeg: fittedVfov, coverage };
+  return { imageData, fittedVfovDeg: fittedVfov, coverage, loopClosureDeg };
 }
 
 interface AdjustedShot {
@@ -239,14 +269,6 @@ function canAllocateCanvas(width: number, height: number): boolean {
 const NDC_SAMPLES = 512;
 const PROFILE_STEP_DEG = 0.25;
 const MIN_CORRELATION = 0.45;
-const MAX_YAW_CORRECTION_DEG = 3;
-/**
- * Deadband. Correlation resolves angles to ~PROFILE_STEP_DEG at best, and on
- * low-texture walls the peak wanders further. Correcting inside that noise
- * floor degrades an already-good gyro instead of helping it, so small
- * disagreements are treated as measurement error and left alone.
- */
-const YAW_DEADBAND_DEG = 0.75;
 
 /**
  * Per-frame exposure correction range. The old ±25% could not undo a phone's
@@ -432,9 +454,60 @@ interface PairMeasure {
   overlapB: [number, number];
 }
 
-function refineRings(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedShot[] {
+/**
+ * Measures how far the ring is from agreeing with itself, and — only when
+ * asked — corrects it.
+ *
+ * This was built to fix the alignment and it did not, which is worth recording
+ * rather than deleting. Correlating overlapping frames finds the shift that
+ * best matches them, but under hand-held parallax that shift is NOT a rotation:
+ * near and far objects disagree by different amounts, so the "best" rotation
+ * satisfies whatever is nearest and throws the rest of the room off.
+ *
+ * On the simulated room, same capture, same code, only the pivot changed:
+ *
+ *   tripod (0 cm)      ring failed to close by  0.23°
+ *   hand-held (25 cm)  ring failed to close by 14.87°
+ *
+ * Applying that correction pushed the median displacement from ground truth
+ * from 0.35° to 1.76°. Restricting it to pitch and roll — the axes a sideways
+ * swing barely touches — made it harmless but not better, including with a
+ * simulated sensor error for it to recover.
+ *
+ * So the gyro keeps the last word, and the previous version's yaw nudging is
+ * gone with it: it was doing the same thing, more weakly. What remains is the
+ * measurement, reported in the result, because the number tells us on a REAL
+ * device how much of this is parallax and how much is drift — which is the
+ * evidence needed to revisit this with the frames now being kept.
+ */
+function alignRing(shots: AdjustedShot[]): { shots: AdjustedShot[]; residual: AxisTriple } {
+  // Walk the turn in order. Capture order usually is the turn order, but a
+  // retry or a target taken out of sequence would otherwise pair strangers.
+  const order = shots
+    .map((_, index) => index)
+    .sort((a, b) => shots[a].ypr.yawDeg - shots[b].ypr.yawDeg);
+
+  const views: FrameView[] = order.map((index) => ({
+    image: shots[index].frame.thumbnail,
+    quaternion: shots[index].q,
+    hfovDeg: shots[index].hfovDeg,
+    vfovDeg: shots[index].vfovDeg,
+  }));
+
+  const measurements = views.map((view, k) => measurePair(view, views[(k + 1) % views.length]));
+  const residual = loopClosureResidual(measurements);
+  const corrections = solveRingCorrections(measurements);
+
+  const corrected = shots.slice();
+  order.forEach((shotIndex, k) => {
+    const q = applyCorrection(shots[shotIndex].q, corrections[k]);
+    corrected[shotIndex] = { ...shots[shotIndex], q, ypr: yprFromQuaternion(q) };
+  });
+  return { shots: corrected, residual };
+}
+
+function matchExposure(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedShot[] {
   const pairs = ringPairs(shots);
-  const yawCorrection = new Array<number>(shots.length).fill(0);
   const gains = shots.map(() => new THREE.Vector3(1, 1, 1));
 
   const measured = pairs.map((p) => {
@@ -444,20 +517,6 @@ function refineRings(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedS
       angularResample(profiles[p.b].luma, hfov),
       hfov, p.recordedDeg, Math.max(6, hfov * 0.15),
     );
-  });
-
-  // Yaw: nudge each frame by the residual its own pair reports. Corrections
-  // stay local (no accumulation) so one bad pair cannot skew the whole ring.
-  pairs.forEach((p, i) => {
-    const m = measured[i];
-    if (!m.confident) return;
-    const e = m.measuredDeg - p.recordedDeg;
-    if (Math.abs(e) <= YAW_DEADBAND_DEG || Math.abs(e) > MAX_YAW_CORRECTION_DEG) return;
-    // Shrink by the deadband so corrections enter continuously rather than
-    // jumping the moment the threshold is crossed; split across both frames.
-    const shrunk = (e - Math.sign(e) * YAW_DEADBAND_DEG) / 2;
-    yawCorrection[p.b] += shrunk;
-    yawCorrection[p.a] -= shrunk;
   });
 
   // Exposure and white balance, per channel. With seams instead of averaging,
@@ -497,7 +556,6 @@ function refineRings(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedS
         clamp(g.y, GAIN_MIN, GAIN_MAX),
         clamp(g.z, GAIN_MIN, GAIN_MAX),
       ),
-      q: quaternionFromYpr(yawCorrection[i], 0, 0).multiply(s.q),
     };
   });
 }

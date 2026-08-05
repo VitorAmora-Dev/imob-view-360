@@ -410,8 +410,11 @@ export class SimOrientationSource implements CaptureOrientationSource {
   }
 
   sample(): OrientationReading | null {
-    const yawDeg = wrapDeg180(this.env.yawDeg - this.zeroYawDeg);
-    const ypr: Ypr = { yawDeg, pitchDeg: this.env.pitchDeg, rollDeg: this.env.rollDeg };
+    // Reads what the sensor REPORTS, not where the camera is. With the error
+    // knobs at zero the two are the same, which is the default.
+    const reported = this.env.reportedOrientation();
+    const yawDeg = wrapDeg180(reported.yawDeg - this.zeroYawDeg);
+    const ypr: Ypr = { yawDeg, pitchDeg: reported.pitchDeg, rollDeg: reported.rollDeg };
     return { q: quaternionFromYpr(ypr.yawDeg, ypr.pitchDeg, ypr.rollDeg), ypr };
   }
 
