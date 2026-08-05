@@ -20,9 +20,27 @@ import {
   SimOrientationSource,
 } from './capture-sources';
 import { SimEnvironment } from './sim-environment';
-import { StitchShot, frameSideBudget, hfovFromSpec, stitchEquirect } from './stitcher';
+import { releaseCanvas, sharpnessScore, storeFrame } from './frame-store';
+import { StitchShot, hfovFromSpec, stitchEquirect } from './stitcher';
 
 type CaptureState = 'intro' | 'lens' | 'capturing' | 'stitching' | 'preview' | 'error';
+
+interface Candidate {
+  canvas: HTMLCanvasElement;
+  reading: OrientationReading;
+  sharpness: number;
+}
+
+/**
+ * The hold lasts two seconds and the frame used to be whichever one the timer
+ * happened to land on — including the ones where the hand was still settling.
+ * Sampling the tail of the hold and keeping the sharpest costs a few
+ * milliseconds and removes that lottery.
+ */
+const CANDIDATE_LIMIT = 4;
+const CANDIDATE_INTERVAL_MS = 220;
+/** Sampling starts once the hold is mostly through, where the hand is stillest. */
+const CANDIDATE_START_PROGRESS = 0.4;
 
 /**
  * Full-screen guided 360° capture modal (BANIB-style): horizon line, centre
@@ -77,7 +95,13 @@ export class Capture360Component implements OnDestroy {
   private camera: CaptureCameraSource | null = null;
   private orientation: CaptureOrientationSource | null = null;
   private session: CaptureSession | null = null;
-  private shots: StitchShot[] = [];
+  /**
+   * Encoding a frame is asynchronous, so a shot is held as the promise of one.
+   * Position in the array keeps the capture order without a queue.
+   */
+  private shots: Promise<StitchShot>[] = [];
+  private candidates: Candidate[] = [];
+  private lastCandidateMs = 0;
   private rafId: number | null = null;
   private viewport = { width: 0, height: 0 };
   private lastHint = '';
@@ -205,6 +229,7 @@ export class Capture360Component implements OnDestroy {
 
   restart(): void {
     this.stopLoop();
+    this.discardCandidates();
     this.shots = [];
     this.session?.reset();
     this.orientation?.rezero();
@@ -266,6 +291,7 @@ export class Capture360Component implements OnDestroy {
 
     const events = this.session.update(now, reading.ypr);
     this.paintOverlay(reading);
+    this.collectCandidate(now, reading);
     if (this.simMode) {
       // Lets an automated run aim at the current point without guessing the plan.
       (window as unknown as Record<string, unknown>)['__captureTarget'] = this.session.snapshot.currentTarget;
@@ -282,15 +308,43 @@ export class Capture360Component implements OnDestroy {
     }
   }
 
+  /** Samples the steady tail of a hold so the shot is a choice, not a lottery. */
+  private collectCandidate(now: number, reading: OrientationReading): void {
+    const snap = this.session!.snapshot;
+    if (snap.status !== 'dwelling' || snap.dwellProgress < CANDIDATE_START_PROGRESS) return;
+    if (this.candidates.length >= CANDIDATE_LIMIT) return;
+    if (now - this.lastCandidateMs < CANDIDATE_INTERVAL_MS) return;
+
+    this.lastCandidateMs = now;
+    const canvas = this.camera!.grabFrame();
+    this.candidates.push({ canvas, reading, sharpness: sharpnessScore(canvas) });
+  }
+
   private captureShot(reading: OrientationReading): void {
     if (!this.camera) return;
-    // Frame size follows the plan: a long capture keeps smaller frames so the
-    // whole set stays inside the memory a phone browser will grant the tab.
-    const frame = this.camera.grabFrame(
-      frameSideBudget(this.session!.total, this.camera.getSpec().frameAspect),
-    );
-    const q = reading.q;
-    this.shots.push({ frame, quaternion: { x: q.x, y: q.y, z: q.z, w: q.w } });
+
+    // The hold may have been cut short, in which case there is nothing banked
+    // and the current frame is all there is.
+    if (!this.candidates.length) {
+      const canvas = this.camera.grabFrame();
+      this.candidates.push({ canvas, reading, sharpness: sharpnessScore(canvas) });
+    }
+
+    let best = this.candidates[0];
+    for (const candidate of this.candidates) {
+      if (candidate.sharpness > best.sharpness) best = candidate;
+    }
+    for (const candidate of this.candidates) {
+      if (candidate !== best) releaseCanvas(candidate.canvas);
+    }
+    this.candidates = [];
+
+    const q = best.reading.q;
+    const quaternion = { x: q.x, y: q.y, z: q.z, w: q.w };
+    // storeFrame takes the canvas over: it encodes, keeps a thumbnail and frees
+    // the pixels, so nothing full-size survives the capture uncompressed.
+    this.shots.push(storeFrame(best.canvas).then((frame) => ({ frame, quaternion })));
+
     Haptics.impact({ style: ImpactStyle.Medium }).catch(() => navigator.vibrate?.(40));
     this.zone.run(() => this.capturedCount.set(this.shots.length));
   }
@@ -298,20 +352,17 @@ export class Capture360Component implements OnDestroy {
   private async stitch(): Promise<void> {
     this.state.set('stitching');
     try {
-      // Let the spinner paint before the heavy synchronous stretch begins.
+      // Let the spinner paint before the heavy stretch begins.
       await new Promise((resolve) => setTimeout(resolve, 50));
       const spec = this.camera!.getSpec();
+      const shots = await Promise.all(this.shots);
       if (this.simMode) {
-        // Keeps the frames alive so an automated run can re-stitch the same
-        // capture with different settings and compare them fairly.
-        const shots = this.shots;
+        // Re-stitching the same capture with different settings is free now
+        // that the frames are kept as bytes rather than consumed as canvases.
         (window as unknown as Record<string, unknown>)['__restitch'] =
-          (opts: Record<string, unknown>) =>
-            stitchEquirect(shots, spec, { releaseFrames: false, ...opts });
+          (opts: Record<string, unknown>) => stitchEquirect(shots, spec, opts);
       }
-      const result = await stitchEquirect(this.shots, spec, {
-        releaseFrames: !this.simMode,
-      });
+      const result = await stitchEquirect(shots, spec);
       if (this.simMode) {
         // Lets an automated run diff the stitch against SimEnvironment.groundTruth.
         (window as unknown as Record<string, unknown>)['__captureResult'] = result;
@@ -338,8 +389,15 @@ export class Capture360Component implements OnDestroy {
     });
   }
 
+  private discardCandidates(): void {
+    for (const candidate of this.candidates) releaseCanvas(candidate.canvas);
+    this.candidates = [];
+    this.lastCandidateMs = 0;
+  }
+
   private teardownSources(): void {
     this.stopLoop();
+    this.discardCandidates();
     this.camera?.stop();
     this.orientation?.stop();
     this.camera = null;

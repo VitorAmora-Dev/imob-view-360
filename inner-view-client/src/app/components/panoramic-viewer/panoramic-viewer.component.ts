@@ -129,6 +129,11 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       dataUri,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
+        // An equirect wraps the sphere very unevenly: near the poles a row of
+        // texels is squeezed into almost no screen width, so isotropic mip
+        // selection picks a coarse level and the ceiling and floor go soft.
+        // This is a texture-filtering blur, not a stitching one.
+        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
         (this.sphereMesh.material as THREE.MeshBasicMaterial).map = texture;
         (this.sphereMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
         this.clearHotspots();
@@ -158,7 +163,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.controls.enablePan = false;
     this.controls.rotateSpeed = 0.5;
 
-    const geometry = new THREE.SphereGeometry(500, 60, 40);
+    // UVs are interpolated linearly across each face, so coarse segments bend
+    // straight lines — 60×40 spans 6° per segment, enough to visibly curve a
+    // wall corner. Denser costs nothing at this triangle count.
+    const geometry = new THREE.SphereGeometry(500, 120, 80);
     geometry.scale(-1, 1, 1);
     this.sphereMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
     this.scene.add(this.sphereMesh);

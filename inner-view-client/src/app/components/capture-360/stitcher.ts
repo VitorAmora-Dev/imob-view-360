@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CameraSpec } from './capture-sources';
+import { CapturedFrame, closeDecoded, decodeFrame } from './frame-store';
 import { quaternionFromYpr, wrapDeg180, yprFromQuaternion } from './orientation-math';
 
 /**
@@ -9,12 +10,18 @@ import { quaternionFromYpr, wrapDeg180, yprFromQuaternion } from './orientation-
  *   1. the camera's true field of view is FITTED from the data (the gyro knows
  *      the angle between shots, so the only unknown is the degrees-per-pixel),
  *   2. per-frame yaw touch-up and per-channel exposure gain from the overlaps,
- *   3. feathered weighted accumulation instead of hard seams.
+ *   3. each pixel taken from the single frame that owns it, blended only along
+ *      the seam.
  * Whatever the shots genuinely miss is filled from the coverage mask, not from
- * an assumed FOV — with caps captured there is usually nothing left to fill.
+ * an assumed FOV.
+ *
+ * The equirect is rendered in horizontal bands, and frames are decoded one at a
+ * time from their stored JPEG bytes. Nothing full-size is ever resident twice,
+ * which is what allows a larger output than the old whole-canvas pass could
+ * afford.
  */
 export interface StitchShot {
-  frame: HTMLCanvasElement;
+  frame: CapturedFrame;
   /** Session-frame camera orientation at the moment of capture. */
   quaternion: { x: number; y: number; z: number; w: number };
 }
@@ -34,12 +41,6 @@ export interface StitchOptions {
   blendMode?: BlendMode;
   /** Seam sharpness: higher makes the cross-fade at the seam narrower. */
   seamK?: number;
-  /**
-   * Frames are freed as they upload, which is what keeps a long capture inside
-   * the phone's memory budget. Set false to stitch the same set more than once
-   * — used to compare blend modes over identical input.
-   */
-  releaseFrames?: boolean;
   onProgress?: (fraction: number) => void;
 }
 
@@ -83,7 +84,7 @@ export function fitVfovFromShots(shots: StitchShot[], spec: CameraSpec): number 
   const prior = spec.vfovDeg ?? DEFAULT_VFOV_DEG;
   if (shots.length < 3) return prior;
   const adjusted = toAdjusted(shots, prior, spec.frameAspect);
-  const profiles = adjusted.map((s) => buildFrameProfile(s.frame));
+  const profiles = adjusted.map((s) => buildFrameProfile(s.frame.thumbnail));
   return fitVerticalFov(adjusted, profiles, spec.frameAspect);
 }
 
@@ -114,7 +115,7 @@ export async function stitchEquirect(
   report(0.05);
   let fittedVfov = priorVfov;
   if (options.refine !== false && shots.length >= 3) {
-    const profiles = adjusted.map((s) => buildFrameProfile(s.frame));
+    const profiles = adjusted.map((s) => buildFrameProfile(s.frame.thumbnail));
     fittedVfov = fitVerticalFov(adjusted, profiles, spec.frameAspect);
     for (const s of adjusted) {
       s.vfovDeg = fittedVfov;
@@ -126,11 +127,11 @@ export async function stitchEquirect(
   report(0.35);
 
   const { outWidth, outHeight } = pickOutputSize(options, spec);
-  const { canvas, coverage } = renderEquirect(
+  const { canvas, coverage } = await renderEquirect(
     adjusted, outWidth, outHeight,
     options.blendMode ?? 'seam',
     options.seamK ?? DEFAULT_SEAM_K,
-    options.releaseFrames !== false,
+    (fraction) => report(0.35 + fraction * 0.5),
   );
   report(0.85);
 
@@ -141,7 +142,7 @@ export async function stitchEquirect(
 }
 
 interface AdjustedShot {
-  frame: HTMLCanvasElement;
+  frame: CapturedFrame;
   q: THREE.Quaternion;
   ypr: { yawDeg: number; pitchDeg: number; rollDeg: number };
   gain: THREE.Vector3;
@@ -150,31 +151,49 @@ interface AdjustedShot {
 }
 
 /**
- * Ceiling for the equirect. A phone's GPU will happily report MAX_TEXTURE_SIZE
- * of 16384, but the limit that matters is the memory the browser lets the tab
- * keep: at 4096×2048 the half-float accumulation target costs 64 MB, and at
- * 6144×3072 it costs 144 MB — enough, with the frames, to get an iOS tab
- * terminated mid-stitch (which reloads the page and loses the capture).
+ * Preferred equirect width. Rendering in bands (see `tileHeightFor`) is what
+ * makes this affordable: the old whole-canvas pass needed a half-float target
+ * the size of the output, so 4096 was already 64 MB and 6144 was 144 MB —
+ * enough, with the frames, to get an iOS tab terminated mid-stitch.
  */
-export const MAX_OUTPUT_WIDTH = 4096;
+export const PREFERRED_OUTPUT_WIDTH = 5120;
 
-/** Total budget for the frames held in memory during a capture. */
-export const FRAME_MEMORY_BUDGET_MB = 96;
+/** Used when the device refuses to allocate a canvas the preferred size. */
+export const FALLBACK_OUTPUT_WIDTH = 4096;
 
 /**
- * Longest side to keep per frame so the whole set fits the budget. More shots
- * means smaller frames — which costs nothing real, because a frame only has to
- * carry the pixels its own slice of the panorama can show.
+ * GPU budget for one band. Both render targets live at the band's size:
+ * 8 bytes/px for the half-float accumulator plus 4 for the byte-sized quality
+ * map, so a band holds `width × height × 12` bytes.
  */
-export function frameSideBudget(shotCount: number, frameAspect: number): number {
-  const bytes = FRAME_MEMORY_BUDGET_MB * 1048576;
-  // side² · aspect · 4 bytes · count ≤ bytes
-  const side = Math.sqrt(bytes / (4 * Math.max(1, shotCount) * Math.max(0.1, frameAspect)));
-  // The budget always wins: running out of memory loses the entire capture,
-  // while a smaller frame only costs detail. It costs little in practice —
-  // a plan with more shots gives each frame a narrower slice to carry.
-  return Math.floor(Math.min(2048, Math.max(720, side)));
+export const TILE_MEMORY_BUDGET_MB = 64;
+const TILE_BYTES_PER_PIXEL = 12;
+
+/**
+ * Height of one band. Fewer, taller bands mean fewer frame decodes (every band
+ * decodes every frame it touches), so this takes the tallest band the budget
+ * allows rather than a fixed count.
+ */
+export function tileHeightFor(outWidth: number, outHeight: number): number {
+  const maxRows = Math.max(
+    1,
+    Math.floor((TILE_MEMORY_BUDGET_MB * 1048576) / (TILE_BYTES_PER_PIXEL * outWidth)),
+  );
+  // Bands are equal-height, so the count has to be chosen such that the ROUNDED
+  // UP height still fits — dividing by the budget and rounding the height up
+  // afterwards overshoots whenever the division is close to whole.
+  let tiles = Math.max(1, Math.ceil(outHeight / maxRows));
+  while (Math.ceil(outHeight / tiles) > maxRows) tiles++;
+  return Math.ceil(outHeight / tiles);
 }
+
+/**
+ * A GPU that reports MAX_TEXTURE_SIZE 16384 says nothing about what the 2D
+ * canvas backing the result may be: iOS caps total canvas area, and past the
+ * cap it hands back a canvas that silently reads as blank. So the size is
+ * probed rather than assumed.
+ */
+let probedWidth: number | null = null;
 
 export function pickOutputSize(
   options: StitchOptions,
@@ -184,7 +203,33 @@ export function pickOutputSize(
     return { outWidth: options.outWidth, outHeight: options.outHeight };
   }
   void spec;
-  return { outWidth: MAX_OUTPUT_WIDTH, outHeight: MAX_OUTPUT_WIDTH / 2 };
+  if (probedWidth === null) {
+    probedWidth = canAllocateCanvas(PREFERRED_OUTPUT_WIDTH, PREFERRED_OUTPUT_WIDTH / 2)
+      ? PREFERRED_OUTPUT_WIDTH
+      : FALLBACK_OUTPUT_WIDTH;
+  }
+  return { outWidth: probedWidth, outHeight: probedWidth / 2 };
+}
+
+/** Writes a known pixel at the far corner and reads it back. */
+function canAllocateCanvas(width: number, height: number): boolean {
+  const probe = document.createElement('canvas');
+  try {
+    probe.width = width;
+    probe.height = height;
+    if (probe.width !== width || probe.height !== height) return false;
+    const ctx = probe.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return false;
+    ctx.fillStyle = '#ff8000';
+    ctx.fillRect(width - 1, height - 1, 1, 1);
+    const [r, g] = ctx.getImageData(width - 1, height - 1, 1, 1).data;
+    return r === 255 && g === 128;
+  } catch {
+    return false;
+  } finally {
+    probe.width = 0;
+    probe.height = 0;
+  }
 }
 
 /* ------------------------------------------------------------------------- */
@@ -553,13 +598,16 @@ const PROJECT_GLSL = /* glsl */ `
   varying vec2 vUv;
   uniform mat3 uWorldToCamera;
   uniform vec2 uTanHalfFov; // (tan(hfov/2), tan(vfov/2))
+  // (v of this band's bottom edge, band height) in whole-panorama units. The
+  // band is a window onto the same sphere, not a panorama of its own.
+  uniform vec2 uVRange;
 
   const float PI = 3.14159265358979;
 
   bool projectPixel(out vec2 ndc, out float quality) {
     // Inverse of the viewer's sphere mapping.
     float phi = vUv.x * 2.0 * PI;
-    float theta = (1.0 - vUv.y) * PI;
+    float theta = (1.0 - (uVRange.x + vUv.y * uVRange.y)) * PI;
     vec3 dir = vec3(cos(phi) * sin(theta), cos(theta), sin(phi) * sin(theta));
 
     vec3 cam = uWorldToCamera * dir;
@@ -608,7 +656,9 @@ const ACCUM_FRAGMENT = PROJECT_GLSL + /* glsl */ `
     // uAverageMode reproduces the old wash for before/after measurements.
     float weight = mix(seamWeight, smoothstep(0.0, 0.35, quality), uAverageMode);
 
-    vec3 color = texture2D(uFrame, ndc * 0.5 + 0.5).rgb * uGain;
+    // v = 0 is the frame's TOP row: an ImageBitmap ignores Texture.flipY, so
+    // both decode paths are pinned to the same orientation here instead.
+    vec3 color = texture2D(uFrame, vec2(ndc.x, -ndc.y) * 0.5 + 0.5).rgb * uGain;
     gl_FragColor = vec4(color * weight, weight);
   }
 `;
@@ -627,14 +677,16 @@ const NORMALIZE_FRAGMENT = /* glsl */ `
   }
 `;
 
-function renderEquirect(
+async function renderEquirect(
   shots: AdjustedShot[],
   outWidth: number,
   outHeight: number,
   blendMode: BlendMode,
   seamK: number,
-  releaseFrames: boolean,
-): { canvas: HTMLCanvasElement; coverage: number } {
+  onProgress: (fraction: number) => void,
+): Promise<{ canvas: HTMLCanvasElement; coverage: number }> {
+  const tileHeight = tileHeightFor(outWidth, outHeight);
+
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
     alpha: true,
@@ -642,32 +694,37 @@ function renderEquirect(
     preserveDrawingBuffer: true,
   });
   renderer.setPixelRatio(1);
-  renderer.setSize(outWidth, outHeight, false);
+  renderer.setSize(outWidth, tileHeight, false);
   renderer.autoClear = false;
 
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const geometry = new THREE.PlaneGeometry(2, 2);
 
-  const targetOptions = {
+  const accumTarget = new THREE.WebGLRenderTarget(outWidth, tileHeight, {
     type: THREE.HalfFloatType,
     format: THREE.RGBAFormat,
     depthBuffer: false,
     stencilBuffer: false,
-  } as const;
-
-  const accumTarget = new THREE.WebGLRenderTarget(outWidth, outHeight, targetOptions);
+  });
   accumTarget.texture.minFilter = THREE.NearestFilter;
   accumTarget.texture.magFilter = THREE.NearestFilter;
 
-  // Quality map: which frame owns each pixel. Only the seam blend needs it.
-  const qualityTarget = new THREE.WebGLRenderTarget(outWidth, outHeight, targetOptions);
+  // Quality map: which frame owns each pixel. Bytes are ample — this only ever
+  // decides a winner, and halving its cost is what buys the taller band.
+  const qualityTarget = new THREE.WebGLRenderTarget(outWidth, tileHeight, {
+    type: THREE.UnsignedByteType,
+    format: THREE.RGBAFormat,
+    depthBuffer: false,
+    stencilBuffer: false,
+  });
   qualityTarget.texture.minFilter = THREE.NearestFilter;
   qualityTarget.texture.magFilter = THREE.NearestFilter;
 
   const projectionUniforms = () => ({
     uWorldToCamera: { value: new THREE.Matrix3() },
     uTanHalfFov: { value: new THREE.Vector2(1, 1) },
+    uVRange: { value: new THREE.Vector2(0, 1) },
   });
 
   const qualityMaterial = new THREE.ShaderMaterial({
@@ -704,6 +761,15 @@ function renderEquirect(
     blendDst: THREE.OneFactor,
   });
 
+  const normalizeMaterial = new THREE.ShaderMaterial({
+    vertexShader: PASS_VERTEX,
+    fragmentShader: NORMALIZE_FRAGMENT,
+    uniforms: { uAccum: { value: accumTarget.texture } },
+    depthTest: false,
+    depthWrite: false,
+    transparent: true,
+  });
+
   const mesh = new THREE.Mesh(geometry, accumMaterial);
   scene.add(mesh);
 
@@ -717,64 +783,78 @@ function renderEquirect(
     );
   };
 
-  if (blendMode === 'seam') {
-    mesh.material = qualityMaterial;
-    renderer.setRenderTarget(qualityTarget);
-    renderer.setClearColor(0x000000, 0);
-    renderer.clear(true, false, false);
-    for (const shot of shots) {
-      aimFor(shot, qualityMaterial.uniforms);
-      renderer.render(scene, camera);
-    }
-    mesh.material = accumMaterial;
-  }
-
-  renderer.setRenderTarget(accumTarget);
-  renderer.setClearColor(0x000000, 0);
-  renderer.clear(true, false, false);
-
-  for (const shot of shots) {
-    // Working in stored sRGB end to end: no decode on sample, no encode on
-    // write — ShaderMaterial passes values through untouched.
-    const texture = new THREE.CanvasTexture(shot.frame);
-    texture.colorSpace = THREE.NoColorSpace;
-    texture.minFilter = THREE.LinearFilter;
-    texture.generateMipmaps = false;
-
-    aimFor(shot, accumMaterial.uniforms);
-    accumMaterial.uniforms['uFrame'].value = texture;
-    (accumMaterial.uniforms['uGain'].value as THREE.Vector3).copy(shot.gain);
-    renderer.render(scene, camera);
-
-    // The pixels now live in the texture, so the source canvas can go. On a
-    // long capture this hands back well over 100 MB before the normalize pass
-    // allocates its own buffers.
-    texture.dispose();
-    if (releaseFrames) {
-      shot.frame.width = 0;
-      shot.frame.height = 0;
-    }
-  }
-
-  const normalizeMaterial = new THREE.ShaderMaterial({
-    vertexShader: PASS_VERTEX,
-    fragmentShader: NORMALIZE_FRAGMENT,
-    uniforms: { uAccum: { value: accumTarget.texture } },
-    depthTest: false,
-    depthWrite: false,
-    transparent: true,
-  });
-  mesh.material = normalizeMaterial;
-  renderer.setRenderTarget(null);
-  renderer.setClearColor(0x000000, 0);
-  renderer.clear(true, false, false);
-  renderer.render(scene, camera);
-
-  // The GL canvas is drawn onto a 2D canvas in the same task, before disposal.
   const out = document.createElement('canvas');
   out.width = outWidth;
   out.height = outHeight;
-  out.getContext('2d')!.drawImage(renderer.domElement, 0, 0);
+  const outCtx = out.getContext('2d')!;
+
+  const tileCount = Math.ceil(outHeight / tileHeight);
+  let step = 0;
+  const totalSteps = tileCount * shots.length;
+
+  for (let tile = 0; tile < tileCount; tile++) {
+    const top = tile * tileHeight;
+    const rows = Math.min(tileHeight, outHeight - top);
+    // GL's v axis runs bottom-up while the output canvas runs top-down, so the
+    // band starting at row `top` is the v window ending at 1 − top/outHeight.
+    const span = tileHeight / outHeight;
+    const vBottom = 1 - (top + tileHeight) / outHeight;
+    const setRange = (uniforms: Record<string, { value: unknown }>) =>
+      (uniforms['uVRange'].value as THREE.Vector2).set(vBottom, span);
+
+    if (blendMode === 'seam') {
+      mesh.material = qualityMaterial;
+      renderer.setRenderTarget(qualityTarget);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear(true, false, false);
+      setRange(qualityMaterial.uniforms);
+      for (const shot of shots) {
+        aimFor(shot, qualityMaterial.uniforms);
+        renderer.render(scene, camera);
+      }
+      mesh.material = accumMaterial;
+    }
+
+    renderer.setRenderTarget(accumTarget);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear(true, false, false);
+    setRange(accumMaterial.uniforms);
+
+    for (const shot of shots) {
+      // One frame decoded at a time: the JPEG bytes stay in memory, the pixels
+      // exist only between here and the upload a few lines down.
+      const decoded = await decodeFrame(shot.frame);
+      // Working in stored sRGB end to end: no decode on sample, no encode on
+      // write — ShaderMaterial passes values through untouched.
+      const texture = new THREE.Texture(decoded as unknown as HTMLImageElement);
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
+      texture.flipY = false;
+      texture.needsUpdate = true;
+
+      aimFor(shot, accumMaterial.uniforms);
+      accumMaterial.uniforms['uFrame'].value = texture;
+      (accumMaterial.uniforms['uGain'].value as THREE.Vector3).copy(shot.gain);
+      renderer.render(scene, camera);
+
+      texture.dispose();
+      closeDecoded(decoded);
+      onProgress(++step / Math.max(1, totalSteps));
+    }
+
+    mesh.material = normalizeMaterial;
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear(true, false, false);
+    renderer.render(scene, camera);
+
+    // Drawn out in the same task, before the next band clears the buffer. The
+    // band's own bottom rows are dropped when the last one overhangs.
+    outCtx.drawImage(renderer.domElement, 0, 0, outWidth, rows, 0, top, outWidth, rows);
+    mesh.material = accumMaterial;
+  }
 
   geometry.dispose();
   qualityMaterial.dispose();

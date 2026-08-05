@@ -1,4 +1,10 @@
-import { buildCapturePattern, ringReachDeg, ringShotCount, PatternOptions } from './capture-pattern';
+import {
+  buildCapturePattern,
+  minimumRingShots,
+  ringReachDeg,
+  ringShotCount,
+  PatternOptions,
+} from './capture-pattern';
 import { hfovFromVfov } from './stitcher';
 
 function optionsFor(vfovDeg: number, frameAspect = 3 / 4): PatternOptions {
@@ -11,10 +17,23 @@ describe('buildCapturePattern', () => {
     expect(buildCapturePattern(optionsFor(62)).length).toBe(12);
   });
 
-  it('halves the work when the user picks the ultra-wide', () => {
-    const wide = buildCapturePattern(optionsFor(62)).length;
-    const ultra = buildCapturePattern(optionsFor(95)).length;
-    expect(ultra).toBeLessThan(wide / 1.5);
+  /**
+   * Coverage alone would let the ultra-wide close the turn in six. It takes
+   * twelve because the spacing is set by parallax: 60° apart swings a
+   * hand-held lens 25 cm between neighbours, 30° apart swings it 12.9 cm, and
+   * every seam has to hide that difference.
+   */
+  it('takes more than geometry demands, so each seam hides less parallax', () => {
+    const ultrawide = optionsFor(95);
+    expect(minimumRingShots(ultrawide)).toBeLessThan(8);
+    expect(ringShotCount(ultrawide)).toBe(12);
+  });
+
+  it('still lets geometry win when it needs more than the target', () => {
+    // A telephoto sees so little sideways that twelve would leave gaps.
+    const tele = optionsFor(30);
+    expect(minimumRingShots(tele)).toBeGreaterThan(12);
+    expect(ringShotCount(tele)).toBe(minimumRingShots(tele));
   });
 
   it('the ultra-wide also reaches much further up and down', () => {
@@ -45,8 +64,8 @@ describe('buildCapturePattern', () => {
 
   it('a narrower frame costs more shots rather than leaving holes', () => {
     // What a camera that refuses 4:3 hands back.
-    expect(ringShotCount(optionsFor(95, 9 / 16)))
-      .toBeGreaterThan(ringShotCount(optionsFor(95, 3 / 4)));
+    expect(minimumRingShots(optionsFor(95, 9 / 16)))
+      .toBeGreaterThan(minimumRingShots(optionsFor(95, 3 / 4)));
   });
 
   it('starts the ring at zero so the session re-zeroes onto the first target', () => {

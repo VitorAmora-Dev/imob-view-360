@@ -25,24 +25,46 @@ export interface PatternOptions {
   hfovDeg: number;
   /** Aim tolerance; shots must still overlap at opposite tolerance edges. */
   centerToleranceDeg: number;
+  /** Overrides the default ring size; the geometric minimum still wins if larger. */
+  targetShotCount?: number;
 }
 
-/**
- * Overlap kept between neighbours after worst-case aim drift. Small on
- * purpose: the stitch takes each pixel from a single frame, so redundancy buys
- * nothing beyond a safe seam and every extra shot is more work for the user.
- */
+/** Overlap kept between neighbours after worst-case aim drift. */
 const MIN_OVERLAP_DEG = 6;
+
+/**
+ * Shots around the ring, unless geometry demands more.
+ *
+ * This is deliberately well above the minimum that closes the turn, and the
+ * reason is parallax rather than coverage. A hand turns about the wrist or the
+ * body, so the lens swings on a radius of roughly 25 cm: between two shots
+ * `θ` apart the camera moves `2·0.25·sin(θ/2)` metres, which displaces an
+ * object at 1.5 m by that distance over its own range. At 60° apart (the six
+ * shots the ultra-wide's geometry alone would ask for) that is 25 cm and a
+ * 9.5° mismatch; at 30° it is 12.9 cm and 4.9°.
+ *
+ * Halving the spacing halves the error every seam has to hide, and leaves far
+ * more overlap for the seam to be routed through. That trade only became worth
+ * paying once the stitch stopped averaging overlapping frames — while it
+ * averaged, extra overlap made things worse, which is why the count used to be
+ * driven down to the minimum.
+ */
+export const TARGET_RING_SHOTS = 12;
 
 /** How far above and below the horizon the ring reaches, worst case. */
 export function ringReachDeg(options: PatternOptions): number {
   return options.vfovDeg / 2 - options.centerToleranceDeg;
 }
 
-/** Number of shots needed to close the turn without leaving a vertical gap. */
-export function ringShotCount(options: PatternOptions): number {
+/** Fewest shots that close the turn without leaving a vertical gap. */
+export function minimumRingShots(options: PatternOptions): number {
   const spacing = Math.max(10, options.hfovDeg - 2 * options.centerToleranceDeg - MIN_OVERLAP_DEG);
   return Math.max(3, Math.ceil(360 / spacing));
+}
+
+/** Shots the capture will actually ask for. */
+export function ringShotCount(options: PatternOptions): number {
+  return Math.max(minimumRingShots(options), options.targetShotCount ?? TARGET_RING_SHOTS);
 }
 
 export function buildCapturePattern(options: PatternOptions): CaptureTarget[] {
