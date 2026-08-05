@@ -22,8 +22,13 @@ export interface PatternOptions {
   centerToleranceDeg: number;
 }
 
-/** Guaranteed overlap between neighbours after worst-case aim drift. */
-const MIN_OVERLAP_DEG = 8;
+/**
+ * Guaranteed overlap between neighbours after worst-case aim drift. Kept small
+ * on purpose: the stitch now takes each pixel from a single frame, so extra
+ * overlap buys nothing and only adds shots — and every extra shot is one more
+ * chance for hand-held parallax to disagree along a seam.
+ */
+const MIN_OVERLAP_DEG = 6;
 /** Rings steeper than this are awkward to aim; caps take over beyond it. */
 const MAX_RING_PITCH_DEG = 60;
 /** Slack so a lens that only just closes the sphere is not pushed to an extra ring. */

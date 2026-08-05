@@ -208,6 +208,19 @@
   }
 }
 
+// Shown when the camera refused 4:3 and the capture will be much longer.
+.warn-pill {
+  max-width: min(420px, 90vw);
+  padding: 8px 16px;
+  border-radius: var(--app-radius-md);
+  background: rgba(193, 53, 21, 0.92);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
 .sim-badge {
   padding: 4px 10px;
   border-radius: 9999px;

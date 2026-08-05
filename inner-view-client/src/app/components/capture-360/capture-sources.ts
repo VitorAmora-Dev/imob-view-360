@@ -24,6 +24,12 @@ export interface CameraSpec {
   vfovDeg: number | null;
   /** Frame width/height ratio (< 1 in portrait). */
   frameAspect: number;
+  /**
+   * False when the camera refused 4:3 and handed back a narrower crop. It is
+   * worth surfacing: a 16:9 portrait frame loses ~17° of horizontal field and
+   * the capture plan pays for it with two extra rings.
+   */
+  wideShapeAccepted: boolean;
 }
 
 export interface LensOption {
@@ -106,6 +112,7 @@ export class RealCameraSource implements CaptureCameraSource {
   private video: HTMLVideoElement | null = null;
   private available: LensOption[] = [];
   private activeId: string | null = null;
+  private wideShapeAccepted = true;
 
   async start(): Promise<void> {
     // First stream doubles as the permission prompt: enumerateDevices only
@@ -137,6 +144,7 @@ export class RealCameraSource implements CaptureCameraSource {
         // Resolution or aspect unsupported on this camera; try the next.
       }
     }
+    this.wideShapeAccepted = stream !== null;
     if (!stream) {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
@@ -163,6 +171,30 @@ export class RealCameraSource implements CaptureCameraSource {
       el.onerror = () => reject(new Error('camera stream failed'));
     });
     await el.play();
+    await this.lockAutoAdjustments(stream);
+  }
+
+  /**
+   * Freezing exposure and white balance keeps every frame on the same scale.
+   * It matters more now that pixels come from a single frame: a metering swing
+   * between neighbours used to blur into a haze, and shows as a step along the
+   * seam instead. Android honours this; iOS exposes no such control, which is
+   * why the stitcher still corrects gain in software.
+   */
+  private async lockAutoAdjustments(stream: MediaStream): Promise<void> {
+    const track = stream.getVideoTracks()[0];
+    if (!track?.applyConstraints) return;
+    // Let the camera settle on a sensible reading before freezing it.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    try {
+      // exposureMode/whiteBalanceMode are not in the standard typings; they
+      // are a Chromium extension and simply throw where unsupported.
+      await track.applyConstraints({
+        advanced: [{ exposureMode: 'manual' }, { whiteBalanceMode: 'manual' }],
+      } as unknown as MediaTrackConstraints);
+    } catch {
+      // Unsupported on this browser; software gain matching covers it.
+    }
   }
 
   private async discoverLenses(): Promise<void> {
@@ -239,7 +271,9 @@ export class RealCameraSource implements CaptureCameraSource {
     const rotation = this.frameRotationDeg();
     const swap = rotation === 90 || rotation === 270;
     const video = this.video;
-    if (!video || !video.videoHeight) return { vfovDeg: WIDE_PRIOR_VFOV, frameAspect: 3 / 4 };
+    if (!video || !video.videoHeight) {
+      return { vfovDeg: WIDE_PRIOR_VFOV, frameAspect: 3 / 4, wideShapeAccepted: true };
+    }
 
     const w = swap ? video.videoHeight : video.videoWidth;
     const h = swap ? video.videoWidth : video.videoHeight;
@@ -247,6 +281,7 @@ export class RealCameraSource implements CaptureCameraSource {
     return {
       vfovDeg: active?.kind === 'ultrawide' ? ULTRAWIDE_PRIOR_VFOV : WIDE_PRIOR_VFOV,
       frameAspect: w / h,
+      wideShapeAccepted: this.wideShapeAccepted,
     };
   }
 
@@ -334,9 +369,11 @@ export class SimCameraSource implements CaptureCameraSource {
   getSpec(): CameraSpec {
     // Reports the same conservative prior a real device would, so the FOV fit
     // is exercised rather than handed the answer.
+    const aspect = this.env.frameWidth / this.env.frameHeight;
     return {
       vfovDeg: this.env.priorVfovDeg,
-      frameAspect: this.env.frameWidth / this.env.frameHeight,
+      frameAspect: aspect,
+      wideShapeAccepted: aspect > 0.7,
     };
   }
 

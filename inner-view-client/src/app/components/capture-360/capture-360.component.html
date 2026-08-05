@@ -51,6 +51,11 @@
         </div>
 
         <div class="bottom-bar">
+          @if (narrowFrameWarning()) {
+            <span class="warn-pill">
+              {{ 'CAPTURE.NARROW_FRAME_WARNING' | translate: { total: totalCount() } }}
+            </span>
+          }
           <span class="hint-pill">{{ hintKey() | translate }}</span>
 
           @if (lenses().length > 1) {

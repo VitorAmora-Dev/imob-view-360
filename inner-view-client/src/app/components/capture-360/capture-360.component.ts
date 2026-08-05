@@ -63,6 +63,8 @@ export class Capture360Component implements OnDestroy {
   readonly previewPanoramas = signal<Panorama[]>([]);
   readonly lenses = signal<LensOption[]>([]);
   readonly activeLensId = signal<string | null>(null);
+  /** Set when the camera refused 4:3, which makes the capture much longer. */
+  readonly narrowFrameWarning = signal(false);
   readonly simMode = new URLSearchParams(window.location.search).has('sim');
 
   private readonly modalCtrl = inject(ModalController);
@@ -171,6 +173,9 @@ export class Capture360Component implements OnDestroy {
     this.replanned = false;
     this.totalCount.set(targets.length);
     this.capturedCount.set(0);
+    // Warn rather than silently tripling the capture, which is what turned an
+    // expected 8 shots into 22 on a phone whose camera refused 4:3.
+    this.narrowFrameWarning.set(!spec.wideShapeAccepted);
   }
 
   /**
@@ -305,7 +310,18 @@ export class Capture360Component implements OnDestroy {
     try {
       // Let the spinner paint before the heavy synchronous stretch begins.
       await new Promise((resolve) => setTimeout(resolve, 50));
-      const result = await stitchEquirect(this.shots, this.camera!.getSpec());
+      const spec = this.camera!.getSpec();
+      if (this.simMode) {
+        // Keeps the frames alive so an automated run can re-stitch the same
+        // capture with different settings and compare them fairly.
+        const shots = this.shots;
+        (window as unknown as Record<string, unknown>)['__restitch'] =
+          (opts: Record<string, unknown>) =>
+            stitchEquirect(shots, spec, { releaseFrames: false, ...opts });
+      }
+      const result = await stitchEquirect(this.shots, spec, {
+        releaseFrames: !this.simMode,
+      });
       if (this.simMode) {
         // Lets an automated run diff the stitch against SimEnvironment.groundTruth.
         (window as unknown as Record<string, unknown>)['__captureResult'] = result;

@@ -1,18 +1,19 @@
 import * as THREE from 'three';
-import { quaternionFromYpr } from './orientation-math';
-import { drawSyntheticPano } from './synthetic-pano';
+import { directionForYawPitch, quaternionFromYpr } from './orientation-math';
+import { SimRoom, buildSimRoom } from './sim-room';
 import type { LensOption } from './capture-sources';
 
 /**
- * Desktop stand-in for phone + room: renders a synthetic equirectangular
- * "room" on the same inverted sphere the real viewer uses, from a virtual
- * phone camera driven by mouse drag / arrow keys (Q/E tilt). Both the camera
- * preview and the orientation sensor read from this single state, and the
- * synthetic pano doubles as ground truth for verifying the stitcher.
+ * Desktop stand-in for phone + room. It renders a room WITH DEPTH, from a
+ * camera that can be offset from the rotation axis — because the previous
+ * version orbited a perfect nodal point inside a textured sphere, which is
+ * invariant to translation and therefore could never reproduce the parallax
+ * that wrecked the real captures.
  *
- * The virtual lenses carry a TRUE field of view that is deliberately different
- * from the prior handed to the pipeline, so the FOV fit has to actually work
- * for the stitch to come out aligned.
+ * Three knobs mirror what a phone actually does:
+ *   pivotRadiusM — 0 for a tripod, ~0.25 for a hand rotating at the wrist
+ *   autoExposure — per-frame gain reacting to scene brightness, like the phone
+ *   lens         — true field of view distinct from the prior handed to the app
  */
 interface SimLens extends LensOption {
   trueVfovDeg: number;
@@ -24,8 +25,7 @@ interface SimLens extends LensOption {
 const SIM_LENSES: SimLens[] = [
   { deviceId: 'sim-ultrawide', label: 'Câmera Grande-Angular Traseira', kind: 'ultrawide', trueVfovDeg: 108, priorVfovDeg: 95, frameWidth: 1080, frameHeight: 1440 },
   { deviceId: 'sim-wide', label: 'Câmera Traseira', kind: 'wide', trueVfovDeg: 69, priorVfovDeg: 62, frameWidth: 1080, frameHeight: 1440 },
-  // Reproduces the shape Safari hands back when it refuses 4:3: the vertical
-  // field survives but the horizontal is cropped, which costs two extra rings.
+  // Reproduces the shape Safari hands back when it refuses 4:3.
   { deviceId: 'sim-ultrawide-169', label: 'Grande-Angular 16:9 (teste)', kind: 'ultrawide', trueVfovDeg: 108, priorVfovDeg: 95, frameWidth: 1080, frameHeight: 1920 },
 ];
 
@@ -42,15 +42,23 @@ export class SimEnvironment {
   pitchDeg = 0;
   rollDeg = 0;
 
-  /** The equirectangular the virtual room is built from — stitching ground truth. */
+  /**
+   * Distance from the rotation axis to the lens, in metres. A tripod head set
+   * on the nodal point is 0; a hand turning at the wrist or waist is 0.2–0.3,
+   * which is what produced the ghosting in the real captures.
+   */
+  pivotRadiusM = 0.25;
+
+  /** Simulates the camera's automatic exposure reacting to what it sees. */
+  autoExposure = true;
+
+  /** Panorama rendered from the exact rotation centre — the honest reference. */
   groundTruth: HTMLCanvasElement | null = null;
 
   private lens: SimLens = SIM_LENSES[0];
-
+  private room: SimRoom | null = null;
   private renderer: THREE.WebGLRenderer | null = null;
-  private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(108, 1080 / 1440, 0.1, 1100);
-  private texture: THREE.CanvasTexture | null = null;
+  private camera = new THREE.PerspectiveCamera(108, 0.75, 0.05, 100);
   private rafId: number | null = null;
   private readonly keysDown = new Set<string>();
   private lastFrameMs = 0;
@@ -80,35 +88,24 @@ export class SimEnvironment {
     const found = SIM_LENSES.find((l) => l.deviceId === deviceId);
     if (!found) return;
     this.lens = found;
-    this.camera.fov = found.trueVfovDeg;
-    this.camera.aspect = found.frameWidth / found.frameHeight;
-    this.camera.updateProjectionMatrix();
+    this.applyLens();
     this.renderer?.setSize(found.frameWidth, found.frameHeight, false);
   }
 
   start(): void {
     if (this.renderer) return;
-
-    const pano = drawSyntheticPano();
-    this.groundTruth = pano;
-    this.texture = new THREE.CanvasTexture(pano);
-    this.texture.colorSpace = THREE.SRGBColorSpace;
-
-    // Same geometry as PanoramicViewerComponent, so the stitched output can be
-    // compared 1:1 against the synthetic source.
-    const geometry = new THREE.SphereGeometry(500, 60, 40);
-    geometry.scale(-1, 1, 1);
-    this.scene.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: this.texture })));
-
-    this.camera.fov = this.lens.trueVfovDeg;
-    this.camera.aspect = this.frameWidth / this.frameHeight;
-    this.camera.updateProjectionMatrix();
-
+    this.room = buildSimRoom();
+    this.applyLens();
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(this.frameWidth, this.frameHeight, false);
-
-    // Deterministic hook for automated tests (only exists in ?sim=1 sessions).
+    this.groundTruth = this.renderGroundTruth();
     (window as unknown as Record<string, unknown>)['__captureSim'] = this;
+  }
+
+  private applyLens(): void {
+    this.camera.fov = this.lens.trueVfovDeg;
+    this.camera.aspect = this.lens.frameWidth / this.lens.frameHeight;
+    this.camera.updateProjectionMatrix();
   }
 
   attach(container: HTMLElement): void {
@@ -129,7 +126,6 @@ export class SimEnvironment {
     this.rafId = requestAnimationFrame(loop);
   }
 
-  /** Input listeners go on the overlay element that sits above the preview. */
   bindInput(el: HTMLElement): void {
     this.inputEl = el;
     el.addEventListener('pointerdown', this.onPointerDown);
@@ -146,8 +142,27 @@ export class SimEnvironment {
     const copy = document.createElement('canvas');
     copy.width = Math.round(this.frameWidth * scale);
     copy.height = Math.round(this.frameHeight * scale);
-    copy.getContext('2d')!.drawImage(this.renderer!.domElement, 0, 0, copy.width, copy.height);
+    const ctx = copy.getContext('2d')!;
+
+    if (this.autoExposure) {
+      // The phone re-meters for every shot; a bright wall darkens the frame and
+      // a dim corner lifts it. Applied as a draw filter so the stitcher has to
+      // undo a genuine per-frame gain, exactly as it must on the real device.
+      ctx.filter = `brightness(${this.exposureGain().toFixed(3)})`;
+    }
+    ctx.drawImage(this.renderer!.domElement, 0, 0, copy.width, copy.height);
     return copy;
+  }
+
+  /**
+   * Metering stand-in: aiming at the bright ceiling stops the camera down,
+   * aiming at the dark floor opens it up. Swing is ~2.4× end to end, in the
+   * range a real room with a window and a lamp produces.
+   */
+  private exposureGain(): number {
+    const pitch = THREE.MathUtils.clamp(this.pitchDeg, -90, 90);
+    const yawTerm = Math.cos((this.yawDeg * Math.PI) / 180) * 0.18;
+    return THREE.MathUtils.clamp(1 - pitch / 140 + yawTerm, 0.55, 1.35);
   }
 
   dispose(): void {
@@ -162,16 +177,96 @@ export class SimEnvironment {
     }
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
-    this.texture?.dispose();
+    this.room?.dispose();
+    this.room = null;
     this.renderer?.domElement.remove();
     this.renderer?.dispose();
     this.renderer = null;
   }
 
   private render(): void {
-    if (!this.renderer) return;
+    if (!this.renderer || !this.room) return;
     this.camera.quaternion.copy(quaternionFromYpr(this.yawDeg, this.pitchDeg, this.rollDeg));
-    this.renderer.render(this.scene, this.camera);
+    // The lens sits pivotRadiusM in FRONT of the rotation axis, which is what
+    // happens when someone turns their body while holding the phone out.
+    this.camera.position.copy(
+      directionForYawPitch(this.yawDeg, this.pitchDeg).multiplyScalar(this.pivotRadiusM),
+    );
+    this.renderer.render(this.room.scene, this.camera);
+  }
+
+  /**
+   * Equirectangular reference rendered from the rotation centre with no
+   * exposure drift — what a perfect capture would produce.
+   */
+  private renderGroundTruth(width = 2048): HTMLCanvasElement {
+    const height = width / 2;
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    const ctx = out.getContext('2d')!;
+
+    // Six cube faces from the centre, resampled into equirect.
+    const faceSize = 512;
+    const faceRenderer = new THREE.WebGLRenderer({ antialias: true });
+    faceRenderer.setSize(faceSize, faceSize, false);
+    const faceCamera = new THREE.PerspectiveCamera(90, 1, 0.05, 100);
+    faceCamera.position.set(0, 0, 0);
+
+    const faces: { yaw: number; pitch: number; data: Uint8ClampedArray }[] = [];
+    const dirs = [
+      { yaw: 0, pitch: 0 }, { yaw: 90, pitch: 0 }, { yaw: 180, pitch: 0 },
+      { yaw: 270, pitch: 0 }, { yaw: 0, pitch: 89.999 }, { yaw: 0, pitch: -89.999 },
+    ];
+    const scratch = document.createElement('canvas');
+    scratch.width = faceSize;
+    scratch.height = faceSize;
+    const sctx = scratch.getContext('2d', { willReadFrequently: true })!;
+
+    for (const d of dirs) {
+      faceCamera.quaternion.copy(quaternionFromYpr(d.yaw, d.pitch, 0));
+      faceRenderer.render(this.room!.scene, faceCamera);
+      sctx.clearRect(0, 0, faceSize, faceSize);
+      sctx.drawImage(faceRenderer.domElement, 0, 0);
+      faces.push({ yaw: d.yaw, pitch: d.pitch, data: sctx.getImageData(0, 0, faceSize, faceSize).data });
+    }
+
+    const image = ctx.createImageData(width, height);
+    const forward = new THREE.Vector3();
+    for (let y = 0; y < height; y++) {
+      const theta = ((y + 0.5) / height) * Math.PI;
+      for (let x = 0; x < width; x++) {
+        const phi = ((x + 0.5) / width) * 2 * Math.PI;
+        forward.set(Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta));
+
+        let best = 0;
+        let bestDot = -Infinity;
+        for (let f = 0; f < faces.length; f++) {
+          const fd = directionForYawPitch(faces[f].yaw, faces[f].pitch);
+          const dot = fd.dot(forward);
+          if (dot > bestDot) { bestDot = dot; best = f; }
+        }
+        const face = faces[best];
+        const q = quaternionFromYpr(face.yaw, face.pitch, 0).invert();
+        const cam = forward.clone().applyQuaternion(q);
+        if (cam.z >= -1e-4) continue;
+        const u = (cam.x / -cam.z) * 0.5 + 0.5;
+        const v = 1 - ((cam.y / -cam.z) * 0.5 + 0.5);
+        const px = Math.min(faceSize - 1, Math.max(0, Math.round(u * (faceSize - 1))));
+        const py = Math.min(faceSize - 1, Math.max(0, Math.round(v * (faceSize - 1))));
+        const si = (py * faceSize + px) * 4;
+        const di = (y * width + x) * 4;
+        image.data[di] = face.data[si];
+        image.data[di + 1] = face.data[si + 1];
+        image.data[di + 2] = face.data[si + 2];
+        image.data[di + 3] = 255;
+      }
+    }
+    ctx.putImageData(image, 0, 0);
+
+    faceRenderer.dispose();
+    faceRenderer.forceContextLoss();
+    return out;
   }
 
   private stepInput(dtSeconds: number): void {
@@ -203,7 +298,6 @@ export class SimEnvironment {
 
   private readonly onPointerMove = (e: PointerEvent) => {
     if (e.pointerId !== this.dragPointerId) return;
-    // Dragging right turns right, like panning a phone.
     this.yawDeg += (e.clientX - this.dragLast.x) * 0.15;
     this.pitchDeg = THREE.MathUtils.clamp(this.pitchDeg + (e.clientY - this.dragLast.y) * -0.15, -90, 90);
     this.dragLast = { x: e.clientX, y: e.clientY };

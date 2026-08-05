@@ -19,13 +19,36 @@ export interface StitchShot {
   quaternion: { x: number; y: number; z: number; w: number };
 }
 
+/**
+ * `seam` takes each pixel from the single frame that owns it; `average` is the
+ * old wash of every overlapping frame, kept only so before/after measurements
+ * can run both paths over identical input.
+ */
+export type BlendMode = 'seam' | 'average';
+
 export interface StitchOptions {
   outWidth?: number;
   outHeight?: number;
   /** Disable the correlation refinement (used by tests / troubleshooting). */
   refine?: boolean;
+  blendMode?: BlendMode;
+  /** Seam sharpness: higher makes the cross-fade at the seam narrower. */
+  seamK?: number;
+  /**
+   * Frames are freed as they upload, which is what keeps a long capture inside
+   * the phone's memory budget. Set false to stitch the same set more than once
+   * — used to compare blend modes over identical input.
+   */
+  releaseFrames?: boolean;
   onProgress?: (fraction: number) => void;
 }
+
+/**
+ * Calibrated on the simulated room with 25 cm of hand-held parallax — see the
+ * sweep in the verification notes. Low values reintroduce the wash; very high
+ * values make the seam a hard, visible line.
+ */
+export const DEFAULT_SEAM_K = 60;
 
 export interface StitchResult {
   imageData: string;
@@ -103,7 +126,12 @@ export async function stitchEquirect(
   report(0.35);
 
   const { outWidth, outHeight } = pickOutputSize(options, spec);
-  const { canvas, coverage } = renderEquirect(adjusted, outWidth, outHeight);
+  const { canvas, coverage } = renderEquirect(
+    adjusted, outWidth, outHeight,
+    options.blendMode ?? 'seam',
+    options.seamK ?? DEFAULT_SEAM_K,
+    options.releaseFrames !== false,
+  );
   report(0.85);
 
   const composed = fillUncovered(canvas, outWidth, outHeight);
@@ -174,6 +202,14 @@ const MAX_YAW_CORRECTION_DEG = 3;
  * disagreements are treated as measurement error and left alone.
  */
 const YAW_DEADBAND_DEG = 0.75;
+
+/**
+ * Per-frame exposure correction range. The old ±25% could not undo a phone's
+ * automatic metering, which swings 3-4x across a room with a window and a lamp
+ * — that residual is what produced the milky veil over the real captures.
+ */
+const GAIN_MIN = 0.4;
+const GAIN_MAX = 2.5;
 
 interface FrameProfile {
   /** Luminance vs normalised x ∈ [-1,1], averaged over the central band. */
@@ -379,8 +415,10 @@ function refineRings(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedS
     yawCorrection[p.a] -= shrunk;
   });
 
-  // Exposure and white balance: per channel, so a warm room next to a cool one
-  // matches in colour and not merely in brightness.
+  // Exposure and white balance, per channel. With seams instead of averaging,
+  // a brightness mismatch stops being a soft haze and becomes a visible step
+  // along the cut, so this has to cope with the full swing a phone's automatic
+  // metering produces — roughly 3-4x between a lit window and a dark corner.
   pairs.forEach((p, i) => {
     const m = measured[i];
     if (!m.confident) return;
@@ -388,10 +426,12 @@ function refineRings(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedS
     for (let c = 0; c < 3; c++) {
       const ca = angularResample(profiles[p.a].channels[c], hfov);
       const cb = angularResample(profiles[p.b].channels[c], hfov);
-      const meanA = meanOf(ca, m.overlapA);
-      const meanB = meanOf(cb, m.overlapB);
-      if (meanA < 4 || meanB < 4) continue;
-      const ratio = Math.min(1.25, Math.max(0.8, meanA / meanB));
+      // Median, not mean: a blown-out window inside the overlap hijacks a mean
+      // and would drag the whole frame's gain with it.
+      const medA = medianOf(ca, m.overlapA);
+      const medB = medianOf(cb, m.overlapB);
+      if (medA < 4 || medB < 4) continue;
+      const ratio = Math.min(GAIN_MAX, Math.max(GAIN_MIN, medA / medB));
       gains[p.b].setComponent(c, gains[p.b].getComponent(c) * ratio);
     }
   });
@@ -408,7 +448,9 @@ function refineRings(shots: AdjustedShot[], profiles: FrameProfile[]): AdjustedS
     return {
       ...s,
       gain: new THREE.Vector3(
-        clamp(g.x, 0.75, 1.35), clamp(g.y, 0.75, 1.35), clamp(g.z, 0.75, 1.35),
+        clamp(g.x, GAIN_MIN, GAIN_MAX),
+        clamp(g.y, GAIN_MIN, GAIN_MAX),
+        clamp(g.z, GAIN_MIN, GAIN_MAX),
       ),
       q: quaternionFromYpr(yawCorrection[i], 0, 0).multiply(s.q),
     };
@@ -419,14 +461,16 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
 
-function meanOf(arr: Float32Array, range: [number, number]): number {
-  let sum = 0;
-  let n = 0;
-  for (let i = Math.max(0, range[0]); i < Math.min(arr.length, range[1]); i++) {
-    sum += arr[i];
-    n++;
-  }
-  return n > 0 ? sum / n : 0;
+/** Robust centre of an overlap window; blown highlights must not steer it. */
+export function medianOf(arr: Float32Array | number[], range: [number, number]): number {
+  const lo = Math.max(0, range[0]);
+  const hi = Math.min(arr.length, range[1]);
+  if (hi - lo <= 0) return 0;
+  const slice: number[] = [];
+  for (let i = lo; i < hi; i++) slice.push(arr[i]);
+  slice.sort((a, b) => a - b);
+  const mid = slice.length >> 1;
+  return slice.length % 2 ? slice[mid] : (slice[mid - 1] + slice[mid]) / 2;
 }
 
 function correlatePair(
@@ -488,7 +532,7 @@ function correlatePair(
 }
 
 /* ------------------------------------------------------------------------- */
-/* WebGL projection: one feathered additive pass per frame, then normalize    */
+/* WebGL projection: pick the best frame per pixel, blend only at the seam    */
 /* ------------------------------------------------------------------------- */
 
 const PASS_VERTEX = /* glsl */ `
@@ -499,30 +543,71 @@ const PASS_VERTEX = /* glsl */ `
   }
 `;
 
-const ACCUM_FRAGMENT = /* glsl */ `
+/**
+ * Shared preamble: output pixel → world direction → this frame's image
+ * coordinates, plus the "quality" of the sample, which is how far inside the
+ * frame the pixel falls. The frame with the highest quality owns the pixel.
+ */
+const PROJECT_GLSL = /* glsl */ `
   precision highp float;
   varying vec2 vUv;
-  uniform sampler2D uFrame;
   uniform mat3 uWorldToCamera;
   uniform vec2 uTanHalfFov; // (tan(hfov/2), tan(vfov/2))
-  uniform vec3 uGain;
 
   const float PI = 3.14159265358979;
 
-  void main() {
-    // Output pixel → world direction, inverse of the viewer's sphere mapping.
+  bool projectPixel(out vec2 ndc, out float quality) {
+    // Inverse of the viewer's sphere mapping.
     float phi = vUv.x * 2.0 * PI;
     float theta = (1.0 - vUv.y) * PI;
     vec3 dir = vec3(cos(phi) * sin(theta), cos(theta), sin(phi) * sin(theta));
 
     vec3 cam = uWorldToCamera * dir;
-    if (cam.z > -0.001) { discard; }
+    if (cam.z > -0.001) { return false; }
 
-    vec2 ndc = vec2(cam.x / -cam.z / uTanHalfFov.x, cam.y / -cam.z / uTanHalfFov.y);
-    if (abs(ndc.x) >= 1.0 || abs(ndc.y) >= 1.0) { discard; }
+    ndc = vec2(cam.x / -cam.z / uTanHalfFov.x, cam.y / -cam.z / uTanHalfFov.y);
+    if (abs(ndc.x) >= 1.0 || abs(ndc.y) >= 1.0) { return false; }
 
-    float edge = min(1.0 - abs(ndc.x), 1.0 - abs(ndc.y));
-    float weight = smoothstep(0.0, 0.35, edge);
+    quality = min(1.0 - abs(ndc.x), 1.0 - abs(ndc.y));
+    return true;
+  }
+`;
+
+/** Pass A: MAX-blended, leaves the best available quality in every pixel. */
+const QUALITY_FRAGMENT = PROJECT_GLSL + /* glsl */ `
+  void main() {
+    vec2 ndc; float quality;
+    if (!projectPixel(ndc, quality)) { discard; }
+    gl_FragColor = vec4(quality, 0.0, 0.0, 1.0);
+  }
+`;
+
+/**
+ * Pass B: each pixel is taken from the frame that owns it, with a narrow
+ * cross-fade where two frames are nearly equally good — the seam.
+ *
+ * Weighting relative to the best quality (rather than an absolute curve) keeps
+ * the winner at exactly 1.0, so a lone frame at the edge of coverage is never
+ * lost to underflow, and no pixel is ever a wash of many misaligned frames.
+ * That averaging is what turned hand-held parallax into triple-exposed
+ * furniture; here it can only ever show as a small step along the seam.
+ */
+const ACCUM_FRAGMENT = PROJECT_GLSL + /* glsl */ `
+  uniform sampler2D uFrame;
+  uniform sampler2D uBestQuality;
+  uniform vec3 uGain;
+  uniform float uSeamK;
+  uniform float uAverageMode;
+
+  void main() {
+    vec2 ndc; float quality;
+    if (!projectPixel(ndc, quality)) { discard; }
+
+    float best = texture2D(uBestQuality, vUv).r;
+    float seamWeight = exp(-uSeamK * max(best - quality, 0.0));
+    // uAverageMode reproduces the old wash for before/after measurements.
+    float weight = mix(seamWeight, smoothstep(0.0, 0.35, quality), uAverageMode);
+
     vec3 color = texture2D(uFrame, ndc * 0.5 + 0.5).rgb * uGain;
     gl_FragColor = vec4(color * weight, weight);
   }
@@ -546,6 +631,9 @@ function renderEquirect(
   shots: AdjustedShot[],
   outWidth: number,
   outHeight: number,
+  blendMode: BlendMode,
+  seamK: number,
+  releaseFrames: boolean,
 ): { canvas: HTMLCanvasElement; coverage: number } {
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
@@ -561,23 +649,51 @@ function renderEquirect(
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const geometry = new THREE.PlaneGeometry(2, 2);
 
-  const accumTarget = new THREE.WebGLRenderTarget(outWidth, outHeight, {
+  const targetOptions = {
     type: THREE.HalfFloatType,
     format: THREE.RGBAFormat,
     depthBuffer: false,
     stencilBuffer: false,
-  });
+  } as const;
+
+  const accumTarget = new THREE.WebGLRenderTarget(outWidth, outHeight, targetOptions);
   accumTarget.texture.minFilter = THREE.NearestFilter;
   accumTarget.texture.magFilter = THREE.NearestFilter;
+
+  // Quality map: which frame owns each pixel. Only the seam blend needs it.
+  const qualityTarget = new THREE.WebGLRenderTarget(outWidth, outHeight, targetOptions);
+  qualityTarget.texture.minFilter = THREE.NearestFilter;
+  qualityTarget.texture.magFilter = THREE.NearestFilter;
+
+  const projectionUniforms = () => ({
+    uWorldToCamera: { value: new THREE.Matrix3() },
+    uTanHalfFov: { value: new THREE.Vector2(1, 1) },
+  });
+
+  const qualityMaterial = new THREE.ShaderMaterial({
+    vertexShader: PASS_VERTEX,
+    fragmentShader: QUALITY_FRAGMENT,
+    uniforms: projectionUniforms(),
+    depthTest: false,
+    depthWrite: false,
+    transparent: true,
+    blending: THREE.CustomBlending,
+    // MAX keeps the best quality seen so far without needing a second buffer.
+    blendEquation: THREE.MaxEquation,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+  });
 
   const accumMaterial = new THREE.ShaderMaterial({
     vertexShader: PASS_VERTEX,
     fragmentShader: ACCUM_FRAGMENT,
     uniforms: {
+      ...projectionUniforms(),
       uFrame: { value: null },
-      uWorldToCamera: { value: new THREE.Matrix3() },
-      uTanHalfFov: { value: new THREE.Vector2(1, 1) },
+      uBestQuality: { value: qualityTarget.texture },
       uGain: { value: new THREE.Vector3(1, 1, 1) },
+      uSeamK: { value: seamK },
+      uAverageMode: { value: blendMode === 'average' ? 1 : 0 },
     },
     depthTest: false,
     depthWrite: false,
@@ -587,10 +703,31 @@ function renderEquirect(
     blendSrc: THREE.OneFactor,
     blendDst: THREE.OneFactor,
   });
+
   const mesh = new THREE.Mesh(geometry, accumMaterial);
   scene.add(mesh);
 
   const rotation = new THREE.Matrix4();
+  const aimFor = (shot: AdjustedShot, uniforms: Record<string, { value: unknown }>) => {
+    rotation.makeRotationFromQuaternion(shot.q.clone().invert());
+    (uniforms['uWorldToCamera'].value as THREE.Matrix3).setFromMatrix4(rotation);
+    (uniforms['uTanHalfFov'].value as THREE.Vector2).set(
+      Math.tan((shot.hfovDeg * Math.PI) / 360),
+      Math.tan((shot.vfovDeg * Math.PI) / 360),
+    );
+  };
+
+  if (blendMode === 'seam') {
+    mesh.material = qualityMaterial;
+    renderer.setRenderTarget(qualityTarget);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear(true, false, false);
+    for (const shot of shots) {
+      aimFor(shot, qualityMaterial.uniforms);
+      renderer.render(scene, camera);
+    }
+    mesh.material = accumMaterial;
+  }
 
   renderer.setRenderTarget(accumTarget);
   renderer.setClearColor(0x000000, 0);
@@ -604,22 +741,19 @@ function renderEquirect(
     texture.minFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
 
-    rotation.makeRotationFromQuaternion(shot.q.clone().invert());
+    aimFor(shot, accumMaterial.uniforms);
     accumMaterial.uniforms['uFrame'].value = texture;
-    (accumMaterial.uniforms['uWorldToCamera'].value as THREE.Matrix3).setFromMatrix4(rotation);
-    (accumMaterial.uniforms['uTanHalfFov'].value as THREE.Vector2).set(
-      Math.tan((shot.hfovDeg * Math.PI) / 360),
-      Math.tan((shot.vfovDeg * Math.PI) / 360),
-    );
     (accumMaterial.uniforms['uGain'].value as THREE.Vector3).copy(shot.gain);
     renderer.render(scene, camera);
 
     // The pixels now live in the texture, so the source canvas can go. On a
-    // 22-shot capture this hands back well over 100 MB before the normalize
-    // pass allocates its own buffers.
+    // long capture this hands back well over 100 MB before the normalize pass
+    // allocates its own buffers.
     texture.dispose();
-    shot.frame.width = 0;
-    shot.frame.height = 0;
+    if (releaseFrames) {
+      shot.frame.width = 0;
+      shot.frame.height = 0;
+    }
   }
 
   const normalizeMaterial = new THREE.ShaderMaterial({
@@ -643,8 +777,10 @@ function renderEquirect(
   out.getContext('2d')!.drawImage(renderer.domElement, 0, 0);
 
   geometry.dispose();
+  qualityMaterial.dispose();
   accumMaterial.dispose();
   normalizeMaterial.dispose();
+  qualityTarget.dispose();
   accumTarget.dispose();
   renderer.dispose();
   renderer.forceContextLoss();
