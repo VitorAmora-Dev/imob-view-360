@@ -1,66 +1,55 @@
-import { buildCapturePattern, patternClosesSphere, PatternOptions } from './capture-pattern';
+import { buildCapturePattern, ringReachDeg, ringShotCount, PatternOptions } from './capture-pattern';
 import { hfovFromVfov } from './stitcher';
 
-function optionsFor(vfovDeg: number, frameAspect = 1080 / 1440): PatternOptions {
+function optionsFor(vfovDeg: number, frameAspect = 3 / 4): PatternOptions {
   return { vfovDeg, hfovDeg: hfovFromVfov(vfovDeg, frameAspect), centerToleranceDeg: 5 };
 }
 
 describe('buildCapturePattern', () => {
-  it('closes the sphere for lenses from narrow to ultra-wide', () => {
-    for (const vfov of [50, 62, 69, 95, 108, 120]) {
-      const options = optionsFor(vfov);
-      const targets = buildCapturePattern(options);
-      expect(patternClosesSphere(targets, options))
-        .withContext(`vfov ${vfov}° left a gap`)
+  it('keeps the main camera at the original dozen shots', () => {
+    // The 1x prior; this is the count the first working version used.
+    expect(buildCapturePattern(optionsFor(62)).length).toBe(12);
+  });
+
+  it('halves the work when the user picks the ultra-wide', () => {
+    const wide = buildCapturePattern(optionsFor(62)).length;
+    const ultra = buildCapturePattern(optionsFor(95)).length;
+    expect(ultra).toBeLessThan(wide / 1.5);
+  });
+
+  it('the ultra-wide also reaches much further up and down', () => {
+    expect(ringReachDeg(optionsFor(95))).toBeGreaterThan(ringReachDeg(optionsFor(62)) * 1.5);
+  });
+
+  it('is a single ring at eye level — no caps, no extra rings', () => {
+    for (const vfov of [50, 62, 95, 108]) {
+      const targets = buildCapturePattern(optionsFor(vfov));
+      expect(targets.every((t) => t.pitchDeg === 0))
+        .withContext(`vfov ${vfov}° left the horizon`)
         .toBeTrue();
     }
   });
 
-  it('an ultra-wide closes the sphere with one ring plus two caps', () => {
-    const targets = buildCapturePattern(optionsFor(108));
-    const ringPitches = new Set(targets.filter((t) => t.kind === 'ring').map((t) => t.pitchDeg));
-    expect(ringPitches).toEqual(new Set([0]));
-    expect(targets.filter((t) => t.kind === 'cap').length).toBe(2);
-  });
-
-  it('a narrow lens earns extra rings instead of leaving holes', () => {
-    const wide = buildCapturePattern(optionsFor(108));
-    const narrow = buildCapturePattern(optionsFor(50));
-    const ringsOf = (ts: ReturnType<typeof buildCapturePattern>) =>
-      new Set(ts.filter((t) => t.kind === 'ring').map((t) => t.pitchDeg)).size;
-    expect(ringsOf(narrow)).toBeGreaterThan(ringsOf(wide));
-    expect(narrow.length).toBeGreaterThan(wide.length);
-  });
-
-  it('keeps the ultra-wide capture at or below the v1 count of 12 shots', () => {
-    // The whole point of the wider lens: full coverage for less user effort.
-    expect(buildCapturePattern(optionsFor(108)).length).toBeLessThanOrEqual(12);
-  });
-
-  it('shoots the horizon ring first so an abandoned session still has the useful band', () => {
-    const targets = buildCapturePattern(optionsFor(62));
-    const firstRingPitch = targets[0].pitchDeg;
-    expect(firstRingPitch).toBe(0);
-    expect(targets[targets.length - 1].kind).toBe('cap');
-  });
-
-  it('caps are aimed straight up and straight down', () => {
-    const caps = buildCapturePattern(optionsFor(95)).filter((t) => t.kind === 'cap');
-    expect(caps.map((c) => c.pitchDeg).sort((a, b) => a - b)).toEqual([-90, 90]);
-  });
-
-  it('spaces ring shots so neighbours always overlap', () => {
-    const options = optionsFor(108);
-    const yaws = buildCapturePattern(options)
-      .filter((t) => t.kind === 'ring' && t.pitchDeg === 0)
-      .map((t) => t.yawDeg)
-      .sort((a, b) => a - b);
-
-    for (let i = 1; i < yaws.length; i++) {
-      // Even if both neighbours drift to opposite tolerance edges, they must
-      // still share image; otherwise the panorama gets a vertical seam of nothing.
-      const worstCaseGap = yaws[i] - yaws[i - 1] + 2 * options.centerToleranceDeg;
-      expect(worstCaseGap).toBeLessThan(options.hfovDeg);
+  it('spaces shots so neighbours overlap even at opposite tolerance edges', () => {
+    for (const vfov of [50, 62, 95, 108]) {
+      const options = optionsFor(vfov);
+      const yaws = buildCapturePattern(options).map((t) => t.yawDeg);
+      for (let i = 1; i < yaws.length; i++) {
+        const worstCaseGap = yaws[i] - yaws[i - 1] + 2 * options.centerToleranceDeg;
+        expect(worstCaseGap)
+          .withContext(`vfov ${vfov}° left a vertical seam of nothing`)
+          .toBeLessThan(options.hfovDeg);
+      }
     }
+  });
+
+  it('a narrower frame costs more shots rather than leaving holes', () => {
+    // What a camera that refuses 4:3 hands back.
+    expect(ringShotCount(optionsFor(95, 9 / 16)))
+      .toBeGreaterThan(ringShotCount(optionsFor(95, 3 / 4)));
+  });
+
+  it('starts the ring at zero so the session re-zeroes onto the first target', () => {
+    expect(buildCapturePattern(optionsFor(95))[0]).toEqual({ yawDeg: 0, pitchDeg: 0 });
   });
 });

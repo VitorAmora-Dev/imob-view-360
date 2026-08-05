@@ -5,7 +5,6 @@ function ring(count: number, pitchDeg = 0): CaptureTarget[] {
   return Array.from({ length: count }, (_, i) => ({
     yawDeg: (i * 360) / count,
     pitchDeg,
-    kind: 'ring' as const,
   }));
 }
 
@@ -75,30 +74,6 @@ describe('CaptureSession', () => {
     expect(all.filter((e) => e.type === 'capture').length).toBe(8);
     expect(all.some((e) => e.type === 'complete')).toBeTrue();
     expect(session.snapshot.status).toBe('complete');
-  });
-
-  describe('caps', () => {
-    const withCaps: CaptureTarget[] = [
-      ...ring(4),
-      { yawDeg: 0, pitchDeg: 90, kind: 'cap' },
-      { yawDeg: 0, pitchDeg: -90, kind: 'cap' },
-    ];
-
-    it('ignores yaw when aiming at a pole, where every heading is the same place', () => {
-      const { session, clock } = makeSession(withCaps);
-      for (const t of ring(4)) hold(session, clock, t.yawDeg, 2500);
-      expect(session.snapshot.currentTarget.kind).toBe('cap');
-
-      // Yaw is deliberately nowhere near the cap's nominal 0°.
-      const events = hold(session, clock, 137, 2500, 90);
-      expect(events.some((e) => e.type === 'capture')).toBeTrue();
-    });
-
-    it('still demands the right pitch at a pole', () => {
-      const { session, clock } = makeSession(withCaps);
-      for (const t of ring(4)) hold(session, clock, t.yawDeg, 2500);
-      expect(hold(session, clock, 0, 2500, 60).length).toBe(0);
-    });
   });
 
   it('reports where the next target sits relative to the reticle', () => {

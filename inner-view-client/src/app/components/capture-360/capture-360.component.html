@@ -13,6 +13,53 @@
       </div>
     }
 
+    @case ('lens') {
+      <div class="preview" #previewContainer></div>
+
+      <div class="lens-step">
+        <div class="top-bar">
+          <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
+            [attr.aria-label]="'CAPTURE.CANCEL' | translate">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+          <span class="count-chip">{{ 'CAPTURE.LENS_TITLE' | translate }}</span>
+          <span class="top-bar-spacer"></span>
+        </div>
+
+        <div class="lens-step-bottom">
+          @if (narrowFrameWarning()) {
+            <span class="warn-pill">
+              {{ 'CAPTURE.NARROW_FRAME_WARNING' | translate: { total: totalCount() } }}
+            </span>
+          }
+
+          <span class="lens-summary">
+            {{ 'CAPTURE.LENS_SUMMARY' | translate: { total: totalCount(), reach: verticalReach() } }}
+          </span>
+
+          @if (lenses().length > 1) {
+            <div class="lens-picker" role="group" [attr.aria-label]="'CAPTURE.LENS' | translate">
+              @for (lens of lenses(); track lens.deviceId) {
+                <button
+                  type="button"
+                  class="lens-chip"
+                  [class.lens-chip--active]="lens.deviceId === activeLensId()"
+                  [attr.aria-pressed]="lens.deviceId === activeLensId()"
+                  [title]="lens.label"
+                  (click)="selectLens(lens)">
+                  {{ lensLabel(lens) }}
+                </button>
+              }
+            </div>
+          } @else {
+            <span class="hint-pill">{{ 'CAPTURE.SINGLE_LENS' | translate }}</span>
+          }
+
+          <ion-button (click)="startCapture()">{{ 'CAPTURE.START_RING' | translate }}</ion-button>
+        </div>
+      </div>
+    }
+
     @case ('capturing') {
       <div class="preview" #previewContainer></div>
 
@@ -51,29 +98,7 @@
         </div>
 
         <div class="bottom-bar">
-          @if (narrowFrameWarning()) {
-            <span class="warn-pill">
-              {{ 'CAPTURE.NARROW_FRAME_WARNING' | translate: { total: totalCount() } }}
-            </span>
-          }
           <span class="hint-pill">{{ hintKey() | translate }}</span>
-
-          @if (lenses().length > 1) {
-            <div class="lens-picker" role="group" [attr.aria-label]="'CAPTURE.LENS' | translate">
-              @for (lens of lenses(); track lens.deviceId) {
-                <button
-                  type="button"
-                  class="lens-chip"
-                  [class.lens-chip--active]="lens.deviceId === activeLensId()"
-                  [attr.aria-pressed]="lens.deviceId === activeLensId()"
-                  [title]="lens.label"
-                  (click)="selectLens(lens)">
-                  {{ lensLabel(lens) }}
-                </button>
-              }
-            </div>
-          }
-
           @if (simMode) {
             <span class="sim-badge">{{ 'CAPTURE.SIM_BADGE' | translate }}</span>
           }

@@ -208,6 +208,41 @@
   }
 }
 
+/* ---- Lens step: live preview behind, choice in front ------------------- */
+
+.lens-step {
+  position: absolute;
+  inset: 0;
+  // Darkened so the chrome stays readable over any scene.
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+.lens-step-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px calc(28px + var(--ion-safe-area-bottom, 0px));
+
+  ion-button {
+    min-width: 220px;
+  }
+}
+
+.lens-summary {
+  max-width: min(420px, 90vw);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
 // Shown when the camera refused 4:3 and the capture will be much longer.
 .warn-pill {
   max-width: min(420px, 90vw);

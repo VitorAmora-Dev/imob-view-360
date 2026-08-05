@@ -7,7 +7,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../panoramic-viewer/panoramic-viewer.component';
 import { CaptureSession, DEFAULT_TUNING } from './capture-session';
-import { CaptureTarget, PatternOptions, buildCapturePattern, buildRemainingPattern } from './capture-pattern';
+import { buildCapturePattern, ringReachDeg } from './capture-pattern';
 import { directionForYawPitch } from './orientation-math';
 import {
   CaptureCameraSource,
@@ -20,18 +20,19 @@ import {
   SimOrientationSource,
 } from './capture-sources';
 import { SimEnvironment } from './sim-environment';
-import {
-  StitchShot, fitVfovFromShots, frameSideBudget, hfovFromSpec, hfovFromVfov, stitchEquirect,
-} from './stitcher';
+import { StitchShot, frameSideBudget, hfovFromSpec, stitchEquirect } from './stitcher';
 
-type CaptureState = 'intro' | 'capturing' | 'stitching' | 'preview' | 'error';
+type CaptureState = 'intro' | 'lens' | 'capturing' | 'stitching' | 'preview' | 'error';
 
 /**
  * Full-screen guided 360° capture modal (BANIB-style): horizon line, centre
- * reticle and aim points that close the whole sphere — a ring at eye level,
- * extra rings when the lens is narrow, and caps for ceiling and floor.
- * Holding the reticle on a point captures that angle; the set is stitched into
- * an equirectangular panorama returned as `{ imageData }` on dismiss.
+ * reticle and a ring of aim points. Holding the reticle on a point captures
+ * that angle; the ring is stitched into an equirectangular panorama returned
+ * as `{ imageData }` on dismiss.
+ *
+ * The user picks the lens first, and the choice is a real trade-off rather
+ * than a detail: the ultra-wide needs about half the shots and reaches nearly
+ * twice as far up and down, while the main camera is sharper per degree.
  *
  * With `?sim=1` the camera and sensors are replaced by a synthetic Three.js
  * room driven by mouse/arrow keys, so the whole flow runs on desktop.
@@ -65,6 +66,8 @@ export class Capture360Component implements OnDestroy {
   readonly activeLensId = signal<string | null>(null);
   /** Set when the camera refused 4:3, which makes the capture much longer. */
   readonly narrowFrameWarning = signal(false);
+  /** How far above and below the horizon this lens reaches, in degrees. */
+  readonly verticalReach = signal(0);
   readonly simMode = new URLSearchParams(window.location.search).has('sim');
 
   private readonly modalCtrl = inject(ModalController);
@@ -78,7 +81,6 @@ export class Capture360Component implements OnDestroy {
   private rafId: number | null = null;
   private viewport = { width: 0, height: 0 };
   private lastHint = '';
-  private replanned = false;
 
   /** Dwell ring geometry: r=34 in an 80×80 viewBox. */
   readonly dwellCircumference = 2 * Math.PI * 34;
@@ -102,7 +104,18 @@ export class Capture360Component implements OnDestroy {
     this.modalCtrl.dismiss(imageData ? { imageData } : null, imageData ? 'confirm' : 'cancel');
   }
 
+  /**
+   * Zoom-style label, disambiguated when a device exposes more than one camera
+   * of the same kind — two buttons both reading "0,5×" would be a coin toss.
+   */
   lensLabel(lens: LensOption): string {
+    const base = lens.kind === 'ultrawide' ? '0,5×' : lens.kind === 'tele' ? '2×' : '1×';
+    const sameKind = this.lenses().filter((l) => this.baseLabel(l) === base);
+    if (sameKind.length < 2) return base;
+    return `${base} (${sameKind.findIndex((l) => l.deviceId === lens.deviceId) + 1})`;
+  }
+
+  private baseLabel(lens: LensOption): string {
     return lens.kind === 'ultrawide' ? '0,5×' : lens.kind === 'tele' ? '2×' : '1×';
   }
 
@@ -112,11 +125,15 @@ export class Capture360Component implements OnDestroy {
       await this.camera.switchLens(lens.deviceId);
       this.activeLensId.set(this.camera.activeLensId());
       this.rebuildPattern();
+      // switchLens replaces the stream, so the preview element must be
+      // re-attached to keep showing the new lens.
+      if (this.previewContainer) this.camera.attach(this.previewContainer.nativeElement);
     } catch {
       this.fail('CAPTURE.CAMERA_ERROR');
     }
   }
 
+  /** Opens the camera and stops at the lens step so the user can choose. */
   async begin(): Promise<void> {
     try {
       if (this.simMode) {
@@ -143,61 +160,47 @@ export class Capture360Component implements OnDestroy {
         return;
       }
 
+      // Labels and the extra back cameras only exist once access is granted.
       this.lenses.set(this.camera.lenses());
       this.activeLensId.set(this.camera.activeLensId());
       this.rebuildPattern();
 
-      this.state.set('capturing');
+      this.state.set('lens');
       await new Promise((resolve) => setTimeout(resolve));
-
       this.camera.attach(this.previewContainer!.nativeElement);
-      if (this.simEnv && this.overlay) this.simEnv.bindInput(this.overlay.nativeElement);
-      this.onResize();
-      this.orientation.rezero();
-      this.startLoop();
     } catch {
       this.fail('CAPTURE.CAMERA_ERROR');
     }
   }
 
-  /** Recomputes the aim points — the lens decides how many rings are needed. */
+  /** Leaves the lens step and starts the guided ring. */
+  async startCapture(): Promise<void> {
+    this.state.set('capturing');
+    await new Promise((resolve) => setTimeout(resolve));
+    this.camera!.attach(this.previewContainer!.nativeElement);
+    if (this.simEnv && this.overlay) this.simEnv.bindInput(this.overlay.nativeElement);
+    this.onResize();
+    this.orientation!.rezero();
+    this.startLoop();
+  }
+
+  /** Recomputes the ring for the active lens. */
   private rebuildPattern(): void {
     const spec = this.camera!.getSpec();
-    const targets = buildCapturePattern({
+    const options = {
       vfovDeg: spec.vfovDeg ?? 65,
       hfovDeg: hfovFromSpec(spec),
       centerToleranceDeg: DEFAULT_TUNING.centerToleranceDeg,
-    });
+    };
+    const targets = buildCapturePattern(options);
     this.session = new CaptureSession(targets, { dwellMs: this.dwellMs() });
     this.shots = [];
-    this.replanned = false;
     this.totalCount.set(targets.length);
     this.capturedCount.set(0);
-    // Warn rather than silently tripling the capture, which is what turned an
-    // expected 8 shots into 22 on a phone whose camera refused 4:3.
+    this.verticalReach.set(Math.round(ringReachDeg(options)));
+    // Warn rather than silently doubling the capture, which is what a camera
+    // that refuses 4:3 does — it hands back a much narrower frame.
     this.narrowFrameWarning.set(!spec.wideShapeAccepted);
-  }
-
-  /**
-   * The opening plan is sized from a deliberately low FOV guess, which would
-   * cost the user extra rings. Once the horizon ring is in hand its overlaps
-   * reveal the real field of view, so the rest of the plan is rebuilt — almost
-   * always shorter than advertised, never with a gap.
-   */
-  private replanFromFittedFov(): void {
-    this.replanned = true;
-    const spec = this.camera!.getSpec();
-    const fitted = fitVfovFromShots(this.shots, spec);
-    const options: PatternOptions = {
-      vfovDeg: fitted,
-      hfovDeg: hfovFromVfov(fitted, spec.frameAspect),
-      centerToleranceDeg: DEFAULT_TUNING.centerToleranceDeg,
-    };
-    const donePitches = this.session!.capturedTargets()
-      .filter((t) => t.kind === 'ring')
-      .map((t) => t.pitchDeg);
-    this.session!.retarget(buildRemainingPattern(options, donePitches));
-    this.zone.run(() => this.totalCount.set(this.session!.total));
   }
 
   restart(): void {
@@ -271,25 +274,12 @@ export class Capture360Component implements OnDestroy {
     for (const event of events) {
       if (event.type === 'capture') {
         this.captureShot(reading);
-        if (!this.replanned && this.horizonRingComplete()) {
-          this.replanFromFittedFov();
-        }
       } else {
         this.stopLoop();
         this.zone.run(() => void this.stitch());
         return;
       }
     }
-  }
-
-  private horizonRingComplete(): boolean {
-    const snap = this.session!.snapshot;
-    // The plan always opens with the eye-level ring, so the ring is done the
-    // moment the next target leaves pitch 0 — replan before shooting it. Once
-    // the session is complete there is nothing left to plan.
-    return snap.status !== 'complete'
-      && snap.capturedCount >= 3
-      && snap.currentTarget.pitchDeg !== 0;
   }
 
   private captureShot(reading: OrientationReading): void {
@@ -423,17 +413,15 @@ export class Capture360Component implements OnDestroy {
         String(this.dwellCircumference * (1 - snap.dwellProgress));
     }
 
-    this.updateHint(snap, target);
+    this.updateHint(snap);
   }
 
-  private updateHint(snap: CaptureSession['snapshot'], target: CaptureTarget): void {
+  private updateHint(snap: CaptureSession['snapshot']): void {
     const hint = snap.status === 'dwelling'
       ? 'CAPTURE.HOLD_HINT'
-      : target.kind === 'cap'
-        ? (target.pitchDeg > 0 ? 'CAPTURE.AIM_UP_HINT' : 'CAPTURE.AIM_DOWN_HINT')
-        : !snap.steady
-          ? 'CAPTURE.STEADY_HINT'
-          : 'CAPTURE.ALIGN_HINT';
+      : !snap.steady
+        ? 'CAPTURE.STEADY_HINT'
+        : 'CAPTURE.ALIGN_HINT';
     if (hint !== this.lastHint) {
       this.lastHint = hint;
       this.zone.run(() => this.hintKey.set(hint));

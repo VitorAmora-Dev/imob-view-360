@@ -5,10 +5,6 @@ import { CaptureTarget } from './capture-pattern';
  * Pure state machine for the guided capture (no DOM, no Three.js): feed it
  * timestamped orientation samples and it tells the UI where the next target
  * is, how far the dwell progressed and when to actually grab a frame.
- *
- * Targets come from capture-pattern.ts and carry a pitch, so the same machine
- * drives the horizon ring, the extra rings a narrow lens needs, and the two
- * caps that close the poles.
  */
 export interface CaptureTuning {
   /** How close (deg) the reticle must be to the target, in yaw and pitch. */
@@ -51,12 +47,6 @@ export interface SessionSnapshot {
   dwellProgress: number;
 }
 
-/**
- * Near the poles every yaw points at nearly the same place, so demanding a
- * specific yaw would be both impossible and pointless — only pitch matters.
- */
-const CAP_PITCH_THRESHOLD_DEG = 75;
-
 export class CaptureSession {
   private readonly tuning: CaptureTuning;
   private readonly targets: CaptureTarget[];
@@ -97,23 +87,6 @@ export class CaptureSession {
     this.targets.length = 0;
     this.targets.push(...this.initialTargets);
     this.snapshotState = this.buildSnapshot({ yawDeg: 0, pitchDeg: 0, rollDeg: 0 });
-  }
-
-  /** Targets already shot, so a re-plan knows which rings are done. */
-  capturedTargets(): CaptureTarget[] {
-    return this.targets.slice(0, this.captured);
-  }
-
-  /**
-   * Swaps the not-yet-shot targets. The initial plan comes from a conservative
-   * FOV prior; once the real value is fitted from the first ring this usually
-   * drops work rather than adding it.
-   */
-  retarget(remaining: CaptureTarget[]): void {
-    if (remaining.length === 0) return;
-    this.targets.length = this.captured;
-    this.targets.push(...remaining);
-    this.dwellStartMs = null;
   }
 
   update(nowMs: number, sample: OrientationSample): SessionEvent[] {
@@ -173,11 +146,7 @@ export class CaptureSession {
     const offsetPitch = target.pitchDeg - sample.pitchDeg;
 
     const tol = this.tuning.centerToleranceDeg;
-    const aimingAtPole = Math.abs(target.pitchDeg) >= CAP_PITCH_THRESHOLD_DEG;
-    const withinTolerance = aimingAtPole
-      ? Math.abs(offsetPitch) <= tol
-      : Math.abs(offsetYaw) <= tol && Math.abs(offsetPitch) <= tol;
-
+    const withinTolerance = Math.abs(offsetYaw) <= tol && Math.abs(offsetPitch) <= tol;
     const steady = this.velocityDegS <= this.tuning.maxAngularVelocityDegS;
     const dwelling = this.dwellStartMs !== null && nowMs !== undefined;
 
