@@ -141,6 +141,11 @@
           <ion-icon slot="start" name="add-circle-outline"></ion-icon>
           <ion-label>{{ 'UPLOAD.ADD_IMAGE' | translate }}</ion-label>
         </ion-item>
+
+        <ion-item button detail="false" lines="none" (click)="openCapture360()">
+          <ion-icon slot="start" name="camera-outline"></ion-icon>
+          <ion-label>{{ 'UPLOAD.CAPTURE_360' | translate }}</ion-label>
+        </ion-item>
       </ion-list>
     </section>
 
@@ -180,3 +185,12 @@
     </ion-content>
   </ng-template>
 </ion-modal>
+
+@defer (when isCapturing) {
+  @if (isCapturing) {
+    <app-capture-360
+      (finished)="onCapture360Finished($event)"
+      (cancelled)="onCapture360Cancelled()">
+    </app-capture-360>
+  }
+}

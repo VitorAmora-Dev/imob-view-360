@@ -65,6 +65,7 @@
     "PROPERTY_PURPOSE_LABEL": "Finalidade",
     "IMAGES_TITLE": "Imagens 360°",
     "ADD_IMAGE": "Adicionar imagem 360°",
+    "CAPTURE_360": "Capturar com a câmera (guiado)",
     "NO_IMAGES": "Nenhuma imagem adicionada ainda.",
     "SUBMIT": "Criar tour",
     "SUBMITTING": "Criando...",
@@ -98,6 +99,30 @@
       "CEP_LOOKUP_ERROR": "Erro ao consultar o CEP.",
       "REQUIRED_HINT": "Preencha rua, cidade e UF (2 letras) ou deixe o endereço em branco."
     }
+  },
+  "CAPTURE": {
+    "PROGRESS": "Foto {{current}} de 8 — {{band}}",
+    "BAND_UPPER": "Faixa Superior",
+    "BAND_LOWER": "Faixa Inferior",
+    "ALL_DONE": "16 fotos capturadas!",
+    "HINT_TILT_UP": "Incline o celular ~20° para cima e alinhe o ambiente na janela",
+    "HINT_TILT_DOWN": "Incline o celular ~20° para baixo e alinhe o ambiente na janela",
+    "HINT_TURN": "Gire ~45° para a direita e alinhe a próxima foto",
+    "USE_ULTRAWIDE": "A lente atual é estreita demais para o enquadramento. Ative o modo 0.5x (ultrawide) ou troque de câmera.",
+    "ROTATE_PORTRAIT": "Use o celular na vertical para capturar",
+    "PERMISSION_DENIED": "Permissão de câmera negada",
+    "PERMISSION_HELP": "Habilite o acesso à câmera nas configurações do navegador e tente novamente.",
+    "CAMERA_ERROR": "Não foi possível acessar a câmera.",
+    "RETRY": "Tentar novamente",
+    "REDO": "Refazer última",
+    "SWITCH_CAMERA": "Trocar câmera",
+    "DONE": "Concluir panorama",
+    "ASSEMBLING": "Montando o panorama…",
+    "CLOSE_CONFIRM_TITLE": "Descartar capturas?",
+    "CLOSE_CONFIRM_MSG": "Você perderá as {{count}} fotos já capturadas.",
+    "CLOSE_CONFIRM_KEEP": "Continuar capturando",
+    "CLOSE_CONFIRM_DISCARD": "Descartar",
+    "DEFAULT_ROOM_NAME": "Ambiente"
   },
   "INNER_VIEW": {
     "LOADING": "Carregando...",

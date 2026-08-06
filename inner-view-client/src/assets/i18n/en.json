@@ -65,6 +65,7 @@
     "PROPERTY_PURPOSE_LABEL": "Purpose",
     "IMAGES_TITLE": "360° Images",
     "ADD_IMAGE": "Add 360° image",
+    "CAPTURE_360": "Capture with camera (guided)",
     "NO_IMAGES": "No images added yet.",
     "SUBMIT": "Create tour",
     "SUBMITTING": "Creating...",
@@ -98,6 +99,30 @@
       "CEP_LOOKUP_ERROR": "Failed to look up the CEP.",
       "REQUIRED_HINT": "Fill in street, city and state (2 letters) or leave the address empty."
     }
+  },
+  "CAPTURE": {
+    "PROGRESS": "Photo {{current}} of 8 — {{band}}",
+    "BAND_UPPER": "Upper Band",
+    "BAND_LOWER": "Lower Band",
+    "ALL_DONE": "16 photos captured!",
+    "HINT_TILT_UP": "Tilt the phone ~20° up and align the room inside the window",
+    "HINT_TILT_DOWN": "Tilt the phone ~20° down and align the room inside the window",
+    "HINT_TURN": "Turn ~45° to the right and align the next shot",
+    "USE_ULTRAWIDE": "The current lens is too narrow for the framing. Enable 0.5x (ultrawide) mode or switch cameras.",
+    "ROTATE_PORTRAIT": "Hold the phone vertically to capture",
+    "PERMISSION_DENIED": "Camera permission denied",
+    "PERMISSION_HELP": "Enable camera access in your browser settings and try again.",
+    "CAMERA_ERROR": "Could not access the camera.",
+    "RETRY": "Try again",
+    "REDO": "Redo last",
+    "SWITCH_CAMERA": "Switch camera",
+    "DONE": "Finish panorama",
+    "ASSEMBLING": "Assembling the panorama…",
+    "CLOSE_CONFIRM_TITLE": "Discard captures?",
+    "CLOSE_CONFIRM_MSG": "You will lose the {{count}} photos already captured.",
+    "CLOSE_CONFIRM_KEEP": "Keep capturing",
+    "CLOSE_CONFIRM_DISCARD": "Discard",
+    "DEFAULT_ROOM_NAME": "Room"
   },
   "INNER_VIEW": {
     "LOADING": "Loading...",

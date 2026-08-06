@@ -1,0 +1,189 @@
+// Superfície imersiva preta — mesma exceção documentada do /embed.
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: block;
+  background: #000;
+}
+
+.capture-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+video,
+canvas,
+.flash {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+video {
+  object-fit: cover;
+}
+
+canvas {
+  pointer-events: none;
+}
+
+.flash {
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+
+  &.active {
+    opacity: 0.7;
+    transition: none;
+  }
+}
+
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  z-index: 3;
+}
+
+.hud-top {
+  top: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 8px 8px;
+}
+
+.hud-bottom {
+  bottom: 0;
+  justify-content: space-between;
+  padding: 12px 20px calc(env(safe-area-inset-bottom, 0px) + 20px);
+}
+
+.icon-btn {
+  --color: #fff;
+  width: 48px;
+  height: 48px;
+  margin: 0;
+}
+
+.progress {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+
+  .hint {
+    font-size: 12px;
+    opacity: 0.85;
+  }
+}
+
+.banner {
+  position: absolute;
+  top: 30%;
+  left: 24px;
+  right: 24px;
+  z-index: 4;
+  padding: 16px;
+  border-radius: var(--app-radius-md, 12px);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  text-align: center;
+
+  p {
+    margin: 8px 0 12px;
+    font-size: 14px;
+  }
+
+  &.warn {
+    top: auto;
+    bottom: 130px;
+    background: rgba(255, 56, 92, 0.9);
+
+    p {
+      margin: 0;
+    }
+  }
+}
+
+.turn-hint {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.shutter {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  background: var(--ion-color-primary);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.25);
+
+  &:disabled {
+    opacity: 0.4;
+  }
+}
+
+.done-btn {
+  margin: 0;
+}
+
+.compass {
+  width: 56px;
+  height: 56px;
+
+  path {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+  }
+
+  .seg-done {
+    stroke: var(--ion-color-primary);
+  }
+
+  .seg-current {
+    stroke: #fff;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .seg-todo {
+    stroke: rgba(255, 255, 255, 0.35);
+  }
+}
+
+@keyframes pulse {
+  50% {
+    stroke: var(--ion-color-primary);
+  }
+}
+
+.assembling {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+}

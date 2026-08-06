@@ -1,0 +1,84 @@
+<div class="capture-root">
+  <video #video autoplay playsinline muted></video>
+  <canvas #overlay></canvas>
+  <div class="flash" [class.active]="flashing"></div>
+
+  <div class="hud hud-top">
+    <ion-button fill="clear" class="icon-btn" (click)="onClose()" [disabled]="assembling">
+      <ion-icon slot="icon-only" name="close-outline"></ion-icon>
+    </ion-button>
+
+    <div class="progress">
+      @if (isComplete) {
+        <strong>{{ 'CAPTURE.ALL_DONE' | translate }}</strong>
+      } @else {
+        <strong>{{ 'CAPTURE.PROGRESS' | translate: progressParams }}</strong>
+        <span class="hint">{{ tiltHintKey | translate }}</span>
+      }
+    </div>
+
+    @if (backCameras.length > 1) {
+      <ion-button fill="clear" class="icon-btn" (click)="switchCamera()"
+        [disabled]="initializing || assembling" [attr.aria-label]="'CAPTURE.SWITCH_CAMERA' | translate">
+        <ion-icon slot="icon-only" name="camera-reverse-outline"></ion-icon>
+      </ion-button>
+    } @else {
+      <div class="icon-btn"></div>
+    }
+  </div>
+
+  @if (permissionDenied) {
+    <div class="banner">
+      <strong>{{ 'CAPTURE.PERMISSION_DENIED' | translate }}</strong>
+      <p>{{ 'CAPTURE.PERMISSION_HELP' | translate }}</p>
+      <ion-button size="small" (click)="retryCamera()">{{ 'CAPTURE.RETRY' | translate }}</ion-button>
+    </div>
+  } @else if (cameraError) {
+    <div class="banner">
+      <strong>{{ 'CAPTURE.CAMERA_ERROR' | translate }}</strong>
+      <ion-button size="small" (click)="retryCamera()">{{ 'CAPTURE.RETRY' | translate }}</ion-button>
+    </div>
+  } @else if (isLandscape) {
+    <div class="banner">
+      <strong>{{ 'CAPTURE.ROTATE_PORTRAIT' | translate }}</strong>
+    </div>
+  } @else if (lensTooNarrow && !initializing) {
+    <div class="banner warn">
+      <p>{{ 'CAPTURE.USE_ULTRAWIDE' | translate }}</p>
+    </div>
+  }
+
+  @if (showTurnHint) {
+    <div class="turn-hint">{{ 'CAPTURE.HINT_TURN' | translate }}</div>
+  }
+
+  <div class="hud hud-bottom">
+    <ion-button fill="clear" class="icon-btn" (click)="redoLast()"
+      [disabled]="tiles.length === 0 || assembling" [attr.aria-label]="'CAPTURE.REDO' | translate">
+      <ion-icon slot="icon-only" name="arrow-undo-outline"></ion-icon>
+    </ion-button>
+
+    @if (isComplete) {
+      <ion-button class="done-btn" (click)="finish()" [disabled]="assembling">
+        <ion-icon slot="start" name="checkmark-outline"></ion-icon>
+        {{ 'CAPTURE.DONE' | translate }}
+      </ion-button>
+    } @else {
+      <button type="button" class="shutter" (click)="onCapture()" [disabled]="!canCapture"
+        [attr.aria-label]="'CAPTURE.PROGRESS' | translate: progressParams"></button>
+    }
+
+    <svg class="compass" viewBox="0 0 56 56" aria-hidden="true">
+      @for (d of compassSegments; track $index) {
+        <path [attr.d]="d" [class]="'seg-' + segmentState($index)" />
+      }
+    </svg>
+  </div>
+
+  @if (assembling) {
+    <div class="assembling">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>{{ 'CAPTURE.ASSEMBLING' | translate }}</p>
+    </div>
+  }
+</div>

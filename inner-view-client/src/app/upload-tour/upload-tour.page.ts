@@ -10,7 +10,7 @@ import {
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
-import { addCircleOutline, trashOutline, eyeOutline, closeOutline } from 'ionicons/icons';
+import { addCircleOutline, trashOutline, eyeOutline, closeOutline, cameraOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { PropertyService } from '../services/property.service';
@@ -18,6 +18,7 @@ import { CepService, CepNotFoundError } from '../services/cep.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { Panorama } from '../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
+import { Capture360Component } from '../capture-360/capture-360.component';
 
 interface PanoramaItem {
   roomName: string;
@@ -37,6 +38,7 @@ interface PanoramaItem {
     IonButton, IonIcon, IonItem, IonLabel, IonInput, IonSelect, IonSelectOption,
     IonList, IonSpinner, IonModal, IonNote,
     PanoramicViewerComponent,
+    Capture360Component,
     AppHeaderComponent,
     TranslatePipe,
   ],
@@ -65,6 +67,7 @@ export class UploadTourPage {
   submitting = false;
   isPreviewOpen = false;
   previewPanoramas: Panorama[] = [];
+  isCapturing = false;
 
   readonly propertyTypes = ['HOUSE', 'APARTMENT', 'LAND', 'COMMERCIAL', 'RURAL', 'OFFICE'];
   readonly purposes = ['SALE', 'RENT', 'SALE_OR_RENT'];
@@ -78,7 +81,7 @@ export class UploadTourPage {
   private translate = inject(TranslateService);
 
   constructor() {
-    addIcons({ addCircleOutline, trashOutline, eyeOutline, closeOutline });
+    addIcons({ addCircleOutline, trashOutline, eyeOutline, closeOutline, cameraOutline });
   }
 
   get canSubmit(): boolean {
@@ -157,6 +160,30 @@ export class UploadTourPage {
 
   removePanorama(index: number) {
     this.panoramas.splice(index, 1);
+  }
+
+  // ---- Método 2: captura guiada pela câmera (capture-360) ----
+
+  openCapture360() {
+    this.isCapturing = true;
+  }
+
+  async onCapture360Finished(imageData: string) {
+    this.isCapturing = false;
+    // Cancelar o prompt de nome NÃO descarta: são 16 fotos de trabalho —
+    // cai num nome default e o usuário renomeia depois se quiser.
+    const roomName =
+      (await this.promptRoomName()) ??
+      `${this.translate.instant('CAPTURE.DEFAULT_ROOM_NAME')} ${this.panoramas.length + 1}`;
+    this.panoramas.push({
+      roomName,
+      imageData,
+      fileName: `captura-360-${this.panoramas.length + 1}.jpg`,
+    });
+  }
+
+  onCapture360Cancelled() {
+    this.isCapturing = false;
   }
 
   openPreview() {
