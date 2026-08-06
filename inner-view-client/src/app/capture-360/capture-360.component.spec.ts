@@ -7,12 +7,11 @@ describe('Capture360Component', () => {
   let stopSpy: jasmine.Spy;
 
   beforeEach(async () => {
-    // Stream falso a partir de um canvas — sem tocar em karma.conf nem exigir câmera.
     const canvas = document.createElement('canvas');
     canvas.width = 640;
     canvas.height = 480;
     canvas.getContext('2d')!.fillRect(0, 0, 640, 480);
-    const fakeStream = canvas.captureStream(10);
+    const fakeStream = canvas.captureStream(0);
     const track = fakeStream.getVideoTracks()[0];
     stopSpy = spyOn(track, 'stop').and.callThrough();
 
@@ -25,8 +24,8 @@ describe('Capture360Component', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(Capture360Component);
-    fixture.detectChanges(); // dispara ngAfterViewInit → initCamera
-    await new Promise((resolve) => setTimeout(resolve, 120)); // deixa o init assíncrono terminar
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 120));
     fixture.detectChanges();
   });
 
@@ -34,12 +33,25 @@ describe('Capture360Component', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('começa na faixa superior, foto 1, sem tiles', () => {
+  it('tem um plano de 18 passos e começa no primeiro (upper:0)', () => {
     const c = fixture.componentInstance;
-    expect(c.band).toBe('upper');
-    expect(c.indexInBand).toBe(0);
-    expect(c.tiles.length).toBe(0);
+    expect(c.plan.length).toBe(18);
+    expect(c.totalSteps).toBe(18);
+    expect(c.capturedCount).toBe(0);
+    expect(c.currentStep.key).toBe('upper:0');
     expect(c.isComplete).toBeFalse();
+  });
+
+  it('expõe a instrução e a seta do passo atual', () => {
+    const c = fixture.componentInstance;
+    expect(c.currentStep.instructionKey).toContain('TILT_UP');
+    expect(c.arrowIcon).toBe('arrow-up-outline');
+  });
+
+  it('redoLast não faz nada sem capturas', () => {
+    const c = fixture.componentInstance;
+    c.redoLast();
+    expect(c.capturedCount).toBe(0);
   });
 
   it('para as tracks da câmera ao ser destruído', () => {

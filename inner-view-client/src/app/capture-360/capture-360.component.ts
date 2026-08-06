@@ -12,7 +12,11 @@ import {
 import { IonButton, IonIcon, IonSpinner, AlertController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
+  arrowBackOutline,
+  arrowDownOutline,
+  arrowForwardOutline,
   arrowUndoOutline,
+  arrowUpOutline,
   cameraReverseOutline,
   checkmarkOutline,
   closeOutline,
@@ -20,34 +24,40 @@ import {
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import {
   Band,
+  CaptureStep,
   CapturedTile,
   DEFAULT_VFOV_DEG,
-  TILES_PER_BAND,
   VFOV_STORAGE_KEY,
   ZoomCapableCapabilities,
   ZoomConstraintSet,
 } from './capture-360.types';
-import { CameraModel, maskFitsFrame, pitchForBand } from './camera-projection';
+import { CameraModel, maskFitsFrame } from './camera-projection';
 import {
   buildMaskGeometry,
   coverTransform,
+  drawDiscOverlay,
   drawMaskOverlay,
   visibleFrameRect,
 } from './spherical-mask';
 import { warpFrameToTile } from './mesh-warp';
-import { assembleEquirect } from './equirect-assembler';
+import { warpNadir, warpZenith } from './pole-warp';
+import { assembleEquirect, PoleStrips } from './equirect-assembler';
+import { buildCapturePlan, TOTAL_STEPS } from './capture-plan';
+import { drawDomeMap } from './dome-map';
 
-const TOTAL_TILES = 2 * TILES_PER_BAND;
-const TURN_HINT_MS = 2200;
 const FLASH_MS = 130;
+const DISC_RADIUS_FRACTION = 0.38;
 
 /**
- * Método 2 — captura guiada em grade esférica (16 fotos, 2 faixas × 8).
+ * Método 2 — captura guiada 360° com overlay ESTÁTICO (sem giroscópio).
  *
- * Overlay em tela cheia renderizado condicionalmente pelo pai (não é rota):
- * todo o teardown vive em ngOnDestroy. Emite o equiretangular 4096×2048 montado
- * em `finished` — o pai o trata exatamente como uma imagem do input file do
- * Método 1.
+ * O fluxo é dirigido por um plano linear de 18 passos (8 faixa superior, 8
+ * inferior, zênite, nadir). Em cada passo o overlay desenha o visor do passo
+ * (gomo ou disco) e um mapa de domo com o progresso, e a instrução diz para
+ * onde girar/inclinar. A captura warpa o frame atual e avança sozinha.
+ *
+ * Renderizado condicionalmente pelo pai (não é rota): todo o teardown vive em
+ * ngOnDestroy. Emite o equiretangular 4096×2048 montado em `finished`.
  */
 @Component({
   selector: 'app-capture-360',
@@ -62,40 +72,37 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
 
   @ViewChild('video', { static: true }) videoRef!: ElementRef<HTMLVideoElement>;
   @ViewChild('overlay', { static: true }) overlayRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('map', { static: true }) mapRef!: ElementRef<HTMLCanvasElement>;
 
-  tiles: CapturedTile[] = [];
+  readonly plan: CaptureStep[] = buildCapturePlan();
+  readonly totalSteps = TOTAL_STEPS;
+
   initializing = true;
   permissionDenied = false;
   cameraError = false;
   lensTooNarrow = false;
-  // Inicializado no campo (não no ngAfterViewInit): ler a orientação depois que
-  // a primeira detecção de mudança já rodou mudaria o @if do banner entre a CD e
-  // o checkNoChanges — o NG0100 clássico.
+  // Inicializado no campo (não no ngAfterViewInit): ler a orientação depois da
+  // primeira detecção de mudança dispararia ExpressionChanged no banner.
   isLandscape = matchMedia('(orientation: landscape)').matches;
   assembling = false;
-  showTurnHint = false;
   flashing = false;
   backCameras: MediaDeviceInfo[] = [];
 
-  /** 8 arcos do anel de progresso, pré-computados (d de <path>). */
-  readonly compassSegments: string[] = buildCompassSegments();
-
+  private results = new Map<string, ImageData>();
   private vFovDeg = DEFAULT_VFOV_DEG;
   private stream: MediaStream | null = null;
   private currentDeviceId: string | null = null;
   private resizeObserver: ResizeObserver | null = null;
-  private turnHintTimer: ReturnType<typeof setTimeout> | null = null;
   private flashTimer: ReturnType<typeof setTimeout> | null = null;
   private destroyed = false;
-  private lastMaskBand: Band | null = null;
   private progressKey = '';
-  private progressParamsCache: { current: number; band: string } = { current: 1, band: '' };
+  private progressParamsCache = { current: 1, total: TOTAL_STEPS };
 
   private readonly orientationQuery = matchMedia('(orientation: landscape)');
   private readonly onOrientationChange = (): void => {
     this.zone.run(() => {
       this.isLandscape = this.orientationQuery.matches;
-      this.refreshMask();
+      this.redraw();
     });
   };
   private readonly onTrackEnded = (): void => {
@@ -109,25 +116,35 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
   private translate = inject(TranslateService);
 
   constructor() {
-    addIcons({ arrowUndoOutline, cameraReverseOutline, checkmarkOutline, closeOutline });
+    addIcons({
+      arrowBackOutline,
+      arrowDownOutline,
+      arrowForwardOutline,
+      arrowUndoOutline,
+      arrowUpOutline,
+      cameraReverseOutline,
+      checkmarkOutline,
+      closeOutline,
+    });
     const stored = Number.parseFloat(localStorage.getItem(VFOV_STORAGE_KEY) ?? '');
     if (Number.isFinite(stored) && stored >= 40 && stored <= 140) {
       this.vFovDeg = stored;
     }
   }
 
-  // ---- estado derivado: uma única fonte de verdade (tiles.length) ----
+  // ---- estado derivado do plano (fonte de verdade: results.size) ----
 
-  get band(): Band {
-    return this.tiles.length < TILES_PER_BAND ? 'upper' : 'lower';
-  }
-
-  get indexInBand(): number {
-    return this.tiles.length % TILES_PER_BAND;
+  get capturedCount(): number {
+    return this.results.size;
   }
 
   get isComplete(): boolean {
-    return this.tiles.length >= TOTAL_TILES;
+    return this.results.size >= TOTAL_STEPS;
+  }
+
+  /** Passo atual = primeiro ainda não capturado (o fluxo é linear). */
+  get currentStep(): CaptureStep {
+    return this.plan[Math.min(this.results.size, TOTAL_STEPS - 1)];
   }
 
   get canCapture(): boolean {
@@ -142,37 +159,38 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
     );
   }
 
-  /**
-   * Memoizado por estado: um getter que devolvesse um objeto literal novo a
-   * cada acesso mudaria a referência de entrada do pipe `translate` em toda
-   * detecção de mudanças, disparando ExpressionChangedAfterItHasBeenChecked.
-   */
-  get progressParams(): { current: number; band: string } {
-    const key = `${this.indexInBand}|${this.band}`;
+  /** Memoizado por contagem: objeto novo a cada CD dispararia ExpressionChanged no pipe. */
+  get progressParams(): { current: number; total: number } {
+    const key = String(this.capturedCount);
     if (key !== this.progressKey) {
       this.progressKey = key;
       this.progressParamsCache = {
-        current: this.indexInBand + 1,
-        band: this.translate.instant(
-          this.band === 'upper' ? 'CAPTURE.BAND_UPPER' : 'CAPTURE.BAND_LOWER',
-        ) as string,
+        current: Math.min(this.capturedCount + 1, TOTAL_STEPS),
+        total: TOTAL_STEPS,
       };
     }
     return this.progressParamsCache;
   }
 
-  get tiltHintKey(): string {
-    return this.band === 'upper' ? 'CAPTURE.HINT_TILT_UP' : 'CAPTURE.HINT_TILT_DOWN';
+  get arrowIcon(): string | null {
+    switch (this.currentStep.arrow) {
+      case 'right':
+        return 'arrow-forward-outline';
+      case 'up':
+        return 'arrow-up-outline';
+      case 'down':
+        return 'arrow-down-outline';
+      default:
+        return null;
+    }
   }
 
   // ---- ciclo de vida ----
 
   ngAfterViewInit(): void {
     this.orientationQuery.addEventListener('change', this.onOrientationChange);
-
-    this.resizeObserver = new ResizeObserver(() => this.zone.run(() => this.refreshMask()));
+    this.resizeObserver = new ResizeObserver(() => this.zone.run(() => this.redraw()));
     this.resizeObserver.observe(this.overlayRef.nativeElement.parentElement as Element);
-
     void this.initCamera();
   }
 
@@ -181,11 +199,10 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
     this.stopStream();
     this.orientationQuery.removeEventListener('change', this.onOrientationChange);
     this.resizeObserver?.disconnect();
-    if (this.turnHintTimer) clearTimeout(this.turnHintTimer);
     if (this.flashTimer) clearTimeout(this.flashTimer);
   }
 
-  // ---- câmera ----
+  // ---- câmera (reaproveitada da v1, com os fixes de robustez) ----
 
   async retryCamera(): Promise<void> {
     await this.initCamera();
@@ -204,10 +221,9 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
     this.cameraError = false;
     this.stopStream();
 
-    // Rastreado num local desde o primeiro instante: qualquer falha depois daqui
-    // (enumerateDevices, metadata, play) cai no catch, que para este stream —
-    // sem isso, um erro entre a abertura e a atribuição a this.stream vazaria a
-    // câmera, fora do alcance de stopStream/ngOnDestroy.
+    // Rastreado desde o primeiro instante: qualquer falha depois daqui cai no
+    // catch, que para este stream — sem isso vazaria a câmera se enumerateDevices
+    // ou o metadata falhassem antes de this.stream receber o stream.
     let stream: MediaStream | null = null;
 
     try {
@@ -222,9 +238,6 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
             },
       });
 
-      // Só na primeira abertura (sem deviceId): procurar a ultrawide traseira.
-      // enumerateDevices só entrega labels DEPOIS da permissão — por isso a
-      // ordem getUserMedia → enumerate → reabrir.
       if (!deviceId) {
         const devices = await navigator.mediaDevices.enumerateDevices();
         this.backCameras = devices.filter(
@@ -235,10 +248,7 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
         );
         const currentId = stream.getVideoTracks()[0]?.getSettings().deviceId;
         if (ultra?.deviceId && ultra.deviceId !== currentId) {
-          // Adquire o ultrawide ANTES de largar o stream que já funciona. Se o
-          // re-open falhar (NotReadableError em multi-câmera Android, corrida de
-          // liberação de hardware), fica com o stream de environment em vez de
-          // matar uma câmera boa e cair num loop de erro→retry.
+          // Adquire o ultrawide ANTES de largar o stream que já funciona.
           try {
             const ultraStream = await navigator.mediaDevices.getUserMedia({
               audio: false,
@@ -274,11 +284,8 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
       await video.play().catch(() => undefined);
 
       this.initializing = false;
-      this.refreshMask();
+      this.redraw();
     } catch (err) {
-      // Se a falha veio depois de abrir o stream mas antes de this.stream = stream
-      // (ex.: enumerateDevices ou metadata), pare-o aqui: this.stream ainda é null,
-      // então stopStream()/ngOnDestroy não o alcançariam.
       if (stream && this.stream !== stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
@@ -310,18 +317,16 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
     this.videoRef.nativeElement.srcObject = null;
   }
 
-  // ---- máscara ----
+  // ---- desenho do overlay (estático; redesenha em mudança de passo/resize) ----
 
-  /**
-   * Redesenha o overlay. Chamado apenas em eventos que mudam a geometria
-   * (câmera pronta, resize, troca de faixa) — a máscara é estática entre eles,
-   * então não há loop de rAF.
-   */
-  private refreshMask(): void {
+  private redraw(): void {
+    this.drawViewfinder();
+    this.drawMap();
+  }
+
+  private drawViewfinder(): void {
     const video = this.videoRef.nativeElement;
     const canvas = this.overlayRef.nativeElement;
-    if (!video.videoWidth || !video.videoHeight) return;
-
     const host = canvas.parentElement as HTMLElement;
     const dpr = window.devicePixelRatio || 1;
     const cssW = host.clientWidth;
@@ -330,25 +335,42 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
 
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const step = this.currentStep;
+    if (step.kind === 'pole') {
+      // disco centrado; a lente estreita não impede polo (a UI orienta ultrawide)
+      const r = Math.min(canvas.width, canvas.height) * DISC_RADIUS_FRACTION;
+      drawDiscOverlay(ctx, canvas.width / 2, canvas.height / 2, r, primaryColor());
+      this.lensTooNarrow = false;
+      return;
+    }
+
+    if (!video.videoWidth || !video.videoHeight) return;
+    const band = step.band as Band;
     const cam: CameraModel = {
-      pitchDeg: pitchForBand(this.band),
+      pitchDeg: step.pitchDeg,
       vFovDeg: this.vFovDeg,
       width: video.videoWidth,
       height: video.videoHeight,
     };
+    const t = coverTransform(cam.width, cam.height, canvas.width, canvas.height);
+    drawMaskOverlay(ctx, buildMaskGeometry(cam, band), t, primaryColor());
 
+    const visible = visibleFrameRect(cam.width, cam.height, canvas.width, canvas.height);
+    this.lensTooNarrow = !maskFitsFrame(cam, band, visible);
+  }
+
+  private drawMap(): void {
+    const canvas = this.mapRef.nativeElement;
+    const dpr = window.devicePixelRatio || 1;
+    const size = 88;
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const t = coverTransform(cam.width, cam.height, canvas.width, canvas.height);
-    const geo = buildMaskGeometry(cam, this.band);
-    drawMaskOverlay(ctx, geo, t, primaryColor());
-
-    // O que importa é caber no que o usuário VÊ (pós-crop do cover) — que é
-    // subconjunto do frame, então esta checagem já cobre a do frame inteiro.
-    const visible = visibleFrameRect(cam.width, cam.height, canvas.width, canvas.height);
-    this.lensTooNarrow = !maskFitsFrame(cam, this.band, visible);
-    this.lastMaskBand = this.band;
+    drawDomeMap(ctx, { capturedKeys: new Set(this.results.keys()), currentKey: this.currentStep.key });
   }
 
   // ---- captura ----
@@ -365,31 +387,29 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
     sctx.drawImage(video, 0, 0);
     const frame = sctx.getImageData(0, 0, snap.width, snap.height);
 
-    const cam: CameraModel = {
-      pitchDeg: pitchForBand(this.band),
-      vFovDeg: this.vFovDeg,
-      width: snap.width,
-      height: snap.height,
-    };
-    const bandBefore = this.band;
-    const tile = warpFrameToTile(frame, cam, bandBefore);
-    this.tiles = [...this.tiles, { slot: { band: bandBefore, index: this.indexInBand }, tile }];
+    const step = this.currentStep;
+    if (step.kind === 'band') {
+      const cam: CameraModel = {
+        pitchDeg: step.pitchDeg,
+        vFovDeg: this.vFovDeg,
+        width: snap.width,
+        height: snap.height,
+      };
+      this.results.set(step.key, warpFrameToTile(frame, cam, step.band as Band));
+    } else {
+      const strip = step.pole === 'zenith' ? warpZenith(frame, this.vFovDeg) : warpNadir(frame, this.vFovDeg);
+      this.results.set(step.key, strip);
+    }
 
     this.flash();
-    if (this.band !== this.lastMaskBand) {
-      this.refreshMask();
-    }
-    if (!this.isComplete) {
-      this.pulseTurnHint();
-    }
+    this.redraw();
   }
 
   redoLast(): void {
-    if (this.tiles.length === 0 || this.assembling) return;
-    this.tiles = this.tiles.slice(0, -1);
-    if (this.band !== this.lastMaskBand) {
-      this.refreshMask();
-    }
+    if (this.results.size === 0 || this.assembling) return;
+    const lastKey = this.plan[this.results.size - 1].key;
+    this.results.delete(lastKey);
+    this.redraw();
   }
 
   finish(): void {
@@ -397,21 +417,31 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
     this.assembling = true;
     // deixa o spinner pintar antes do trabalho síncrono de montagem
     setTimeout(() => {
-      const dataUrl = assembleEquirect(this.tiles);
-      this.finished.emit(dataUrl);
+      if (this.destroyed) return;
+      const tiles: CapturedTile[] = [];
+      for (const step of this.plan) {
+        if (step.kind !== 'band') continue;
+        const tile = this.results.get(step.key);
+        if (tile) tiles.push({ slot: { band: step.band as Band, index: step.index as number }, tile });
+      }
+      const poles: PoleStrips = {
+        zenith: this.results.get('zenith'),
+        nadir: this.results.get('nadir'),
+      };
+      this.finished.emit(assembleEquirect(tiles, poles));
     }, 30);
   }
 
   async onClose(): Promise<void> {
     if (this.assembling) return;
-    if (this.tiles.length === 0) {
+    if (this.results.size === 0) {
       this.cancelled.emit();
       return;
     }
     const alert = await this.alertController.create({
       header: this.translate.instant('CAPTURE.CLOSE_CONFIRM_TITLE') as string,
       message: this.translate.instant('CAPTURE.CLOSE_CONFIRM_MSG', {
-        count: this.tiles.length,
+        count: this.results.size,
       }) as string,
       buttons: [
         { text: this.translate.instant('CAPTURE.CLOSE_CONFIRM_KEEP') as string, role: 'cancel' },
@@ -423,20 +453,6 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
       ],
     });
     await alert.present();
-  }
-
-  segmentState(k: number): 'done' | 'current' | 'todo' {
-    if (k < this.indexInBand || this.isComplete) return 'done';
-    if (k === this.indexInBand) return 'current';
-    return 'todo';
-  }
-
-  private pulseTurnHint(): void {
-    if (this.turnHintTimer) clearTimeout(this.turnHintTimer);
-    this.showTurnHint = true;
-    this.turnHintTimer = setTimeout(() => {
-      this.zone.run(() => (this.showTurnHint = false));
-    }, TURN_HINT_MS);
   }
 
   private flash(): void {
@@ -451,26 +467,6 @@ export class Capture360Component implements AfterViewInit, OnDestroy {
 // ---- helpers puros do componente ----
 
 function primaryColor(): string {
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue('--ion-color-primary')
-    .trim();
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--ion-color-primary').trim();
   return v || '#ff385c';
-}
-
-/** 8 arcos de 45° (com folga de 5°) num anel r=22 centrado em (28,28), começando no topo. */
-function buildCompassSegments(): string[] {
-  const cx = 28;
-  const cy = 28;
-  const r = 22;
-  const segments: string[] = [];
-  for (let k = 0; k < 8; k++) {
-    const start = -90 + k * 45 + 2.5;
-    const end = -90 + (k + 1) * 45 - 2.5;
-    const sx = cx + r * Math.cos((start * Math.PI) / 180);
-    const sy = cy + r * Math.sin((start * Math.PI) / 180);
-    const ex = cx + r * Math.cos((end * Math.PI) / 180);
-    const ey = cy + r * Math.sin((end * Math.PI) / 180);
-    segments.push(`M ${sx.toFixed(2)} ${sy.toFixed(2)} A ${r} ${r} 0 0 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`);
-  }
-  return segments;
 }
