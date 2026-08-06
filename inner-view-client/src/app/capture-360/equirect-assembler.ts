@@ -3,23 +3,34 @@ import {
   EQUIRECT_H,
   EQUIRECT_W,
   LOWER_BAND_Y,
+  NADIR_STRIP_Y,
   TILE_H,
   TILE_W,
   UPPER_BAND_Y,
 } from './capture-360.types';
 
+/** Calotas reais de polo (zênite/nadir), quando fotografadas. Tiras 4096×569. */
+export interface PoleStrips {
+  zenith?: ImageData;
+  nadir?: ImageData;
+}
+
 /**
  * Monta a equiretangular completa 4096×2048 (aspecto 2:1, contrato do viewer):
  * faixa superior nas linhas [569, 1024), inferior em [1024, 1479), tile k em
- * x = k·512. Os polos (±40°..±90°) não têm captura na v1 — são preenchidos
- * estendendo a linha de borda de cada faixa com um degradê por coluna até a
- * cor média da linha, o que evita tanto o "buraco preto" quanto listras
- * verticais convergindo no zênite/nadir.
+ * x = k·512.
+ *
+ * Os polos (±40°..±90°) são preenchidos com as calotas reais (zênite/nadir)
+ * quando fornecidas; sem elas, cai no degradê da linha de borda até a cor
+ * média — que evita o "buraco preto" e as listras convergindo no polo.
  *
  * Separado de `assembleEquirect` para os testes lerem pixels direto do canvas
  * sem decodificar JPEG.
  */
-export function assembleEquirectCanvas(tiles: CapturedTile[]): HTMLCanvasElement {
+export function assembleEquirectCanvas(
+  tiles: CapturedTile[],
+  poles: PoleStrips = {},
+): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = EQUIRECT_W;
   canvas.height = EQUIRECT_H;
@@ -35,15 +46,28 @@ export function assembleEquirectCanvas(tiles: CapturedTile[]): HTMLCanvasElement
     ctx.putImageData(tile, x, y);
   }
 
-  fillPole(ctx, UPPER_BAND_Y, 0, UPPER_BAND_Y);
-  fillPole(ctx, LOWER_BAND_Y + TILE_H - 1, LOWER_BAND_Y + TILE_H, EQUIRECT_H);
+  if (poles.zenith) {
+    ctx.putImageData(poles.zenith, 0, 0);
+  } else {
+    fillPole(ctx, UPPER_BAND_Y, 0, UPPER_BAND_Y);
+  }
+
+  if (poles.nadir) {
+    ctx.putImageData(poles.nadir, 0, NADIR_STRIP_Y);
+  } else {
+    fillPole(ctx, LOWER_BAND_Y + TILE_H - 1, LOWER_BAND_Y + TILE_H, EQUIRECT_H);
+  }
 
   return canvas;
 }
 
 /** Monta e serializa. ~1–2 MB em q0.85 — muito abaixo do limite de 50 MB do backend. */
-export function assembleEquirect(tiles: CapturedTile[], quality = 0.85): string {
-  return assembleEquirectCanvas(tiles).toDataURL('image/jpeg', quality);
+export function assembleEquirect(
+  tiles: CapturedTile[],
+  poles: PoleStrips = {},
+  quality = 0.85,
+): string {
+  return assembleEquirectCanvas(tiles, poles).toDataURL('image/jpeg', quality);
 }
 
 /**
