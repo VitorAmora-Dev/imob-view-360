@@ -2,6 +2,7 @@ import { CameraModel, goreOutline } from './camera-projection';
 import {
   buildMaskGeometry,
   coverTransform,
+  drawDiscOverlay,
   drawMaskOverlay,
   visibleFrameRect,
 } from './spherical-mask';
@@ -97,6 +98,17 @@ describe('spherical-mask', () => {
       expect(r.x * t.scale + t.dx).toBeCloseTo(0, 6);
       // canto direito visível → x=canvasW
       expect((r.x + r.width) * t.scale + t.dx).toBeCloseTo(390, 6);
+    });
+  });
+
+  describe('drawDiscOverlay', () => {
+    it('abre um disco transparente no centro e escurece o resto', () => {
+      const ctx = ctx2d(400, 800);
+      drawDiscOverlay(ctx, 200, 400, 120);
+      const inside = ctx.getImageData(200, 400, 1, 1).data;
+      const outside = ctx.getImageData(20, 20, 1, 1).data;
+      expect(inside[3]).toBe(0); // centro do disco: transparente
+      expect(outside[3]).toBeGreaterThan(100); // véu ao redor
     });
   });
 

@@ -111,6 +111,41 @@ export function drawMaskOverlay(
   ctx.restore();
 }
 
+/**
+ * Visor circular para os passos de polo (zênite/nadir): véu translúcido com um
+ * disco central transparente e borda. Coordenadas em px do canvas (não do
+ * frame) — o disco é sempre centrado na tela, é onde a câmera aponta reto.
+ */
+export function drawDiscOverlay(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number,
+  radius: number,
+  strokeColor = '#ff385c',
+): void {
+  const { width, height } = ctx.canvas;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = '#000'; // opaco: senão o alpha 0.55 do véu removeria só parte
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+  ctx.fill();
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** Ponto médio do gomo projetado — âncora para posicionar hints sobre a janela. */
 export function maskAnchor(cam: CameraModel, band: Band): Point2 {
   const { equatorLeft, equatorRight, parallel } = goreOutline(cam, band, 2);
