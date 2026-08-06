@@ -35,6 +35,14 @@ export const EQUIRECT_H = 2048;
 export const UPPER_BAND_Y = 569;
 export const LOWER_BAND_Y = 1024;
 
+/** Câmera reta para cima/baixo nas capturas de polo (zênite/nadir). */
+export const POLE_PITCH_DEG = 90;
+/** Calota do zênite: lat +40..+90 → linhas [0, 569) do equiretangular. */
+export const ZENITH_STRIP_H = UPPER_BAND_Y;
+/** Calota do nadir: lat −90..−40 → linhas [1479, 2048) do equiretangular. */
+export const NADIR_STRIP_H = EQUIRECT_H - LOWER_BAND_Y - TILE_H;
+export const NADIR_STRIP_Y = LOWER_BAND_Y + TILE_H;
+
 /**
  * FOV vertical assumido do frame nativo. getUserMedia não expõe o FOV real;
  * 100° corresponde à ultrawide típica em retrato — a única lente em que o

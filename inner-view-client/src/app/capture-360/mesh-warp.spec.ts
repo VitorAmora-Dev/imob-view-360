@@ -1,44 +1,7 @@
-import { CameraModel, DEG, focalPx } from './camera-projection';
+import { CameraModel } from './camera-projection';
 import { LAT_SPAN_DEG, LON_SPAN_DEG, TILE_H, TILE_W } from './capture-360.types';
 import { bandRegion, warpFrameToRegion, warpFrameToTile } from './mesh-warp';
-
-/**
- * Os frames sintéticos são gerados pela INVERSA da projeção: para cada pixel
- * do frame calcula-se (lon, lat) e pinta-se em função deles. O warp aplica a
- * projeção direta — se a cor esperada reaparece no lugar certo do tile, o
- * mapeamento fecha o ciclo.
- */
-function makeFrame(
-  cam: CameraModel,
-  paint: (lonDeg: number, latDeg: number) => [number, number, number],
-): ImageData {
-  const frame = new ImageData(cam.width, cam.height);
-  const data = frame.data;
-  const f = focalPx(cam);
-  const phi = cam.pitchDeg * DEG;
-  const sinP = Math.sin(phi);
-  const cosP = Math.cos(phi);
-
-  for (let py = 0; py < cam.height; py++) {
-    const yn = (cam.height / 2 - (py + 0.5)) / f;
-    for (let px = 0; px < cam.width; px++) {
-      const xn = (px + 0.5 - cam.width / 2) / f;
-      const dx = xn;
-      const dy = yn * cosP + sinP;
-      const dz = -yn * sinP + cosP;
-      const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const lon = Math.atan2(dx, dz) / DEG;
-      const lat = Math.asin(dy / len) / DEG;
-      const [r, g, b] = paint(lon, lat);
-      const o = (py * cam.width + px) * 4;
-      data[o] = r;
-      data[o + 1] = g;
-      data[o + 2] = b;
-      data[o + 3] = 255;
-    }
-  }
-  return frame;
-}
+import { makeFrame } from './test-helpers';
 
 describe('mesh-warp', () => {
   // Frame menor que o real para o teste rodar rápido; a geometria independe da escala.
