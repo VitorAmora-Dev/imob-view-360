@@ -21,6 +21,30 @@ export interface CapturedTile {
   tile: ImageData;
 }
 
+export type Pole = 'zenith' | 'nadir';
+export type StepKind = 'band' | 'pole';
+export type ViewfinderKind = 'gore' | 'disc';
+
+/**
+ * Um passo do fluxo guiado. São 18 no total: 8 da faixa superior, 8 da inferior,
+ * zênite e nadir. Cada passo diz ao componente qual câmera usar no warp, qual
+ * visor desenhar e qual instrução mostrar.
+ */
+export interface CaptureStep {
+  /** Chave única: 'upper:0'..'upper:7', 'lower:0'..'lower:7', 'zenith', 'nadir'. */
+  key: string;
+  kind: StepKind;
+  band?: Band;
+  index?: number;
+  pole?: Pole;
+  /** Pitch da câmera no warp: ±20° (faixas) ou ±90° (polos). */
+  pitchDeg: number;
+  viewfinder: ViewfinderKind;
+  /** Chave i18n da instrução principal. */
+  instructionKey: string;
+  arrow?: 'right' | 'down' | 'up';
+}
+
 export const TILES_PER_BAND = 8;
 export const TILE_W = 512;
 export const TILE_H = 455;
