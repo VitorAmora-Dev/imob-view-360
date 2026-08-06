@@ -1,6 +1,6 @@
 import { CameraModel, DEG, focalPx } from './camera-projection';
 import { LAT_SPAN_DEG, LON_SPAN_DEG, TILE_H, TILE_W } from './capture-360.types';
-import { warpFrameToTile } from './mesh-warp';
+import { bandRegion, warpFrameToRegion, warpFrameToTile } from './mesh-warp';
 
 /**
  * Os frames sintéticos são gerados pela INVERSA da projeção: para cada pixel
@@ -100,6 +100,17 @@ describe('mesh-warp', () => {
       const oFirst = (j * TILE_W) * 4;
       expect(Math.abs(tile0.data[oLast] - tile1.data[oFirst])).toBeLessThanOrEqual(2);
       expect(Math.abs(tile0.data[oLast + 1] - tile1.data[oFirst + 1])).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('warpFrameToRegion reproduz warpFrameToTile na região do gomo superior', () => {
+    const frame = makeFrame(cam, (lon, lat) =>
+      lon >= -22.5 && lon < 22.5 && lat >= 0 && lat < 40 ? [120, 60, 200] : [0, 0, 0],
+    );
+    const viaTile = warpFrameToTile(frame, cam, 'upper');
+    const viaRegion = warpFrameToRegion(frame, cam, bandRegion('upper'));
+    for (let k = 0; k < viaTile.data.length; k += 4 * 997) {
+      expect(viaRegion.data[k]).toBe(viaTile.data[k]);
     }
   });
 
