@@ -237,8 +237,26 @@ export class RealCameraSource implements CaptureCameraSource {
     localStorage.setItem(LENS_PREFERENCE_KEY, deviceId);
   }
 
+  /**
+   * Hands the preview element to a container, and makes sure it is still
+   * running once it gets there.
+   *
+   * Re-inserting is not enough on its own. Removing a media element from the
+   * document queues a task that PAUSES it, and that task only stands down if
+   * the element is back in a document by the time it runs. Moving the preview
+   * straight from one container to another wins that race; moving it across a
+   * task boundary — which is what happens when one Angular view is destroyed
+   * and the next is built — loses it. `autoplay` fires on load and not on
+   * re-insertion, so nothing brings the preview back by itself, and the capture
+   * screen came up black with only the guidance on it.
+   */
   attach(container: HTMLElement): void {
-    if (this.video) container.appendChild(this.video);
+    const video = this.video;
+    if (!video) return;
+    if (video.parentElement !== container) container.appendChild(video);
+    // Rejected when the browser refuses to play without a gesture; the element
+    // is muted and inline, so that is not a case that arises here.
+    if (video.paused) void video.play().catch(() => undefined);
   }
 
   grabFrame(maxSide = 2048): HTMLCanvasElement {

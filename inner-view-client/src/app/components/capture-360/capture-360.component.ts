@@ -227,8 +227,11 @@ export class Capture360Component implements OnDestroy {
   /** Leaves the lens step and starts the guided ring. */
   async startCapture(): Promise<void> {
     this.state.set('capturing');
+    // The overlay and its guidance elements only exist after this turn renders.
     await new Promise((resolve) => setTimeout(resolve));
-    this.camera!.attach(this.previewContainer!.nativeElement);
+    // The preview container survives this transition, so this is a no-op that
+    // costs nothing and self-heals if the view is ever restructured.
+    if (this.previewContainer) this.camera!.attach(this.previewContainer.nativeElement);
     if (this.simEnv && this.overlay) this.simEnv.bindInput(this.overlay.nativeElement);
     this.onResize();
     this.orientation!.rezero();

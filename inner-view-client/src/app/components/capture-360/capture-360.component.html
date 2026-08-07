@@ -1,4 +1,17 @@
 <div class="capture-root">
+  <!--
+    One container for both steps, deliberately OUTSIDE the switch below.
+    The preview is a single <video> element that gets moved into whichever
+    container is on screen, and taking it out of the document — which is what
+    destroying the lens step used to do — pauses it. Keeping one container
+    alive across lens → capturing means it is never moved on the transition
+    that matters, so there is no black frame and the camera keeps the exposure
+    it had already settled on.
+  -->
+  @if (state() === 'lens' || state() === 'capturing') {
+    <div class="preview" #previewContainer></div>
+  }
+
   @switch (state()) {
     @case ('intro') {
       <div class="panel">
@@ -14,8 +27,6 @@
     }
 
     @case ('lens') {
-      <div class="preview" #previewContainer></div>
-
       <div class="lens-step">
         <div class="top-bar">
           <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
@@ -65,8 +76,6 @@
     }
 
     @case ('capturing') {
-      <div class="preview" #previewContainer></div>
-
       <div class="guide-overlay" #overlay>
         <div class="horizon" #horizonEl></div>
 
