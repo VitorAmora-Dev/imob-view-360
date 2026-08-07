@@ -13,6 +13,14 @@
           <button
             type="button"
             class="viewer-action"
+            [disabled]="!currentPanorama"
+            [attr.aria-label]="'INNER_VIEW.DOWNLOAD' | translate"
+            (click)="onDownloadPanorama()">
+            <ion-icon name="download-outline"></ion-icon>
+          </button>
+          <button
+            type="button"
+            class="viewer-action"
             [class.viewer-action--active]="editingHotspots"
             (click)="toggleHotspotEdit()">
             <ion-icon name="git-network-outline"></ion-icon>

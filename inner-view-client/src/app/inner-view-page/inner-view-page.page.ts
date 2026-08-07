@@ -8,7 +8,7 @@ import {
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
-import { eyeOutline, eyeOffOutline, cloudUploadOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
+import { eyeOutline, eyeOffOutline, cloudUploadOutline, downloadOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Property } from '../models/property.model';
@@ -16,6 +16,7 @@ import { VirtualTour, Panorama } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
+import { dataUriToBlob, panoramaFilename, toPanoramaDataUri } from './panorama-download.util';
 
 @Component({
   selector: 'app-inner-view-page',
@@ -51,7 +52,7 @@ export class InnerViewPagePage implements OnInit {
   private translate = inject(TranslateService);
 
   constructor() {
-    addIcons({ eyeOutline, eyeOffOutline, cloudUploadOutline, trashOutline, gitNetworkOutline, informationCircleOutline });
+    addIcons({ eyeOutline, eyeOffOutline, cloudUploadOutline, downloadOutline, trashOutline, gitNetworkOutline, informationCircleOutline });
   }
 
   ngOnInit() {
@@ -102,6 +103,25 @@ export class InnerViewPagePage implements OnInit {
 
   onPanoramaChange(panorama: Panorama) {
     this.currentPanorama = panorama;
+  }
+
+  /** Baixa o panorama que está sendo visto como JPEG (só no cliente). */
+  onDownloadPanorama() {
+    if (!this.currentPanorama) return;
+    try {
+      const blob = dataUriToBlob(toPanoramaDataUri(this.currentPanorama.imageData));
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = panoramaFilename(this.property?.title ?? '', this.currentPanorama.roomName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      this.showToast('INNER_VIEW.DOWNLOAD_SUCCESS', 'success');
+    } catch {
+      this.showToast('INNER_VIEW.DOWNLOAD_ERROR', 'danger');
+    }
   }
 
   toggleHotspotEdit() {
