@@ -34,7 +34,7 @@
           }
 
           <span class="lens-summary">
-            {{ 'CAPTURE.LENS_SUMMARY' | translate: { total: totalCount(), reach: verticalReach() } }}
+            {{ 'CAPTURE.LENS_SUMMARY' | translate: { total: totalCount(), share: activeSoftwareShare() } }}
           </span>
 
           @if (lenses().length > 1) {
@@ -47,10 +47,14 @@
                   [attr.aria-pressed]="lens.deviceId === activeLensId()"
                   [title]="lens.label"
                   (click)="selectLens(lens)">
-                  {{ lensLabel(lens) }}
+                  <span class="lens-chip-name">{{ lensLabel(lens) }}</span>
+                  <span class="lens-chip-cost" [class]="'lens-chip-cost--' + shareLevel(lens)">
+                    {{ 'CAPTURE.LENS_COST' | translate: { share: shareOf(lens) } }}
+                  </span>
                 </button>
               }
             </div>
+            <span class="lens-legend">{{ 'CAPTURE.LENS_COST_LEGEND' | translate }}</span>
           } @else {
             <span class="hint-pill">{{ 'CAPTURE.SINGLE_LENS' | translate }}</span>
           }

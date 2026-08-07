@@ -40,6 +40,16 @@ export const routes: Routes = [
     loadComponent: () => import('./embed/embed.page').then(m => m.EmbedPage),
   },
   {
+    // Bancada de remontagem: lê uma pasta de fotos exportadas e costura de novo,
+    // sem aparelho e sem rede. Não é ligada por nenhum link — é ferramenta de
+    // diagnóstico, e fica fora do guard porque não toca em dado de ninguém.
+    path: 'dev/remontagem',
+    loadComponent: () =>
+      import('./components/capture-360/restitch-harness.component').then(
+        m => m.RestitchHarnessComponent
+      ),
+  },
+  {
     path: '**',
     redirectTo: 'home',
   },

@@ -15,6 +15,24 @@ export interface CaptureTuning {
   maxAngularVelocityDegS: number;
 }
 
+const DEG = Math.PI / 180;
+
+/**
+ * Angle between two aim directions, in degrees.
+ *
+ * Kept as plain trigonometry so this module stays free of Three.js: it is the
+ * one piece of the capture that runs on every sensor event.
+ */
+export function separationDeg(
+  a: { yawDeg: number; pitchDeg: number },
+  b: { yawDeg: number; pitchDeg: number },
+): number {
+  const cos =
+    Math.sin(a.pitchDeg * DEG) * Math.sin(b.pitchDeg * DEG) +
+    Math.cos(a.pitchDeg * DEG) * Math.cos(b.pitchDeg * DEG) * Math.cos((a.yawDeg - b.yawDeg) * DEG);
+  return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+}
+
 export const DEFAULT_TUNING: CaptureTuning = {
   centerToleranceDeg: 5,
   dwellMs: 2000,
@@ -145,8 +163,13 @@ export class CaptureSession {
     const offsetYaw = wrapDeg180(target.yawDeg - sample.yawDeg);
     const offsetPitch = target.pitchDeg - sample.pitchDeg;
 
-    const tol = this.tuning.centerToleranceDeg;
-    const withinTolerance = Math.abs(offsetYaw) <= tol && Math.abs(offsetPitch) <= tol;
+    // The tolerance is an ANGLE between two directions, not a box in yaw and
+    // pitch. The two agree near the horizon, but yaw compresses towards the
+    // poles: aiming at the cap's 70°, five degrees of yaw is only 5·cos(70°) =
+    // 1.7° of real movement, so a box would quietly make the hardest shot of
+    // the capture three times stricter than every other one. The steadiness
+    // test above already carries the same cosine, for the same reason.
+    const withinTolerance = separationDeg(target, sample) <= this.tuning.centerToleranceDeg;
     const steady = this.velocityDegS <= this.tuning.maxAngularVelocityDegS;
     const dwelling = this.dwellStartMs !== null && nowMs !== undefined;
 

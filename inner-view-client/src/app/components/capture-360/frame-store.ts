@@ -53,13 +53,17 @@ export async function storeFrame(
 }
 
 /** Caller owns the result and must `close()` it. */
-export async function decodeFrame(frame: CapturedFrame): Promise<ImageBitmap | HTMLImageElement> {
+export function decodeFrame(frame: CapturedFrame): Promise<ImageBitmap | HTMLImageElement> {
+  return decodeBlob(frame.blob);
+}
+
+async function decodeBlob(blob: Blob): Promise<ImageBitmap | HTMLImageElement> {
   if (typeof createImageBitmap === 'function') {
-    return createImageBitmap(frame.blob);
+    return createImageBitmap(blob);
   }
   // Older Safari has no createImageBitmap; an <img> is a valid texture source
   // too, it just cannot be closed explicitly.
-  const url = URL.createObjectURL(frame.blob);
+  const url = URL.createObjectURL(blob);
   try {
     const image = new Image();
     image.src = url;
@@ -68,6 +72,32 @@ export async function decodeFrame(frame: CapturedFrame): Promise<ImageBitmap | H
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+/**
+ * Rebuilds a frame from bytes that were already encoded — an archived original,
+ * read back so a capture can be stitched again without being retaken.
+ *
+ * The bytes are passed through untouched, so a re-stitch starts from exactly
+ * what the camera produced; only the thumbnail is decoded, and straight at its
+ * final size rather than through a full-resolution canvas.
+ */
+export async function frameFromBlob(blob: Blob): Promise<CapturedFrame> {
+  const decoded = await decodeBlob(blob);
+  const width = decoded.width;
+  const height = decoded.height;
+
+  const scale = Math.min(1, THUMBNAIL_MIN_SIDE / Math.max(1, Math.min(width, height)));
+  const thumbnail = document.createElement('canvas');
+  thumbnail.width = Math.max(1, Math.round(width * scale));
+  thumbnail.height = Math.max(1, Math.round(height * scale));
+  const ctx = thumbnail.getContext('2d', { willReadFrequently: true })!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(decoded, 0, 0, thumbnail.width, thumbnail.height);
+  closeDecoded(decoded);
+
+  return { blob, thumbnail, width, height };
 }
 
 export function closeDecoded(decoded: ImageBitmap | HTMLImageElement): void {

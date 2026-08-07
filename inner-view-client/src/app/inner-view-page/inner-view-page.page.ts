@@ -14,7 +14,11 @@ import { firstValueFrom } from 'rxjs';
 import { Property } from '../models/property.model';
 import { VirtualTour, Panorama } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
-import { CaptureFrameUpload, VirtualTourService } from '../services/virtual-tour.service';
+import {
+  CaptureFrameUpload,
+  CaptureGeometry,
+  VirtualTourService,
+} from '../services/virtual-tour.service';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
 import { captureSupported } from '../components/capture-360/capture-support';
@@ -211,10 +215,13 @@ export class InnerViewPagePage implements OnInit {
       cssClass: 'capture-360-modal',
     });
     await modal.present();
-    const { role, data } =
-      await modal.onDidDismiss<{ imageData: string; frames: CaptureFrameUpload[] }>();
+    const { role, data } = await modal.onDidDismiss<{
+      imageData: string;
+      frames: CaptureFrameUpload[];
+      geometry: CaptureGeometry | null;
+    }>();
     if (role === 'confirm' && data?.imageData) {
-      await this.savePanorama(data.imageData, data.frames);
+      await this.savePanorama(data.imageData, data.frames, data.geometry);
     }
   }
 
@@ -227,7 +234,11 @@ export class InnerViewPagePage implements OnInit {
     await this.savePanorama(imageData);
   }
 
-  private async savePanorama(imageData: string, frames: CaptureFrameUpload[] = []) {
+  private async savePanorama(
+    imageData: string,
+    frames: CaptureFrameUpload[] = [],
+    geometry: CaptureGeometry | null = null,
+  ) {
     if (!this.property) return;
 
     const roomName = await this.promptRoomName();
@@ -242,12 +253,13 @@ export class InnerViewPagePage implements OnInit {
           roomName,
           imageData,
           order: this.tour.panoramas.length,
+          ...(geometry ?? {}),
         }));
         tourId = this.tour.id;
         panoramaId = added.id;
       } else {
         const created = await firstValueFrom(this.virtualTourService.createTour(this.property.id, [
-          { roomName, imageData, order: 0, initialPanorama: true },
+          { roomName, imageData, order: 0, initialPanorama: true, ...(geometry ?? {}) },
         ]));
         tourId = created.id;
         panoramaId = created.panoramas[0].id;

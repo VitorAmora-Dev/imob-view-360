@@ -151,6 +151,16 @@ model Panorama {
   order           Int     @default(0) // ordem
   initialPanorama Boolean @default(false) // panoramaInicial
 
+  /// Geometria da captura, quando o panorama veio da câmera guiada.
+  ///
+  /// O preenchimento dos polos é deliberadamente plausível — sem estes números
+  /// não há como distinguir pixel fotografado de pixel inventado, e a etapa de
+  /// IA precisa saber a diferença. Servem também de telemetria: é assim que se
+  /// vê, em campo, se o ajuste de campo de visão está acertando.
+  fittedVfovDeg Float? // campoVerticalAjustado
+  bandTopDeg    Float? // latitudeSuperiorFotografada
+  bandBottomDeg Float? // latitudeInferiorFotografada
+
   virtualTour   VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade) // tourVirtual
   virtualTourId String
 

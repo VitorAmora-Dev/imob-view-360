@@ -79,7 +79,7 @@ describe('shortestVerticalPath', () => {
 describe('disagreementCost', () => {
   it('charges nothing where the two photos agree', () => {
     const a = new Float32Array([10, 20, 30, 40]);
-    const cost = disagreementCost(a, a.slice(), 4, 1);
+    const { cost } = disagreementCost(a, a.slice(), 4, 1);
     expect(Array.from(cost)).toEqual([0, 0, 0, 0]);
   });
 
@@ -91,7 +91,7 @@ describe('disagreementCost', () => {
   it('sees a displaced edge that brightness alone would miss', () => {
     const a = new Float32Array([0, 0, 0, 100, 100, 100]);
     const b = new Float32Array([0, 0, 100, 100, 100, 0]);
-    const cost = disagreementCost(a, b, 6, 1);
+    const { cost } = disagreementCost(a, b, 6, 1);
     // Same mean, different edge position: the displaced edge must cost more
     // than the columns where both are flat.
     expect(cost[2]).toBeGreaterThan(cost[0]);
@@ -99,10 +99,33 @@ describe('disagreementCost', () => {
   });
 
   it('makes a route through pixels no photo reached prohibitive', () => {
-    const a = new Float32Array([10, NaN, 10]);
-    const b = new Float32Array([10, 10, 10]);
-    const cost = disagreementCost(a, b, 3, 1);
+    const { cost } = disagreementCost(new Float32Array([10, NaN, 10]), new Float32Array([10, 10, 10]), 3, 1);
     expect(cost[1]).toBeGreaterThan(1000);
     expect(cost[0]).toBe(0);
+  });
+
+  /**
+   * The fade width is chosen from `ghost` alone, so it has to separate the two
+   * kinds of mismatch: a plain brightness difference is precisely what a wide
+   * fade is for, while a displaced edge is what a wide fade would double.
+   */
+  it('tells a brightness difference apart from a displaced edge', () => {
+    const flat = new Float32Array([50, 50, 50, 50]);
+    const brighter = new Float32Array([70, 70, 70, 70]);
+    const exposure = disagreementCost(flat, brighter, 4, 1);
+    expect(exposure.cost[2]).toBe(20);
+    expect(exposure.ghost[2]).withContext('an exposure step is not a ghost').toBe(0);
+
+    const edge = disagreementCost(
+      new Float32Array([0, 0, 100, 100]),
+      new Float32Array([0, 100, 100, 100]),
+      4, 1,
+    );
+    expect(edge.ghost[1]).withContext('a displaced edge must read as one').toBeGreaterThan(50);
+  });
+
+  it('treats a pixel one photo never reached as the worst case for fading', () => {
+    const { ghost } = disagreementCost(new Float32Array([10, NaN, 10]), new Float32Array([10, 10, 10]), 3, 1);
+    expect(ghost[1]).toBeGreaterThan(1000);
   });
 });

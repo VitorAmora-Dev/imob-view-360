@@ -15,7 +15,11 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { PropertyService } from '../services/property.service';
 import { CepService, CepNotFoundError } from '../services/cep.service';
-import { CaptureFrameUpload, VirtualTourService } from '../services/virtual-tour.service';
+import {
+  CaptureFrameUpload,
+  CaptureGeometry,
+  VirtualTourService,
+} from '../services/virtual-tour.service';
 import { Panorama } from '../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
@@ -27,6 +31,8 @@ interface PanoramaItem {
   fileName: string;
   /** Originals from a guided capture; empty for an uploaded file. */
   frames?: CaptureFrameUpload[];
+  /** What the stitch measured; absent for an uploaded file. */
+  geometry?: CaptureGeometry | null;
 }
 
 @Component({
@@ -176,8 +182,11 @@ export class UploadTourPage {
       cssClass: 'capture-360-modal',
     });
     await modal.present();
-    const { role, data } =
-      await modal.onDidDismiss<{ imageData: string; frames: CaptureFrameUpload[] }>();
+    const { role, data } = await modal.onDidDismiss<{
+      imageData: string;
+      frames: CaptureFrameUpload[];
+      geometry: CaptureGeometry | null;
+    }>();
     if (role !== 'confirm' || !data?.imageData) return;
 
     const roomName = await this.promptRoomName();
@@ -188,6 +197,7 @@ export class UploadTourPage {
       imageData: data.imageData,
       fileName: `captura-360-${this.panoramas.length + 1}.jpg`,
       frames: data.frames,
+      geometry: data.geometry,
     });
   }
 
@@ -257,6 +267,7 @@ export class UploadTourPage {
               imageData: p.imageData,
               order: i,
               initialPanorama: i === 0,
+              ...(p.geometry ?? {}),
             }))
           )
         );

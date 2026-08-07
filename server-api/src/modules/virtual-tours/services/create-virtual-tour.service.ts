@@ -51,6 +51,9 @@ export class CreateVirtualTourService {
             imageData: p.imageData,
             order: p.order,
             initialPanorama: p.initialPanorama,
+            fittedVfovDeg: p.fittedVfovDeg,
+            bandTopDeg: p.bandTopDeg,
+            bandBottomDeg: p.bandBottomDeg,
             virtualTourId: tour.id,
           },
         });

@@ -95,6 +95,17 @@ export const ULTRAWIDE_PRIOR_VFOV = 95;
 export const WIDE_PRIOR_VFOV = 62;
 
 /**
+ * The field a lens of this kind is assumed to have before any measurement.
+ *
+ * Exported because the lens picker has to price a lens the user has NOT
+ * selected — it cannot ask `getSpec()`, which only ever describes the stream
+ * currently open.
+ */
+export function priorVfovFor(kind: LensOption['kind'] | undefined): number {
+  return kind === 'ultrawide' ? ULTRAWIDE_PRIOR_VFOV : WIDE_PRIOR_VFOV;
+}
+
+/**
  * Labels are localised by iOS and Android, so this covers the common
  * spellings in the languages the app ships in. It only seeds the default
  * selection — geometry never trusts it, and the user can always switch.
@@ -279,7 +290,7 @@ export class RealCameraSource implements CaptureCameraSource {
     const h = swap ? video.videoWidth : video.videoHeight;
     const active = this.available.find((l) => l.deviceId === this.activeId);
     return {
-      vfovDeg: active?.kind === 'ultrawide' ? ULTRAWIDE_PRIOR_VFOV : WIDE_PRIOR_VFOV,
+      vfovDeg: priorVfovFor(active?.kind),
       frameAspect: w / h,
       wideShapeAccepted: this.wideShapeAccepted,
     };

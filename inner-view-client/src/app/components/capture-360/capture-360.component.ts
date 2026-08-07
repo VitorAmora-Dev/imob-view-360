@@ -7,7 +7,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../panoramic-viewer/panoramic-viewer.component';
 import { CaptureSession, DEFAULT_TUNING } from './capture-session';
-import { buildCapturePattern, ringReachDeg } from './capture-pattern';
+import { buildCapturePattern, ringReachDeg, uncoveredFraction } from './capture-pattern';
 import { directionForYawPitch } from './orientation-math';
 import {
   CaptureCameraSource,
@@ -18,11 +18,12 @@ import {
   RealOrientationSource,
   SimCameraSource,
   SimOrientationSource,
+  priorVfovFor,
 } from './capture-sources';
 import { SimEnvironment } from './sim-environment';
-import { CaptureFrameUpload } from '../../services/virtual-tour.service';
+import { CaptureFrameUpload, CaptureGeometry } from '../../services/virtual-tour.service';
 import { releaseCanvas, sharpnessScore, storeFrame } from './frame-store';
-import { StitchShot, hfovFromSpec, stitchEquirect } from './stitcher';
+import { StitchShot, hfovFromSpec, hfovFromVfov, stitchEquirect } from './stitcher';
 
 type CaptureState = 'intro' | 'lens' | 'capturing' | 'stitching' | 'preview' | 'error';
 
@@ -87,6 +88,15 @@ export class Capture360Component implements OnDestroy {
   readonly narrowFrameWarning = signal(false);
   /** How far above and below the horizon this lens reaches, in degrees. */
   readonly verticalReach = signal(0);
+  /**
+   * Percentage of the sphere each lens would leave to the software fill.
+   *
+   * The number the choice actually turns on. "Reaches 42° above the horizon"
+   * is meaningless to whoever is holding the phone; "half of this panorama
+   * will be invented" is the same geometry in the units of the decision — and
+   * on the real captures the two lenses came out at 31% and 51%.
+   */
+  readonly softwareShare = signal<Record<string, number>>({});
   readonly simMode = new URLSearchParams(window.location.search).has('sim');
 
   private readonly modalCtrl = inject(ModalController);
@@ -103,6 +113,8 @@ export class Capture360Component implements OnDestroy {
   private shots: Promise<StitchShot>[] = [];
   /** Resolved shots kept past the stitch so the originals can be archived. */
   private stitchedShots: StitchShot[] = [];
+  /** What the stitch measured, saved with the panorama so the AI pass knows. */
+  private geometry: CaptureGeometry | null = null;
   private candidates: Candidate[] = [];
   private lastCandidateMs = 0;
   private rafId: number | null = null;
@@ -140,7 +152,7 @@ export class Capture360Component implements OnDestroy {
       blob: shot.frame.blob,
       quaternion: shot.quaternion,
     }));
-    this.modalCtrl.dismiss({ imageData, frames }, 'confirm');
+    this.modalCtrl.dismiss({ imageData, frames, geometry: this.geometry }, 'confirm');
   }
 
   /**
@@ -240,6 +252,47 @@ export class Capture360Component implements OnDestroy {
     // Warn rather than silently doubling the capture, which is what a camera
     // that refuses 4:3 does — it hands back a much narrower frame.
     this.narrowFrameWarning.set(!spec.wideShapeAccepted);
+    this.priceLenses(spec.frameAspect);
+  }
+
+  /**
+   * What each lens would cost in invented sphere, priced before it is chosen.
+   *
+   * Every lens is priced against the SAME frame shape, because the shape comes
+   * from the stream the browser hands back and a device does not change it
+   * between its own rear cameras. What differs is the field, and that is the
+   * whole point of the screen.
+   */
+  private priceLenses(frameAspect: number): void {
+    const share: Record<string, number> = {};
+    for (const lens of this.lenses()) {
+      const vfovDeg = priorVfovFor(lens.kind);
+      share[lens.deviceId] = Math.round(
+        uncoveredFraction({
+          vfovDeg,
+          hfovDeg: hfovFromVfov(vfovDeg, frameAspect),
+          centerToleranceDeg: DEFAULT_TUNING.centerToleranceDeg,
+        }) * 100,
+      );
+    }
+    this.softwareShare.set(share);
+  }
+
+  /** Invented share of one lens; zero until the lens list has been priced. */
+  shareOf(lens: LensOption): number {
+    return this.softwareShare()[lens.deviceId] ?? 0;
+  }
+
+  /** Invented share of the active lens, for the summary line. */
+  activeSoftwareShare(): number {
+    return this.softwareShare()[this.activeLensId() ?? ''] ?? 0;
+  }
+
+  /** Kept coarse on purpose: this drives a colour, not a judgement. */
+  shareLevel(lens: LensOption): 'good' | 'fair' | 'poor' {
+    const share = this.shareOf(lens);
+    if (share <= 20) return 'good';
+    return share <= 35 ? 'fair' : 'poor';
   }
 
   restart(): void {
@@ -380,6 +433,11 @@ export class Capture360Component implements OnDestroy {
           (opts: Record<string, unknown>) => stitchEquirect(shots, spec, opts);
       }
       const result = await stitchEquirect(shots, spec);
+      this.geometry = {
+        fittedVfovDeg: result.vfovDeg,
+        bandTopDeg: result.coveredBand.topDeg,
+        bandBottomDeg: result.coveredBand.bottomDeg,
+      };
       if (this.simMode) {
         // Lets an automated run diff the stitch against SimEnvironment.groundTruth.
         (window as unknown as Record<string, unknown>)['__captureResult'] = result;

@@ -13,6 +13,10 @@ export const CreatePanoramaSchema = z.object({
   order: z.number().int().min(0).default(0),
   initialPanorama: z.boolean().default(false),
   measurements: z.array(MeasurementInputSchema).default([]),
+  // Geometria da captura guiada; ausente quando o panorama veio de um arquivo.
+  fittedVfovDeg: z.number().min(10).max(180).optional(),
+  bandTopDeg: z.number().min(-90).max(90).optional(),
+  bandBottomDeg: z.number().min(-90).max(90).optional(),
 });
 
 export type CreatePanoramaDto = z.infer<typeof CreatePanoramaSchema>;

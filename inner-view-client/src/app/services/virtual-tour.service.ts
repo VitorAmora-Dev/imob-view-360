@@ -9,6 +9,25 @@ export interface PanoramaUpload {
   imageData: string;
   order?: number;
   initialPanorama?: boolean;
+  /** Present only for guided captures — see `CaptureGeometry`. */
+  fittedVfovDeg?: number;
+  bandTopDeg?: number;
+  bandBottomDeg?: number;
+}
+
+/**
+ * What the stitch knows about the sphere it produced.
+ *
+ * The fill over the poles is deliberately plausible, so nothing in the image
+ * itself says which pixels were photographed and which were invented. These
+ * three numbers do, and the AI pass has no other way to find out. They double
+ * as field telemetry for the FOV fit: a capture arriving with a band far
+ * narrower than the lens means the fit is being fooled again.
+ */
+export interface CaptureGeometry {
+  fittedVfovDeg: number;
+  bandTopDeg: number;
+  bandBottomDeg: number;
 }
 
 /**

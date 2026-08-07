@@ -69,6 +69,21 @@ export function shortestVerticalPath(
   return path;
 }
 
+export interface Disagreement {
+  /** What the path minimises: brightness difference plus doubled edges. */
+  cost: Float32Array;
+  /**
+   * The doubled-edge term on its own.
+   *
+   * Separate because the two answer different questions. The path wants the
+   * total, since either kind of mismatch is ugly to cut through. How WIDE to
+   * cross-fade at a point on the path depends only on this one: a brightness
+   * difference is exactly what a wide fade is for, while a displaced edge is
+   * what a wide fade turns into a ghost.
+   */
+  ghost: Float32Array;
+}
+
 /**
  * Disagreement between two overlapping samples, as a cost the path avoids.
  *
@@ -85,8 +100,9 @@ export function disagreementCost(
   height: number,
   /** Cost charged where one of the photos does not reach. */
   missingCost = 1e4,
-): Float32Array {
+): Disagreement {
   const cost = new Float32Array(width * height);
+  const ghost = new Float32Array(width * height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x;
@@ -94,14 +110,18 @@ export function disagreementCost(
       const vb = b[i];
       if (Number.isNaN(va) || Number.isNaN(vb)) {
         cost[i] = missingCost;
+        // Nothing to fade into where one photo is absent, so this reads as the
+        // worst case rather than as agreement.
+        ghost[i] = missingCost;
         continue;
       }
       // Horizontal gradient of each, compared: a doubled edge shows here even
       // when the average brightness matches.
       const ga = x > 0 && !Number.isNaN(a[i - 1]) ? va - a[i - 1] : 0;
       const gb = x > 0 && !Number.isNaN(b[i - 1]) ? vb - b[i - 1] : 0;
-      cost[i] = Math.abs(va - vb) + 2 * Math.abs(ga - gb);
+      ghost[i] = Math.abs(ga - gb);
+      cost[i] = Math.abs(va - vb) + 2 * ghost[i];
     }
   }
-  return cost;
+  return { cost, ghost };
 }

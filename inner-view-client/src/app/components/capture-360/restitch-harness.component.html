@@ -1,0 +1,87 @@
+<div class="harness">
+  <header>
+    <h1>Remontagem offline</h1>
+    <p>
+      Escolha a pasta de uma captura exportada
+      (<code>fotos-originais/&lt;captura&gt;/</code>, com <code>orientacoes.json</code>).
+      Nada é enviado para o servidor.
+    </p>
+  </header>
+
+  <section class="controls">
+    <label class="picker">
+      <span>Pasta da captura</span>
+      <input type="file" webkitdirectory multiple (change)="onFolder($event)" />
+    </label>
+
+    @if (capture(); as loaded) {
+      <p class="loaded">{{ loaded.name }} · quadro {{ loaded.frameSize }}</p>
+
+      <div class="knobs">
+        <label>
+          <span>Prior da lente (°)</span>
+          <input type="number" min="40" max="130" step="1" [(ngModel)]="priorVfov" />
+        </label>
+        <label>
+          <span>Largura de saída</span>
+          <select [(ngModel)]="outWidth">
+            <option [ngValue]="2048">2048</option>
+            <option [ngValue]="4096">4096</option>
+            <option [ngValue]="5120">5120</option>
+          </select>
+        </label>
+        <label>
+          <span>Mistura</span>
+          <select [(ngModel)]="blendMode">
+            <option value="seam">emenda</option>
+            <option value="average">média (versão antiga)</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="routeSeam" />
+          <span>Rotear a emenda pelo conteúdo</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="photometry" />
+          <span>Casar exposição e vinheta</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="fitFov" />
+          <span>Usar o FOV medido em vez do prior</span>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button type="button" (click)="run()" [disabled]="busy()">
+          {{ busy() ? 'Montando…' : 'Montar' }}
+        </button>
+        <button type="button" class="ghost" (click)="clear()" [disabled]="!runs().length">
+          Limpar resultados
+        </button>
+      </div>
+    }
+
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+  </section>
+
+  @for (run of runs(); track trackByLabel($index)) {
+    <article class="run">
+      <h2>{{ run.label }}</h2>
+      <dl>
+        <div><dt>Campo vertical usado</dt><dd>{{ run.vfovDeg }}°</dd></div>
+        <div><dt>Campo vertical medido</dt><dd>{{ run.measuredVfovDeg }}°</dd></div>
+        <div><dt>Faixa fotografada</dt><dd>{{ run.coveredBandDeg }}</dd></div>
+        <div><dt>Esfera com pixel real</dt><dd>{{ run.spherePhotographed }}%</dd></div>
+        <div><dt>Pior degrau de emenda</dt><dd>{{ run.exposureStep }}</dd></div>
+        <div><dt>Vinheta medida (a)</dt><dd>{{ run.vignetteA }}</dd></div>
+        <div><dt>Desvio da emenda</dt><dd>{{ run.seamSpreadDeg }}°</dd></div>
+        <div><dt>Fechamento da volta</dt><dd>{{ run.loopClosure }}</dd></div>
+        <div><dt>Tempo</dt><dd>{{ run.millis }} ms</dd></div>
+      </dl>
+      <img [src]="run.imageData" alt="panorama remontado" />
+      <button type="button" class="ghost" (click)="download(run)">Baixar .jpg</button>
+    </article>
+  }
+</div>

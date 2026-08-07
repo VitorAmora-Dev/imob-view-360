@@ -1,4 +1,4 @@
-import { CaptureSession, SessionEvent } from './capture-session';
+import { CaptureSession, SessionEvent, separationDeg } from './capture-session';
 import { CaptureTarget } from './capture-pattern';
 
 function ring(count: number, pitchDeg = 0): CaptureTarget[] {
@@ -29,6 +29,31 @@ describe('CaptureSession', () => {
   function makeSession(targets = ring(12)): { session: CaptureSession; clock: { now: number } } {
     return { session: new CaptureSession(targets, { dwellMs: 500 }), clock: { now: 0 } };
   }
+
+  /**
+   * The aim tolerance has to mean the same thing everywhere on the sphere.
+   * Yaw compresses towards the poles, so a box in yaw and pitch would make the
+   * upward cap — aimed at 70°, the hardest shot of the capture — roughly three
+   * times stricter than every shot on the ring.
+   */
+  it('asks for the same real accuracy on the ring and on the cap', () => {
+    const upward = ring(3, 70);
+    const { session, clock } = makeSession(upward);
+
+    // 4° of yaw off a target at 70° is only 1.4° of actual movement: well
+    // inside a 5° tolerance, and something a box test would have rejected at
+    // 4° of yaw plus any pitch error at all.
+    expect(separationDeg({ yawDeg: 0, pitchDeg: 70 }, { yawDeg: 4, pitchDeg: 70 })).toBeLessThan(2);
+
+    const events = hold(session, clock, 4, 1500, 70);
+    expect(events.some((e) => e.type === 'capture')).toBeTrue();
+  });
+
+  it('still refuses an aim that is genuinely too far off', () => {
+    const { session, clock } = makeSession();
+    const events = hold(session, clock, 9, 1500);
+    expect(events.some((e) => e.type === 'capture')).toBeFalse();
+  });
 
   it('captures a target after holding steady inside it for the dwell time', () => {
     const { session, clock } = makeSession();
