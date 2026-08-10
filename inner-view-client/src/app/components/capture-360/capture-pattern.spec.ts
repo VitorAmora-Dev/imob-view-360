@@ -1,5 +1,6 @@
 import {
   MAX_CAP_SHOTS,
+  TARGET_RING_SHOTS,
   buildCapturePattern,
   coversDirection,
   minimumRingShots,
@@ -23,28 +24,42 @@ function withCap(vfovDeg: number, frameAspect = 3 / 4): PatternOptions {
 }
 
 describe('the ring', () => {
-  it('keeps the main camera at the original dozen shots', () => {
-    // The 1x prior; this is the count the first working version used.
-    expect(ringTargets(optionsFor(62)).length).toBe(12);
+  /**
+   * The target does not reach this lens at all, and that is worth pinning: the
+   * 1× sees so little sideways that coverage alone asks for a dozen, so it goes
+   * on shooting a dozen however low the target is set.
+   */
+  it('keeps the main camera at a dozen shots, on coverage grounds', () => {
+    const main = optionsFor(62);
+    expect(minimumRingShots(main)).toBe(12);
+    expect(ringTargets(main).length).toBe(12);
   });
 
   /**
-   * Coverage alone would let the ultra-wide close the turn in six. It takes
-   * twelve because the spacing is set by parallax: 60° apart swings a
-   * hand-held lens 25 cm between neighbours, 30° apart swings it 12.9 cm, and
-   * every seam has to hide that difference.
+   * Coverage alone would let the ultra-wide close the turn in six; the target
+   * asks for eight. The two extra are bought for parallax — 60° apart swings a
+   * hand-held lens 25 cm between neighbours against 19.1 cm at 45° — and the
+   * count stops there rather than climbing further because past ten shots the
+   * arcs `planSeamWindows` hands each frame hit their floor.
    */
-  it('takes more than geometry demands, so each seam hides less parallax', () => {
+  it('takes a little more than geometry demands, and stops well short of a dozen', () => {
     const ultrawide = optionsFor(95);
-    expect(minimumRingShots(ultrawide)).toBeLessThan(8);
-    expect(ringShotCount(ultrawide)).toBe(12);
+    expect(minimumRingShots(ultrawide)).toBeLessThan(TARGET_RING_SHOTS);
+    expect(ringShotCount(ultrawide)).toBe(8);
   });
 
   it('still lets geometry win when it needs more than the target', () => {
-    // A telephoto sees so little sideways that twelve would leave gaps.
+    // A telephoto sees so little sideways that the target would leave gaps.
     const tele = optionsFor(30);
-    expect(minimumRingShots(tele)).toBeGreaterThan(12);
+    expect(minimumRingShots(tele)).toBeGreaterThan(TARGET_RING_SHOTS);
     expect(ringShotCount(tele)).toBe(minimumRingShots(tele));
+  });
+
+  it('lets a caller ask for a different count, for comparing them in the field', () => {
+    const ultrawide = optionsFor(95);
+    expect(ringShotCount({ ...ultrawide, targetShotCount: 12 })).toBe(12);
+    // But never below what closes the turn.
+    expect(ringShotCount({ ...ultrawide, targetShotCount: 3 })).toBe(minimumRingShots(ultrawide));
   });
 
   it('the ultra-wide also reaches much further up and down', () => {

@@ -49,21 +49,35 @@ const MIN_OVERLAP_DEG = 6;
 /**
  * Shots around the ring, unless geometry demands more.
  *
- * This is deliberately well above the minimum that closes the turn, and the
- * reason is parallax rather than coverage. A hand turns about the wrist or the
- * body, so the lens swings on a radius of roughly 25 cm: between two shots
- * `t` apart the camera moves `2·0.25·sin(t/2)` metres, which displaces an
- * object at 1.5 m by that distance over its own range. At 60° apart (the six
- * shots the ultra-wide's geometry alone would ask for) that is 25 cm and a
- * 9.5° mismatch; at 30° it is 12.9 cm and 4.9°.
+ * Two forces pull against each other here and both are real.
  *
- * Halving the spacing halves the error every seam has to hide, and leaves far
- * more overlap for the seam to be routed through. That trade only became worth
- * paying once the stitch stopped averaging overlapping frames — while it
- * averaged, extra overlap made things worse, which is why the count used to be
- * driven down to the minimum.
+ * MORE shots leaves each join less parallax to hide. A hand — or a tripod head,
+ * which is no better at this — turns about a point some 25 cm behind the lens,
+ * so between two shots `t` apart the camera itself travels `2·0.25·sin(t/2)`
+ * metres, displacing an object at 1.5 m by that much. At 30° apart that is
+ * 12.9 cm and a 4.9° mismatch; at 45° it is 19.1 cm and 7.3°.
+ *
+ * FEWER shots leaves each photograph a wider piece of the sphere to itself.
+ * `planSeamWindows` must give every frame an arc of at least
+ * `SEAM_MIN_ARC_DEG` between its two cuts, and on the ultra-wide that
+ * constraint starts binding at ten shots: at twelve the arc lands exactly on
+ * the 12° floor and the router's freedom to walk around an object has to be
+ * squeezed from ±14.6° to ±9° to hold it there. At eight the arc is 24.8° and
+ * the overlap, not the floor, is what limits the cut.
+ *
+ * Eight wins because the two failures are not equally bad. Parallax at a join
+ * shows as a cut running across an object — one local defect in one place. An
+ * arc squeezed onto its floor shows as the object drawn twice, which is a
+ * panorama that lies about the room.
+ *
+ * Twelve was the default before this, chosen on the parallax argument alone,
+ * back when the arc constraint did not exist to be weighed against it.
+ *
+ * Note this only reaches the wide lenses. `minimumRingShots` still overrides,
+ * and on the 1× it asks for twelve on coverage grounds — so the 1× keeps
+ * shooting twelve and this constant never touches it.
  */
-export const TARGET_RING_SHOTS = 12;
+export const TARGET_RING_SHOTS = 8;
 
 /**
  * How high the cap shots aim.

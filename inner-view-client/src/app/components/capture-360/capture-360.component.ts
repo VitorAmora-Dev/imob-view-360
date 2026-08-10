@@ -238,6 +238,23 @@ export class Capture360Component implements OnDestroy {
     this.startLoop();
   }
 
+  /**
+   * Ring size asked for on the URL, for comparing counts in the field.
+   *
+   * The capture ships at `TARGET_RING_SHOTS`, and the reasoning behind that
+   * number is written where it lives. What it has never had is a side-by-side
+   * on a real room: `?ringShots=12` shoots the old count and `?ringShots=10`
+   * the one in between, same room, same afternoon, so the trade can be looked
+   * at instead of argued. The geometric minimum still wins if this is set too
+   * low — `ringShotCount` sees to that, so the URL cannot ask for a ring with
+   * holes.
+   */
+  private requestedRingShots(): number | undefined {
+    const raw = new URLSearchParams(window.location.search).get('ringShots');
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed >= 3 && parsed <= 40 ? Math.round(parsed) : undefined;
+  }
+
   /** Recomputes the ring for the active lens. */
   private rebuildPattern(): void {
     const spec = this.camera!.getSpec();
@@ -245,6 +262,7 @@ export class Capture360Component implements OnDestroy {
       vfovDeg: spec.vfovDeg ?? 65,
       hfovDeg: hfovFromSpec(spec),
       centerToleranceDeg: DEFAULT_TUNING.centerToleranceDeg,
+      targetShotCount: this.requestedRingShots(),
     };
     const targets = buildCapturePattern(options);
     this.session = new CaptureSession(targets, { dwellMs: this.dwellMs() });
@@ -275,6 +293,7 @@ export class Capture360Component implements OnDestroy {
           vfovDeg,
           hfovDeg: hfovFromVfov(vfovDeg, frameAspect),
           centerToleranceDeg: DEFAULT_TUNING.centerToleranceDeg,
+          targetShotCount: this.requestedRingShots(),
         }) * 100,
       );
     }

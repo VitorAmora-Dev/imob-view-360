@@ -120,6 +120,20 @@ export interface StitchResult {
    * the routing found no reason to move — or that it never ran.
    */
   seamSpreadDeg: number;
+  /**
+   * The least territory any single photograph was left with, in degrees of
+   * longitude. This is the number that says whether an object can be duplicated:
+   * below the fade width, some direction is a blend of three frames; at or below
+   * zero, two cuts crossed and a frame was squeezed out. Should stay comfortably
+   * above `SEAM_MIN_ARC_DEG`.
+   */
+  narrowestArcDeg: number;
+  /**
+   * How much of the photographed band is drawn from more than one photograph.
+   * See `measureBlendedShare`: `tripleShare` is the one that has to be zero.
+   */
+  blendedShare: number;
+  tripleShare: number;
 }
 
 /** Used only until the fit runs; deliberately conservative (see PatternOptions). */
@@ -213,12 +227,17 @@ export async function stitchEquirect(
   // cuts are what the result is actually made of.
   const seams =
     blendMode === 'seam' && options.routeSeam !== false ? buildSeamMap(adjusted) : null;
+  const seamK = options.seamK ?? DEFAULT_SEAM_K;
+  const census =
+    blendMode === 'seam'
+      ? measureBlendedShare(adjusted, seams, seamK)
+      : { blendedShare: 1, tripleShare: 1 };
   report(0.45);
 
   const { outWidth, outHeight } = pickOutputSize(options, spec);
   const { canvas, coverage } = await renderEquirect(
     adjusted, outWidth, outHeight, blendMode,
-    options.seamK ?? DEFAULT_SEAM_K, seams, vignetteA,
+    seamK, seams, vignetteA,
     (fraction) => report(0.5 + fraction * 0.35),
   );
   report(0.85);
@@ -235,6 +254,8 @@ export async function stitchEquirect(
     vignetteA,
     loopClosureDeg,
     seamSpreadDeg: seams?.spreadDeg ?? 0,
+    narrowestArcDeg: seams?.narrowestArcDeg ?? 0,
+    ...census,
   };
 }
 
@@ -1141,6 +1162,19 @@ const SEAM_SEARCH_FRACTION = 0.6;
  */
 export const SEAM_FEATHER_DEG = 1.5;
 export const SEAM_FEATHER_MAX_DEG = 6;
+
+/**
+ * Narrowest arc a frame may be left with, after both of its cuts have wandered
+ * as far towards each other as they are allowed.
+ *
+ * Twice the widest fade: half a fade is spent on each side of a cut, so an arc
+ * of exactly this width still has half of itself at full weight, owned by one
+ * photograph alone. Anything less and the two fades meet in the middle and the
+ * frame is never the only contributor anywhere — which is the same as not
+ * having been photographed, except that its neighbours are now blended over the
+ * top of each other.
+ */
+export const SEAM_MIN_ARC_DEG = 2 * SEAM_FEATHER_MAX_DEG;
 /**
  * Doubled-edge cost, in luma levels per sample, at which the fade is back to its
  * narrow width. A step of a dozen levels across one sample of the seam grid is
@@ -1214,6 +1248,8 @@ interface SeamMap {
   positionOf: number[];
   /** Furthest any cut wandered from the midpoint — zero means routing did nothing. */
   spreadDeg: number;
+  /** Least territory any frame kept; see `narrowestArc`. */
+  narrowestArcDeg: number;
 }
 
 /** Routes every cut in the ring; null when there is nothing to route. */
@@ -1226,8 +1262,26 @@ function buildSeamMap(shots: AdjustedShot[]): SeamMap | null {
   const positionOf = new Array<number>(shots.length).fill(0);
   order.forEach((shotIndex, k) => (positionOf[shotIndex] = k));
 
-  const { boundaries, spreadDeg } = buildSeamBoundaries(shots, order);
-  return { boundaries, count: order.length, positionOf, spreadDeg };
+  const { boundaries, spreadDeg, narrowestArcDeg } = buildSeamBoundaries(shots, order);
+  return { boundaries, count: order.length, positionOf, spreadDeg, narrowestArcDeg };
+}
+
+/**
+ * Where each cut is allowed to run, decided for the whole ring at once.
+ *
+ * One entry per neighbouring pair: `midYaw` is the geometric midpoint between
+ * the two frames, `halfDeg` how far the routed cut may wander either side of
+ * it, and `maxFeatherDeg` the widest fade that cut may ask for.
+ *
+ * This exists as its own function because deciding each cut in isolation — from
+ * the spacing of its own pair alone, never looking at its neighbour — is what
+ * let two cuts close in on each other until the frame between them had no
+ * territory left. See `planSeamWindows`.
+ */
+export interface SeamWindow {
+  midYaw: number;
+  halfDeg: number;
+  maxFeatherDeg: number;
 }
 
 /**
@@ -1275,6 +1329,87 @@ export function featherAlongPath(
 }
 
 /**
+ * Plans every cut of the ring together, so no frame can be squeezed out.
+ *
+ * A frame owns the arc between the cut behind it and the cut in front, and each
+ * cut is allowed to wander so it can dodge an object. Deciding how far it may
+ * wander from the spacing of its own pair alone — which is what this code used
+ * to do — takes no account of the cut on the other side of the frame doing the
+ * same thing towards it. On the ultra-wide at twelve shots the two allowances
+ * came to 14.6° each against a 30° spacing, leaving the frame between them as
+ * little as 0.84°; at fourteen shots, or at twelve when the aim tolerance put a
+ * pair 20° apart, the allowances overlapped and **the cuts crossed**.
+ *
+ * A frame with no arc left is not merely absent. Its neighbours' arcs then meet
+ * or overlap, both claiming the same directions at full weight, each placing a
+ * near object where its own viewpoint saw it — which is how a room with two
+ * sofas came back with three. Even short of crossing, an arc narrower than the
+ * fade means the frame never reaches full weight and both neighbours bleed
+ * across the whole of it: three photographs summed into one pixel.
+ *
+ * So the allowance of every cut is capped by the arcs it borders:
+ *
+ *   halfDeg[k] ≤ (arc − SEAM_MIN_ARC_DEG) / 2   for both adjacent arcs
+ *
+ * Applied to both cuts of an arc, that guarantees `half + half ≤ arc − minimum`
+ * in one pass, with no iteration and no ordering to get wrong. At twelve shots
+ * it leaves ±9° of routing freedom instead of ±14.6° — still far more than the
+ * few degrees a cut needs to step around a piece of furniture.
+ */
+export function planSeamWindows(longitudesDeg: number[], hfovDeg: number): SeamWindow[] {
+  const count = longitudesDeg.length;
+  if (count < 2) return [];
+
+  // Signed, so the midpoint lands between the pair whichever way the ring was
+  // walked; the spacing itself is the distance and has no direction.
+  const step = longitudesDeg.map((lon, k) =>
+    wrapDeg180(longitudesDeg[(k + 1) % count] - lon),
+  );
+  const spacing = step.map(Math.abs);
+  const midYaw = longitudesDeg.map((lon, k) => lon + step[k] / 2);
+
+  /** Width frame `i` would own if both its cuts stayed on their midpoints. */
+  const nominalArc = (i: number) => (spacing[(i - 1 + count) % count] + spacing[i % count]) / 2;
+
+  return longitudesDeg.map((_, k) => {
+    const overlap = hfovDeg - spacing[k];
+    if (overlap <= 4) {
+      // Barely a shared field: cut down the middle and fade over what little of
+      // it there is, rather than over a width the frames do not have.
+      return {
+        midYaw: midYaw[k],
+        halfDeg: 0,
+        maxFeatherDeg: Math.max(0.2, Math.min(SEAM_FEATHER_DEG, overlap * 0.5)),
+      };
+    }
+
+    // What the overlap alone would allow, and what the two neighbouring arcs
+    // can actually spare. The tighter of the two wins.
+    const fromOverlap = Math.min((overlap / 2) * SEAM_SEARCH_FRACTION, 25);
+    const fromArcs = Math.min(
+      (nominalArc(k) - SEAM_MIN_ARC_DEG) / 2,
+      (nominalArc(k + 1) - SEAM_MIN_ARC_DEG) / 2,
+    );
+    const halfDeg = Math.max(0, Math.min(fromOverlap, fromArcs));
+
+    // Half a fade has to fit between the furthest the cut may wander and the
+    // edge of the shared field, or the fade would run off the end of a frame
+    // and leave the very step it was there to hide. And it can never be wider
+    // than the narrowest arc it borders, which only bites on a ring so uneven
+    // that the arcs could not reach the minimum in the first place.
+    const realizedArc = Math.min(nominalArc(k), nominalArc(k + 1)) - 2 * halfDeg;
+    return {
+      midYaw: midYaw[k],
+      halfDeg,
+      maxFeatherDeg: Math.max(
+        SEAM_FEATHER_DEG,
+        Math.min(SEAM_FEATHER_MAX_DEG, 2 * (overlap / 2 - halfDeg), Math.max(0.2, realizedArc)),
+      ),
+    };
+  });
+}
+
+/**
  * Stored as RGBA rather than a single channel: a one-channel float texture is
  * the kind of format a driver may quietly decline, and a silent zero here
  * reads as "no arc belongs to anyone", which looks exactly like the routing
@@ -1284,7 +1419,7 @@ export function featherAlongPath(
 function buildSeamBoundaries(
   shots: AdjustedShot[],
   order: number[],
-): { boundaries: Float32Array; spreadDeg: number } {
+): { boundaries: Float32Array; spreadDeg: number; narrowestArcDeg: number } {
   const count = order.length;
   const boundaries = new Float32Array(SEAM_LAT_BINS * count * 4);
   let spreadDeg = 0;
@@ -1297,15 +1432,13 @@ function buildSeamBoundaries(
     return (Math.atan2(forward.z, forward.x) * 180) / Math.PI;
   };
 
+  // Every cut planned against every other, before any of them is routed.
+  const windows = planSeamWindows(order.map((index) => longitudeOf(shots[index])), shots[order[0]].hfovDeg);
+
   for (let k = 0; k < count; k++) {
     const a = shots[order[k]];
     const b = shots[order[(k + 1) % count]];
-    const phiA = longitudeOf(a);
-    const phiB = longitudeOf(b);
-    const step = wrapDeg180(phiB - phiA);
-    const spacing = Math.abs(step);
-    const midYaw = phiA + step / 2;
-    const overlap = a.hfovDeg - spacing;
+    const { midYaw, halfDeg: half, maxFeatherDeg } = windows[k];
 
     const write = (bin: number, yawDeg: number, featherDeg: number) => {
       const at = (k * SEAM_LAT_BINS + bin) * 4;
@@ -1313,24 +1446,15 @@ function buildSeamBoundaries(
       boundaries[at + 1] = featherDeg;
     };
 
-    // Too little shared field to choose anything: cut down the middle, and fade
-    // over what little is shared rather than over a width it does not have.
-    if (overlap <= 4 || count < 2) {
-      const feather = Math.max(0.2, Math.min(SEAM_FEATHER_DEG, overlap * 0.5));
-      for (let bin = 0; bin < SEAM_LAT_BINS; bin++) write(bin, midYaw, feather);
+    // No room to choose anything: cut down the middle and fade over what the
+    // planner said this cut can afford.
+    if (half <= 0) {
+      for (let bin = 0; bin < SEAM_LAT_BINS; bin++) write(bin, midYaw, maxFeatherDeg);
       continue;
     }
 
-    const half = Math.min((overlap / 2) * SEAM_SEARCH_FRACTION, 25);
     const from = midYaw - half;
     const to = midYaw + half;
-    // Half a fade has to fit between the furthest the path may wander and the
-    // edge of the shared field, or the fade would run off the end of a frame and
-    // leave the step it was there to hide.
-    const maxFeatherDeg = Math.max(
-      SEAM_FEATHER_DEG,
-      Math.min(SEAM_FEATHER_MAX_DEG, 2 * (overlap / 2 - half)),
-    );
 
     const gridA = sampleShotGrid(a, from, to, SEAM_COLUMNS, SEAM_LAT_BINS);
     const gridB = sampleShotGrid(b, from, to, SEAM_COLUMNS, SEAM_LAT_BINS);
@@ -1355,7 +1479,168 @@ function buildSeamBoundaries(
       spreadDeg = Math.max(spreadDeg, Math.abs(yawDeg - midYaw));
     }
   }
-  return { boundaries, spreadDeg };
+  return { boundaries, spreadDeg, narrowestArcDeg: narrowestArc(boundaries, count) };
+}
+
+/**
+ * The least territory any frame was actually left with, at any latitude.
+ *
+ * Measured on the routed cuts rather than on the plan, because the plan only
+ * bounds where they may go. Below the fade width in use it means two fades met
+ * and some direction is a blend of three photographs; at or below zero it means
+ * two cuts crossed and a frame was squeezed out entirely.
+ */
+function narrowestArc(boundaries: Float32Array, count: number): number {
+  let narrowest = Infinity;
+  for (let bin = 0; bin < SEAM_LAT_BINS; bin++) {
+    for (let k = 0; k < count; k++) {
+      const before = boundaries[(((k - 1 + count) % count) * SEAM_LAT_BINS + bin) * 4];
+      const here = boundaries[(k * SEAM_LAT_BINS + bin) * 4];
+      // Signed: a crossing shows as a negative arc rather than wrapping round
+      // to a nearly-full turn, which is what makes it visible in the number.
+      narrowest = Math.min(narrowest, wrapDeg180(here - before));
+    }
+  }
+  return Number.isFinite(narrowest) ? narrowest : 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* How much of the sphere is a blend, and of how many photographs             */
+/* ------------------------------------------------------------------------- */
+
+/** Weight at which a second photograph is contributing enough to be seen. */
+const BLEND_SIGNIFICANT = 0.25;
+const BLEND_LATITUDE_STEPS = 61;
+const BLEND_LONGITUDE_STEPS = 181;
+
+/**
+ * Share of the photographed band where more than one frame contributes enough
+ * to be visible — the duplication, measured.
+ *
+ * Blending two photographs of the same thing is only harmless when they agree,
+ * and under parallax they do not: each places a near object where its own
+ * viewpoint saw it, so wherever two frames are mixed the object is drawn twice.
+ * A narrow fade along the cut is the price of hiding the exposure step and is
+ * expected here; anything much beyond that means frames are overlapping where
+ * they should not.
+ *
+ * Computed on the CPU by re-evaluating the same ownership rule the shader uses,
+ * the same way `coversDirection` in capture-pattern.ts mirrors `projectPixel` —
+ * planning, rendering and measurement have to agree on what a frame owns or the
+ * number means nothing.
+ */
+export interface BlendCensus {
+  /** Share where a second photograph contributes enough to be seen. */
+  blendedShare: number;
+  /**
+   * Share where a THIRD one does. This is the one that has to be zero: a fade
+   * between two neighbours is the deliberate cost of hiding the exposure step,
+   * but three photographs summed into a pixel is a frame that lost its
+   * territory, and a near object drawn three times.
+   */
+  tripleShare: number;
+}
+
+export function measureBlendedShare(
+  shots: AdjustedShot[],
+  seams: SeamMap | null,
+  seamK: number,
+): BlendCensus {
+  if (!shots.length) return { blendedShare: 0, tripleShare: 0 };
+  const reachDeg = Math.min(89, shots[0].vfovDeg / 2);
+  const inverses = shots.map((s) => s.q.clone().invert());
+  const tan = shots.map((s) => ({
+    h: Math.tan((s.hfovDeg * Math.PI) / 360),
+    v: Math.tan((s.vfovDeg * Math.PI) / 360),
+  }));
+  const cam = new THREE.Vector3();
+  const weights = new Float64Array(shots.length);
+  const qualities = new Float64Array(shots.length);
+
+  /** Cut yaw and fade width for one boundary row, at a latitude 0..1 from the pole. */
+  const seamAt = (row: number, lat: number): { yaw: number; feather: number } => {
+    const bin = Math.min(SEAM_LAT_BINS - 1, Math.max(0, Math.floor(lat * SEAM_LAT_BINS)));
+    const at = (row * SEAM_LAT_BINS + bin) * 4;
+    return { yaw: seams!.boundaries[at], feather: seams!.boundaries[at + 1] };
+  };
+  const smoothstep = (edge0: number, edge1: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - edge0) / Math.max(1e-6, edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  };
+
+  let blended = 0;
+  let tripled = 0;
+  let total = 0;
+  for (let i = 0; i < BLEND_LATITUDE_STEPS; i++) {
+    const latDeg = -reachDeg + (2 * reachDeg * i) / (BLEND_LATITUDE_STEPS - 1);
+    // Equal-area weighting so the band's middle is not under-counted.
+    const areaWeight = Math.cos((latDeg * Math.PI) / 180);
+    const lat = (90 - latDeg) / 180;
+
+    for (let j = 0; j < BLEND_LONGITUDE_STEPS; j++) {
+      const lonDeg = (j * 360) / BLEND_LONGITUDE_STEPS;
+      const phi = (lonDeg * Math.PI) / 180;
+      const theta = ((90 - latDeg) * Math.PI) / 180;
+      const dir = new THREE.Vector3(
+        Math.cos(phi) * Math.sin(theta),
+        Math.cos(theta),
+        Math.sin(phi) * Math.sin(theta),
+      );
+
+      let best = 0;
+      let seen = 0;
+      for (let s = 0; s < shots.length; s++) {
+        qualities[s] = -1;
+        cam.copy(dir).applyQuaternion(inverses[s]);
+        if (cam.z > -0.001) continue;
+        const ndcX = cam.x / -cam.z / tan[s].h;
+        const ndcY = cam.y / -cam.z / tan[s].v;
+        if (Math.abs(ndcX) >= 1 || Math.abs(ndcY) >= 1) continue;
+        qualities[s] = Math.min(1 - Math.abs(ndcX), 1 - Math.abs(ndcY));
+        best = Math.max(best, qualities[s]);
+        seen++;
+      }
+      if (!seen) continue;
+
+      let sum = 0;
+      for (let s = 0; s < shots.length; s++) {
+        if (qualities[s] < 0) {
+          weights[s] = 0;
+          continue;
+        }
+        let weight = Math.exp(-seamK * Math.max(0, best - qualities[s]));
+        if (seams) {
+          const position = seams.positionOf[s];
+          const before = (position - 1 + seams.count) % seams.count;
+          const lo = seamAt(before, lat);
+          const hi = seamAt(position, lat);
+          // The same floor the shader puts under a zero-width fade.
+          const halfLo = Math.max(0.05, lo.feather / 2);
+          const halfHi = Math.max(0.05, hi.feather / 2);
+          const owned =
+            smoothstep(-halfLo, halfLo, wrapDeg180(lonDeg - lo.yaw)) *
+            smoothstep(-halfHi, halfHi, wrapDeg180(hi.yaw - lonDeg));
+          weight = owned + 0.001 * weight;
+        }
+        weights[s] = weight;
+        sum += weight;
+      }
+      if (sum <= 0) continue;
+
+      // The runners-up are what matter: a lone frame at weight 1 draws the room
+      // once, two frames at half draw it twice, three draw it three times.
+      let significant = 0;
+      for (let s = 0; s < shots.length; s++) {
+        if (weights[s] / sum >= BLEND_SIGNIFICANT) significant++;
+      }
+      total += areaWeight;
+      if (significant >= 2) blended += areaWeight;
+      if (significant >= 3) tripled += areaWeight;
+    }
+  }
+  return total > 0
+    ? { blendedShare: blended / total, tripleShare: tripled / total }
+    : { blendedShare: 0, tripleShare: 0 };
 }
 
 /* ------------------------------------------------------------------------- */

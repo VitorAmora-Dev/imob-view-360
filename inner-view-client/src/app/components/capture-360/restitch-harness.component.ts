@@ -41,6 +41,12 @@ interface RunResult {
   loopClosure: string;
   /** 99th percentile of low-frequency column-to-column brightness steps. */
   exposureStep: number;
+  /** Narrowest territory any single photograph kept, in degrees of longitude. */
+  narrowestArcDeg: number;
+  /** Percentage of the band drawn from two, and from three, photographs. */
+  blendedPct: number;
+  triplePct: number;
+  shots: number;
   imageData: string;
   millis: number;
 }
@@ -62,6 +68,19 @@ export class RestitchHarnessComponent {
   routeSeam = true;
   photometry = true;
   fitFov = false;
+  /**
+   * Apply the measured ring alignment instead of only reporting it. Off by
+   * default for the reason in `alignRing`: with the phone in the hand the
+   * correlation measures parallax rather than rotation. On a tripod that
+   * objection does not hold, which is what this switch is here to test.
+   */
+  align = false;
+  /**
+   * Restitch using one shot in every `stride`, so the same capture can be
+   * measured at a smaller ring count without going back to the room. Only
+   * divisors of the ring keep the spacing even.
+   */
+  stride = 1;
   blendMode: BlendMode = 'seam';
   outWidth = 4096;
 
@@ -126,12 +145,17 @@ export class RestitchHarnessComponent {
         frameAspect: capture.frameAspect,
         wideShapeAccepted: true,
       };
+      const stride = Math.max(1, Math.round(this.stride));
+      const shots = capture.shots.filter((_, index) => index % stride === 0);
+      if (shots.length < 3) throw new Error('menos de 3 fotos depois do salto: nada para montar');
+
       const started = performance.now();
-      const result = await stitchEquirect(capture.shots, spec, {
+      const result = await stitchEquirect(shots, spec, {
         blendMode: this.blendMode,
         routeSeam: this.routeSeam,
         photometry: this.photometry,
         fitFov: this.fitFov,
+        align: this.align,
         outWidth: this.outWidth,
         outHeight: this.outWidth / 2,
       });
@@ -142,10 +166,11 @@ export class RestitchHarnessComponent {
         ...previous,
         {
           label:
-            `prior ${this.priorVfov}° · ${this.blendMode}` +
+            `${shots.length} fotos · prior ${this.priorVfov}° · ${this.blendMode}` +
             `${this.routeSeam ? ' · emenda roteada' : ''}` +
             `${this.photometry ? ' · fotometria' : ' · SEM fotometria'}` +
-            `${this.fitFov ? ' · FOV medido' : ' · FOV do prior'}`,
+            `${this.fitFov ? ' · FOV medido' : ' · FOV do prior'}` +
+            `${this.align ? ' · ALINHADO' : ''}`,
           vfovDeg: round(result.vfovDeg, 1),
           measuredVfovDeg: round(result.measuredVfovDeg, 1),
           coveredBandDeg: `${round(result.coveredBand.bottomDeg, 1)}° … ${round(result.coveredBand.topDeg, 1)}°`,
@@ -154,6 +179,10 @@ export class RestitchHarnessComponent {
           seamSpreadDeg: round(result.seamSpreadDeg, 2),
           loopClosure: axisLabel(result.loopClosureDeg),
           exposureStep: round(step, 2),
+          narrowestArcDeg: round(result.narrowestArcDeg, 2),
+          blendedPct: round(result.blendedShare * 100, 1),
+          triplePct: round(result.tripleShare * 100, 1),
+          shots: shots.length,
           imageData: result.imageData,
           millis: Math.round(millis),
         },

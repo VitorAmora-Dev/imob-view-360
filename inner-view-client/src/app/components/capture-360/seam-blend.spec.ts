@@ -3,6 +3,7 @@ import { quaternionFromYpr } from './orientation-math';
 import {
   SEAM_FEATHER_DEG,
   SEAM_FEATHER_MAX_DEG,
+  SEAM_MIN_ARC_DEG,
   StitchShot,
   featherAlongPath,
   stitchEquirect,
@@ -133,6 +134,64 @@ describe('the join between two photographs', () => {
       .withContext(`join spans ${spanDeg.toFixed(2)}°, floor is ${SEAM_FEATHER_DEG}°`)
       .toBeGreaterThan(SEAM_FEATHER_MAX_DEG * 0.4);
   });
+});
+
+/**
+ * The whole capture, checked for the defect that produced a third sofa.
+ *
+ * The ring is deliberately uneven: the aim tolerance is ±5°, so this is not a
+ * pathological input but what every hand-held turn actually hands the stitcher.
+ * With the cuts planned one pair at a time, this ring left frames with negative
+ * territory — their neighbours met and drew the room twice over the top of each
+ * other.
+ */
+describe('a capture aimed as loosely as the session allows', () => {
+  const WOBBLE = [0, 5, -5, 3, -4, 4.5, -2, 1, -5, 2.5, -3, 3.5];
+
+  async function stitchWobblyRing(count: number) {
+    const shots: StitchShot[] = [];
+    for (let k = 0; k < count; k++) {
+      const yaw = (k * 360) / count + WOBBLE[k % WOBBLE.length];
+      shots.push(await flatShot(yaw, k % 2 ? DARK : BRIGHT));
+    }
+    return stitchEquirect(
+      shots,
+      { vfovDeg: VFOV_DEG, frameAspect: PORTRAIT_4_BY_3, wideShapeAccepted: true },
+      { outWidth: 1024, outHeight: 512, refine: false },
+    );
+  }
+
+  it('never sums three photographs into the same direction', async () => {
+    const result = await stitchWobblyRing(RING_SHOTS);
+    expect(result.tripleShare)
+      .withContext(`${(result.tripleShare * 100).toFixed(1)}% of the band is three frames deep`)
+      .toBe(0);
+  }, 120000);
+
+  it('leaves every frame a territory wider than the fade across it', async () => {
+    const result = await stitchWobblyRing(RING_SHOTS);
+    expect(result.narrowestArcDeg)
+      .withContext(`narrowest arc was ${result.narrowestArcDeg.toFixed(2)}°`)
+      .toBeGreaterThanOrEqual(SEAM_MIN_ARC_DEG - 1e-6);
+  }, 120000);
+
+  /**
+   * More photographs must not mean more blending. That it did is what the user
+   * saw from the panoramas, and the reason was geometric: the allowance each
+   * cut took grew with the overlap while the spacing it had to fit inside
+   * shrank.
+   */
+  it('does not blend more of the sphere just because there are more shots', async () => {
+    const twelve = await stitchWobblyRing(12);
+    const eight = await stitchWobblyRing(8);
+    expect(twelve.tripleShare).toBe(0);
+    expect(eight.tripleShare).toBe(0);
+    // Twelve joins instead of eight is inevitably a little more fade in total;
+    // what is not acceptable is it growing out of proportion to the count.
+    expect(twelve.blendedShare)
+      .withContext(`12 shots blended ${(twelve.blendedShare * 100).toFixed(1)}% against ${(eight.blendedShare * 100).toFixed(1)}% for 8`)
+      .toBeLessThan((eight.blendedShare * 12) / 8 + 0.05);
+  }, 240000);
 });
 
 describe('how wide the join fades', () => {

@@ -148,4 +148,11 @@ dl {
     font-size: 16px;
     font-variant-numeric: tabular-nums;
   }
+
+  // Three photographs in one direction is the defect, not a reading to weigh
+  // against the others: anything but zero here means an object is drawn twice.
+  .alarm--bad dd {
+    color: #b00020;
+    font-weight: 700;
+  }
 }

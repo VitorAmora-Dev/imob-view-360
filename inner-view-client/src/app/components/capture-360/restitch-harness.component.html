@@ -49,6 +49,19 @@
           <input type="checkbox" [(ngModel)]="fitFov" />
           <span>Usar o FOV medido em vez do prior</span>
         </label>
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="align" />
+          <span>Aplicar o alinhamento medido (só faz sentido com tripé)</span>
+        </label>
+        <label>
+          <span>Usar 1 foto a cada</span>
+          <select [(ngModel)]="stride">
+            <option [ngValue]="1">todas</option>
+            <option [ngValue]="2">2 (metade do anel)</option>
+            <option [ngValue]="3">3 (um terço)</option>
+            <option [ngValue]="4">4 (um quarto)</option>
+          </select>
+        </label>
       </div>
 
       <div class="actions">
@@ -75,6 +88,11 @@
         <div><dt>Faixa fotografada</dt><dd>{{ run.coveredBandDeg }}</dd></div>
         <div><dt>Esfera com pixel real</dt><dd>{{ run.spherePhotographed }}%</dd></div>
         <div><dt>Pior degrau de emenda</dt><dd>{{ run.exposureStep }}</dd></div>
+        <div><dt>Fatia mais estreita</dt><dd>{{ run.narrowestArcDeg }}°</dd></div>
+        <div><dt>Faixa com 2 fotos</dt><dd>{{ run.blendedPct }}%</dd></div>
+        <div class="alarm" [class.alarm--bad]="run.triplePct > 0">
+          <dt>Faixa com 3 fotos</dt><dd>{{ run.triplePct }}%</dd>
+        </div>
         <div><dt>Vinheta medida (a)</dt><dd>{{ run.vignetteA }}</dd></div>
         <div><dt>Desvio da emenda</dt><dd>{{ run.seamSpreadDeg }}°</dd></div>
         <div><dt>Fechamento da volta</dt><dd>{{ run.loopClosure }}</dd></div>
