@@ -129,6 +129,12 @@
       "CEP_NOT_FOUND": "CEP not found.",
       "CEP_LOOKUP_ERROR": "Failed to look up the CEP.",
       "REQUIRED_HINT": "Fill in street, city and state (2 letters) or leave the address empty."
+    },
+    "MONTAGEM": {
+      "TITULO": "Building your 360° tour",
+      "ENVIANDO": "Uploading the capture photos…",
+      "PROCESSANDO": "AI is fixing the seams and parallax…",
+      "AVISO": "This takes about a minute per room. Do not close the app."
     }
   },
   "INNER_VIEW": {

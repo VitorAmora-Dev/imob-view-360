@@ -129,6 +129,12 @@
       "CEP_NOT_FOUND": "CEP não encontrado.",
       "CEP_LOOKUP_ERROR": "Erro ao consultar o CEP.",
       "REQUIRED_HINT": "Preencha rua, cidade e UF (2 letras) ou deixe o endereço em branco."
+    },
+    "MONTAGEM": {
+      "TITULO": "Montando seu tour 360°",
+      "ENVIANDO": "Enviando as fotos da captura…",
+      "PROCESSANDO": "A IA está corrigindo as emendas e a paralaxe…",
+      "AVISO": "Isso leva cerca de um minuto por cômodo. Não feche o app."
     }
   },
   "INNER_VIEW": {

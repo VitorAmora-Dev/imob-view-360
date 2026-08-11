@@ -37,8 +37,8 @@ export class CreateVirtualTourService {
     // processa mais que isso — a ~5MB/s pessimistas de compressão TOAST + WAL
     // dá ~10s, e 60s deixa folga sem prender conexão indefinidamente. O padrão
     // do Prisma é 5s, curto demais para 4-6 panorâmicas em base64.
-    return this.prisma.$transaction(async (tx) => {
-      const tour = await tx.virtualTour.create({
+    const tour = await this.prisma.$transaction(async (tx) => {
+      const tourCriado = await tx.virtualTour.create({
         data: { propertyId: dto.propertyId, status: 'PUBLISHED' },
       });
 
@@ -54,7 +54,7 @@ export class CreateVirtualTourService {
             fittedVfovDeg: p.fittedVfovDeg,
             bandTopDeg: p.bandTopDeg,
             bandBottomDeg: p.bandBottomDeg,
-            virtualTourId: tour.id,
+            virtualTourId: tourCriado.id,
           },
         });
         tempIdMap.set(p.tempId, panorama.id);
@@ -91,7 +91,7 @@ export class CreateVirtualTourService {
       }
 
       return tx.virtualTour.findUnique({
-        where: { id: tour.id },
+        where: { id: tourCriado.id },
         select: {
           id: true,
           status: true,
@@ -127,5 +127,11 @@ export class CreateVirtualTourService {
         },
       });
     }, TOUR_TRANSACTION_OPTIONS);
+
+    // A montagem por IA NÃO é disparada aqui. Ela depende das fotos originais,
+    // que sobem depois, em requisições próprias — disparar agora encontraria o
+    // panorama sem referência nenhuma. Quem comanda é o cliente, por
+    // `POST /virtual-tours/:id/montar`, quando o envio das fotos termina.
+    return tour;
   }
 }

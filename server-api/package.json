@@ -12,21 +12,25 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
+    "test:scripts": "jest --config jest.scripts.config.js",
     "test:local": "docker compose up -d --wait db && jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r dotenv/config -r tsconfig-paths/register prisma/seed.ts",
-    "exportar-capturas": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/exportar-capturas.ts"
+    "exportar-capturas": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/exportar-capturas.ts",
+    "bakeoff-ia": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/bakeoff-ia.ts",
+    "tratar-panorama": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/tratar-panorama.ts"
   },
   "prisma": {
     "seed": "yarn seed"
   },
   "dependencies": {
+    "@google/genai": "^2.16.0",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.1.27",
@@ -39,11 +43,13 @@
     "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
     "helmet": "^8.3.0",
+    "openai": "^7.4.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.3",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.4.3"
   },
@@ -85,7 +91,9 @@
     "testRegex": ".*\\.spec\\.ts$",
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/dist/"
+      "/dist/",
+      "/scripts/",
+      "/src/shared/imaging/"
     ],
     "modulePaths": [
       "<rootDir>"

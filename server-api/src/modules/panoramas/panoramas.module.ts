@@ -7,6 +7,7 @@ import { CreatePanoramaService } from './services/create-panorama.service';
 import { UpdatePanoramaService } from './services/update-panorama.service';
 import { DeletePanoramaService } from './services/delete-panorama.service';
 import { UploadCaptureFrameService } from './services/upload-capture-frame.service';
+import { TreatPanoramaService } from './services/treat-panorama.service';
 
 @Module({
   controllers: [
@@ -20,6 +21,8 @@ import { UploadCaptureFrameService } from './services/upload-capture-frame.servi
     UpdatePanoramaService,
     DeletePanoramaService,
     UploadCaptureFrameService,
+    TreatPanoramaService,
   ],
+  exports: [TreatPanoramaService],
 })
 export class PanoramasModule {}

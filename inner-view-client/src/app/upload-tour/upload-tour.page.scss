@@ -33,3 +33,51 @@ ion-list.panorama-list {
   flex-direction: column;
   gap: 8px;
 }
+
+/**
+ * Tela de espera da montagem por IA.
+ *
+ * Fixa e cobrindo tudo porque, depois de mandar salvar, mexer no formulário não
+ * teria efeito — o tour já foi criado e está sendo processado no servidor.
+ */
+.montagem-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+  background: var(--ion-background-color, #fff);
+
+  ion-spinner {
+    width: 44px;
+    height: 44px;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    color: var(--ion-color-medium);
+  }
+
+  .montagem-progresso {
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  small {
+    margin-top: 8px;
+    color: var(--ion-color-medium);
+    max-width: 32ch;
+  }
+}

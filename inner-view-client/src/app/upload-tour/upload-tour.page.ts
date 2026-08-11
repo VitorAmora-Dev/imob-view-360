@@ -73,6 +73,15 @@ export class UploadTourPage {
   private lastLookedUpCep = '';
   panoramas: PanoramaItem[] = [];
   submitting = false;
+
+  /**
+   * Etapa da montagem, ou `null` quando não há montagem em curso. Enquanto não
+   * for nulo, a tela de espera cobre a página: depois de capturar, o corretor
+   * não tem mais nada a fazer ali senão aguardar o tour ficar pronto.
+   */
+  montagemEtapa: 'fotos' | 'ia' | null = null;
+  montagemProntos = 0;
+  montagemTotal = 0;
   isPreviewOpen = false;
   previewPanoramas: Panorama[] = [];
 
@@ -271,14 +280,10 @@ export class UploadTourPage {
             }))
           )
         );
-        // The tour is saved; the originals are an archive that follows it up in
-        // the background, matched to the panorama that came from them by order.
-        for (const [i, item] of this.panoramas.entries()) {
-          const panorama = tour.panoramas.find((p) => p.order === i);
-          if (panorama && item.frames?.length) {
-            void this.virtualTourService.uploadCaptureFrames(panorama.id, item.frames);
-          }
-        }
+
+        await this.montarTour(tour);
+        this.router.navigate(['/inner-view-page', tour.id]);
+        return;
       }
 
       await this.showToast('UPLOAD.SUCCESS', 'success');
@@ -287,6 +292,49 @@ export class UploadTourPage {
       this.showToast('UPLOAD.ERROR', 'danger');
     } finally {
       this.submitting = false;
+    }
+  }
+
+  /**
+   * Envia as fotos originais e conduz a montagem por IA, alimentando a tela de
+   * espera.
+   *
+   * O envio é AGUARDADO, ao contrário de antes: a montagem usa as fotos como
+   * referência do que existe de verdade no cômodo, e disparar antes de elas
+   * chegarem faria o servidor dispensar o panorama.
+   *
+   * Nada aqui derruba o tour. Se o envio falhar, se a montagem falhar ou se o
+   * acompanhamento estourar o tempo, o corretor cai no tour com os panoramas
+   * originais — que é exatamente o que ele teria sem esta etapa.
+   */
+  private async montarTour(tour: { id: string; panoramas: Panorama[] }): Promise<void> {
+    try {
+      this.montagemEtapa = 'fotos';
+      this.montagemProntos = 0;
+      this.montagemTotal = this.panoramas.length;
+
+      for (const [i, item] of this.panoramas.entries()) {
+        const panorama = tour.panoramas.find((p) => p.order === i);
+        if (panorama && item.frames?.length) {
+          await this.virtualTourService.uploadCaptureFrames(panorama.id, item.frames);
+        }
+        this.montagemProntos = i + 1;
+      }
+
+      this.montagemEtapa = 'ia';
+      this.montagemProntos = 0;
+
+      const inicio = await firstValueFrom(this.virtualTourService.montarTour(tour.id));
+      this.montagemTotal = inicio.total;
+
+      await this.virtualTourService.acompanharMontagem(tour.id, (a) => {
+        this.montagemTotal = a.total;
+        this.montagemProntos = a.prontos + a.falhas + a.dispensados;
+      });
+    } catch {
+      // O tour já está salvo; seguir para ele é melhor que travar aqui.
+    } finally {
+      this.montagemEtapa = null;
     }
   }
 

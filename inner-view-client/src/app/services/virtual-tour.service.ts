@@ -41,6 +41,15 @@ export interface CaptureFrameUpload {
   quaternion: { x: number; y: number; z: number; w: number };
 }
 
+/** Andamento da montagem por IA de um tour inteiro. */
+export interface AndamentoDaMontagem {
+  total: number;
+  prontos: number;
+  falhas: number;
+  dispensados: number;
+  terminado: boolean;
+}
+
 const SESSION_ID_KEY = 'visitorSessionId';
 
 @Injectable({ providedIn: 'root' })
@@ -93,6 +102,58 @@ export class VirtualTourService {
       }
     }
     return { uploaded, total: frames.length };
+  }
+
+  /**
+   * Enfileira a montagem por IA dos panoramas do tour.
+   *
+   * Tem que ser chamado DEPOIS de `uploadCaptureFrames` terminar: o modelo usa
+   * as fotos originais como referência do que existe de verdade no cômodo, e sem
+   * elas o panorama é dispensado pelo servidor.
+   */
+  montarTour(tourId: string): Observable<AndamentoDaMontagem> {
+    return this.http.post<AndamentoDaMontagem>(
+      `${environment.apiUrl}/virtual-tours/${tourId}/montar`,
+      {},
+    );
+  }
+
+  andamentoDaMontagem(tourId: string): Observable<AndamentoDaMontagem> {
+    return this.http.get<AndamentoDaMontagem>(
+      `${environment.apiUrl}/virtual-tours/${tourId}/montagem`,
+    );
+  }
+
+  /**
+   * Acompanha a montagem até o fim, avisando a cada passo.
+   *
+   * Desiste depois de `limiteMs` e devolve o último andamento conhecido em vez
+   * de lançar: o tour existe e é navegável desde o primeiro instante, com os
+   * panoramas originais. Prender o corretor numa tela de espera indefinida seria
+   * pior que abrir o tour com o que já está pronto.
+   */
+  async acompanharMontagem(
+    tourId: string,
+    aoAvancar: (a: AndamentoDaMontagem) => void,
+    intervaloMs = 3000,
+    limiteMs = 10 * 60 * 1000,
+  ): Promise<AndamentoDaMontagem | null> {
+    const ate = Date.now() + limiteMs;
+    let ultimo: AndamentoDaMontagem | null = null;
+
+    while (Date.now() < ate) {
+      try {
+        ultimo = await firstValueFrom(this.andamentoDaMontagem(tourId));
+        aoAvancar(ultimo);
+        if (ultimo.terminado) return ultimo;
+      } catch {
+        // Falha de rede não encerra o acompanhamento: a montagem segue no
+        // servidor, e a próxima tentativa reencontra o estado.
+      }
+      await new Promise((r) => setTimeout(r, intervaloMs));
+    }
+
+    return ultimo;
   }
 
   deleteTour(id: string): Observable<void> {

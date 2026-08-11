@@ -201,6 +201,76 @@ DATABASE_URL=postgresql://user:senha@host:5432/property-360-test yarn test
 
 O nome do banco continua tendo que ser `property-360-test`.
 
+**Specs dos scripts de imagem** rodam por fora, porque não tocam em banco:
+
+```bash
+yarn test:scripts
+```
+
+A config separada (`jest.scripts.config.js`) existe para que a matemática de
+cubemap e de cobertura não dependa de subir um container — atrito que faria essas
+specs deixarem de ser rodadas.
+
+---
+
+## Tratamento de panoramas com IA
+
+O anel de captura cobre cerca de ±47° de 180°: a câmera nunca aponta direto para
+cima nem para baixo, e sobram **~27% da esfera** que o stitcher só sabe preencher
+esticando a última linha coberta — o borrão no chão e no teto do tour. A etapa de
+IA pinta esse buraco, e só ele.
+
+**Roda sozinha.** Ao criar um panorama, `CreatePanoramaService` agenda o
+tratamento fora do request (leva ~90 s). Enquanto não termina, o tour serve o
+original; quando termina, passa a servir o tratado. Sem `GEMINI_API_KEY` nem
+`OPENAI_API_KEY` a etapa fica inerte e nada muda.
+
+Para operar à mão — reprocessar, tratar capturas antigas, testar em campo:
+
+```bash
+yarn tratar-panorama --listar          # o que existe, sem gastar nada
+yarn tratar-panorama --id=7937c2d9     # aceita prefixo do UUID
+yarn tratar-panorama --pendentes       # tudo que ainda não foi tratado
+yarn tratar-panorama --pendentes --tentativas=1   # metade do custo
+```
+
+**Fidelidade.** O original nunca é sobrescrito: o resultado vai para
+`treatedImageData`, e a troca acontece na leitura (`panorama-image.ts`). Reverter
+é apagar uma coluna. Além disso, duas travas cobertas por spec impedem que o
+modelo reescreva o imóvel: `composeEquirect` devolve as quatro faces laterais
+byte a byte, e `recomporComPena` mantém o pixel fotografado fora do buraco,
+misturando os dois só numa faixa de 12 px.
+
+**Custo:** ~US$ 0,27 por panorama com um modelo e uma tentativa. O comando
+imprime o total previsto antes da primeira chamada.
+
+---
+
+## Bake-off de tratamento de panoramas
+
+```bash
+yarn bakeoff-ia                 # mede; NÃO chama API nenhuma
+yarn bakeoff-ia --gerar         # roda também os experimentos generativos (gasta)
+yarn bakeoff-ia --capturas=a,b  # limita o corpus
+```
+
+Compara rotas para os defeitos dos panoramas montados, sobre as capturas reais já
+exportadas em `imagens-exportadas/`. Lê o campo vertical de cada captura do
+`INDICE.md` e as orientações de `fotos-originais/<pasta>/orientacoes.json`.
+
+O ponto da arquitetura: **o equirect nunca vai para o modelo**. Ele é decomposto
+em seis faces de cubemap — imagens em perspectiva de 90°, que é o domínio nativo
+desses modelos — e só as faces de teto e chão são regeradas, com máscara. Na
+volta, as quatro laterais são cópia byte a byte do original
+(`composeEquirect`, coberto por spec). Além disso, toda saída de modelo passa por
+`recomporPelaCobertura`: fora do buraco de cobertura, vale o pixel fotografado.
+A fidelidade não depende de o modelo obedecer à máscara — o quanto ele desobedeceu
+vira métrica no relatório (`deriva`), não risco.
+
+Sem `GEMINI_API_KEY` nem `OPENAI_API_KEY` o script roda em modo medição e produz
+as faces, as máscaras, as imagens de buraco e o `RELATORIO.md`. Com `--gerar`, o
+custo previsto é impresso antes da primeira chamada.
+
 ---
 
 ## Comandos úteis

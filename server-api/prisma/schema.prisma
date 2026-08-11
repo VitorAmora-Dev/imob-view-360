@@ -40,6 +40,17 @@ enum VirtualTourStatus {
   ARCHIVED // Arquivado
 }
 
+/// Situação da etapa de IA que completa nadir e zênite de um panorama.
+/// SKIPPED é para captura que já cobre os polos e não precisa de geração —
+/// distinguir isso de DONE evita gastar API de novo a cada reprocessamento.
+enum TreatmentStatus {
+  PENDING // Pendente
+  PROCESSING // Processando
+  DONE // Concluido
+  FAILED // Falhou
+  SKIPPED // Dispensado
+}
+
 model User {
   id       String   @id @default(uuid())
   name     String // nome
@@ -160,6 +171,21 @@ model Panorama {
   fittedVfovDeg Float? // campoVerticalAjustado
   bandTopDeg    Float? // latitudeSuperiorFotografada
   bandBottomDeg Float? // latitudeInferiorFotografada
+
+  /// Resultado da etapa de IA, que completa nadir e zênite — os ~27% da esfera
+  /// que a câmera nunca aponta e que hoje saem como borrão.
+  ///
+  /// Fica ao lado de `imageData`, e não no lugar dele, por três motivos: o
+  /// original é a única prova do que foi realmente fotografado, o tratamento
+  /// pode ser refeito com um modelo melhor sem nova captura, e um resultado
+  /// ruim precisa ser revertido sem perder o panorama.
+  treatedImageData String?          @db.Text // imagemTratada
+  treatmentStatus  TreatmentStatus  @default(PENDING) // situacaoTratamento
+  treatmentError   String? // erroTratamento
+  /// Qual modelo venceu em cada polo e com que `borda` — a descontinuidade
+  /// medida na junção. É o que permite auditar a qualidade sem reabrir o tour.
+  treatmentMeta    Json? // dadosTratamento
+  treatedAt        DateTime? // tratadoEm
 
   virtualTour   VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade) // tourVirtual
   virtualTourId String
