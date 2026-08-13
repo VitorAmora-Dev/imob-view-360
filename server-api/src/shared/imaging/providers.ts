@@ -1,8 +1,14 @@
 import { GoogleGenAI } from '@google/genai';
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 import { Raster } from './cubemap';
 import { casarCorNaBorda, recomporComPena } from './juncao';
-import { furarPelaCobertura, mascaraParaAlfaEditavel, pngParaRaster, rasterParaPng } from './raster';
+import {
+  furarPelaCobertura,
+  mascaraParaAlfaEditavel,
+  pngParaRaster,
+  rasterParaPng,
+  redimensionar,
+} from './raster';
 
 /**
  * Os dois candidatos do bake-off atrás da mesma interface.
@@ -53,6 +59,15 @@ export interface ResultadoEdicao {
 export interface ImageEditProvider {
   readonly nome: string;
   readonly modelo: string;
+  /**
+   * O que uma chamada custa, para quem precisa estimar ANTES de gastar.
+   *
+   * Está na interface, e não numa constante à parte no script, porque a
+   * estimativa do bake-off trazia um 0,17 chumbado que não batia com nenhum dos
+   * dois providers — anunciava menos que o Gemini e mais que o GPT, e o único
+   * número que importa ali é o que aparece antes de a rodada começar.
+   */
+  readonly custoPorImagemUSD: number;
   disponivel(): boolean;
   editar(pedido: PedidoEdicao): Promise<ResultadoEdicao>;
 }
@@ -71,6 +86,7 @@ const CUSTO_GEMINI_2K = 0.1344;
 export class GeminiImageProvider implements ImageEditProvider {
   readonly nome = 'gemini';
   readonly modelo = 'gemini-3-pro-image-preview';
+  readonly custoPorImagemUSD = CUSTO_GEMINI_2K;
 
   private cliente: GoogleGenAI | null = null;
 
@@ -137,6 +153,7 @@ const CUSTO_GPT_IMAGE_2 = 0.19;
 export class OpenAIImageProvider implements ImageEditProvider {
   readonly nome = 'gpt-image-2';
   readonly modelo = 'gpt-image-2';
+  readonly custoPorImagemUSD = CUSTO_GPT_IMAGE_2;
 
   private cliente: OpenAI | null = null;
 
@@ -181,8 +198,7 @@ export class OpenAIImageProvider implements ImageEditProvider {
   }
 }
 
-async function paraArquivo(buffer: Buffer, nome: string) {
-  const { toFile } = await import('openai');
+function paraArquivo(buffer: Buffer, nome: string) {
   return toFile(buffer, nome, { type: 'image/png' });
 }
 
@@ -328,7 +344,7 @@ async function montarResultado(
   const cru =
     cruBruto.width === pedido.face.width && cruBruto.height === pedido.face.height
       ? cruBruto
-      : await (await import('./raster')).redimensionar(cruBruto, pedido.face.width, pedido.face.height);
+      : await redimensionar(cruBruto, pedido.face.width, pedido.face.height);
 
   const fiel = pedido.coberturaFiel ?? pedido.cobertura;
   const pena = pedido.pena ?? 0;

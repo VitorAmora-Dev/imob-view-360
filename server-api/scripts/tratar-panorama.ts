@@ -16,7 +16,7 @@ import { CUSTO_POR_PANORAMA } from '../src/shared/imaging/montagem-360';
  *   yarn tratar-panorama --pendentes        # tudo que ainda não foi tratado
  *   yarn tratar-panorama --id=<uuid>        # um panorama específico
  *   yarn tratar-panorama --tour=<uuid>      # todos de um tour
- *   yarn tratar-panorama --pendentes --refazer   # inclui os que falharam antes
+ *   yarn tratar-panorama --pendentes --refazer   # inclui falhas e interrompidos
  */
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
@@ -51,7 +51,13 @@ async function main(): Promise<void> {
       ...(id ? { id: { startsWith: id } } : {}),
       ...(tour ? { virtualTourId: { startsWith: tour } } : {}),
       ...(pendentes && !refazer ? { treatmentStatus: 'PENDING' } : {}),
-      ...(pendentes && refazer ? { treatmentStatus: { in: ['PENDING', 'FAILED'] } } : {}),
+      // PROCESSING entra só com `--refazer` porque, com a API no ar, ele pode
+      // significar uma montagem realmente em curso — e pegá-la aqui custaria
+      // uma segunda chamada paga sobre o mesmo panorama. Quem passa `--refazer`
+      // está afirmando que quer retratar o que ficou pelo caminho.
+      ...(pendentes && refazer
+        ? { treatmentStatus: { in: ['PENDING', 'FAILED', 'PROCESSING'] } }
+        : {}),
     },
     select: { id: true, roomName: true, treatmentStatus: true },
     orderBy: { order: 'asc' },

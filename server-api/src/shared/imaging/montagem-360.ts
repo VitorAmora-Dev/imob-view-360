@@ -30,6 +30,35 @@ export const ALTURA_MODELO = 1920;
 /** Estimativa pública por imagem; conferir contra a fatura antes de projetar custo. */
 export const CUSTO_POR_PANORAMA = 0.19;
 
+/**
+ * Fotos de referência por requisição. A API aceita 16 imagens e uma delas é o
+ * próprio equirect.
+ */
+export const MAXIMO_DE_FOTOS = 15;
+
+/**
+ * Escolhe até `maximo` fotos distribuídas por toda a volta.
+ *
+ * O corte antigo era `slice(0, 15)`, e ele quebrava calado a única afirmação do
+ * prompt que orienta o modelo espacialmente: a de que a referência k cobre a
+ * k-ésima faixa da largura. Numa captura de 20 fotos, as 15 primeiras cobrem
+ * 270° — o modelo era informado de que tinha referência para o panorama inteiro
+ * enquanto um quarto dele nunca chegou, e as 15 faixas anunciadas ficavam todas
+ * deslocadas. Pegando de forma espaçada, cada escolhida cai perto da faixa que o
+ * prompt promete e a volta continua coberta.
+ */
+export function amostrarAnel<T>(fotos: T[], maximo = MAXIMO_DE_FOTOS): T[] {
+  if (maximo <= 0) return [];
+  if (fotos.length <= maximo) return fotos;
+
+  const escolhidas: T[] = [];
+  for (let k = 0; k < maximo; k++) {
+    const i = Math.min(fotos.length - 1, Math.round((k * fotos.length) / maximo));
+    escolhidas.push(fotos[i]);
+  }
+  return escolhidas;
+}
+
 export interface PedidoMontagem {
   /** Equirect 2:1 já reduzido a `LARGURA_MODELO × ALTURA_MODELO`, em PNG. */
   panorama: Buffer;
@@ -41,7 +70,27 @@ export interface ResultadoMontagem {
   imagem: Buffer;
   ms: number;
   custoUSD: number;
+  /** Chamadas geradoras cobradas. Só passa de 1 se houve retry pago. */
+  tentativas: number;
 }
+
+/**
+ * Tentativas extras permitidas, e só para 429.
+ *
+ * O SDK da OpenAI reenvia sozinho até duas vezes por padrão. Numa rota em que
+ * cada chamada custa US$ 0,19 isso significa gastar até três vezes o previsto
+ * sem nada no log dizendo, enquanto `custoUSD` continuava registrando uma —
+ * exatamente o contrário da regra que vale no resto deste código, de o número
+ * aparecer antes de gastar. Por isso o cliente vai com `maxRetries: 0` e o
+ * retry é explícito aqui.
+ *
+ * 429 é o único caso seguro de repetir: a requisição foi recusada na porta, sem
+ * geração e sem cobrança. Um 5xx pode ter gerado a imagem antes de falhar, e
+ * repeti-lo cobraria duas. Esses viram FAILED, o panorama original continua
+ * servindo o tour, e retratar é uma decisão de quem vê o custo impresso.
+ */
+const TENTATIVAS_EXTRAS = 2;
+const ESPERA_APOS_429_MS = 4000;
 
 /**
  * O prompt é parametrizado pela contagem de fotos porque metade das capturas tem
@@ -100,7 +149,8 @@ Return only the corrected panorama, same pixel dimensions, 2:1. No commentary, n
 export async function montarPanorama(pedido: PedidoMontagem): Promise<ResultadoMontagem> {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY não configurada.');
 
-  const cliente = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // `maxRetries: 0` é deliberado — ver TENTATIVAS_EXTRAS.
+  const cliente = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 });
 
   const imagens = [
     await toFile(pedido.panorama, 'panorama.png', { type: 'image/png' }),
@@ -110,18 +160,39 @@ export async function montarPanorama(pedido: PedidoMontagem): Promise<ResultadoM
   ];
 
   const inicio = Date.now();
-  // Sem `input_fidelity`: o gpt-image-2 removeu o parâmetro e a requisição falha
-  // se ele for enviado — a entrada já é processada em alta fidelidade.
-  const resposta = await cliente.images.edit({
-    model: 'gpt-image-2',
-    image: imagens,
-    prompt: promptDeMontagem(pedido.fotos.length),
-    size: `${LARGURA_MODELO}x${ALTURA_MODELO}`,
-  } as never);
-  const ms = Date.now() - inicio;
+  let tentativas = 0;
 
-  const b64 = (resposta as { data?: Array<{ b64_json?: string }> })?.data?.[0]?.b64_json;
-  if (!b64) throw new Error('A OpenAI não devolveu imagem.');
+  for (let extra = 0; ; extra++) {
+    try {
+      tentativas++;
+      // Sem `input_fidelity`: o gpt-image-2 removeu o parâmetro e a requisição
+      // falha se ele for enviado — a entrada já é processada em alta fidelidade.
+      const resposta = await cliente.images.edit({
+        model: 'gpt-image-2',
+        image: imagens,
+        prompt: promptDeMontagem(pedido.fotos.length),
+        size: `${LARGURA_MODELO}x${ALTURA_MODELO}`,
+      } as never);
 
-  return { imagem: Buffer.from(b64, 'base64'), ms, custoUSD: CUSTO_POR_PANORAMA };
+      const b64 = (resposta as { data?: Array<{ b64_json?: string }> })?.data?.[0]?.b64_json;
+      if (!b64) throw new Error('A OpenAI não devolveu imagem.');
+
+      return {
+        imagem: Buffer.from(b64, 'base64'),
+        ms: Date.now() - inicio,
+        // Um 429 é recusado antes de gerar, então não entra na conta.
+        custoUSD: CUSTO_POR_PANORAMA,
+        tentativas,
+      };
+    } catch (erro) {
+      if (extra >= TENTATIVAS_EXTRAS || !ehLimiteDeTaxa(erro)) throw erro;
+      tentativas--; // não gerou, não custou
+      await new Promise((r) => setTimeout(r, ESPERA_APOS_429_MS * (extra + 1)));
+    }
+  }
+}
+
+/** 429: recusado na porta, sem geração e sem cobrança — o único retry seguro. */
+function ehLimiteDeTaxa(erro: unknown): boolean {
+  return (erro as { status?: number })?.status === 429;
 }

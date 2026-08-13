@@ -57,6 +57,25 @@ describe('juncao', () => {
       expect(corrigido.data[centroBuraco]).toBeLessThanOrEqual(255);
     });
 
+    /**
+     * O que os outros casos não pegavam por usarem cor chapada: a estatística
+     * tem de vir da FAIXA colada na fronteira, não da região fotografada
+     * inteira. Aqui o interior é escuro (60) e só as linhas junto ao buraco são
+     * claras (200) — se o filtro de faixa não morder, a média de referência
+     * despenca e a correção vai para o lugar errado.
+     */
+    it('mede só a faixa junto à fronteira, não a fotografia inteira', () => {
+      const cob = cobertura(16);
+      const original = raster(16, 16, (_x, y) => (y >= 6 && y < 8 ? 200 : 60));
+      const gerado = raster(16, 16, () => 100);
+
+      const corrigido = casarCorNaBorda(gerado, original, cob, 2);
+
+      // Referência é a faixa de 200, então o gerado sobe na direção dela.
+      const centroBuraco = (12 * 16 + 8) * 4;
+      expect(corrigido.data[centroBuraco]).toBeGreaterThan(150);
+    });
+
     it('derruba o `borda` medido depois da recomposição', () => {
       const cob = cobertura(16);
       const original = raster(16, 16, () => 200);

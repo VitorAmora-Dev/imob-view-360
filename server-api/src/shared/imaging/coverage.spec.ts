@@ -140,6 +140,28 @@ describe('coverage', () => {
       }
     });
 
+    /**
+     * A única chamada é sobre faces de cubemap, cujas colunas 0 e w-1 são
+     * vizinhas de 90° sem relação nenhuma. A versão anterior dava wrap em x, e
+     * um buraco encostado na aresta esquerda comia fotografia boa na direita.
+     */
+    it('não casa as bordas laterais: em face de cubemap elas não são vizinhas', () => {
+      const lado = 16;
+      // Buraco só na coluna 0; o resto é fotografia.
+      const mask = mascaraPorFaixa(lado, lado, -90, 90);
+      for (let y = 0; y < lado; y++) {
+        const i = (y * lado + 0) * 4;
+        mask.data[i] = mask.data[i + 1] = mask.data[i + 2] = 0;
+      }
+
+      const erodida = erodirCobertura(mask, 3);
+      const em = (x: number, y: number) => erodida.data[(y * lado + x) * 4];
+
+      expect(em(3, 8)).toBe(0); // a 3 do buraco, comido — correto
+      expect(em(4, 8)).toBeGreaterThan(127); // além do raio, preservado
+      expect(em(lado - 1, 8)).toBeGreaterThan(127); // a outra ponta, intocada
+    });
+
     it('com raio zero devolve uma cópia, não o mesmo buffer', () => {
       const mask = mascaraPorFaixa(64, 32, -45, 45);
       const copia = erodirCobertura(mask, 0);

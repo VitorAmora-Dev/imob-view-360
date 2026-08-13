@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { FaceName, Raster, directionForEquirectPixel, directionForFacePixel } from './cubemap';
+import { distanciaAoBuraco } from './juncao';
 import { Quaternion, conjugar, projetarNdc } from './quat';
 
 export { Quaternion };
@@ -163,39 +164,31 @@ export function mascaraPorFaixa(
  * pouco o que é fotografia. Sem essa margem o modelo encosta exatamente no
  * limite do dado e a junção vira um anel visível; com ela, ele tem sobre o que
  * casar textura e cor.
+ *
+ * Erodir é exatamente "apagar o que está a `raio` ou menos de um buraco", então
+ * a transformada de distância de `juncao.ts` responde de uma vez o que a
+ * varredura por janela respondia pixel a pixel. A versão anterior lia (2r+1)²
+ * vizinhos por pixel — com r=12 numa face de 1280, cerca de um bilhão de
+ * leituras, o mesmo desperdício que aquele módulo foi escrito para evitar.
+ *
+ * O wrap em x também saiu, e ele era um erro de verdade: a única chamada é sobre
+ * FACES DE CUBEMAP, cujas colunas 0 e w-1 são vizinhas de 90° sem relação
+ * nenhuma. Casar as duas fazia um buraco na aresta esquerda comer fotografia boa
+ * na direita. Em face, a borda da imagem não é buraco — é a face vizinha, e a
+ * transformada já a trata assim.
  */
 export function erodirCobertura(mask: Raster, raio: number): Raster {
-  if (raio <= 0) return { ...mask, data: new Uint8ClampedArray(mask.data) };
-
-  const { width, height } = mask;
   const out = new Uint8ClampedArray(mask.data);
+  if (raio <= 0) return { data: out, width: mask.width, height: mask.height };
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (mask.data[(y * width + x) * 4] === 0) continue;
+  // `raio + 1` para que "mais longe que o raio" seja distinguível da saturação.
+  const dist = distanciaAoBuraco(mask, raio + 1);
 
-      let vizinhoVazio = false;
-      for (let dy = -raio; dy <= raio && !vizinhoVazio; dy++) {
-        const yy = y + dy;
-        if (yy < 0 || yy >= height) continue;
-        for (let dx = -raio; dx <= raio; dx++) {
-          // Wrap em x: a borda φ=0 não é borda de verdade.
-          const xx = ((x + dx) % width + width) % width;
-          if (mask.data[(yy * width + xx) * 4] === 0) {
-            vizinhoVazio = true;
-            break;
-          }
-        }
-      }
-
-      if (vizinhoVazio) {
-        const i = (y * width + x) * 4;
-        out[i] = out[i + 1] = out[i + 2] = 0;
-      }
-    }
+  for (let p = 0, i = 0; p < dist.length; p++, i += 4) {
+    if (out[i] !== 0 && dist[p] <= raio) out[i] = out[i + 1] = out[i + 2] = 0;
   }
 
-  return { data: out, width, height };
+  return { data: out, width: mask.width, height: mask.height };
 }
 
 /**

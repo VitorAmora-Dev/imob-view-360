@@ -20,7 +20,7 @@ import {
   mascaraDeCobertura,
   mascaraDeCoberturaFace,
 } from '../src/shared/imaging/coverage';
-import { RelatorioFotometrico, emStops, luminancia, medirFotometria } from '../src/shared/imaging/fotometria';
+import { RelatorioFotometrico, medirFotometria } from '../src/shared/imaging/fotometria';
 import {
   GeminiImageProvider,
   ImageEditProvider,
@@ -161,10 +161,13 @@ async function main(): Promise<void> {
     // Chamada de API é gasto real: o número aparece antes de gastar, não depois.
     // Os remendos do experimento B ficam de fora porque dependem de quantos
     // retângulos existirem em cada `remendos.json`.
-    const porCaptura = providers.length * (seeds * POLE_FACES.length + 1);
-    const chamadas = capturas.length * porCaptura;
+    const porProvider = seeds * POLE_FACES.length + 1;
+    const chamadas = capturas.length * providers.length * porProvider;
+    // Cada provider tem o seu preço — o custo sai da soma deles, não de uma
+    // média chumbada que não descrevia nenhum dos dois.
+    const custo = capturas.length * porProvider * providers.reduce((s, p) => s + p.custoPorImagemUSD, 0);
     console.log(
-      `\n! ${chamadas} chamadas previstas (~US$ ${(chamadas * 0.17).toFixed(2)}), ` +
+      `\n! ${chamadas} chamadas previstas (~US$ ${custo.toFixed(2)}), ` +
         'fora os remendos do experimento B.\n',
     );
   } else {

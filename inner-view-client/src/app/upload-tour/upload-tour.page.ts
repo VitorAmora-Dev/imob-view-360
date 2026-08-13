@@ -313,13 +313,21 @@ export class UploadTourPage {
       this.montagemProntos = 0;
       this.montagemTotal = this.panoramas.length;
 
+      let enviadas = 0;
       for (const [i, item] of this.panoramas.entries()) {
         const panorama = tour.panoramas.find((p) => p.order === i);
         if (panorama && item.frames?.length) {
-          await this.virtualTourService.uploadCaptureFrames(panorama.id, item.frames);
+          const r = await this.virtualTourService.uploadCaptureFrames(panorama.id, item.frames);
+          enviadas += r.uploaded;
         }
         this.montagemProntos = i + 1;
       }
+
+      // O envio é best-effort e numa rede ruim pode não chegar nada. Sem foto
+      // nenhuma no servidor a montagem não tem verdade de campo e todo panorama
+      // seria dispensado — abrir o tour agora é mais honesto que mostrar uma
+      // tela de IA para uma etapa que já se sabe que não vai acontecer.
+      if (enviadas === 0) return;
 
       this.montagemEtapa = 'ia';
       this.montagemProntos = 0;

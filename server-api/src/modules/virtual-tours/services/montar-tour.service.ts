@@ -37,7 +37,18 @@ export class MontarTourService {
   async iniciar(tourId: string, user: JwtPayload): Promise<AndamentoDaMontagem> {
     const panoramas = await this.panoramasDoTour(tourId, user);
 
-    if (!this.tratamento.habilitado()) return this.andamento(tourId, user);
+    // Sem chave nada vai ser montado, e isso precisa aparecer como estado
+    // terminal AGORA. Só devolver o andamento deixava tudo em PENDING, e
+    // `terminado` nunca ficava true: o corretor via a tela de montagem com um
+    // "não feche o app" por dez minutos inteiros, em toda captura, para uma
+    // etapa que jamais começaria.
+    if (!this.tratamento.habilitado()) {
+      await this.dispensar(
+        panoramas.filter((p) => p.treatmentStatus !== 'DONE').map((p) => p.id),
+        'montagem por IA desabilitada no servidor',
+      );
+      return this.andamento(tourId, user);
+    }
 
     // Já montado ou já em curso não volta para a fila: um segundo clique não
     // pode custar outra rodada de API.
@@ -82,6 +93,20 @@ export class MontarTourService {
       // seria pior que mostrar o resultado que existe.
       terminado: prontos + falhas + dispensados >= panoramas.length,
     };
+  }
+
+  /**
+   * Encerra em SKIPPED o que não vai ser montado. É o que faz `terminado` virar
+   * true e liberar a tela de espera — o tour abre com os panoramas originais,
+   * que é exatamente o que ele teria sem esta etapa.
+   */
+  private async dispensar(ids: string[], motivo: string): Promise<void> {
+    if (ids.length === 0) return;
+    await this.prisma.panorama.updateMany({
+      where: { id: { in: ids } },
+      data: { treatmentStatus: 'SKIPPED', treatmentError: motivo, treatedAt: new Date() },
+    });
+    this.logger.warn(`${ids.length} panorama(s) dispensado(s): ${motivo}.`);
   }
 
   /** Escopo por agência, como as demais rotas autenticadas do módulo. */

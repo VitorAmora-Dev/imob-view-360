@@ -84,7 +84,12 @@ export function casarCorNaBorda(
   faixa = 24,
   ganhoMax = 1.6,
 ): Raster {
-  const dist = distanciaAoBuraco(cobertura, faixa);
+  // `faixa + 1`, não `faixa`: a distância satura no teto que se pede, então
+  // pedir `faixa` fazia todo pixel fotografado sair com `dist <= faixa` e o
+  // filtro logo abaixo virava letra morta — a estatística vinha da região
+  // inteira, que é justamente o que o comentário acima diz para não fazer. Com
+  // um a mais, o que está além da faixa satura em `faixa + 1` e é excluído.
+  const dist = distanciaAoBuraco(cobertura, faixa + 1);
 
   const somaFoto = [0, 0, 0];
   const somaFoto2 = [0, 0, 0];

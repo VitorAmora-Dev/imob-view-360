@@ -2,14 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
 import { CreatePanoramaDto } from '../dto/create-panorama.dto';
-import { TreatPanoramaService } from './treat-panorama.service';
 
 @Injectable()
 export class CreatePanoramaService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tratamento: TreatPanoramaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async execute(dto: CreatePanoramaDto, currentUser: JwtPayload) {
     const { tourId, measurements, ...panoramaData } = dto;
@@ -37,8 +33,13 @@ export class CreatePanoramaService {
       });
     });
 
-    // Fora da transação: o tratamento lê o panorama por outra conexão.
-    this.tratamento.agendar(criado!.id);
+    // A montagem por IA NÃO é disparada aqui, pelo mesmo motivo de
+    // `CreateVirtualTourService`: neste instante o panorama não tem nenhuma
+    // `captureFrame`, elas sobem depois em requisições próprias. Disparar agora
+    // marcaria SKIPPED na hora e — pior — deixaria o id na guarda de
+    // idempotência de `agendar`, transformando o `POST /virtual-tours/:id/montar`
+    // do cliente num no-op silencioso. Quem comanda é o cliente, quando o envio
+    // das fotos termina.
     return criado;
   }
 }

@@ -20,8 +20,9 @@ import { MontarTourService } from './services/montar-tour.service';
 import { PanoramasModule } from '../panoramas/panoramas.module';
 
 @Module({
-  // Pelo TreatPanoramaService: salvar um tour cria os panoramas aqui dentro, e é
-  // daqui que a etapa de IA precisa ser agendada.
+  // Pelo TreatPanoramaService, de que o MontarTourService depende: o
+  // `POST /virtual-tours/:id/montar` é quem enfileira a etapa de IA, depois de
+  // as fotos originais da captura terem subido.
   imports: [PanoramasModule],
   controllers: [
     CreateVirtualTourController,

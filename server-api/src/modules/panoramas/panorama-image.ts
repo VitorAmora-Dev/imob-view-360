@@ -19,6 +19,19 @@ export function imagemServivel<T extends ComImagem>(panorama: T): string {
   return panorama.treatedImageData ?? panorama.imageData;
 }
 
+/**
+ * Aceita tanto `data:image/jpeg;base64,…` quanto base64 puro.
+ *
+ * Mora aqui junto de `imagemServivel` porque quem lê a imagem de um panorama
+ * quase sempre precisa das duas coisas em seguida — e havia duas versões desta
+ * regra no código, uma exigindo o prefixo `data:` e outra cortando em qualquer
+ * vírgula. A segunda mutila um base64 que legitimamente contenha vírgula.
+ */
+export function base64Puro(imageData: string): string {
+  const virgula = imageData.indexOf(',');
+  return imageData.startsWith('data:') && virgula > 0 ? imageData.slice(virgula + 1) : imageData;
+}
+
 /** Aplica `imagemServivel` e some com o campo tratado, que o cliente não usa. */
 export function comImagemServivel<T extends ComImagem>(panorama: T): Omit<T, 'treatedImageData'> {
   const { treatedImageData, ...resto } = panorama;

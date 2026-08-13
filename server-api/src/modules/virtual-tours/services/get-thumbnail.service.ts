@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
-import { imagemServivel } from '../../panoramas/panorama-image';
+import { base64Puro, imagemServivel } from '../../panoramas/panorama-image';
 
 @Injectable()
 export class GetThumbnailService {
@@ -17,9 +17,6 @@ export class GetThumbnailService {
 
     // A capa é a primeira coisa que o comprador vê; se há versão tratada, é ela
     // que vai.
-    const imagem = imagemServivel(panorama);
-    const base64 = imagem.includes(',') ? imagem.split(',')[1] : imagem;
-
-    return Buffer.from(base64, 'base64');
+    return Buffer.from(base64Puro(imagemServivel(panorama)), 'base64');
   }
 }

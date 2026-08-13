@@ -1,13 +1,15 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import sharp from 'sharp';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import {
   ALTURA_MODELO,
   LARGURA_MODELO,
+  amostrarAnel,
   montarPanorama,
 } from '../../../shared/imaging/montagem-360';
 import { costurarVolta, saltoNaVolta } from '../../../shared/imaging/volta';
 import { pngParaRaster, rasterParaJpeg } from '../../../shared/imaging/raster';
+import { base64Puro } from '../panorama-image';
 
 /**
  * Montagem final do 360° por IA, a partir do panorama costurado e das fotos que
@@ -44,9 +46,6 @@ const FAIXA_DA_VOLTA = 48;
  */
 const MINIMO_DE_FOTOS = 4;
 
-/** Teto da API por requisição: o panorama ocupa um dos 16 lugares. */
-const MAXIMO_DE_FOTOS = 15;
-
 /** Quantos panoramas de um mesmo tour são montados ao mesmo tempo. */
 const CONCORRENCIA = 3;
 
@@ -60,7 +59,7 @@ export interface ResultadoTratamento {
 }
 
 @Injectable()
-export class TreatPanoramaService {
+export class TreatPanoramaService implements OnModuleInit {
   private readonly logger = new Logger(TreatPanoramaService.name);
   private emAndamento = 0;
   private fila: Array<() => void> = [];
@@ -68,6 +67,34 @@ export class TreatPanoramaService {
   private readonly conhecidos = new Set<string>();
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * A fila vive na memória do processo; `PROCESSING` vive no banco. Um restart
+   * no meio de uma montagem apagava a primeira e deixava a segunda gravada para
+   * sempre: o panorama ficava preso num estado que nada mais visitava —
+   * `iniciar` pula PROCESSING de propósito e o `--pendentes` do CLI só olhava
+   * PENDING. Na volta, o que estava em curso volta a ser pendente.
+   *
+   * Isso assume uma instância só da API, que é como ela roda hoje. Com várias,
+   * este reset atropelaria a montagem em curso de outra e o estado teria que
+   * sair da memória para uma fila de verdade.
+   */
+  async onModuleInit(): Promise<void> {
+    try {
+      const { count } = await this.prisma.panorama.updateMany({
+        where: { treatmentStatus: 'PROCESSING' },
+        data: { treatmentStatus: 'PENDING' },
+      });
+      if (count > 0) {
+        this.logger.warn(`${count} panorama(s) em PROCESSING de uma execução anterior devolvido(s) a PENDING.`);
+      }
+    } catch (erro) {
+      // Não derruba o boot: a API serve os panoramas originais sem esta etapa.
+      this.logger.warn(
+        `Não foi possível reconciliar panoramas em PROCESSING: ${erro instanceof Error ? erro.message : erro}`,
+      );
+    }
+  }
 
   /** Sem chave o serviço fica inerte em vez de quebrar o boot. */
   habilitado(): boolean {
@@ -178,12 +205,13 @@ export class TreatPanoramaService {
 
     // As fotos são referência de conteúdo, não de resolução: mandá-las em
     // 1536×2048 encheria o corpo da requisição sem o modelo aproveitar nada.
+    // `amostrarAnel` cobre a volta inteira quando a captura passa do teto da
+    // API — o prompt afirma qual faixa cada referência cobre, e cortar as
+    // últimas deixaria essa afirmação falsa.
     const fotos = await Promise.all(
-      panorama.captureFrames
-        .slice(0, MAXIMO_DE_FOTOS)
-        .map((f) =>
-          sharp(Buffer.from(base64Puro(f.imageData), 'base64')).resize({ width: 768 }).png().toBuffer(),
-        ),
+      amostrarAnel(panorama.captureFrames).map((f) =>
+        sharp(Buffer.from(base64Puro(f.imageData), 'base64')).resize({ width: 768 }).png().toBuffer(),
+      ),
     );
 
     const r = await montarPanorama({ panorama: reduzido, fotos });
@@ -214,6 +242,7 @@ export class TreatPanoramaService {
           tamanhoFinal: `${meta.width}x${meta.height}`,
           saltoNaVolta: { antes: saltoAntes, depois: saltoDepois },
           custoUSD: r.custoUSD,
+          tentativas: r.tentativas,
         },
       },
     });
@@ -244,10 +273,4 @@ export class TreatPanoramaService {
     });
     return { status: 'SKIPPED', fotos: 0, saltoAntes: 0, saltoDepois: 0, custoUSD: 0, ms: Date.now() - inicio };
   }
-}
-
-/** Aceita tanto `data:image/jpeg;base64,…` quanto base64 puro. */
-export function base64Puro(imageData: string): string {
-  const virgula = imageData.indexOf(',');
-  return imageData.startsWith('data:') && virgula > 0 ? imageData.slice(virgula + 1) : imageData;
 }
