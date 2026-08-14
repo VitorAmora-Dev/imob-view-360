@@ -4,7 +4,9 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
 import {
   ALTURA_MODELO,
   LARGURA_MODELO,
+  MODELO,
   amostrarAnel,
+  custoDaFalha,
   montarPanorama,
 } from '../../../shared/imaging/montagem-360';
 import { costurarVolta, saltoNaVolta } from '../../../shared/imaging/volta';
@@ -170,13 +172,24 @@ export class TreatPanoramaService implements OnModuleInit {
       return await this.montar(panorama, inicio);
     } catch (erro) {
       const mensagem = erro instanceof Error ? erro.message : String(erro);
-      this.logger.error(`Montagem de ${panoramaId} falhou: ${mensagem}`);
+
+      // Falhar não significa não ter pago: um 5xx pode chegar depois de a imagem
+      // já ter sido gerada. `custoDaFalha` separa esse caso do 4xx recusado na
+      // porta, para o total impresso no fim de um lote não ficar abaixo da
+      // fatura.
+      const custoUSD = custoDaFalha(erro);
+      const nota = custoUSD > 0 ? ` (cobrada mesmo assim: US$ ${custoUSD.toFixed(2)})` : '';
+      this.logger.error(`Montagem de ${panoramaId} falhou${nota}: ${mensagem}`);
 
       // O panorama original continua servível: falhar aqui degrada a qualidade
       // do tour, nunca o derruba.
       await this.prisma.panorama.update({
         where: { id: panoramaId },
-        data: { treatmentStatus: 'FAILED', treatmentError: mensagem.slice(0, 500) },
+        data: {
+          treatmentStatus: 'FAILED',
+          treatmentError: mensagem.slice(0, 500),
+          treatmentMeta: { rota: 'montagem-360', modelo: MODELO, custoUSD },
+        },
       });
 
       return {
@@ -184,7 +197,7 @@ export class TreatPanoramaService implements OnModuleInit {
         fotos: panorama.captureFrames.length,
         saltoAntes: 0,
         saltoDepois: 0,
-        custoUSD: 0,
+        custoUSD,
         ms: Date.now() - inicio,
       };
     }
@@ -236,13 +249,21 @@ export class TreatPanoramaService implements OnModuleInit {
         treatedAt: new Date(),
         treatmentMeta: {
           rota: 'montagem-360',
-          modelo: 'gpt-image-2',
+          modelo: MODELO,
           fotos: fotos.length,
-          tamanhoModelo: `${LARGURA_MODELO}x${ALTURA_MODELO}`,
+          tamanhoPedido: `${LARGURA_MODELO}x${ALTURA_MODELO}`,
+          // O que o modelo DEVOLVEU. Diferente do pedido, o resize final abaixo
+          // esconde a diferença: o tour abre normalmente, com aparência boa ou
+          // borrada conforme o caso, e nada no banco denunciaria. Esta linha é o
+          // único lugar onde um fallback silencioso de tamanho apareceria.
+          tamanhoDevolvido: `${cru.width}x${cru.height}`,
           tamanhoFinal: `${meta.width}x${meta.height}`,
           saltoNaVolta: { antes: saltoAntes, depois: saltoDepois },
           custoUSD: r.custoUSD,
           tentativas: r.tentativas,
+          // O que a API contou. Ressalva: na primeira medição os números não
+          // fecharam — ver `UsoDeTokens`. Para custo real, a fatura.
+          ...(r.uso ? { uso: r.uso } : {}),
         },
       },
     });

@@ -1,9 +1,7 @@
-import { GoogleGenAI } from '@google/genai';
 import OpenAI, { toFile } from 'openai';
 import { Raster } from './cubemap';
 import { casarCorNaBorda, recomporComPena } from './juncao';
 import {
-  furarPelaCobertura,
   mascaraParaAlfaEditavel,
   pngParaRaster,
   rasterParaPng,
@@ -11,7 +9,7 @@ import {
 } from './raster';
 
 /**
- * Os dois candidatos do bake-off atrás da mesma interface.
+ * O candidato do bake-off atrás de uma interface.
  *
  * A propriedade que sustenta o pipeline inteiro NÃO está no provider: está em
  * `recomporPelaCobertura`, aplicado depois de toda geração. Seja qual for a
@@ -63,84 +61,13 @@ export interface ImageEditProvider {
    * O que uma chamada custa, para quem precisa estimar ANTES de gastar.
    *
    * Está na interface, e não numa constante à parte no script, porque a
-   * estimativa do bake-off trazia um 0,17 chumbado que não batia com nenhum dos
-   * dois providers — anunciava menos que o Gemini e mais que o GPT, e o único
-   * número que importa ali é o que aparece antes de a rodada começar.
+   * estimativa do bake-off trazia um 0,17 chumbado que não batia com o preço
+   * real, e o único número que importa ali é o que aparece antes de a rodada
+   * começar.
    */
   readonly custoPorImagemUSD: number;
   disponivel(): boolean;
   editar(pedido: PedidoEdicao): Promise<ResultadoEdicao>;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Gemini 3 Pro Image (Nano Banana Pro)                                        */
-/* -------------------------------------------------------------------------- */
-
-/**
- * 1120 tokens de saída em 2K a US$ 120,00 por milhão. O custo de entrada (560
- * tokens por imagem de referência) fica fora da conta por ser duas ordens de
- * grandeza menor.
- */
-const CUSTO_GEMINI_2K = 0.1344;
-
-export class GeminiImageProvider implements ImageEditProvider {
-  readonly nome = 'gemini';
-  readonly modelo = 'gemini-3-pro-image-preview';
-  readonly custoPorImagemUSD = CUSTO_GEMINI_2K;
-
-  private cliente: GoogleGenAI | null = null;
-
-  disponivel(): boolean {
-    return Boolean(process.env.GEMINI_API_KEY);
-  }
-
-  async editar(pedido: PedidoEdicao): Promise<ResultadoEdicao> {
-    this.cliente ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-    // O Gemini não recebe máscara como parâmetro: o buraco precisa estar visível
-    // na própria imagem, e é por isso que a face vai com alfa perfurado.
-    const alvo = await rasterParaPng(furarPelaCobertura(pedido.face, pedido.cobertura));
-    const referencias = await Promise.all((pedido.referencias ?? []).map(rasterParaPng));
-
-    const partes: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
-      { text: pedido.prompt },
-      { inlineData: { mimeType: 'image/png', data: alvo.toString('base64') } },
-      ...referencias.map((r) => ({
-        inlineData: { mimeType: 'image/png', data: r.toString('base64') },
-      })),
-    ];
-
-    const inicio = Date.now();
-    const resposta = await this.cliente.models.generateContent({
-      model: this.modelo,
-      contents: [{ role: 'user', parts: partes }],
-      config: {
-        responseModalities: ['IMAGE'],
-        imageConfig: { aspectRatio: '1:1', imageSize: '2K' },
-        ...(pedido.seed === undefined ? {} : { seed: pedido.seed }),
-      },
-    });
-    const ms = Date.now() - inicio;
-
-    const imagem = extrairImagemGemini(resposta);
-    return montarResultado(pedido, await pngParaRaster(imagem), this.modelo, ms, CUSTO_GEMINI_2K);
-  }
-}
-
-function extrairImagemGemini(resposta: unknown): Buffer {
-  const partes =
-    (resposta as { candidates?: Array<{ content?: { parts?: Array<Record<string, any>> } }> })
-      ?.candidates?.[0]?.content?.parts ?? [];
-
-  for (const parte of partes) {
-    const dados = parte?.inlineData?.data;
-    if (typeof dados === 'string') return Buffer.from(dados, 'base64');
-  }
-
-  // Vale mostrar o texto: quando o modelo recusa, a razão vem por aqui e sem
-  // isso o erro seria só "sem imagem".
-  const texto = partes.map((p) => p?.text).filter(Boolean).join(' ');
-  throw new Error(`Gemini não devolveu imagem${texto ? `: ${texto}` : '.'}`);
 }
 
 /* -------------------------------------------------------------------------- */

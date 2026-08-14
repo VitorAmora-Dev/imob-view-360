@@ -215,15 +215,25 @@ specs deixarem de ser rodadas.
 
 ## Tratamento de panoramas com IA
 
-O anel de captura cobre cerca de ±47° de 180°: a câmera nunca aponta direto para
-cima nem para baixo, e sobram **~27% da esfera** que o stitcher só sabe preencher
-esticando a última linha coberta — o borrão no chão e no teto do tour. A etapa de
-IA pinta esse buraco, e só ele.
+O alvo são os dois defeitos que o corretor enxerga no tour: **paralaxe** (objeto
+duplicado ou com a borda quebrada na emenda, porque o celular não gira em torno
+do centro óptico) e **degrau na junção** das fotos. O modelo recebe o equirect
+montado pelo stitcher mais cada foto original como verdade de campo, e devolve o
+mesmo panorama reparado — uma chamada, `gpt-image-2`, em 3840×1920.
 
-**Roda sozinha.** Ao criar um panorama, `CreatePanoramaService` agenda o
-tratamento fora do request (leva ~90 s). Enquanto não termina, o tour serve o
-original; quando termina, passa a servir o tratado. Sem `GEMINI_API_KEY` nem
-`OPENAI_API_KEY` a etapa fica inerte e nada muda.
+Uma rota anterior decompunha o equirect em cubemap e só deixava a IA pintar onde
+não havia pixel fotografado. Era segura por construção e mediu bem, mas foi
+reprovada no olho: o chão e o teto recriados ficaram ruins. Ela continua viva no
+bake-off, abaixo, como registro da evidência.
+
+**Quem dispara.** O cliente, por `POST /virtual-tours/:id/montar`, depois de as
+fotos originais subirem — sem elas o modelo não tem referência e o panorama é
+dispensado. Os serviços de criação NÃO agendam nada: no instante em que o
+panorama nasce, ele ainda não tem nenhuma `captureFrame`. O andamento sai por
+`GET /virtual-tours/:id/montagem`, que é o que alimenta a tela de espera.
+
+Sem `OPENAI_API_KEY` a etapa fica inerte: tudo é encerrado em `SKIPPED` na hora,
+para a tela de espera não prender o corretor por algo que não vai acontecer.
 
 Para operar à mão — reprocessar, tratar capturas antigas, testar em campo:
 
@@ -231,18 +241,23 @@ Para operar à mão — reprocessar, tratar capturas antigas, testar em campo:
 yarn tratar-panorama --listar          # o que existe, sem gastar nada
 yarn tratar-panorama --id=7937c2d9     # aceita prefixo do UUID
 yarn tratar-panorama --pendentes       # tudo que ainda não foi tratado
-yarn tratar-panorama --pendentes --tentativas=1   # metade do custo
+yarn tratar-panorama --pendentes --refazer   # inclui falhas e interrompidos
 ```
 
 **Fidelidade.** O original nunca é sobrescrito: o resultado vai para
 `treatedImageData`, e a troca acontece na leitura (`panorama-image.ts`). Reverter
-é apagar uma coluna. Além disso, duas travas cobertas por spec impedem que o
-modelo reescreva o imóvel: `composeEquirect` devolve as quatro faces laterais
-byte a byte, e `recomporComPena` mantém o pixel fotografado fora do buraco,
-misturando os dois só numa faixa de 12 px.
+é apagar uma coluna. Trocar a foto de um cômodo (`PATCH /panoramas/:id` com
+`imageData`) limpa o tratamento junto, para o tour não continuar servindo o render
+do cômodo antigo.
 
-**Custo:** ~US$ 0,27 por panorama com um modelo e uma tentativa. O comando
-imprime o total previsto antes da primeira chamada.
+Nesta rota a imagem inteira passa pelo modelo, então não há trava geométrica como
+na antiga — o que segura a fidelidade são as fotos de referência e o prompt. A
+emenda da volta é a exceção: o modelo a quebra com frequência apesar de o prompt
+proibir, e por isso ela é reconciliada por aritmética (`volta.ts`), não por
+instrução.
+
+**Custo:** ~US$ 0,19 por panorama, uma chamada, uma única vez por panorama (não
+por visitante). O comando imprime o total previsto antes da primeira chamada.
 
 ---
 
@@ -267,9 +282,9 @@ volta, as quatro laterais são cópia byte a byte do original
 A fidelidade não depende de o modelo obedecer à máscara — o quanto ele desobedeceu
 vira métrica no relatório (`deriva`), não risco.
 
-Sem `GEMINI_API_KEY` nem `OPENAI_API_KEY` o script roda em modo medição e produz
-as faces, as máscaras, as imagens de buraco e o `RELATORIO.md`. Com `--gerar`, o
-custo previsto é impresso antes da primeira chamada.
+Sem `OPENAI_API_KEY` o script roda em modo medição e produz as faces, as
+máscaras, as imagens de buraco e o `RELATORIO.md`. Com `--gerar`, o custo
+previsto é impresso antes da primeira chamada.
 
 ---
 

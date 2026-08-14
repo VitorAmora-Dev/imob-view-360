@@ -73,21 +73,6 @@ export function mascaraParaAlfaEditavel(cobertura: Raster): Raster {
   return { data, width: cobertura.width, height: cobertura.height };
 }
 
-/**
- * Abre um buraco transparente na face onde não há fotografia. É assim que o
- * Gemini enxerga a região a preencher — ele não tem parâmetro de máscara, então
- * o recorte precisa estar na própria imagem.
- */
-export function furarPelaCobertura(face: Raster, cobertura: Raster): Raster {
-  const data = new Uint8ClampedArray(face.data);
-
-  for (let i = 0; i < data.length; i += 4) {
-    if (cobertura.data[i] <= 127) data[i + 3] = 0;
-  }
-
-  return { data, width: face.width, height: face.height };
-}
-
 /** Pinta de uma cor chapada o que está fora da cobertura — versão legível para contact sheet. */
 export function marcarBuraco(face: Raster, cobertura: Raster, cor: [number, number, number]): Raster {
   const data = new Uint8ClampedArray(face.data);

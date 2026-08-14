@@ -282,7 +282,16 @@ export class UploadTourPage {
         );
 
         await this.montarTour(tour);
-        this.router.navigate(['/inner-view-page', tour.id]);
+        // O id do IMÓVEL, não o do tour. `/inner-view-page/:id` resolve por
+        // `findProperty(id)` e só então carrega o tour de dentro dele — passar o
+        // id do tour dava 404 no imóvel e caía direto em "não foi possível
+        // carregar o tour virtual", logo depois da tela de montagem.
+        //
+        // Sem `state`: o imóvel recém-criado não traz `virtualTour` (o tour
+        // nasceu depois dele), e a página só sabe recarregar quando esse campo
+        // é exatamente `undefined` — vindo `null`, ela pararia numa tela vazia.
+        // Navegando limpo, ela busca o imóvel completo e acha o tour.
+        this.router.navigate(['/inner-view-page', property.id]);
         return;
       }
 

@@ -2,7 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { TreatPanoramaService } from '../src/modules/panoramas/services/treat-panorama.service';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
-import { CUSTO_POR_PANORAMA } from '../src/shared/imaging/montagem-360';
+import { CUSTO_POR_PANORAMA, MODELO } from '../src/shared/imaging/montagem-360';
 
 /**
  * Roda a etapa de IA sobre panoramas que já estão no banco.
@@ -17,6 +17,9 @@ import { CUSTO_POR_PANORAMA } from '../src/shared/imaging/montagem-360';
  *   yarn tratar-panorama --id=<uuid>        # um panorama específico
  *   yarn tratar-panorama --tour=<uuid>      # todos de um tour
  *   yarn tratar-panorama --pendentes --refazer   # inclui falhas e interrompidos
+ *
+ * O `imageData` original nunca é tocado, então retratar o mesmo panorama pode
+ * ser repetido à vontade — o que muda é só a coluna tratada.
  */
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
@@ -70,7 +73,7 @@ async function main(): Promise<void> {
 
   // O número aparece antes de gastar, não depois: uma chamada por panorama.
   console.log(
-    `${alvos.length} panorama(s) · gpt-image-2 · ` +
+    `${alvos.length} panorama(s) · ${MODELO} · ` +
       `${alvos.length} chamadas, ~US$ ${(alvos.length * CUSTO_POR_PANORAMA).toFixed(2)}.\n`,
   );
 
@@ -87,7 +90,11 @@ async function main(): Promise<void> {
     const detalhe =
       r.status === 'DONE'
         ? ` — ${r.fotos} fotos · volta ${r.saltoAntes.toFixed(1)}→${r.saltoDepois.toFixed(1)}`
-        : '';
+        : // Falha que passou da geração ainda entra na fatura; escondê-la aqui
+          // faria o total do rodapé parecer menor do que foi.
+          r.custoUSD > 0
+          ? ` — cobrada mesmo assim: US$ ${r.custoUSD.toFixed(2)}`
+          : '';
 
     console.log(`${r.status}${detalhe} (${(r.ms / 1000).toFixed(0)}s)`);
   }

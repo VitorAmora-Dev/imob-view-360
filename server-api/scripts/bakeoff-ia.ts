@@ -22,7 +22,6 @@ import {
 } from '../src/shared/imaging/coverage';
 import { RelatorioFotometrico, medirFotometria } from '../src/shared/imaging/fotometria';
 import {
-  GeminiImageProvider,
   ImageEditProvider,
   OpenAIImageProvider,
   ResultadoEdicao,
@@ -145,7 +144,7 @@ async function main(): Promise<void> {
   const catalogo = lerCatalogo();
   const capturas = await Promise.all(escolhidas.map((pasta) => montarCaptura(pasta, catalogo)));
 
-  const providers = [new GeminiImageProvider(), new OpenAIImageProvider()].filter((p) => {
+  const providers = [new OpenAIImageProvider()].filter((p) => {
     if (p.disponivel()) return true;
     console.log(`· ${p.nome}: sem chave configurada, será ignorado.`);
     return false;
@@ -153,7 +152,7 @@ async function main(): Promise<void> {
 
   if (gerar && providers.length === 0) {
     throw new Error(
-      '--gerar pedido mas nenhuma chave encontrada. Defina GEMINI_API_KEY e/ou OPENAI_API_KEY.',
+      '--gerar pedido mas nenhuma chave encontrada. Defina OPENAI_API_KEY.',
     );
   }
 
@@ -163,8 +162,7 @@ async function main(): Promise<void> {
     // retângulos existirem em cada `remendos.json`.
     const porProvider = seeds * POLE_FACES.length + 1;
     const chamadas = capturas.length * providers.length * porProvider;
-    // Cada provider tem o seu preço — o custo sai da soma deles, não de uma
-    // média chumbada que não descrevia nenhum dos dois.
+    // O custo sai do preço declarado pelo provider, não de uma média chumbada.
     const custo = capturas.length * porProvider * providers.reduce((s, p) => s + p.custoPorImagemUSD, 0);
     console.log(
       `\n! ${chamadas} chamadas previstas (~US$ ${custo.toFixed(2)}), ` +
@@ -666,7 +664,7 @@ function montarRelatorio(medicoes: MedicaoCaptura[], gerou: boolean): string {
       '',
       '## A e C — não executados',
       '',
-      'Rode `yarn bakeoff-ia --gerar` com `GEMINI_API_KEY` e/ou `OPENAI_API_KEY` definidas.',
+      'Rode `yarn bakeoff-ia --gerar` com `OPENAI_API_KEY` definida.',
       '',
     );
     return linhas.join('\n');
