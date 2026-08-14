@@ -1,0 +1,69 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-md);
+  background: var(--tw-surface);
+}
+
+h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tw-text-strong);
+}
+
+.tw-sum__cover {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--tw-radius-sm);
+  background-color: var(--tw-surface-track);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  // Mesma hachura do viewer sem imagem, para os dois estados vazios do wizard
+  // se lerem como a mesma coisa.
+  &.is-empty {
+    background-image: repeating-linear-gradient(
+      135deg,
+      #f1f2f4 0 10px,
+      #e9eaee 10px 20px
+    );
+  }
+}
+
+.tw-sum__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+
+  > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  dt {
+    font-size: 14px;
+    color: var(--tw-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 650;
+    color: var(--tw-text-strong);
+  }
+}
+
+.tw-sum__cover-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

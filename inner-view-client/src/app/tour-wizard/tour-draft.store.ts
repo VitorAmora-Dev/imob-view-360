@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import {
+  AddressDraft,
   EMPTY_PROPERTY,
   EQUIRECTANGULAR_RATIO,
   MAX_FILE_BYTES,
@@ -207,6 +208,26 @@ export class TourDraftStore {
   selectScene(id: string): void {
     this.selectedSceneId.set(id);
   }
+
+  // ---- imóvel ------------------------------------------------------------
+
+  patchProperty(patch: Partial<Omit<PropertyDraft, 'address'>>): void {
+    this.property.update((p) => ({ ...p, ...patch }));
+  }
+
+  patchAddress(patch: Partial<AddressDraft>): void {
+    this.property.update((p) => ({ ...p, address: { ...p.address, ...patch } }));
+  }
+
+  /**
+   * Endereço é tudo-ou-nada e é opcional: ou o corretor preencheu, ou o bloco
+   * inteiro fica de fora. Serve para não mandar à API um endereço pela metade,
+   * que é pior que endereço nenhum — vira imóvel que não aparece em busca por
+   * bairro e ninguém percebe.
+   */
+  readonly addressTouched = computed(() =>
+    Object.values(this.property().address).some((v) => v.trim() !== ''),
+  );
 
   /**
    * Mutador de baixo nível de uma cena.

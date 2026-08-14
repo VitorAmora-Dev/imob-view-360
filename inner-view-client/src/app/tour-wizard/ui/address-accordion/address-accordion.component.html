@@ -1,0 +1,104 @@
+<button
+  type="button"
+  class="tw-acc__head"
+  [attr.aria-expanded]="isOpen()"
+  aria-controls="tw-address-body"
+  (click)="toggle()">
+  <span class="tw-acc__title">{{ 'TOUR_WIZARD.STEP3.ADDRESS_TITLE' | translate }}</span>
+  <span class="tw-acc__badge">{{ 'TOUR_WIZARD.STEP3.ADDRESS_OPTIONAL' | translate }}</span>
+  <span class="tw-acc__chevron" [class.is-open]="isOpen()" aria-hidden="true">⌄</span>
+</button>
+
+@if (isOpen()) {
+  <div class="tw-acc__body" id="tw-address-body">
+    <div class="tw-acc__cep-row">
+      <label class="tw-field tw-field--cep">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.CEP_LABEL' | translate }}</span>
+        <input
+          type="text"
+          inputmode="numeric"
+          maxlength="9"
+          autocomplete="postal-code"
+          [placeholder]="'TOUR_WIZARD.STEP3.CEP_PLACEHOLDER' | translate"
+          [value]="store.property().address.zip"
+          (input)="onCepInput($event)"
+          (blur)="onCepBlur()" />
+      </label>
+
+      <!--
+        Os três estados que o protótipo não desenhou. `aria-live` porque o
+        resultado da consulta chega depois de o foco já ter saído do campo:
+        sem isso, quem usa leitor de tela não fica sabendo que o CEP não existe.
+      -->
+      <p class="tw-acc__hint" aria-live="polite">
+        @switch (cepState()) {
+          @case ('loading') { {{ 'TOUR_WIZARD.STEP3.CEP_LOADING' | translate }} }
+          @case ('notFound') {
+            <span class="is-error">{{ 'TOUR_WIZARD.STEP3.CEP_NOT_FOUND' | translate }}</span>
+          }
+          @case ('error') {
+            <span class="is-error">{{ 'TOUR_WIZARD.STEP3.CEP_ERROR' | translate }}</span>
+          }
+          @default { {{ 'TOUR_WIZARD.STEP3.CEP_HINT' | translate }} }
+        }
+      </p>
+    </div>
+
+    <div class="tw-acc__row tw-acc__row--2-1">
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.STREET' | translate }}</span>
+        <input
+          type="text"
+          autocomplete="address-line1"
+          [value]="store.property().address.street"
+          (input)="onField('street', $event)" />
+      </label>
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.NUMBER' | translate }}</span>
+        <input
+          #numberInput
+          type="text"
+          inputmode="numeric"
+          [value]="store.property().address.number"
+          (input)="onField('number', $event)" />
+      </label>
+    </div>
+
+    <div class="tw-acc__row tw-acc__row--1-1">
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.DISTRICT' | translate }}</span>
+        <input
+          type="text"
+          [value]="store.property().address.district"
+          (input)="onField('district', $event)" />
+      </label>
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.COMPLEMENT' | translate }}</span>
+        <input
+          type="text"
+          [value]="store.property().address.complement"
+          (input)="onField('complement', $event)" />
+      </label>
+    </div>
+
+    <div class="tw-acc__row tw-acc__row--2-1">
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.CITY' | translate }}</span>
+        <input
+          type="text"
+          autocomplete="address-level2"
+          [value]="store.property().address.city"
+          (input)="onField('city', $event)" />
+      </label>
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.STATE' | translate }}</span>
+        <input
+          type="text"
+          maxlength="2"
+          autocapitalize="characters"
+          [value]="store.property().address.state"
+          (input)="onState($event)" />
+      </label>
+    </div>
+  </div>
+}

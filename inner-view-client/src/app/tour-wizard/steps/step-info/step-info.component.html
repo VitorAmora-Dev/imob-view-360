@@ -1,0 +1,45 @@
+<header class="tw-step-head">
+  <h2>{{ 'TOUR_WIZARD.STEP3.TITLE' | translate }}</h2>
+  <p>{{ 'TOUR_WIZARD.STEP3.SUBTITLE' | translate }}</p>
+</header>
+
+<div class="tw-info">
+  <form class="tw-info__form" (submit)="$event.preventDefault()">
+    <label class="tw-field">
+      <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.NAME_LABEL' | translate }}</span>
+      <input
+        type="text"
+        autocomplete="off"
+        [placeholder]="'TOUR_WIZARD.STEP3.NAME_PLACEHOLDER' | translate"
+        [value]="store.property().name"
+        (input)="onName($event)" />
+    </label>
+
+    <!-- auto-fit: lado a lado quando cabe, empilhados quando não, sem media query. -->
+    <div class="tw-info__pair">
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.TYPE_LABEL' | translate }}</span>
+        <select [value]="store.property().type" (change)="onType($event)">
+          <option value="">{{ 'TOUR_WIZARD.STEP3.SELECT_EMPTY' | translate }}</option>
+          @for (t of types; track t) {
+            <option [value]="t">{{ 'UPLOAD.TYPE.' + t | translate }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="tw-field">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.PURPOSE_LABEL' | translate }}</span>
+        <select [value]="store.property().purpose" (change)="onPurpose($event)">
+          <option value="">{{ 'TOUR_WIZARD.STEP3.SELECT_EMPTY' | translate }}</option>
+          @for (p of purposes; track p) {
+            <option [value]="p">{{ 'UPLOAD.PURPOSE.' + p | translate }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <app-address-accordion />
+  </form>
+
+  <app-tour-summary />
+</div>
