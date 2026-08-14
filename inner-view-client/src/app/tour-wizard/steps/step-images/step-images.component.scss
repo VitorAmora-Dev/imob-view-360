@@ -1,0 +1,196 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* -- Utilitários ----------------------------------------------------------- */
+
+// Oculta sem tirar da ordem de tabulação — ao contrário de `display: none` e de
+// `visibility: hidden`, que removem o elemento do foco junto com a pintura.
+.tw-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tw-only-desktop {
+  @include tw.tw-mobile {
+    display: none;
+  }
+}
+
+.tw-only-mobile {
+  @include tw.tw-desktop {
+    display: none;
+  }
+}
+
+/* -- Dropzone -------------------------------------------------------------- */
+
+.tw-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 46px 24px;
+  border: 2px dashed var(--tw-border-dashed);
+  border-radius: var(--tw-radius-lg);
+  background: var(--tw-surface);
+  text-align: center;
+  cursor: pointer;
+  transition: var(--tw-ease-drop);
+
+  @include tw.tw-mobile {
+    padding: 34px 18px;
+  }
+
+  &.is-over {
+    border-color: var(--tw-brand);
+    background: var(--tw-brand-soft);
+  }
+
+  // O input escondido continua focável: sem realce visível, quem navega por
+  // teclado não sabe onde está.
+  &:focus-within {
+    border-color: var(--tw-brand);
+    outline: 2px solid var(--tw-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.tw-drop__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--tw-brand-soft);
+  color: var(--tw-brand);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.tw-drop__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--tw-text-strong);
+}
+
+.tw-drop__sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tw-text-muted);
+}
+
+.tw-drop__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+
+  @include tw.tw-mobile {
+    width: 100%;
+  }
+}
+
+.tw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--tw-tap-action);
+  padding: 0 22px;
+  border-radius: var(--tw-radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 0 0 auto;
+
+  // Empilhados e em largura total no mobile: lado a lado eles ficariam
+  // estreitos demais para o polegar.
+  @include tw.tw-mobile {
+    flex: 1 1 100%;
+  }
+}
+
+.tw-btn--primary {
+  border: 0;
+  background: var(--tw-brand);
+  color: #fff;
+  font-weight: 650;
+
+  &:hover {
+    background: var(--tw-brand-hover);
+  }
+}
+
+.tw-btn--bordered {
+  border: 1px solid var(--tw-border);
+  background: var(--tw-surface);
+  color: var(--tw-text-strong);
+
+  &:hover {
+    background: var(--tw-surface-hover);
+  }
+}
+
+.tw-drop__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 5px 11px;
+    border-radius: var(--tw-radius-pill);
+    background: var(--tw-surface-muted);
+    font-size: 12px;
+    color: var(--tw-text-muted);
+  }
+}
+
+/* -- Caixa de dica --------------------------------------------------------- */
+
+.tw-tip {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--tw-radius-sm);
+  background: var(--tw-surface-muted);
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--tw-text-muted);
+  }
+}
+
+.tw-tip__icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: var(--tw-text-faint);
+}
+
+/* -- Provisório (A8) ------------------------------------------------------- */
+
+.tw-scenes-draft {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--tw-text-muted);
+}

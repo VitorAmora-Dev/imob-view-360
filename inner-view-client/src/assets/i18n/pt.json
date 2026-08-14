@@ -186,7 +186,18 @@
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",
       "SUBTITLE": "Cada imagem vira um ambiente do tour. Você pode adicionar mais depois — para continuar, uma já basta.",
-      "EMPTY": "Nenhuma imagem ainda."
+      "EMPTY": "Nenhuma imagem ainda.",
+      "DROP_TITLE": "Arraste suas fotos 360° aqui",
+      "DROP_TITLE_MOBILE": "Adicione suas fotos 360°",
+      "DROP_SUB": "ou use uma das opções abaixo",
+      "DROP_SUB_MOBILE": "Envie do seu celular ou fotografe na hora",
+      "UPLOAD_FILES": "Enviar arquivos",
+      "TAKE_PHOTO": "Tirar foto agora",
+      "CHIP_FORMAT": "JPG equirretangular 2:1",
+      "CHIP_SIZE": "até 25 MB por foto",
+      "CHIP_MULTIPLE": "várias de uma vez",
+      "TIP": "Ao fotografar pelo celular, use o modo panorâmico da câmera ou uma câmera 360° pareada. Gire devagar mantendo o aparelho na altura do peito.",
+      "CAPTURED_ROOM": "Ambiente {{n}}"
     },
     "STEP2": {
       "TITLE": "Marque os pontos de interesse",

@@ -186,7 +186,18 @@
     "STEP1": {
       "TITLE": "Start with the 360° images",
       "SUBTITLE": "Each image becomes a room in the tour. You can add more later — one is enough to continue.",
-      "EMPTY": "No images yet."
+      "EMPTY": "No images yet.",
+      "DROP_TITLE": "Drag your 360° photos here",
+      "DROP_TITLE_MOBILE": "Add your 360° photos",
+      "DROP_SUB": "or use one of the options below",
+      "DROP_SUB_MOBILE": "Upload from your phone or shoot right now",
+      "UPLOAD_FILES": "Upload files",
+      "TAKE_PHOTO": "Take a photo now",
+      "CHIP_FORMAT": "2:1 equirectangular JPG",
+      "CHIP_SIZE": "up to 25 MB per photo",
+      "CHIP_MULTIPLE": "several at once",
+      "TIP": "When shooting with your phone, use the camera's panorama mode or a paired 360° camera. Turn slowly, keeping the device at chest height.",
+      "CAPTURED_ROOM": "Room {{n}}"
     },
     "STEP2": {
       "TITLE": "Mark the points of interest",

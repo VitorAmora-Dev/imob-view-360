@@ -1,0 +1,83 @@
+<header class="tw-step-head">
+  <h2>{{ 'TOUR_WIZARD.STEP1.TITLE' | translate }}</h2>
+  <p>{{ 'TOUR_WIZARD.STEP1.SUBTITLE' | translate }}</p>
+</header>
+
+<!--
+  O input NÃO é `display: none`. Escondido assim ele sai da ordem de tabulação,
+  e o dropzone deixa de existir para quem navega por teclado. Fica visualmente
+  oculto porém focável, com o <label> abaixo servindo de nome acessível: Tab
+  chega nele, o leitor anuncia "Enviar arquivos", Espaço abre o seletor.
+-->
+<input
+  #fileInput
+  id="tw-files"
+  class="tw-visually-hidden"
+  type="file"
+  accept="image/*"
+  multiple
+  (change)="onFiles($event)" />
+
+<section
+  class="tw-drop"
+  [class.is-over]="isDragOver()"
+  (click)="openFilePicker()"
+  (dragenter)="onDragEnter($event)"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)">
+  <span class="tw-drop__icon" aria-hidden="true">+</span>
+
+  <!--
+    O handoff usa textos diferentes em desktop e mobile ("Arraste suas fotos"
+    não faz sentido num celular). A troca é por CSS, não por JS: media query
+    não obriga a ler a largura da tela no componente.
+  -->
+  <h3 class="tw-drop__title">
+    <span class="tw-only-desktop">{{ 'TOUR_WIZARD.STEP1.DROP_TITLE' | translate }}</span>
+    <span class="tw-only-mobile">{{ 'TOUR_WIZARD.STEP1.DROP_TITLE_MOBILE' | translate }}</span>
+  </h3>
+  <p class="tw-drop__sub">
+    <span class="tw-only-desktop">{{ 'TOUR_WIZARD.STEP1.DROP_SUB' | translate }}</span>
+    <span class="tw-only-mobile">{{ 'TOUR_WIZARD.STEP1.DROP_SUB_MOBILE' | translate }}</span>
+  </p>
+
+  <!--
+    `$event.stopPropagation()` nos dois: sem isso o clique sobe até o card e
+    dispara o seletor de arquivos uma segunda vez.
+  -->
+  <div class="tw-drop__actions">
+    <label for="tw-files" class="tw-btn tw-btn--primary" (click)="$event.stopPropagation()">
+      <span aria-hidden="true">↑</span>
+      {{ 'TOUR_WIZARD.STEP1.UPLOAD_FILES' | translate }}
+    </label>
+
+    <button
+      type="button"
+      class="tw-btn tw-btn--bordered"
+      (click)="$event.stopPropagation(); openCapture()">
+      <span aria-hidden="true">◎</span>
+      {{ 'TOUR_WIZARD.STEP1.TAKE_PHOTO' | translate }}
+    </button>
+  </div>
+
+  <ul class="tw-drop__chips">
+    <li>{{ 'TOUR_WIZARD.STEP1.CHIP_FORMAT' | translate }}</li>
+    <li>{{ 'TOUR_WIZARD.STEP1.CHIP_SIZE' | translate }}</li>
+    <li>{{ 'TOUR_WIZARD.STEP1.CHIP_MULTIPLE' | translate }}</li>
+  </ul>
+</section>
+
+<aside class="tw-tip">
+  <span class="tw-tip__icon" aria-hidden="true">ⓘ</span>
+  <p>{{ 'TOUR_WIZARD.STEP1.TIP' | translate }}</p>
+</aside>
+
+<!-- TODO(A8): lista de ambientes com thumbnail, nome editável e badge de capa. -->
+@if (store.scenes().length) {
+  <ul class="tw-scenes-draft">
+    @for (scene of store.scenes(); track scene.id) {
+      <li>{{ scene.room }} — {{ scene.state }}</li>
+    }
+  </ul>
+}
