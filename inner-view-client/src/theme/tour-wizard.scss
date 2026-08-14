@@ -33,6 +33,15 @@
   --tw-text-faint: var(--app-muted-soft); //  handoff text/300  #8A8F98
   --tw-text-ghost: var(--app-border-strong); // handoff text/200 #C9CCD2
 
+  /* -- Aviso ------------------------------------------------------------- */
+  // NOVO. O amarelo de aviso do design system (--ion-color-warning #ffc409, e
+  // mesmo o shade #e0ac08) rende ~2:1 sobre branco: serve para preencher um
+  // ícone ou uma faixa, não para texto. Um aviso ilegível não avisa. Este âmbar
+  // escuro passa AA (~5.5:1) mantendo a leitura de "atenção", distinta do
+  // vermelho de erro.
+  --tw-warn-text: #8a6100;
+  --tw-warn-soft: #fdf6e3;
+
   /* -- Bordas e superfícies ---------------------------------------------- */
   --tw-border: var(--app-hairline); //          handoff border/default #E6E7EB
   --tw-border-subtle: var(--app-hairline-soft); //     border/subtle    #ECEDF0
