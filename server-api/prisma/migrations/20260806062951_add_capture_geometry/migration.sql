@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Panorama" ADD COLUMN     "bandBottomDeg" DOUBLE PRECISION,
+ADD COLUMN     "bandTopDeg" DOUBLE PRECISION,
+ADD COLUMN     "fittedVfovDeg" DOUBLE PRECISION;

@@ -15,8 +15,15 @@ import { GetThumbnailService } from './services/get-thumbnail.service';
 import { RecordShareService } from './services/record-share.service';
 import { RecordViewService } from './services/record-view.service';
 import { UpdateVirtualTourService } from './services/update-virtual-tour.service';
+import { MontarTourController } from './controllers/montar-tour.controller';
+import { MontarTourService } from './services/montar-tour.service';
+import { PanoramasModule } from '../panoramas/panoramas.module';
 
 @Module({
+  // Pelo TreatPanoramaService, de que o MontarTourService depende: o
+  // `POST /virtual-tours/:id/montar` é quem enfileira a etapa de IA, depois de
+  // as fotos originais da captura terem subido.
+  imports: [PanoramasModule],
   controllers: [
     CreateVirtualTourController,
     DeleteVirtualTourController,
@@ -26,6 +33,7 @@ import { UpdateVirtualTourService } from './services/update-virtual-tour.service
     RecordViewController,
     RecordShareController,
     GetAnalyticsController,
+    MontarTourController,
   ],
   providers: [
     CreateVirtualTourService,
@@ -36,6 +44,7 @@ import { UpdateVirtualTourService } from './services/update-virtual-tour.service
     RecordViewService,
     RecordShareService,
     GetAnalyticsService,
+    MontarTourService,
   ],
 })
 export class VirtualToursModule {}

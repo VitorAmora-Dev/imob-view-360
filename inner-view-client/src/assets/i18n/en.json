@@ -15,6 +15,38 @@
     "LINK_COPIED": "Tour link copied!",
     "SHARE_ERROR": "Could not share the link."
   },
+  "CAPTURE": {
+    "ADD_METHOD_TITLE": "Add 360° image",
+    "WITH_CAMERA": "Capture with camera",
+    "FROM_FILE": "Upload a file",
+    "INTRO_TITLE": "Guided 360° capture",
+    "INTRO_TEXT": "Turn slowly following the dots on screen. When the reticle sits inside a dot, hold still until the ring completes — that angle gets captured.",
+    "TRIPOD_HINT": "Hold the phone upright and turn around the phone itself, not around your body: keep the camera still in the air and rotate about it. Moving the phone away from the turning axis is what ruins the result — at arm's length the error is five times larger. A plain tripod helps but does not settle it: it turns the camera about the screw, not about the lens.",
+    "LENS": "Lens",
+    "LENS_TITLE": "Choose the lens",
+    "LENS_SUMMARY": "{{total}} photos. With this lens, {{share}}% of the panorama will be filled in by software.",
+    "LENS_COST": "{{share}}% invented",
+    "LENS_COST_LEGEND": "Whatever the lens cannot reach is filled in by software, with no real detail. Less is better.",
+    "SINGLE_LENS": "Your device offers a single rear camera.",
+    "START_RING": "Start capture",
+    "NARROW_FRAME_WARNING": "Your camera refused the 4:3 shape, so it sees less to the sides and the capture takes longer.",
+    "STEADY_HINT": "Move more slowly",
+    "START": "Start",
+    "CANCEL": "Cancel",
+    "PROGRESS": "Captures {{captured}} of {{total}}",
+    "ALIGN_HINT": "Move the reticle into the dot",
+    "HOLD_HINT": "Hold still…",
+    "STITCHING": "Building the panorama…",
+    "PREVIEW_TITLE": "Review the result",
+    "USE": "Use this panorama",
+    "RETAKE": "Retake",
+    "RETRY": "Try again",
+    "ERROR_TITLE": "Capture unavailable",
+    "CAMERA_ERROR": "The camera could not start. Check the browser permissions.",
+    "SENSOR_ERROR": "Motion sensors are unavailable or permission was denied.",
+    "STITCH_ERROR": "Failed to build the panorama. Please capture again.",
+    "SIM_BADGE": "Simulation"
+  },
   "PROFILE": {
     "TITLE": "My Profile",
     "STATS": {
@@ -97,6 +129,12 @@
       "CEP_NOT_FOUND": "CEP not found.",
       "CEP_LOOKUP_ERROR": "Failed to look up the CEP.",
       "REQUIRED_HINT": "Fill in street, city and state (2 letters) or leave the address empty."
+    },
+    "MONTAGEM": {
+      "TITULO": "Building your 360° tour",
+      "ENVIANDO": "Uploading the capture photos…",
+      "PROCESSANDO": "AI is fixing the seams and parallax…",
+      "AVISO": "This takes about a minute per room. Do not close the app."
     }
   },
   "INNER_VIEW": {

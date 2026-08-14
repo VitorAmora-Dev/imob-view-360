@@ -4,18 +4,24 @@ import { Router, ActivatedRoute } from '@angular/router';
 import {
   IonContent,
   IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonButton, IonIcon, IonSpinner,
-  AlertController, ToastController
+  ActionSheetController, AlertController, ModalController, ToastController
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
-import { eyeOutline, eyeOffOutline, cloudUploadOutline, downloadOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
+import { cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Property } from '../models/property.model';
 import { VirtualTour, Panorama } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
-import { VirtualTourService } from '../services/virtual-tour.service';
+import {
+  CaptureFrameUpload,
+  CaptureGeometry,
+  VirtualTourService,
+} from '../services/virtual-tour.service';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
+import { Capture360Component } from '../components/capture-360/capture-360.component';
+import { captureSupported } from '../components/capture-360/capture-support';
 import { dataUriToBlob, panoramaFilename, toPanoramaDataUri } from './panorama-download.util';
 
 @Component({
@@ -48,11 +54,13 @@ export class InnerViewPagePage implements OnInit {
   private propertyService = inject(PropertyService);
   private virtualTourService = inject(VirtualTourService);
   private alertController = inject(AlertController);
+  private actionSheetController = inject(ActionSheetController);
+  private modalController = inject(ModalController);
   private toastController = inject(ToastController);
   private translate = inject(TranslateService);
 
   constructor() {
-    addIcons({ eyeOutline, eyeOffOutline, cloudUploadOutline, downloadOutline, trashOutline, gitNetworkOutline, informationCircleOutline });
+    addIcons({ cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline });
   }
 
   ngOnInit() {
@@ -199,38 +207,91 @@ export class InnerViewPagePage implements OnInit {
     this.fileInput.nativeElement.click();
   }
 
+  async addImage() {
+    if (!captureSupported()) {
+      this.openFilePicker();
+      return;
+    }
+    const sheet = await this.actionSheetController.create({
+      header: this.translate.instant('CAPTURE.ADD_METHOD_TITLE'),
+      buttons: [
+        { text: this.translate.instant('CAPTURE.WITH_CAMERA'), icon: 'camera-outline', data: 'capture' },
+        { text: this.translate.instant('CAPTURE.FROM_FILE'), icon: 'image-outline', data: 'file' },
+        { text: this.translate.instant('INNER_VIEW.CANCEL'), role: 'cancel' },
+      ],
+    });
+    await sheet.present();
+    const { data } = await sheet.onDidDismiss();
+    if (data === 'capture') {
+      await this.openCapture();
+    } else if (data === 'file') {
+      this.openFilePicker();
+    }
+  }
+
+  private async openCapture() {
+    const modal = await this.modalController.create({
+      component: Capture360Component,
+      cssClass: 'capture-360-modal',
+    });
+    await modal.present();
+    const { role, data } = await modal.onDidDismiss<{
+      imageData: string;
+      frames: CaptureFrameUpload[];
+      geometry: CaptureGeometry | null;
+    }>();
+    if (role === 'confirm' && data?.imageData) {
+      await this.savePanorama(data.imageData, data.frames, data.geometry);
+    }
+  }
+
   async onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
-    if (!file || !this.property) return;
+    if (!file) return;
+    const imageData = await this.readFileAsDataUrl(file);
+    await this.savePanorama(imageData);
+  }
+
+  private async savePanorama(
+    imageData: string,
+    frames: CaptureFrameUpload[] = [],
+    geometry: CaptureGeometry | null = null,
+  ) {
+    if (!this.property) return;
 
     const roomName = await this.promptRoomName();
     if (!roomName) return;
 
     this.uploading = true;
     try {
-      const imageData = await this.readFileAsDataUrl(file);
-
       let tourId: string;
+      let panoramaId: string;
       if (this.tour) {
-        await firstValueFrom(this.virtualTourService.addPanorama(this.tour.id, {
+        const added = await firstValueFrom(this.virtualTourService.addPanorama(this.tour.id, {
           roomName,
           imageData,
           order: this.tour.panoramas.length,
+          ...(geometry ?? {}),
         }));
         tourId = this.tour.id;
+        panoramaId = added.id;
       } else {
         const created = await firstValueFrom(this.virtualTourService.createTour(this.property.id, [
-          { roomName, imageData, order: 0, initialPanorama: true },
+          { roomName, imageData, order: 0, initialPanorama: true, ...(geometry ?? {}) },
         ]));
         tourId = created.id;
+        panoramaId = created.panoramas[0].id;
         this.property.virtualTour = { id: created.id, status: created.status };
       }
 
       // Create endpoints omit imageData in the response, so re-fetch the full tour
       this.tour = await firstValueFrom(this.virtualTourService.findTour(tourId));
       this.showToast('INNER_VIEW.UPLOAD_SUCCESS', 'success');
+      // The archive is not the deliverable: the tour is already saved and shown
+      // before the originals start going up, and a failure there stays quiet.
+      void this.virtualTourService.uploadCaptureFrames(panoramaId, frames);
     } catch {
       this.showToast('INNER_VIEW.UPLOAD_ERROR', 'danger');
     } finally {

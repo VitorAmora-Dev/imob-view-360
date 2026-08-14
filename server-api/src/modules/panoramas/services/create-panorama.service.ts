@@ -15,7 +15,7 @@ export class CreatePanoramaService {
     });
     if (!tour) throw new NotFoundException('Virtual tour not found');
 
-    return this.prisma.$transaction(async (tx) => {
+    const criado = await this.prisma.$transaction(async (tx) => {
       const panorama = await tx.panorama.create({
         data: { ...panoramaData, virtualTourId: tourId },
       });
@@ -32,5 +32,14 @@ export class CreatePanoramaService {
         },
       });
     });
+
+    // A montagem por IA NÃO é disparada aqui, pelo mesmo motivo de
+    // `CreateVirtualTourService`: neste instante o panorama não tem nenhuma
+    // `captureFrame`, elas sobem depois em requisições próprias. Disparar agora
+    // marcaria SKIPPED na hora e — pior — deixaria o id na guarda de
+    // idempotência de `agendar`, transformando o `POST /virtual-tours/:id/montar`
+    // do cliente num no-op silencioso. Quem comanda é o cliente, quando o envio
+    // das fotos termina.
+    return criado;
   }
 }

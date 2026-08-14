@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { comImagemServivel } from '../../panoramas/panorama-image';
 
 @Injectable()
 export class FindVirtualTourService {
@@ -15,7 +16,8 @@ export class FindVirtualTourService {
         id: true, status: true, propertyId: true, createdAt: true, updatedAt: true,
         panoramas: {
           select: {
-            id: true, roomName: true, imageData: true, order: true, initialPanorama: true,
+            id: true, roomName: true, imageData: true, treatedImageData: true,
+            order: true, initialPanorama: true,
             originHotspots: {
               select: { id: true, label: true, positionX: true, positionY: true, targetId: true },
             },
@@ -28,6 +30,10 @@ export class FindVirtualTourService {
       },
     });
     if (!tour) throw new NotFoundException('Virtual tour not found');
-    return tour;
+
+    // O tour público recebe a melhor imagem disponível de cada cômodo, sem saber
+    // que houve tratamento — quem ainda não passou pela IA continua servindo o
+    // original.
+    return { ...tour, panoramas: tour.panoramas.map(comImagemServivel) };
   }
 }

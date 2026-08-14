@@ -1,0 +1,158 @@
+// Deliberately plain: this is a bench, not a screen anyone ships.
+.harness {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  font-family: system-ui, sans-serif;
+  color: #1c1c1e;
+  background: #fff;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+
+header p {
+  margin: 0 0 20px;
+  color: #555;
+  font-size: 14px;
+}
+
+code {
+  background: #f0f0f2;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.controls {
+  border: 1px solid #e0e0e4;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.picker span {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.loaded {
+  margin: 14px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.knobs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    gap: 4px;
+  }
+
+  input[type='number'],
+  select {
+    padding: 6px 8px;
+    border: 1px solid #c9c9cf;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  .check {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  &.ghost {
+    background: transparent;
+    color: #1c1c1e;
+    border: 1px solid #c9c9cf;
+  }
+}
+
+.error {
+  margin: 14px 0 0;
+  color: #b00020;
+  font-size: 14px;
+}
+
+.run {
+  border: 1px solid #e0e0e4;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+
+  h2 {
+    font-size: 15px;
+    margin: 0 0 12px;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    background: #000;
+  }
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px 20px;
+  margin: 0 0 14px;
+
+  div {
+    display: flex;
+    flex-direction: column;
+  }
+
+  dt {
+    font-size: 12px;
+    color: #666;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Three photographs in one direction is the defect, not a reading to weigh
+  // against the others: anything but zero here means an object is drawn twice.
+  .alarm--bad dd {
+    color: #b00020;
+    font-weight: 700;
+  }
+}

@@ -15,6 +15,38 @@
     "LINK_COPIED": "Link do tour copiado!",
     "SHARE_ERROR": "Não foi possível compartilhar o link."
   },
+  "CAPTURE": {
+    "ADD_METHOD_TITLE": "Adicionar imagem 360°",
+    "WITH_CAMERA": "Capturar com a câmera",
+    "FROM_FILE": "Enviar arquivo",
+    "INTRO_TITLE": "Captura 360° guiada",
+    "INTRO_TEXT": "Gire lentamente seguindo as bolinhas na tela. Quando a mira estiver dentro da bolinha, segure parado até o anel completar — a foto daquele ângulo será capturada.",
+    "TRIPOD_HINT": "Segure o celular em pé e gire em torno do próprio celular, não do seu corpo: mantenha a câmera parada no ar e rode em volta dela. Afastar o celular do eixo do giro é o que mais estraga o resultado — com o braço estendido o erro fica cinco vezes maior. Um tripé comum ajuda, mas não resolve sozinho: ele gira a câmera em torno do parafuso, não da lente.",
+    "LENS": "Lente",
+    "LENS_TITLE": "Escolha a lente",
+    "LENS_SUMMARY": "{{total}} fotos. Desta lente, {{share}}% do panorama será preenchido por software.",
+    "LENS_COST": "{{share}}% inventado",
+    "LENS_COST_LEGEND": "O que a lente não alcança é preenchido por software — sem detalhe real. Menos é melhor.",
+    "SINGLE_LENS": "Seu aparelho oferece uma única câmera traseira.",
+    "START_RING": "Iniciar captura",
+    "NARROW_FRAME_WARNING": "Sua câmera não aceitou o formato 4:3, então enxerga menos de lado e a captura fica mais longa.",
+    "STEADY_HINT": "Vá mais devagar",
+    "START": "Começar",
+    "CANCEL": "Cancelar",
+    "PROGRESS": "Capturas {{captured}} de {{total}}",
+    "ALIGN_HINT": "Leve a mira até a bolinha",
+    "HOLD_HINT": "Segure parado…",
+    "STITCHING": "Montando o panorama…",
+    "PREVIEW_TITLE": "Confira o resultado",
+    "USE": "Usar este panorama",
+    "RETAKE": "Refazer",
+    "RETRY": "Tentar novamente",
+    "ERROR_TITLE": "Não foi possível capturar",
+    "CAMERA_ERROR": "A câmera não pôde ser iniciada. Verifique as permissões do navegador.",
+    "SENSOR_ERROR": "Os sensores de movimento não estão disponíveis ou a permissão foi negada.",
+    "STITCH_ERROR": "Erro ao montar o panorama. Tente capturar novamente.",
+    "SIM_BADGE": "Simulação"
+  },
   "PROFILE": {
     "TITLE": "Meu Perfil",
     "STATS": {
@@ -97,6 +129,12 @@
       "CEP_NOT_FOUND": "CEP não encontrado.",
       "CEP_LOOKUP_ERROR": "Erro ao consultar o CEP.",
       "REQUIRED_HINT": "Preencha rua, cidade e UF (2 letras) ou deixe o endereço em branco."
+    },
+    "MONTAGEM": {
+      "TITULO": "Montando seu tour 360°",
+      "ENVIANDO": "Enviando as fotos da captura…",
+      "PROCESSANDO": "A IA está corrigindo as emendas e a paralaxe…",
+      "AVISO": "Isso leva cerca de um minuto por cômodo. Não feche o app."
     }
   },
   "INNER_VIEW": {

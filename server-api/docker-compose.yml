@@ -28,6 +28,10 @@ services:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      # Sem esta linha a montagem por IA fica inerte no container: a API sobe,
+      # aceita a captura e dispensa todo panorama em SKIPPED. O `:-` mantém o
+      # compose subindo sem a chave — o serviço já é opcional por construção.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy

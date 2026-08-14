@@ -137,12 +137,35 @@
           </ion-item>
         }
 
-        <ion-item button detail="false" lines="none" (click)="openFilePicker()">
+        <ion-item button detail="false" lines="none" (click)="addImage()">
           <ion-icon slot="start" name="add-circle-outline"></ion-icon>
           <ion-label>{{ 'UPLOAD.ADD_IMAGE' | translate }}</ion-label>
         </ion-item>
       </ion-list>
     </section>
+
+    @if (montagemEtapa) {
+      <!--
+        Cobre a página inteira: depois de mandar salvar, não há mais nada a fazer
+        aqui senão esperar, e um formulário ainda clicável convidaria a mexer no
+        que já foi enviado.
+      -->
+      <div class="montagem-overlay">
+        <ion-spinner name="crescent"></ion-spinner>
+        <h2>{{ 'UPLOAD.MONTAGEM.TITULO' | translate }}</h2>
+        <p>
+          @if (montagemEtapa === 'fotos') {
+            {{ 'UPLOAD.MONTAGEM.ENVIANDO' | translate }}
+          } @else {
+            {{ 'UPLOAD.MONTAGEM.PROCESSANDO' | translate }}
+          }
+        </p>
+        @if (montagemTotal > 1) {
+          <span class="montagem-progresso">{{ montagemProntos }} / {{ montagemTotal }}</span>
+        }
+        <small>{{ 'UPLOAD.MONTAGEM.AVISO' | translate }}</small>
+      </div>
+    }
 
     <div class="submit-container">
       @if (panoramas.length > 0) {

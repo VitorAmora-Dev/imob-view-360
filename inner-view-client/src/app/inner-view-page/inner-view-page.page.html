@@ -2,7 +2,7 @@
   <app-header backHref="/home" [pageTitle]="pageTitle" variant="overlay">
     <div headerActions class="viewer-actions">
       @if (property && !loading) {
-        <button type="button" class="viewer-action" (click)="openFilePicker()" [disabled]="uploading">
+        <button type="button" class="viewer-action" (click)="addImage()" [disabled]="uploading">
           @if (uploading) {
             <ion-spinner name="crescent"></ion-spinner>
           } @else {
@@ -106,7 +106,7 @@
   } @else {
     <div class="loading-container">
       <p>{{ 'INNER_VIEW.NO_TOUR' | translate }}</p>
-      <ion-button (click)="openFilePicker()" [disabled]="uploading">
+      <ion-button (click)="addImage()" [disabled]="uploading">
         <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
         {{ 'INNER_VIEW.UPLOAD_FIRST' | translate }}
       </ion-button>

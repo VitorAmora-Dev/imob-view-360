@@ -13,6 +13,13 @@ export const HotspotInputSchema = z.object({
   targetTempId: z.string().min(1),
 });
 
+/** Geometria da captura guiada; ausente quando o panorama veio de um arquivo. */
+export const CaptureGeometryShape = {
+  fittedVfovDeg: z.number().min(10).max(180).optional(),
+  bandTopDeg: z.number().min(-90).max(90).optional(),
+  bandBottomDeg: z.number().min(-90).max(90).optional(),
+};
+
 export const PanoramaInputSchema = z.object({
   tempId: z.string().min(1),
   roomName: z.string().min(1),
@@ -21,6 +28,7 @@ export const PanoramaInputSchema = z.object({
   initialPanorama: z.boolean().default(false),
   measurements: z.array(MeasurementInputSchema).default([]),
   hotspots: z.array(HotspotInputSchema).default([]),
+  ...CaptureGeometryShape,
 });
 
 export const CreateVirtualTourSchema = z.object({

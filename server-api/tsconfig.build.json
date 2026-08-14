@@ -1,4 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  // `scripts` roda por ts-node e nunca é servido; compilá-lo para `dist` é peso
+  // morto. A saída fica em `dist/src/` de qualquer forma, porque `prisma.config.ts`
+  // e o client gerado em `generated/` também vivem fora de `src` e puxam o
+  // rootDir inferido para a raiz — é daí que vem o caminho do `start:prod`.
+  "exclude": ["node_modules", "test", "dist", "scripts", "**/*spec.ts"]
 }

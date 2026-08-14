@@ -1,0 +1,380 @@
+// Immersive capture surface: black canvas like the 360° viewer, overlay
+// controls in the DESIGN.md over-photo language (white pills/circles, ink
+// text, Rausch reserved for the dwell progress and CTAs).
+
+.capture-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.preview {
+  position: absolute;
+  inset: 0;
+}
+
+.guide-overlay {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  user-select: none;
+}
+
+/* ---- Guidance geometry (JS drives the transforms) ---------------------- */
+
+.horizon {
+  position: absolute;
+  top: 50%;
+  left: -10%;
+  right: -10%;
+  border-top: 1.5px solid rgba(255, 255, 255, 0.55);
+  transition: border-color 150ms ease-out;
+
+  &.horizon--off {
+    border-top-color: var(--ion-color-primary);
+  }
+}
+
+.reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 9999px;
+  transition: border-color 150ms ease-out;
+
+  &.reticle--locked {
+    border-color: var(--ion-color-primary);
+  }
+}
+
+.target {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+
+  // The dot itself; the SVG ring around it shows the dwell progress.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.18);
+    transition: background-color 150ms ease-out, border-color 150ms ease-out;
+  }
+
+  &.target--locked::before {
+    border-color: var(--ion-color-primary);
+    background: rgba(255, 56, 92, 0.25);
+  }
+}
+
+.dwell {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+
+  circle {
+    fill: none;
+    stroke-width: 5;
+  }
+
+  .dwell-track {
+    stroke: rgba(255, 255, 255, 0.3);
+  }
+
+  .dwell-progress {
+    stroke: var(--ion-color-primary);
+    stroke-linecap: round;
+  }
+}
+
+// A rotating pointer instead of a fixed side chevron: with rings above and
+// below the horizon plus the two caps, the target can be in any direction.
+.edge-arrow-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  animation: edge-pulse 1s ease-in-out infinite;
+}
+
+.edge-arrow {
+  position: absolute;
+  // Sits on a circle around the reticle; the wrapper's rotation aims it.
+  left: 74px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-top: 3px solid #fff;
+  border-right: 3px solid #fff;
+  transform: rotate(45deg);
+}
+
+@keyframes edge-pulse {
+  50% { opacity: 0.35; }
+}
+
+/* ---- Chrome: top bar, hints, panels ------------------------------------ */
+
+.top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(12px + var(--ion-safe-area-top, 0px)) 16px 12px;
+}
+
+.top-bar-spacer {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.circle-control--overlay {
+  box-shadow: var(--app-shadow-tier);
+}
+
+.count-chip {
+  padding: 7px 16px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--app-ink);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--app-shadow-tier);
+  white-space: nowrap;
+}
+
+.bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px calc(20px + var(--ion-safe-area-bottom, 0px));
+}
+
+.hint-pill {
+  padding: 8px 18px;
+  border-radius: 9999px;
+  background: rgba(34, 34, 34, 0.72);
+  color: #fff;
+  font-size: 14px;
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+// Lens switcher in the language of a camera app: 0,5× / 1× / 2×
+.lens-picker {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: rgba(34, 34, 34, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.lens-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 68px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+
+  &--active {
+    background: #fff;
+    color: var(--app-ink);
+  }
+}
+
+.lens-chip-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/**
+ * The cost of the choice, in the units of the choice. Colour carries the same
+ * message as the number so the difference reads before it is parsed — an
+ * ultra-wide leaves about a third to software, a 1x leaves about a half.
+ */
+.lens-chip-cost {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+
+  &--good { color: #1f9d55; }
+  &--fair { color: #b7791f; }
+  &--poor { color: #c0392b; }
+}
+
+.lens-chip:not(.lens-chip--active) .lens-chip-cost {
+  // On the dark pill the same hues need lifting to stay legible.
+  &--good { color: #6ee7a8; }
+  &--fair { color: #f6c66b; }
+  &--poor { color: #ff8f7f; }
+}
+
+.lens-legend {
+  max-width: min(420px, 90vw);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- Lens step: live preview behind, choice in front ------------------- */
+
+.lens-step {
+  position: absolute;
+  inset: 0;
+  // Darkened so the chrome stays readable over any scene.
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 30%,
+    rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+.lens-step-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px calc(28px + var(--ion-safe-area-bottom, 0px));
+
+  ion-button {
+    min-width: 220px;
+  }
+}
+
+.lens-summary {
+  max-width: min(420px, 90vw);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+// Shown when the camera refused 4:3 and the capture will be much longer.
+.warn-pill {
+  max-width: min(420px, 90vw);
+  padding: 8px 16px;
+  border-radius: var(--app-radius-md);
+  background: rgba(193, 53, 21, 0.92);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+
+.sim-badge {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--ion-color-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+
+  h2 {
+    color: #fff;
+  }
+
+  p {
+    max-width: 340px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  ion-button {
+    width: min(280px, 80vw);
+    margin-top: 8px;
+  }
+
+  ion-spinner {
+    width: 44px;
+    height: 44px;
+    color: #fff;
+  }
+}
+
+.panel-icon {
+  font-size: 52px;
+  color: #fff;
+}
+
+.tripod-hint {
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+ion-button.on-dark {
+  --color: #fff;
+
+  &[fill='outline'] {
+    --border-color: rgba(255, 255, 255, 0.75);
+    --background: transparent;
+  }
+}
+
+/* ---- Result preview ----------------------------------------------------- */
+
+.result-viewer {
+  position: absolute;
+  inset: 0;
+}
+
+.result-actions {
+  position: absolute;
+  bottom: calc(20px + var(--ion-safe-area-bottom, 0px));
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+
+  ion-button {
+    min-width: 150px;
+  }
+}
