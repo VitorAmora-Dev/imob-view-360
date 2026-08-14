@@ -19,6 +19,36 @@ function viewerCamera(width = 1280, height = 720): THREE.PerspectiveCamera {
   return camera;
 }
 
+/** A mesma esfera que o `initThreeJS` do viewer monta. */
+function viewerSphere(): THREE.Mesh {
+  const geometry = new THREE.SphereGeometry(500, 120, 80);
+  geometry.scale(-1, 1, 1);
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+  mesh.updateMatrixWorld(true);
+  return mesh;
+}
+
+/**
+ * Reproduz exatamente o que `onCanvasClick` emite para um clique em (x, y) da
+ * tela — inclusive o `1 - uv.y`.
+ */
+function cliqueEm(
+  x: number,
+  y: number,
+  camera: THREE.PerspectiveCamera,
+  sphere: THREE.Mesh,
+  width: number,
+  height: number,
+): { positionX: number; positionY: number } {
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(
+    new THREE.Vector2((x / width) * 2 - 1, -(y / height) * 2 + 1),
+    camera,
+  );
+  const uv = raycaster.intersectObject(sphere)[0].uv!;
+  return { positionX: uv.x, positionY: 1 - uv.y };
+}
+
 describe('hotspotToWorld', () => {
   it('põe o ponto que a câmera encara por padrão em -Z', () => {
     const p = hotspotToWorld(0.75, 0.5);
@@ -34,20 +64,71 @@ describe('hotspotToWorld', () => {
     expect(p.z).toBeCloseTo(HOTSPOT_RADIUS, 4);
   });
 
-  it('v maior sobe — v=1 é o polo de cima, v=0 o de baixo', () => {
-    // Trava a inversão do eixo vertical, que é o erro mais fácil de cometer
-    // aqui. O viewer emite `positionY = 1 - uv.y` (panoramic-viewer:261) e
-    // `addHotspots` lê de volta com `theta = (1 - positionY) * PI`. Quem
-    // escrever `theta = v * PI` — o que o nome do campo `v` sugere — espelha
-    // todos os pins no equador e o bug passa despercebido em foto simétrica.
-    expect(hotspotToWorld(0.75, 1).y).toBeCloseTo(HOTSPOT_RADIUS, 4);
-    expect(hotspotToWorld(0.75, 0).y).toBeCloseTo(-HOTSPOT_RADIUS, 4);
+  it('v=0 é o polo de CIMA, v=1 o de baixo', () => {
+    // Não é arbitrário nem invertível ao gosto: o SphereGeometry do three.js
+    // grava `uv.y = 1 - v` com v=0 no topo, então o topo tem uv.y=1; e o
+    // viewer emite `positionY = 1 - uv.y`, o que devolve 0 no topo.
+    // Ver o teste de ida e volta abaixo, que é quem prova isso de fato.
+    expect(hotspotToWorld(0.75, 0).y).toBeCloseTo(HOTSPOT_RADIUS, 4);
+    expect(hotspotToWorld(0.75, 1).y).toBeCloseTo(-HOTSPOT_RADIUS, 4);
   });
 
-  it('acompanha a fórmula de addHotspots em u arbitrário', () => {
+  it('mapeia u direto na longitude', () => {
     // u=0 → phi=0 → +X ; u=0.5 → phi=PI → -X
     expect(hotspotToWorld(0, 0.5).x).toBeCloseTo(HOTSPOT_RADIUS, 4);
     expect(hotspotToWorld(0.5, 0.5).x).toBeCloseTo(-HOTSPOT_RADIUS, 4);
+  });
+});
+
+describe('ida e volta com o clique do viewer', () => {
+  // ESTE é o teste que importa. Um pin tem de nascer sob o dedo que o criou;
+  // qualquer outra convenção é opinião. Foi a falta dele que deixou passar um
+  // eixo vertical espelhado — a fórmula batia com a de `addHotspots`, que
+  // já estava errada.
+  const W = 1064;
+  const H = 599;
+
+  it('devolve o pin ao pixel exato do clique', () => {
+    const camera = viewerCamera(W, H);
+    const sphere = viewerSphere();
+
+    for (const [x, y] of [
+      [W * 0.3, H * 0.35],
+      [W * 0.5, H * 0.5],
+      [W * 0.7, H * 0.65],
+      [W * 0.4, H * 0.8],
+      [W * 0.62, H * 0.18],
+    ]) {
+      const { positionX, positionY } = cliqueEm(x, y, camera, sphere, W, H);
+      const volta = projectToScreen(
+        hotspotToWorld(positionX, positionY),
+        camera,
+        W,
+        H,
+      );
+
+      expect(volta).not.toBeNull();
+      expect(volta!.x).toBeCloseTo(x, 0);
+      expect(volta!.y).toBeCloseTo(y, 0);
+    }
+  });
+
+  it('mantém a ida e volta depois de girar a câmera', () => {
+    const camera = viewerCamera(W, H);
+    const sphere = viewerSphere();
+    camera.lookAt(-320, 140, -390);
+    camera.updateMatrixWorld(true);
+
+    const { positionX, positionY } = cliqueEm(W * 0.35, H * 0.7, camera, sphere, W, H);
+    const volta = projectToScreen(
+      hotspotToWorld(positionX, positionY),
+      camera,
+      W,
+      H,
+    );
+
+    expect(volta!.x).toBeCloseTo(W * 0.35, 0);
+    expect(volta!.y).toBeCloseTo(H * 0.7, 0);
   });
 });
 
@@ -73,11 +154,11 @@ describe('projectToScreen', () => {
     expect(point).toBeNull();
   });
 
-  it('projeta acima do centro o hotspot de v maior', () => {
+  it('projeta acima do centro o hotspot de v MENOR', () => {
     const camera = viewerCamera(1280, 720);
 
-    const acima = projectToScreen(hotspotToWorld(0.75, 0.62), camera, 1280, 720);
-    const abaixo = projectToScreen(hotspotToWorld(0.75, 0.38), camera, 1280, 720);
+    const acima = projectToScreen(hotspotToWorld(0.75, 0.38), camera, 1280, 720);
+    const abaixo = projectToScreen(hotspotToWorld(0.75, 0.62), camera, 1280, 720);
 
     expect(acima).not.toBeNull();
     expect(abaixo).not.toBeNull();

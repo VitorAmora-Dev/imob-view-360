@@ -90,8 +90,9 @@ describe('HotspotOverlayComponent', () => {
     expect(pins()[0].style.visibility).toBe('hidden');
   });
 
-  it('mostra acima do centro o hotspot de v maior', async () => {
-    host.hotspots.set([hs('alto', 0.75, 0.62), hs('baixo', 0.75, 0.38)]);
+  it('mostra acima do centro o hotspot de v MENOR', async () => {
+    // v=0 é o topo da esfera — ver a cadeia de conversão em hotspot-projection.
+    host.hotspots.set([hs('alto', 0.75, 0.38), hs('baixo', 0.75, 0.62)]);
     fixture.detectChanges();
     await frames();
 

@@ -35,14 +35,21 @@ export interface ScreenPoint {
  * Converte o par `(u, v)` de um `WizardHotspot` na posição 3D dentro da esfera.
  *
  * ATENÇÃO ao nome dos campos: apesar de `u`/`v`, `v` **não** é o V da UV do
- * three.js — é o `positionY` do backend, que o viewer já emite invertido
- * (`positionY = 1 - uv.y`, panoramic-viewer:261). Por isso `theta` leva o
- * `(1 - v)`, exatamente como `addHotspots` faz na volta. Trocar por `v * PI`
- * espelha todos os pins no equador.
+ * three.js. A cadeia é esta, e vale a pena seguir devagar:
+ *
+ * 1. `SphereGeometry` grava `uv.y = 1 - v_geom`, com `v_geom = 0` no polo de
+ *    cima. Ou seja: o topo da esfera tem `uv.y = 1`.
+ * 2. `onCanvasClick` emite `positionY = 1 - uv.y`. Ou seja: o topo vira 0.
+ *
+ * Logo `v = 0` é o TOPO, e `theta` (medido a partir de +Y) é `v * PI` direto.
+ *
+ * `addHotspots`, no mesmo componente, usa `theta = (1 - positionY) * PI` — e
+ * está errado desde sempre: renderiza espelhado no equador o ponto que o
+ * próprio clique dele gravou. Não copie de lá.
  */
 export function hotspotToWorld(u: number, v: number): THREE.Vector3 {
   const phi = u * 2 * Math.PI;
-  const theta = (1 - v) * Math.PI;
+  const theta = v * Math.PI;
 
   return new THREE.Vector3(
     HOTSPOT_RADIUS * Math.cos(phi) * Math.sin(theta),
