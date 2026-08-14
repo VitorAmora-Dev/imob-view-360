@@ -27,23 +27,11 @@
   }
 }
 
+// Aparência vem de `tour-wizard.scss`. Aqui fica só o que é desta barra.
 .tw-btn {
-  height: var(--tw-tap-action);
+  // Mais folga que o padrão: esta é a barra de ação principal, e o botão dela
+  // tem que ter presença maior que a de um botão dentro do conteúdo.
   padding: 0 28px;
-  border-radius: var(--tw-radius-sm);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.16s ease, color 0.16s ease;
-
-  // Um item flex não encolhe abaixo do próprio conteúdo por padrão
-  // (`min-width: auto`), então um rótulo comprido — outro idioma, ou uma chave
-  // de tradução que não resolveu — empurra o botão para fora da barra em vez de
-  // caber nela. Encolher e cortar é feio; vazar da tela é quebrado.
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 
   @include tw.tw-mobile {
     padding: 0 22px;
@@ -54,23 +42,9 @@
   }
 }
 
+// Ocupa a largura restante no mobile: é a ação primária da tela, e um botão
+// pequeno no canto de um alvo de polegar é convite a errar.
 .tw-btn--primary {
-  border: 0;
-  background: var(--tw-brand);
-  color: #fff;
-  font-weight: 650;
-
-  &:hover:not(:disabled) {
-    background: var(--tw-brand-hover);
-  }
-
-  &:disabled {
-    background: var(--tw-brand-disabled);
-    cursor: not-allowed;
-  }
-
-  // Ocupa a largura restante no mobile: é a ação primária da tela, e um botão
-  // pequeno no canto de um alvo de polegar é convite a errar.
   @include tw.tw-mobile {
     flex: 1;
   }
@@ -81,24 +55,4 @@
 .tw-btn--bordered,
 .tw-btn--ghost {
   flex: 0 0 auto;
-}
-
-.tw-btn--bordered {
-  border: 1px solid var(--tw-border);
-  background: var(--tw-surface);
-  color: var(--tw-text-strong);
-
-  &:hover {
-    background: var(--tw-surface-hover);
-  }
-}
-
-.tw-btn--ghost {
-  border: 0;
-  background: none;
-  color: var(--tw-text-muted);
-
-  &:hover {
-    color: var(--tw-text-strong);
-  }
 }

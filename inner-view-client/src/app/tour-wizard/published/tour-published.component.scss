@@ -72,36 +72,9 @@ h2 {
   }
 }
 
+// Aparência vem de `tour-wizard.scss`; aqui só o empilhamento das três ações.
 .tw-btn {
-  height: var(--tw-tap-action);
-  padding: 0 22px;
-  border-radius: var(--tw-radius-sm);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-
   @include tw.tw-mobile {
     flex: 1 1 100%;
-  }
-}
-
-.tw-btn--primary {
-  border: 0;
-  background: var(--tw-brand);
-  color: #fff;
-  font-weight: 650;
-
-  &:hover {
-    background: var(--tw-brand-hover);
-  }
-}
-
-.tw-btn--bordered {
-  border: 1px solid var(--tw-border);
-  background: var(--tw-surface);
-  color: var(--tw-text-strong);
-
-  &:hover {
-    background: var(--tw-surface-hover);
   }
 }

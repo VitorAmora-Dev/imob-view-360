@@ -8,20 +8,6 @@
 
 /* -- Utilitários ----------------------------------------------------------- */
 
-// Oculta sem tirar da ordem de tabulação — ao contrário de `display: none` e de
-// `visibility: hidden`, que removem o elemento do foco junto com a pintura.
-.tw-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 .tw-only-desktop {
   @include tw.tw-mobile {
     display: none;
@@ -104,44 +90,14 @@
   }
 }
 
+// Aparência vem de `tour-wizard.scss`; aqui só como eles se arrumam no dropzone.
 .tw-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: var(--tw-tap-action);
-  padding: 0 22px;
-  border-radius: var(--tw-radius-sm);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
   flex: 0 0 auto;
 
   // Empilhados e em largura total no mobile: lado a lado eles ficariam
   // estreitos demais para o polegar.
   @include tw.tw-mobile {
     flex: 1 1 100%;
-  }
-}
-
-.tw-btn--primary {
-  border: 0;
-  background: var(--tw-brand);
-  color: #fff;
-  font-weight: 650;
-
-  &:hover {
-    background: var(--tw-brand-hover);
-  }
-}
-
-.tw-btn--bordered {
-  border: 1px solid var(--tw-border);
-  background: var(--tw-surface);
-  color: var(--tw-text-strong);
-
-  &:hover {
-    background: var(--tw-surface-hover);
   }
 }
 
