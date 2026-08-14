@@ -36,6 +36,15 @@
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease;
 
+  // Um item flex não encolhe abaixo do próprio conteúdo por padrão
+  // (`min-width: auto`), então um rótulo comprido — outro idioma, ou uma chave
+  // de tradução que não resolveu — empurra o botão para fora da barra em vez de
+  // caber nela. Encolher e cortar é feio; vazar da tela é quebrado.
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
   @include tw.tw-mobile {
     padding: 0 22px;
   }
@@ -65,6 +74,13 @@
   @include tw.tw-mobile {
     flex: 1;
   }
+}
+
+// "Voltar" e "Pular" são curtos e não devem ceder espaço: quem encolhe quando
+// a barra aperta é o primário, que tem a maior folga.
+.tw-btn--bordered,
+.tw-btn--ghost {
+  flex: 0 0 auto;
 }
 
 .tw-btn--bordered {
