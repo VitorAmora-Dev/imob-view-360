@@ -100,11 +100,10 @@
     color: var(--ion-color-danger);
   }
 
-  // Ressalva não é erro: a cena vai ser publicada. Usa o tom de atenção do
-  // design system, não o vermelho de falha, senão o corretor apaga uma foto
-  // que estava boa.
+  // Ressalva não é erro: a cena vai ser publicada. Tom de atenção, não o
+  // vermelho de falha — senão o corretor apaga uma foto que estava boa.
   &.is-warning {
-    color: var(--ion-color-warning-shade);
+    color: var(--tw-warn-text);
   }
 }
 
