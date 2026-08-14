@@ -93,6 +93,100 @@
   --tw-ease-trash: transform 0.16s ease, background 0.16s ease;
 }
 
+/* -- Botões ---------------------------------------------------------------- */
+
+// A APARÊNCIA do botão mora aqui; o LAYOUT (quanto ele estica, se empilha, se
+// cede espaço) fica em cada componente, porque depende da barra em que ele está.
+//
+// Nasceu aqui depois de a mesma declaração aparecer copiada em três folhas de
+// componente e começar a divergir: só uma das cópias ganhou o `:disabled`, e só
+// uma ganhou a correção de rótulo comprido — de modo que o mesmo defeito já
+// estava de volta nas outras duas. Regra de aparência repetida é regra que só
+// vai ser corrigida uma vez de cada três.
+//
+// Este arquivo é global e sem encapsulamento, então componente que precisar
+// variar sobrescreve normalmente: seletor com atributo `_ngcontent` ganha em
+// especificidade.
+.tw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--tw-tap-action);
+  padding: 0 22px;
+  border-radius: var(--tw-radius-sm);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+
+  // Um item flex não encolhe abaixo do próprio conteúdo por padrão
+  // (`min-width: auto`), então um rótulo comprido — outro idioma, ou uma chave
+  // de tradução que não resolveu — empurra o botão para fora da barra em vez de
+  // caber nela. Encolher e cortar é feio; vazar da tela é quebrado.
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tw-btn--primary {
+  border: 0;
+  background: var(--tw-brand);
+  color: #fff;
+  font-weight: 650;
+
+  &:hover:not(:disabled) {
+    background: var(--tw-brand-hover);
+  }
+
+  &:disabled {
+    background: var(--tw-brand-disabled);
+    cursor: not-allowed;
+  }
+}
+
+.tw-btn--bordered {
+  border: 1px solid var(--tw-border);
+  background: var(--tw-surface);
+  color: var(--tw-text-strong);
+
+  &:hover {
+    background: var(--tw-surface-hover);
+  }
+}
+
+.tw-btn--ghost {
+  border: 0;
+  background: none;
+  color: var(--tw-text-muted);
+
+  &:hover {
+    color: var(--tw-text-strong);
+  }
+}
+
+/* -- Utilitários ----------------------------------------------------------- */
+
+// Oculta sem tirar da ordem de tabulação — ao contrário de `display: none` e de
+// `visibility: hidden`, que removem o elemento do foco junto com a pintura.
+//
+// Global pelo mesmo motivo dos botões: estava copiado em dois componentes, e o
+// terceiro que esquecesse a cópia renderizaria como texto visível um rótulo
+// escrito só para leitor de tela.
+.tw-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /// Anel de pulso atrás do dot do hotspot. Fica aqui, e não no componente do
 /// pin, porque `prefers-reduced-motion` precisa desligá-lo junto com as demais
 /// animações do wizard — e essa regra é do sistema, não de um componente.
