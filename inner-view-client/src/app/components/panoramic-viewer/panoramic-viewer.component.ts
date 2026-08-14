@@ -56,6 +56,39 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
   loading = true;
 
+  /**
+   * Câmera do three.js, para o overlay HTML de pins da etapa 2 projetar cada
+   * hotspot em coordenadas de tela. `null` até o init, que é adiado um tick.
+   */
+  get viewerCamera(): THREE.PerspectiveCamera | null {
+    return this.initialized ? this.camera : null;
+  }
+
+  /** Tamanho do canvas em px CSS — o denominador da projeção para a tela. */
+  get viewerSize(): { width: number; height: number } | null {
+    if (!this.initialized) return null;
+    const canvas = this.renderer.domElement;
+    return { width: canvas.clientWidth, height: canvas.clientHeight };
+  }
+
+  /**
+   * Assina um callback rodado ao fim de cada frame, já com a câmera atualizada
+   * pelo OrbitControls. Devolve a função que cancela.
+   *
+   * Deliberadamente NÃO é um `@Output`: um EventEmitter aqui dispararia change
+   * detection do Angular 60 vezes por segundo. Quem assina escreve direto no
+   * DOM. E é chamado de dentro deste laço, e não de um requestAnimationFrame
+   * próprio, para que os pins e a foto andem no mesmo frame — em laços
+   * separados eles saem de sincronia e os pins arrastam atrás no giro rápido.
+   */
+  onFrame(callback: () => void): () => void {
+    this.frameCallbacks.add(callback);
+    return () => {
+      this.frameCallbacks.delete(callback);
+    };
+  }
+
+  private readonly frameCallbacks = new Set<() => void>();
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
@@ -286,5 +319,6 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.animationFrameId = requestAnimationFrame(() => this.animate());
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    for (const callback of this.frameCallbacks) callback();
   }
 }

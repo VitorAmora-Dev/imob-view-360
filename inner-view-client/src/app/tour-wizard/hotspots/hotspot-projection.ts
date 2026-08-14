@@ -16,6 +16,15 @@ import * as THREE from 'three';
  */
 export const HOTSPOT_RADIUS = 490;
 
+/**
+ * Folga, em px, para além da borda do canvas antes de descartar um pin.
+ *
+ * Não é zero porque o pin tem largura: cortá-lo no instante em que o centro
+ * cruza a borda faria a pílula sumir de uma vez no meio do giro, em vez de
+ * deslizar para fora.
+ */
+export const DEFAULT_PIN_MARGIN = 96;
+
 /** Posição em pixels dentro do canvas, com origem no canto superior esquerdo. */
 export interface ScreenPoint {
   x: number;
@@ -69,4 +78,25 @@ export function projectToScreen(
     x: (ndc.x * 0.5 + 0.5) * width,
     y: (-ndc.y * 0.5 + 0.5) * height,
   };
+}
+
+/**
+ * Se o ponto vale a pena desenhar, dada a folga de `margin`.
+ *
+ * O overlay esconde em vez de remover do DOM: o nó do pin é criado pelo `@for`
+ * e vive enquanto o hotspot existir, porque recriá-lo a cada giro custaria mais
+ * do que deixá-lo invisível — e derrubaria o foco do teclado no meio da edição.
+ */
+export function isWithinCanvas(
+  point: ScreenPoint,
+  width: number,
+  height: number,
+  margin = DEFAULT_PIN_MARGIN,
+): boolean {
+  return (
+    point.x >= -margin &&
+    point.x <= width + margin &&
+    point.y >= -margin &&
+    point.y <= height + margin
+  );
 }

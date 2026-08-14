@@ -1,5 +1,10 @@
 import * as THREE from 'three';
-import { hotspotToWorld, projectToScreen, HOTSPOT_RADIUS } from './hotspot-projection';
+import {
+  hotspotToWorld,
+  projectToScreen,
+  isWithinCanvas,
+  HOTSPOT_RADIUS,
+} from './hotspot-projection';
 
 /**
  * Câmera montada igual à do `PanoramicViewerComponent.initThreeJS` — mesma fov,
@@ -94,5 +99,45 @@ describe('projectToScreen', () => {
     expect(girado).not.toBeNull();
     // Olhando mais para a esquerda, o ponto fixo desliza para a direita da tela.
     expect(girado!.x).toBeGreaterThan(parado!.x);
+  });
+});
+
+describe('isWithinCanvas', () => {
+  it('aceita o ponto no meio do canvas', () => {
+    expect(isWithinCanvas({ x: 640, y: 360 }, 1280, 720)).toBe(true);
+  });
+
+  it('recusa o ponto bem além da borda', () => {
+    expect(isWithinCanvas({ x: 1920, y: 360 }, 1280, 720)).toBe(false);
+    expect(isWithinCanvas({ x: -400, y: 360 }, 1280, 720)).toBe(false);
+    expect(isWithinCanvas({ x: 640, y: 1400 }, 1280, 720)).toBe(false);
+    expect(isWithinCanvas({ x: 640, y: -300 }, 1280, 720)).toBe(false);
+  });
+
+  it('aceita o ponto logo fora da borda, dentro da folga', () => {
+    // A pílula tem largura: cortar no instante em que o centro cruza a borda
+    // faria o pin sumir de uma vez no meio do giro, em vez de deslizar.
+    expect(isWithinCanvas({ x: 1280 + 40, y: 360 }, 1280, 720)).toBe(true);
+    expect(isWithinCanvas({ x: -40, y: 360 }, 1280, 720)).toBe(true);
+  });
+
+  it('respeita a folga passada', () => {
+    expect(isWithinCanvas({ x: 1500, y: 360 }, 1280, 720, 8)).toBe(false);
+    expect(isWithinCanvas({ x: 1500, y: 360 }, 1280, 720, 400)).toBe(true);
+  });
+
+  it('descarta o pin fora do enquadramento na câmera de verdade', () => {
+    // ~70° de desvio do eixo: ainda à frente da câmera, mas fora do frustum
+    // (meia-abertura horizontal ≈ 54° com fov 75 e aspect 16/9).
+    const camera = viewerCamera(1280, 720);
+    const ponto = projectToScreen(
+      hotspotToWorld(200 / 360, 0.5),
+      camera,
+      1280,
+      720,
+    );
+
+    expect(ponto).not.toBeNull();
+    expect(isWithinCanvas(ponto!, 1280, 720)).toBe(false);
   });
 });
