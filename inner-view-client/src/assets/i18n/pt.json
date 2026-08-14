@@ -166,5 +166,43 @@
     "HOTSPOT_ERROR": "Erro ao criar hotspot",
     "HOTSPOT_EDIT_HINT": "Clique no panorama para adicionar um ponto de navegação",
     "HOTSPOT_LIST_TITLE": "Pontos de navegação"
+  },
+  "TOUR_WIZARD": {
+    "COMMON": {
+      "TITLE": "Novo tour virtual",
+      "STEP_1": "Imagens 360°",
+      "STEP_2": "Hotspots",
+      "STEP_3": "Informações",
+      "STEP_OF": "Etapa {{step}} de 3",
+      "HINT_1": "Envie ao menos uma foto",
+      "HINT_2": "Opcional — pule se quiser",
+      "HINT_3": "Últimos detalhes",
+      "BACK": "Voltar",
+      "SKIP": "Pular",
+      "NEXT": "Próximo",
+      "PUBLISH": "Publicar tour",
+      "NEEDS_IMAGE": "Envie ao menos uma imagem 360° para continuar"
+    },
+    "STEP1": {
+      "TITLE": "Comece pelas imagens 360°",
+      "SUBTITLE": "Cada imagem vira um ambiente do tour. Você pode adicionar mais depois — para continuar, uma já basta.",
+      "EMPTY": "Nenhuma imagem ainda."
+    },
+    "STEP2": {
+      "TITLE": "Marque os pontos de interesse",
+      "SUBTITLE": "Clique sobre a imagem para criar um hotspot. Use-os para levar o visitante a outro ambiente. Esta etapa é opcional.",
+      "COUNT": "ponto(s)"
+    },
+    "STEP3": {
+      "TITLE": "Informações do imóvel",
+      "SUBTITLE": "Só o essencial agora. O endereço é opcional e pode ficar para depois.",
+      "SUMMARY_SCENES": "ambiente(s)",
+      "SUMMARY_HOTSPOTS": "hotspot(s)"
+    },
+    "SUCCESS": {
+      "TITLE": "Tour publicado",
+      "SUBTITLE": "Link pronto para enviar aos clientes. Você ainda pode editar ambientes e hotspots quando quiser.",
+      "CREATE_ANOTHER": "Criar outro tour"
+    }
   }
 }

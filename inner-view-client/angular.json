@@ -38,7 +38,8 @@
             "styles": [
               "node_modules/@fontsource-variable/inter/index.css",
               "src/global.scss",
-              "src/theme/variables.scss"
+              "src/theme/variables.scss",
+              "src/theme/tour-wizard.scss"
             ],
             "scripts": [],
             "browser": "src/main.ts"
@@ -119,7 +120,8 @@
             "styles": [
               "node_modules/@fontsource-variable/inter/index.css",
               "src/global.scss",
-              "src/theme/variables.scss"
+              "src/theme/variables.scss",
+              "src/theme/tour-wizard.scss"
             ],
             "scripts": []
           },

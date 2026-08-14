@@ -166,5 +166,43 @@
     "HOTSPOT_ERROR": "Failed to create hotspot",
     "HOTSPOT_EDIT_HINT": "Click the panorama to add a navigation point",
     "HOTSPOT_LIST_TITLE": "Navigation points"
+  },
+  "TOUR_WIZARD": {
+    "COMMON": {
+      "TITLE": "New virtual tour",
+      "STEP_1": "360° images",
+      "STEP_2": "Hotspots",
+      "STEP_3": "Details",
+      "STEP_OF": "Step {{step}} of 3",
+      "HINT_1": "Upload at least one photo",
+      "HINT_2": "Optional — skip if you like",
+      "HINT_3": "Final details",
+      "BACK": "Back",
+      "SKIP": "Skip",
+      "NEXT": "Next",
+      "PUBLISH": "Publish tour",
+      "NEEDS_IMAGE": "Upload at least one 360° image to continue"
+    },
+    "STEP1": {
+      "TITLE": "Start with the 360° images",
+      "SUBTITLE": "Each image becomes a room in the tour. You can add more later — one is enough to continue.",
+      "EMPTY": "No images yet."
+    },
+    "STEP2": {
+      "TITLE": "Mark the points of interest",
+      "SUBTITLE": "Click on the image to create a hotspot. Use them to take visitors to another room. This step is optional.",
+      "COUNT": "point(s)"
+    },
+    "STEP3": {
+      "TITLE": "Property details",
+      "SUBTITLE": "Just the essentials for now. The address is optional and can wait.",
+      "SUMMARY_SCENES": "room(s)",
+      "SUMMARY_HOTSPOTS": "hotspot(s)"
+    },
+    "SUCCESS": {
+      "TITLE": "Tour published",
+      "SUBTITLE": "Link ready to send to your clients. You can still edit rooms and hotspots whenever you want.",
+      "CREATE_ANOTHER": "Create another tour"
+    }
   }
 }

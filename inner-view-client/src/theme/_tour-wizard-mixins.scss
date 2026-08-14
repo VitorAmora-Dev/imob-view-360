@@ -1,0 +1,26 @@
+// Mixins do wizard de criação de tour (SPRINT-3-TOUR-WIZARD.md §4.1).
+//
+// CONGELADO junto com `tour-wizard.scss`: mudança só por PR para
+// `feature/tour-wizard`, com as duas frentes cientes.
+//
+// Só abstrações — este arquivo não emite uma linha de CSS. É por isso que os
+// componentes fazem `@use` daqui e não do arquivo de tokens: aquele tem um
+// bloco `:root`, que sairia duplicado dentro do CSS encapsulado de cada
+// componente que o carregasse.
+
+/// Ponto único de corte do responsivo.
+///
+/// O handoff sugere 768px, e é o mesmo valor em que a nav do topbar já some no
+/// resto do app. Usar sempre via mixin: media query solta espalhada pelos
+/// componentes é como as duas frentes acabam com breakpoints diferentes.
+@mixin tw-mobile {
+  @media (max-width: 767px) {
+    @content;
+  }
+}
+
+@mixin tw-desktop {
+  @media (min-width: 768px) {
+    @content;
+  }
+}

@@ -1,0 +1,233 @@
+// Shell do wizard. Commit-zero: estrutura e medidas do handoff, sem acabamento
+// — as tarefas A2 e A3 terminam stepper e barra de ação.
+//
+// Todo valor sai de `_tour-wizard.scss`. Se faltar um token, ele nasce lá, não
+// aqui: os hex soltos são exatamente como as duas frentes acabam com telas que
+// não combinam.
+
+@use '../../theme/tour-wizard-mixins' as tw;
+
+.tw-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  max-width: var(--tw-content-max);
+  margin: 0 auto;
+  background: var(--tw-surface-body);
+}
+
+/* -- Stepper --------------------------------------------------------------- */
+
+.tw-stepper {
+  padding: 18px 20px 0;
+  background: var(--tw-surface);
+}
+
+.tw-chips {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tw-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 0;
+  border-radius: var(--tw-radius-pill);
+  background: transparent;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  &.is-current {
+    background: var(--tw-brand-soft);
+  }
+
+  @include tw.tw-mobile {
+    padding: 6px;
+  }
+}
+
+.tw-chip__dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--tw-surface-track);
+  color: var(--tw-text-faint);
+  font-size: 12.5px;
+  font-weight: 700;
+
+  .is-current &,
+  .is-done & {
+    background: var(--tw-brand);
+    color: #fff;
+  }
+}
+
+.tw-chip__label {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--tw-text-muted);
+  white-space: nowrap;
+
+  .is-current & {
+    font-weight: 700;
+    color: var(--tw-text-strong);
+  }
+
+  // Em 375px os três rótulos não cabem numa linha. Só o da etapa atual fica —
+  // os demais viram dots numerados, que é informação suficiente.
+  @include tw.tw-mobile {
+    display: none;
+
+    .is-current & {
+      display: inline;
+    }
+  }
+}
+
+.tw-progress {
+  height: 4px;
+  margin-top: 14px;
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-surface-track);
+  overflow: hidden;
+}
+
+.tw-progress__fill {
+  height: 100%;
+  background: var(--tw-brand);
+  transition: var(--tw-ease-progress);
+}
+
+.tw-progress__meta {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 8px;
+  font-size: 12.5px;
+  color: var(--tw-text-faint);
+}
+
+/* -- Corpo ----------------------------------------------------------------- */
+
+.tw-body {
+  flex: 1;
+  padding: 26px 28px 34px;
+
+  @include tw.tw-mobile {
+    padding: 20px 16px 26px;
+  }
+}
+
+:host ::ng-deep .tw-step-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+
+  h2 {
+    font-size: 24px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    color: var(--tw-text-strong);
+  }
+
+  p {
+    max-width: 56ch;
+    font-size: 15px;
+    color: var(--tw-text-muted);
+    text-wrap: pretty;
+  }
+}
+
+/* -- Barra de ação --------------------------------------------------------- */
+
+.tw-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--tw-border-subtle);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.tw-actions__spacer {
+  flex: 1;
+}
+
+.tw-btn {
+  height: var(--tw-tap-action);
+  padding: 0 28px;
+  border-radius: var(--tw-radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+
+  @include tw.tw-mobile {
+    padding: 0 22px;
+  }
+}
+
+.tw-btn--primary {
+  border: 0;
+  background: var(--tw-brand);
+  color: #fff;
+  font-weight: 650;
+
+  &:hover:not(:disabled) {
+    background: var(--tw-brand-hover);
+  }
+
+  &:disabled {
+    background: var(--tw-brand-disabled);
+    cursor: not-allowed;
+  }
+
+  // No mobile ocupa a largura restante — é a ação primária da tela.
+  @include tw.tw-mobile {
+    flex: 1;
+  }
+}
+
+.tw-btn--ghost-bordered {
+  border: 1px solid var(--tw-border);
+  background: var(--tw-surface);
+  color: var(--tw-text-strong);
+
+  &:hover {
+    background: var(--tw-surface-hover);
+  }
+}
+
+.tw-btn--ghost {
+  border: 0;
+  background: none;
+  color: var(--tw-text-muted);
+
+  &:hover {
+    color: var(--tw-text-strong);
+  }
+}
+
+/* -- Sucesso --------------------------------------------------------------- */
+
+:host ::ng-deep .tw-published {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 10px;
+  text-align: center;
+}

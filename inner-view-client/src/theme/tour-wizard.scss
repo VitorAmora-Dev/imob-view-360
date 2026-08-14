@@ -1,0 +1,111 @@
+// Tokens do wizard de criação de tour (SPRINT-3-TOUR-WIZARD.md, §4.1).
+//
+// CONGELADO: depois do commit-zero, mudança aqui só por PR para
+// `feature/tour-wizard`, com as duas frentes cientes. As duas consomem estes
+// tokens; trocar um valor aqui mexe na tela do outro.
+//
+// O handoff de design traz uma paleta própria (brand #E8365D, text/900 #16181D,
+// etc). Quase toda ela já tem equivalente no design system do projeto — e o
+// próprio handoff manda adaptar quando existe. Cada linha abaixo declara de
+// onde veio: `-> --app-*` é reúso, `NOVO` é o que o wizard de fato acrescenta.
+//
+// Nada de hex solto nos componentes: se faltar um token, ele nasce aqui.
+//
+// Carregado uma vez, pela lista `styles` do angular.json — mesma convenção do
+// `variables.scss`. Os mixins ficam em `_tour-wizard-mixins.scss`, que os
+// componentes consomem por `@use`.
+
+:root {
+  /* -- Marca ------------------------------------------------------------- */
+  --tw-brand: var(--ion-color-primary); //         handoff brand/500  #E8365D
+  --tw-brand-hover: var(--ion-color-primary-shade); //    brand/600  #C31E45
+  --tw-brand-disabled: var(--app-primary-disabled); //  brand/disab. #F7C7D2
+  --tw-brand-soft: #fff0f3; // NOVO — handoff brand/100 #FDE7EC, reancorado na
+  //                           Rausch do projeto. Fundo do chip da etapa ativa,
+  //                           do ícone do dropzone, do badge "Capa".
+  --tw-brand-border: #ffc9d4; // NOVO — handoff brand/200, borda em hover
+  //                             destrutivo.
+
+  /* -- Texto ------------------------------------------------------------- */
+  --tw-text-strong: var(--app-ink); //        handoff text/900  #16181D
+  --tw-text: var(--app-body); //              handoff text/700  #3A3D45
+  --tw-text-muted: var(--app-muted); //       handoff text/500  #6B7079
+  --tw-text-faint: var(--app-muted-soft); //  handoff text/300  #8A8F98
+  --tw-text-ghost: var(--app-border-strong); // handoff text/200 #C9CCD2
+
+  /* -- Bordas e superfícies ---------------------------------------------- */
+  --tw-border: var(--app-hairline); //          handoff border/default #E6E7EB
+  --tw-border-subtle: var(--app-hairline-soft); //     border/subtle    #ECEDF0
+  --tw-border-dashed: var(--app-border-strong); //     border/dashed    #DADCE1
+  --tw-surface: #ffffff; //                           surface/card
+  --tw-surface-body: #fcfcfd; // NOVO — fundo da área de conteúdo do wizard
+  --tw-surface-muted: var(--app-surface-soft); //     surface/muted    #F4F5F7
+  --tw-surface-track: var(--app-surface-strong); //   surface/track    #EDEEF1
+  --tw-surface-hover: var(--app-surface-soft); //     surface/hover    #F7F7F9
+
+  /* -- Sobreposições (valores do handoff; não há equivalente no projeto) -- */
+  --tw-scrim: rgba(12, 14, 18, 0.45); //         scrim do bottom sheet
+  --tw-pin-bg: rgba(16, 18, 24, 0.78); //        pílula do hotspot
+  --tw-hint-bg: rgba(14, 16, 20, 0.72); //       balão de dica e lixeira
+  --tw-trash-active: rgba(232, 54, 93, 0.94); // lixeira com pin sobre ela
+  --tw-focus-ring: rgba(255, 56, 92, 0.2); //    anel de foco, 2px
+
+  /* -- Raios ------------------------------------------------------------- */
+  // O handoff usa nove raios distintos (7 a 22px). A escala do projeto tem
+  // cinco. Colapsados nos degraus mais próximos: a diferença de 1–2px não é
+  // perceptível e manter nove valores é dívida de manutenção sem retorno.
+  --tw-radius-pill: 999px;
+  --tw-radius-sheet: 22px 22px 0 0;
+  --tw-radius-lg: var(--app-radius-lg); //  20px — dropzone (handoff 18)
+  --tw-radius-md: var(--app-radius-md); //  14px — viewer, painéis, cards (16)
+  --tw-radius-sm: 12px; // NOVO — botões de 48px, inputs mobile (degrau que
+  //                       falta entre sm=8 e md=14; é o raio mais usado do
+  //                       handoff, não dá para colapsar)
+  --tw-radius-xs: var(--app-radius-sm); //   8px — inputs pequenos (9)
+
+  /* -- Sombras ----------------------------------------------------------- */
+  --tw-shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.22);
+  --tw-shadow-pin: 0 3px 12px rgba(0, 0, 0, 0.3);
+  --tw-shadow-pin-drag: 0 8px 22px rgba(0, 0, 0, 0.45);
+
+  /* -- Alvos de toque ---------------------------------------------------- */
+  // Piso de 44px no mobile, conforme o handoff. Não descer daqui.
+  --tw-tap-action: 48px; //  botões primários e secundários de ação
+  --tw-tap-round: 38px; //   botão circular (voltar, fechar)
+  --tw-tap-row: 56px; //     linha-resumo mobile
+
+  /* -- Layout ------------------------------------------------------------ */
+  --tw-content-max: 1120px;
+
+  /* -- Transições -------------------------------------------------------- */
+  --tw-ease-progress: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --tw-ease-drop: all 0.18s ease;
+  --tw-ease-pin: transform 0.14s ease, box-shadow 0.14s ease;
+  --tw-ease-trash: transform 0.16s ease, background 0.16s ease;
+}
+
+/// Anel de pulso atrás do dot do hotspot. Fica aqui, e não no componente do
+/// pin, porque `prefers-reduced-motion` precisa desligá-lo junto com as demais
+/// animações do wizard — e essa regra é do sistema, não de um componente.
+@keyframes tw-pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tw-ease-progress: none;
+    --tw-ease-drop: none;
+    --tw-ease-pin: none;
+    --tw-ease-trash: none;
+  }
+}

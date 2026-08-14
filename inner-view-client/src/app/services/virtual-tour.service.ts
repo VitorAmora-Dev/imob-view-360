@@ -4,11 +4,34 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { VirtualTour, Panorama } from '../models/virtual-tour.model';
 
+/**
+ * Um hotspot enviado junto do panorama que o origina.
+ *
+ * O destino vai como `targetTempId` porque, na hora do envio, nenhum panorama
+ * tem id ainda — todos nascem na mesma transação. O servidor monta um
+ * `Map<tempId, uuid>` enquanto cria os panoramas e só então amarra os hotspots.
+ */
+export interface HotspotUpload {
+  label?: string;
+  /** UV 0–1, o mesmo par que `PanoramicViewerComponent` emite. */
+  positionX: number;
+  positionY: number;
+  targetTempId: string;
+}
+
 export interface PanoramaUpload {
+  /**
+   * Identificador provisório, escolhido pelo cliente, usado pelos hotspots
+   * desta mesma requisição para apontar uns aos outros. Quando ausente,
+   * `createTour` gera um por índice.
+   */
+  tempId?: string;
   roomName: string;
   imageData: string;
   order?: number;
   initialPanorama?: boolean;
+  /** Criados junto com o panorama, numa transação só. */
+  hotspots?: HotspotUpload[];
   /** Present only for guided captures — see `CaptureGeometry`. */
   fittedVfovDeg?: number;
   bandTopDeg?: number;
