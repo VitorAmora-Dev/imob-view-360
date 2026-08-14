@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin:0; background:#F1F1F3; font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; -webkit-font-smoothing:antialiased; }
+  * { box-sizing: border-box; }
+  input, select, textarea, button { font-family: inherit; }
+  input:focus, select:focus { outline: 2px solid #E8365D33; border-color:#E8365D !important; }
+  a { color:#E8365D; text-decoration:none; }
+  a:hover { color:#C31E45; }
+  @keyframes pulseRing { 0%{ transform:scale(1); opacity:.55 } 70%{ transform:scale(2.1); opacity:0 } 100%{ opacity:0 } }
+</style>
+</helmet>
+
+<div style="min-height:100vh; padding:28px 20px 60px; display:flex; flex-direction:column; align-items:center; gap:18px">
+
+  <div style="display:flex; gap:6px; padding:5px; background:#fff; border:1px solid #E6E7EB; border-radius:999px">
+    <button onClick="{{ setDesktop }}" style="{{ tabDesktopStyle }}">Desktop</button>
+    <button onClick="{{ setMobile }}" style="{{ tabMobileStyle }}">Mobile</button>
+  </div>
+
+  <div style="{{ shellStyle }}">
+
+    <!-- Topbar -->
+    <div style="display:flex; align-items:center; gap:14px; padding:14px 20px; border-bottom:1px solid #ECEDF0; background:#fff; position:sticky; top:0; z-index:5">
+      <button style="width:38px; height:38px; min-width:38px; border-radius:999px; border:none; background:#F3F4F6; color:#16181D; font-size:16px; cursor:pointer" style-hover="background:#E7E8EC">←</button>
+      <div style="font-size:19px; font-weight:800; letter-spacing:-.02em; color:#E8365D">Inner View</div>
+      <div style="width:1px; height:22px; background:#E6E7EB"></div>
+      <div style="font-size:15px; color:#3A3D45; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Novo tour virtual</div>
+      <div style="flex:1"></div>
+      <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:center; gap:26px; font-size:14px; color:#5B5F69">
+          <span>Início</span>
+          <span>Meus imóveis</span>
+          <span style="color:#16181D; font-weight:650">Novo tour</span>
+        </div>
+      </sc-if>
+      <div style="font-size:13px; color:#8A8F98; white-space:nowrap">Rascunho salvo</div>
+    </div>
+
+    <!-- Stepper + progresso -->
+    <div style="padding:18px 20px 0; background:#fff">
+      <div style="display:flex; align-items:center; gap:10px">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+          <button onClick="{{ s.go }}" style="{{ s.chipStyle }}">
+            <span style="{{ s.dotStyle }}">{{ s.mark }}</span>
+            <span style="{{ s.labelStyle }}">{{ s.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="margin-top:14px; height:4px; background:#EDEEF1; border-radius:999px; overflow:hidden">
+        <div style="width: {{ progressPct }}; height:100%; background:#E8365D; border-radius:999px; transition:width .35s cubic-bezier(.4,0,.2,1)"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; padding:8px 0 0; font-size:12.5px; color:#8A8F98">
+        <span>{{ stepCounter }}</span>
+        <span>{{ stepHint }}</span>
+      </div>
+    </div>
+
+    <div style="{{ bodyStyle }}">
+
+      <!-- ETAPA 1 -->
+      <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; gap:20px">
+          <div>
+            <h2 style="margin:0 0 6px; font-size:24px; font-weight:750; letter-spacing:-.02em; color:#16181D">Comece pelas imagens 360°</h2>
+            <p style="margin:0; font-size:15px; color:#6B7079; max-width:56ch; text-wrap:pretty">Cada imagem vira um ambiente do tour. Você pode adicionar mais depois — para continuar, uma já basta.</p>
+          </div>
+
+          <div onClick="{{ pickFiles }}" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}" style="{{ dropStyle }}">
+            <div style="width:64px; height:64px; border-radius:999px; background:#FDE7EC; display:flex; align-items:center; justify-content:center; font-size:26px; color:#E8365D">+</div>
+            <div style="font-size:17px; font-weight:650; color:#16181D">{{ dropTitle }}</div>
+            <div style="font-size:14px; color:#6B7079">{{ dropSub }}</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:6px 0 2px; width:100%">
+              <button onClick="{{ pickFilesBtn }}" style="{{ uploadBtnStyle }}">
+                <span style="font-size:15px">↑</span> Enviar arquivos
+              </button>
+              <button onClick="{{ pickCamera }}" style="{{ cameraBtnStyle }}">
+                <span style="font-size:15px">◎</span> Tirar foto agora
+              </button>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:4px">
+              <span style="font-size:12px; color:#6B7079; background:#F4F5F7; border-radius:999px; padding:5px 11px">JPG equirretangular 2:1</span>
+              <span style="font-size:12px; color:#6B7079; background:#F4F5F7; border-radius:999px; padding:5px 11px">até 25 MB por foto</span>
+              <span style="font-size:12px; color:#6B7079; background:#F4F5F7; border-radius:999px; padding:5px 11px">várias de uma vez</span>
+            </div>
+          </div>
+          <input type="file" accept="image/*" multiple="{{ true }}" ref="{{ fileRef }}" onChange="{{ onFiles }}" style="display:none" />
+          <input type="file" accept="image/*" capture="environment" ref="{{ camRef }}" onChange="{{ onFiles }}" style="display:none" />
+
+          <div style="display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:12px; background:#F4F5F7">
+            <span style="font-size:14px; color:#8A8F98; line-height:1.4">ⓘ</span>
+            <p style="margin:0; font-size:13px; color:#6B7079; line-height:1.5; text-wrap:pretty">Ao fotografar pelo celular, use o modo panorâmico da câmera ou uma câmera 360° pareada. Gire devagar mantendo o aparelho na altura do peito.</p>
+          </div>
+
+          <sc-if value="{{ hasImages }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:12px">
+                <h3 style="margin:0; font-size:15px; font-weight:700; color:#16181D">Ambientes</h3>
+                <span style="font-size:13px; color:#8A8F98">{{ imagesCount }}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px">
+                <sc-for list="{{ images }}" as="img" hint-placeholder-count="2">
+                  <div style="display:flex; gap:12px; padding:10px; border:1px solid #E6E7EB; border-radius:14px; background:#fff; align-items:center">
+                    <div style="{{ img.thumbStyle }}"></div>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:6px">
+                      <input value="{{ img.room }}" onChange="{{ img.onRename }}" placeholder="Nome do ambiente" style="width:100%; border:1px solid #E6E7EB; border-radius:9px; padding:9px 10px; font-size:14px; color:#16181D" />
+                      <div style="display:flex; align-items:center; gap:8px">
+                        <span style="{{ img.badgeStyle }}">{{ img.badge }}</span>
+                        <span style="font-size:12px; color:#8A8F98; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ img.size }}</span>
+                      </div>
+                    </div>
+                    <button onClick="{{ img.onRemove }}" style="width:36px; height:36px; min-width:36px; border-radius:9px; border:1px solid #E6E7EB; background:#fff; color:#8A8F98; cursor:pointer; font-size:15px" style-hover="color:#E8365D; border-color:#F5C2CE">✕</button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ETAPA 2 -->
+      <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; gap:18px">
+          <div>
+            <h2 style="margin:0 0 6px; font-size:24px; font-weight:750; letter-spacing:-.02em; color:#16181D">Marque os pontos de interesse</h2>
+            <p style="margin:0; font-size:15px; color:#6B7079; max-width:56ch; text-wrap:pretty">Clique sobre a imagem para criar um hotspot. Use-os para levar o visitante a outro ambiente ou destacar um detalhe. Esta etapa é opcional.</p>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start">
+            <div style="flex:1 1 380px; min-width:0">
+              <div onClick="{{ addHotspot }}" ref="{{ viewerRef }}" style="{{ viewerStyle }}">
+                <sc-if value="{{ noImages }}" hint-placeholder-val="{{ false }}">
+                  <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#8A8F98; font-size:14px">
+                    <span style="font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px">panorama 360°</span>
+                    <span>Volte à etapa 1 para enviar uma imagem</span>
+                  </div>
+                </sc-if>
+                <sc-for list="{{ hotspots }}" as="h" hint-placeholder-count="0">
+                  <div style="{{ h.pinWrapStyle }}">
+                    <button onClick="{{ h.onPinClick }}" onPointerDown="{{ h.onPinDown }}" onPointerMove="{{ h.onPinMove }}" onPointerUp="{{ h.onPinUp }}" onPointerCancel="{{ h.onPinUp }}" onContextMenu="{{ preventDefault }}" title="{{ h.pinTitle }}" style="{{ h.pinStyle }}">
+                      <span style="{{ h.pinDotStyle }}">
+                        <span style="{{ h.pinRingStyle }}"></span>
+                        <span style="position:relative">{{ h.pinIcon }}</span>
+                      </span>
+                      <span style="{{ h.pinLabelStyle }}">{{ h.pinLabel }}</span>
+                    </button>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ notDragging }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:absolute; left:14px; bottom:14px; background:rgba(14,16,20,.72); color:#fff; font-size:12.5px; padding:8px 12px; border-radius:999px; backdrop-filter:blur(6px)">{{ viewerHint }}</div>
+                </sc-if>
+                <sc-if value="{{ pinDragging }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ trashStyle }}">
+                    <span style="font-size:20px">🗑</span>
+                    <span style="font-size:12.5px; font-weight:650">{{ trashLabel }}</span>
+                  </div>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ hasImages }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; gap:10px; margin-top:12px; overflow-x:auto; padding-bottom:4px">
+                  <sc-for list="{{ images }}" as="img" hint-placeholder-count="2">
+                    <button onClick="{{ img.onSelect }}" style="{{ img.railStyle }}">
+                      <span style="{{ img.railThumbStyle }}"></span>
+                      <span style="font-size:12.5px; color:#3A3D45; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ img.room }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ openList }}" style="{{ summaryRowStyle }}">
+                <span style="{{ summaryCountStyle }}">{{ hotspotsCount }}</span>
+                <span style="flex:1; min-width:0; text-align:left; font-size:14px; color:#3A3D45; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ summaryText }}</span>
+                <span style="font-size:13.5px; font-weight:650; color:#E8365D; white-space:nowrap">{{ summaryAction }}</span>
+              </button>
+            </sc-if>
+
+            <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:0 1 320px; min-width:280px; border:1px solid #E6E7EB; border-radius:16px; background:#fff; padding:16px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:baseline; justify-content:space-between">
+                <h3 style="margin:0; font-size:15px; font-weight:700; color:#16181D">Hotspots</h3>
+                <span style="font-size:13px; color:#8A8F98">{{ hotspotsCount }}</span>
+              </div>
+              <sc-if value="{{ noHotspots }}" hint-placeholder-val="{{ true }}">
+                <div style="border:1px dashed #DDDFE4; border-radius:12px; padding:18px; text-align:center; font-size:13.5px; color:#8A8F98; line-height:1.5">Nenhum ponto ainda.<br />Clique na imagem ao lado para criar o primeiro.</div>
+              </sc-if>
+              <sc-for list="{{ hotspots }}" as="h" hint-placeholder-count="0">
+                <div style="border:1px solid #E6E7EB; border-radius:12px; padding:11px; display:flex; flex-direction:column; gap:8px">
+                  <div style="display:flex; align-items:center; gap:9px">
+                    <span style="width:22px; height:22px; min-width:22px; border-radius:999px; background:#E8365D; color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center">{{ h.n }}</span>
+                    <input value="{{ h.label }}" onChange="{{ h.onLabel }}" placeholder="Título do ponto" style="flex:1; min-width:0; border:1px solid #E6E7EB; border-radius:9px; padding:8px 10px; font-size:13.5px" />
+                    <button onClick="{{ h.onRemove }}" style="width:32px; height:32px; min-width:32px; border-radius:8px; border:1px solid #E6E7EB; background:#fff; color:#8A8F98; cursor:pointer" style-hover="color:#E8365D; border-color:#F5C2CE">✕</button>
+                  </div>
+                  <div style="display:flex; gap:6px">
+                    <button onClick="{{ h.setNav }}" style="{{ h.navStyle }}">Ir para ambiente</button>
+                    <button onClick="{{ h.setInfo }}" style="{{ h.infoStyle }}">Informação</button>
+                  </div>
+                  <sc-if value="{{ h.isNav }}" hint-placeholder-val="{{ false }}">
+                    <label style="display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:600; color:#6B7079">Destino
+                      <select value="{{ h.target }}" onChange="{{ h.onTarget }}" style="border:1px solid #E6E7EB; border-radius:9px; padding:9px 10px; font-size:13.5px; background:#fff; color:#16181D; font-weight:400">
+                        <option value="">Selecione o ambiente…</option>
+                        <sc-for list="{{ h.targetOptions }}" as="o" hint-placeholder-count="0">
+                          <option value="{{ o.id }}">{{ o.room }}</option>
+                        </sc-for>
+                      </select>
+                    </label>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+          </div>
+
+          <!-- Bottom sheet mobile -->
+          <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:40; display:flex; flex-direction:column; justify-content:flex-end">
+              <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(12,14,18,.45)"></div>
+              <div style="position:relative; background:#fff; border-radius:22px 22px 0 0; padding:10px 16px 20px; max-height:72vh; overflow-y:auto; box-shadow:0 -10px 40px rgba(0,0,0,.22)">
+                <div style="display:flex; justify-content:center; padding:2px 0 12px"><span style="width:40px; height:4px; border-radius:999px; background:#DDDFE4"></span></div>
+
+                <sc-if value="{{ sheetIsEditor }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; flex-direction:column; gap:14px">
+                    <div style="display:flex; align-items:center; gap:10px">
+                      <span style="width:26px; height:26px; min-width:26px; border-radius:999px; background:#E8365D; color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center">{{ sheetSpot.n }}</span>
+                      <h3 style="margin:0; flex:1; font-size:17px; font-weight:700; color:#16181D">Ponto de interesse</h3>
+                      <button onClick="{{ closeSheet }}" style="width:36px; height:36px; border-radius:999px; border:none; background:#F3F4F6; color:#3A3D45; font-size:15px; cursor:pointer">✕</button>
+                    </div>
+
+                    <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:#3A3D45">Título
+                      <input value="{{ sheetSpot.label }}" onChange="{{ sheetSpot.onLabel }}" placeholder="Ex.: Sacada" style="border:1px solid #E6E7EB; border-radius:11px; padding:13px 14px; font-size:16px; font-weight:400" />
+                    </label>
+
+                    <div style="display:flex; flex-direction:column; gap:6px">
+                      <span style="font-size:13px; font-weight:600; color:#3A3D45">Tipo</span>
+                      <div style="display:flex; gap:8px">
+                        <button onClick="{{ sheetSpot.setNav }}" style="{{ sheetSpot.navStyleLg }}">Ir para ambiente</button>
+                        <button onClick="{{ sheetSpot.setInfo }}" style="{{ sheetSpot.infoStyleLg }}">Informação</button>
+                      </div>
+                    </div>
+
+                    <sc-if value="{{ sheetSpot.isNav }}" hint-placeholder-val="{{ true }}">
+                      <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:#3A3D45">Destino
+                        <select value="{{ sheetSpot.target }}" onChange="{{ sheetSpot.onTarget }}" style="border:1px solid #E6E7EB; border-radius:11px; padding:13px 14px; font-size:16px; background:#fff; color:#16181D; font-weight:400">
+                          <option value="">Selecione o ambiente…</option>
+                          <sc-for list="{{ sheetSpot.targetOptions }}" as="o" hint-placeholder-count="0">
+                            <option value="{{ o.id }}">{{ o.room }}</option>
+                          </sc-for>
+                        </select>
+                      </label>
+                    </sc-if>
+
+                    <div style="display:flex; gap:10px; padding-top:2px">
+                      <button onClick="{{ sheetSpot.onRemoveSheet }}" style="height:48px; padding:0 18px; border-radius:12px; border:1px solid #E6E7EB; background:#fff; color:#6B7079; font-size:15px; font-weight:600; cursor:pointer">Excluir</button>
+                      <button onClick="{{ sheetSpot.onGoSheet }}" style="{{ sheetSpot.goStyle }}">{{ sheetSpot.goLabel }}</button>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ sheetIsList }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; flex-direction:column; gap:10px">
+                    <div style="display:flex; align-items:center; gap:10px">
+                      <h3 style="margin:0; flex:1; font-size:17px; font-weight:700; color:#16181D">Hotspots deste ambiente</h3>
+                      <button onClick="{{ closeSheet }}" style="width:36px; height:36px; border-radius:999px; border:none; background:#F3F4F6; color:#3A3D45; font-size:15px; cursor:pointer">✕</button>
+                    </div>
+                    <sc-if value="{{ noHotspots }}" hint-placeholder-val="{{ true }}">
+                      <div style="border:1px dashed #DDDFE4; border-radius:12px; padding:22px; text-align:center; font-size:14px; color:#8A8F98; line-height:1.5">Nenhum ponto ainda.<br />Toque na imagem para criar o primeiro.</div>
+                    </sc-if>
+                    <sc-for list="{{ hotspots }}" as="h" hint-placeholder-count="0">
+                      <button onClick="{{ h.onOpenSheet }}" style="display:flex; align-items:center; gap:11px; width:100%; padding:13px 12px; border:1px solid #E6E7EB; border-radius:12px; background:#fff; cursor:pointer; text-align:left">
+                        <span style="width:26px; height:26px; min-width:26px; border-radius:999px; background:#E8365D; color:#fff; font-size:12.5px; font-weight:700; display:flex; align-items:center; justify-content:center">{{ h.n }}</span>
+                        <span style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                          <span style="{{ h.pinLabelStyle }}">{{ h.pinLabel }}</span>
+                          <span style="font-size:12.5px; color:#8A8F98; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ h.sheetMeta }}</span>
+                        </span>
+                        <span style="color:#C9CCD2; font-size:16px">›</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ETAPA 3 -->
+      <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-wrap:wrap; gap:20px; align-items:flex-start">
+          <div style="flex:1 1 420px; min-width:0; display:flex; flex-direction:column; gap:22px">
+            <div>
+              <h2 style="margin:0 0 6px; font-size:24px; font-weight:750; letter-spacing:-.02em; color:#16181D">Informações do imóvel</h2>
+              <p style="margin:0; font-size:15px; color:#6B7079; max-width:56ch; text-wrap:pretty">Só o essencial agora. O endereço é opcional e pode ficar para depois.</p>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:#3A3D45">Nome do imóvel
+                <input value="{{ nome }}" onChange="{{ onNome }}" placeholder="Ex.: Apartamento Vila Mariana, 82 m²" style="border:1px solid #E6E7EB; border-radius:11px; padding:13px 14px; font-size:15px; color:#16181D; font-weight:400" />
+              </label>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:14px">
+                <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:#3A3D45">Tipo
+                  <select style="border:1px solid #E6E7EB; border-radius:11px; padding:13px 14px; font-size:15px; color:#16181D; background:#fff; font-weight:400">
+                    <option>Apartamento</option>
+                    <option>Casa</option>
+                    <option>Sala comercial</option>
+                    <option>Terreno</option>
+                  </select>
+                </label>
+                <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:#3A3D45">Finalidade
+                  <select style="border:1px solid #E6E7EB; border-radius:11px; padding:13px 14px; font-size:15px; color:#16181D; background:#fff; font-weight:400">
+                    <option>Venda</option>
+                    <option>Locação</option>
+                    <option>Venda e locação</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div style="border:1px solid #E6E7EB; border-radius:14px; background:#fff; overflow:hidden">
+              <button onClick="{{ toggleAddr }}" style="width:100%; display:flex; align-items:center; gap:10px; padding:15px 16px; background:#fff; border:none; cursor:pointer; text-align:left">
+                <span style="flex:1; font-size:15px; font-weight:650; color:#16181D">Endereço</span>
+                <span style="font-size:12px; color:#8A8F98; background:#F4F5F7; padding:4px 9px; border-radius:999px">opcional</span>
+                <span style="{{ addrCaretStyle }}">⌄</span>
+              </button>
+              <sc-if value="{{ addrOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:0 16px 16px; display:flex; flex-direction:column; gap:12px; border-top:1px solid #ECEDF0">
+                  <div style="display:flex; gap:10px; align-items:flex-end; padding-top:14px">
+                    <label style="display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; color:#3A3D45; max-width:180px">CEP
+                      <input placeholder="00000-000" style="border:1px solid #E6E7EB; border-radius:11px; padding:12px 14px; font-size:15px; font-weight:400" />
+                    </label>
+                    <span style="font-size:13px; color:#8A8F98; padding-bottom:14px">preenchemos o resto pra você</span>
+                  </div>
+                  <div style="display:grid; grid-template-columns:2fr 1fr; gap:10px">
+                    <input placeholder="Rua" style="border:1px solid #E6E7EB; border-radius:11px; padding:12px 14px; font-size:15px" />
+                    <input placeholder="Número" style="border:1px solid #E6E7EB; border-radius:11px; padding:12px 14px; font-size:15px" />
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+                    <input placeholder="Bairro" style="border:1px solid #E6E7EB; border-radius:11px; padding:12px 14px; font-size:15px" />
+                    <input placeholder="Complemento" style="border:1px solid #E6E7EB; border-radius:11px; padding:12px 14px; font-size:15px" />
+                  </div>
+                  <div style="display:grid; grid-template-columns:2fr 1fr; gap:10px">
+                    <input placeholder="Cidade" style="border:1px solid #E6E7EB; border-radius:11px; padding:12px 14px; font-size:15px" />
+                    <input placeholder="UF" style="border:1px solid #E6E7EB; border-radius:11px; padding:12px 14px; font-size:15px" />
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <div style="flex:0 1 300px; min-width:270px; border:1px solid #E6E7EB; border-radius:16px; background:#fff; padding:16px; display:flex; flex-direction:column; gap:14px">
+            <h3 style="margin:0; font-size:15px; font-weight:700; color:#16181D">Resumo do tour</h3>
+            <div style="{{ summaryThumbStyle }}"></div>
+            <div style="display:flex; flex-direction:column; gap:9px; font-size:14px; color:#3A3D45">
+              <div style="display:flex; justify-content:space-between; gap:12px"><span style="color:#6B7079">Ambientes</span><span style="font-weight:650">{{ imagesCount }}</span></div>
+              <div style="display:flex; justify-content:space-between; gap:12px"><span style="color:#6B7079">Hotspots</span><span style="font-weight:650">{{ totalHotspots }}</span></div>
+              <div style="display:flex; justify-content:space-between; gap:12px"><span style="color:#6B7079">Capa</span><span style="font-weight:650; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ coverName }}</span></div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- SUCESSO -->
+      <sc-if value="{{ published }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; padding:36px 10px">
+          <div style="width:66px; height:66px; border-radius:999px; background:#FDE7EC; color:#E8365D; display:flex; align-items:center; justify-content:center; font-size:28px">✓</div>
+          <h2 style="margin:0; font-size:24px; font-weight:750; letter-spacing:-.02em; color:#16181D">Tour publicado</h2>
+          <p style="margin:0; font-size:15px; color:#6B7079; max-width:44ch">Link pronto para enviar aos clientes. Você ainda pode editar ambientes e hotspots quando quiser.</p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:6px">
+            <button style="height:48px; padding:0 22px; border-radius:12px; border:none; background:#E8365D; color:#fff; font-size:15px; font-weight:650; cursor:pointer" style-hover="background:#C31E45">Copiar link</button>
+            <button onClick="{{ restart }}" style="height:48px; padding:0 22px; border-radius:12px; border:1px solid #E6E7EB; background:#fff; color:#16181D; font-size:15px; font-weight:600; cursor:pointer" style-hover="background:#F7F7F9">Criar outro tour</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- Barra de ação -->
+    <sc-if value="{{ notPublished }}" hint-placeholder-val="{{ true }}">
+      <div style="position:sticky; bottom:0; display:flex; align-items:center; gap:12px; padding:14px 20px; border-top:1px solid #ECEDF0; background:rgba(255,255,255,.92); backdrop-filter:blur(8px)">
+        <button onClick="{{ back }}" style="{{ backStyle }}">Voltar</button>
+        <div style="flex:1"></div>
+        <sc-if value="{{ canSkip }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ next }}" style="height:48px; padding:0 16px; border-radius:12px; border:none; background:transparent; color:#6B7079; font-size:15px; font-weight:600; cursor:pointer" style-hover="color:#16181D">Pular</button>
+        </sc-if>
+        <button onClick="{{ next }}" disabled="{{ nextDisabled }}" aria-disabled="{{ nextDisabled }}" title="{{ nextTitle }}" style="{{ nextStyle }}">{{ nextLabel }}</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:940}}">
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.fileRef = React.createRef();
+    this.camRef = React.createRef();
+    this.viewerRef = React.createRef();
+    this.state = {
+      step: 1, viewport: "desktop", images: [], sel: 0, spots: {},
+      addrOpen: false, nome: "", published: false, drag: false, uid: 1, sheet: null
+    };
+  }
+
+  pick = () => { const el = this.fileRef.current; if (el) el.click(); };
+  shoot = () => { const el = this.camRef.current; if (el) el.click(); };
+
+  overTrash(e) {
+    const v = this.viewerRef.current; if (!v) return false;
+    const r = v.getBoundingClientRect();
+    return (e.clientY - r.top) > r.height - 96 && Math.abs((e.clientX - r.left) - r.width / 2) < 92;
+  }
+
+  addFiles = (files) => {
+    const list = Array.from(files || []).slice(0, 12);
+    if (!list.length) return;
+    this.setState(s => {
+      let uid = s.uid;
+      const add = list.map(f => ({
+        id: "i" + (uid++),
+        room: (f.name || "Ambiente").replace(/\.[^.]+$/, "").slice(0, 28),
+        size: f.size ? (f.size / 1048576).toFixed(1) + " MB" : "",
+        url: URL.createObjectURL(f)
+      }));
+      return { images: s.images.concat(add), uid };
+    });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const mobile = s.viewport === "mobile";
+    const imgs = s.images;
+    const cur = imgs[s.sel];
+    const spots = (cur && s.spots[cur.id]) || [];
+    const total = Object.keys(s.spots).reduce((n, k) => n + s.spots[k].length, 0);
+
+    const tab = (on) => ({
+      height: 34, padding: "0 16px", borderRadius: 999, border: "none", cursor: "pointer",
+      fontSize: 13.5, fontWeight: 600, background: on ? "#16181D" : "transparent", color: on ? "#fff" : "#6B7079"
+    });
+
+    const labels = ["Imagens 360°", "Hotspots", "Informações"];
+    const hints = ["Envie ao menos uma foto", "Opcional — pule se quiser", "Últimos detalhes"];
+
+    const steps = labels.map((label, i) => {
+      const n = i + 1;
+      const done = s.step > n, active = s.step === n;
+      const reachable = n <= s.step || (n === 2 && imgs.length) || (n === 3 && imgs.length);
+      return {
+        label, mark: done ? "✓" : String(n),
+        go: () => { if (reachable) this.setState({ step: n }); },
+        chipStyle: {
+          display: "flex", alignItems: "center", gap: 8, padding: mobile ? "6px" : "6px 12px 6px 6px",
+          borderRadius: 999, border: "none", cursor: reachable ? "pointer" : "default",
+          background: active ? "#FDE7EC" : "transparent", opacity: reachable ? 1 : .45, flex: mobile ? "0 0 auto" : "0 0 auto"
+        },
+        dotStyle: {
+          width: 26, height: 26, minWidth: 26, borderRadius: 999, display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 12.5, fontWeight: 700,
+          background: done ? "#E8365D" : active ? "#E8365D" : "#EDEEF1",
+          color: done || active ? "#fff" : "#8A8F98"
+        },
+        labelStyle: {
+          fontSize: 13.5, fontWeight: active ? 700 : 550, color: active ? "#16181D" : "#6B7079", whiteSpace: "nowrap",
+          display: mobile && !active ? "none" : "inline"
+        }
+      };
+    });
+
+    const images = imgs.map((im, i) => ({
+      room: im.room, size: im.size,
+      badge: i === 0 ? "Capa" : "Ambiente " + (i + 1),
+      badgeStyle: {
+        fontSize: 11.5, fontWeight: 650, padding: "3px 8px", borderRadius: 999,
+        background: i === 0 ? "#FDE7EC" : "#F4F5F7", color: i === 0 ? "#E8365D" : "#6B7079"
+      },
+      thumbStyle: {
+        width: 66, height: 50, minWidth: 66, borderRadius: 10, background: "#EDEEF1 center/cover no-repeat",
+        backgroundImage: "url(" + im.url + ")"
+      },
+      railStyle: {
+        display: "flex", alignItems: "center", gap: 8, padding: 6, borderRadius: 12, cursor: "pointer",
+        background: "#fff", border: "1px solid " + (i === s.sel ? "#E8365D" : "#E6E7EB"), flex: "0 0 auto"
+      },
+      railThumbStyle: {
+        width: 42, height: 32, borderRadius: 7, background: "#EDEEF1 center/cover no-repeat",
+        backgroundImage: "url(" + im.url + ")", display: "block"
+      },
+      onSelect: () => this.setState({ sel: i, sheet: null }),
+      onRename: (e) => { const v = e.target.value; this.setState(st => ({ images: st.images.map((x, j) => j === i ? Object.assign({}, x, { room: v }) : x) })); },
+      onRemove: (e) => { e.stopPropagation(); this.setState(st => ({ images: st.images.filter((_, j) => j !== i), sel: 0 })); }
+    }));
+
+    const setSpots = (fn) => this.setState(st => {
+      const key = cur.id, arr = (st.spots[key] || []);
+      return { spots: Object.assign({}, st.spots, { [key]: fn(arr) }) };
+    });
+
+    const hotspots = spots.map((h, i) => {
+      const isNav = h.type === "nav";
+      const tIdx = imgs.findIndex(im => im.id === h.target);
+      const hasTarget = isNav && tIdx > -1;
+      const name = (h.label || "").trim();
+    return {
+      n: i + 1, label: h.label, isNav,
+      target: h.target || "",
+      targetOptions: imgs.filter((_, j) => j !== s.sel).map(im => ({ id: im.id, room: im.room })),
+      onTarget: (e) => { const v = e.target.value; setSpots(a => a.map((x, j) => j === i ? Object.assign({}, x, { target: v }) : x)); },
+      hasTarget, targetName: hasTarget ? imgs[tIdx].room : "",
+      pinLabel: name || "Sem nome",
+      pinLabelStyle: {
+        maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        opacity: name ? 1 : .6, fontStyle: name ? "normal" : "italic"
+      },
+      pinIcon: isNav ? "→" : "i",
+      pinTitle: hasTarget ? "Abrir " + imgs[tIdx].room : isNav ? "Defina um destino no painel" : "Ponto de informação",
+      onPinClick: (e) => {
+        e.stopPropagation();
+        if (this._skipClick) { this._skipClick = false; return; }
+        if (hasTarget) this.setState({ sel: tIdx, sheet: null });
+        else if (mobile) this.setState({ sheet: { mode: "editor", i } });
+      },
+      onPinDown: (e) => {
+        if (!mobile) return;
+        e.stopPropagation();
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+        clearTimeout(this._hold);
+        this._hold = setTimeout(() => this.setState({ pinDrag: { i, over: false } }), 320);
+      },
+      onPinMove: (e) => {
+        if (!mobile) return;
+        if (!this.state.pinDrag) { clearTimeout(this._hold); return; }
+        e.stopPropagation();
+        const v = this.viewerRef.current; if (!v) return;
+        const r = v.getBoundingClientRect();
+        const x = Math.min(98, Math.max(2, ((e.clientX - r.left) / r.width) * 100));
+        const y = Math.min(96, Math.max(2, ((e.clientY - r.top) / r.height) * 100));
+        const over = this.overTrash(e);
+        setSpots(a => a.map((p, j) => j === i ? Object.assign({}, p, { x, y }) : p));
+        if (over !== this.state.pinDrag.over) this.setState({ pinDrag: { i, over } });
+      },
+      onPinUp: (e) => {
+        clearTimeout(this._hold);
+        if (!this.state.pinDrag) return;
+        e.stopPropagation();
+        this._skipClick = true;
+        const kill = this.overTrash(e);
+        this.setState({ pinDrag: null, sheet: null });
+        if (kill) setSpots(a => a.filter((_, j) => j !== i));
+      },
+      onOpenSheet: () => this.setState({ sheet: { mode: "editor", i } }),
+      onRemoveSheet: () => { setSpots(a => a.filter((_, j) => j !== i)); this.setState({ sheet: null }); },
+      onGoSheet: () => { if (hasTarget) this.setState({ sel: tIdx, sheet: null }); },
+      goLabel: hasTarget ? "Ir para " + imgs[tIdx].room : "Ver no tour",
+      goStyle: {
+        flex: 1, height: 48, borderRadius: 12, border: "none", fontSize: 15, fontWeight: 650,
+        background: hasTarget ? "#E8365D" : "#F7C7D2", color: "#fff",
+        cursor: hasTarget ? "pointer" : "not-allowed", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "0 14px"
+      },
+      navStyleLg: this.pill(isNav, 48), infoStyleLg: this.pill(h.type === "info", 48),
+      sheetMeta: isNav ? (hasTarget ? "Leva para " + imgs[tIdx].room : "Destino não definido") : "Ponto de informação",
+      pinStyle: {
+        display: "flex", alignItems: "center", gap: 8, padding: "5px 12px 5px 5px", borderRadius: 999,
+        border: "none", cursor: hasTarget ? "pointer" : "default", maxWidth: 240,
+        background: "rgba(16,18,24,.78)", color: "#fff", fontSize: 13, fontWeight: 600,
+        backdropFilter: "blur(6px)", whiteSpace: "nowrap", touchAction: "none", userSelect: "none",
+        boxShadow: s.pinDrag && s.pinDrag.i === i ? "0 8px 22px rgba(0,0,0,.45)" : "0 3px 12px rgba(0,0,0,.30)",
+        transform: s.pinDrag && s.pinDrag.i === i ? "scale(1.08)" : "none",
+        transition: "transform .14s ease, box-shadow .14s ease"
+      },
+      pinDotStyle: {
+        position: "relative", width: 26, height: 26, minWidth: 26, borderRadius: 999,
+        display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700,
+        background: isNav ? "#E8365D" : "#fff", color: isNav ? "#fff" : "#16181D"
+      },
+      pinRingStyle: {
+        position: "absolute", inset: 0, borderRadius: 999, background: isNav ? "#E8365D" : "#fff",
+        animation: hasTarget ? "pulseRing 2.4s ease-out infinite" : "none"
+      },
+      pinWrapStyle: { position: "absolute", left: h.x + "%", top: h.y + "%", transform: "translate(-50%,-50%)" },
+      navStyle: this.pill(isNav), infoStyle: this.pill(h.type === "info"),
+      setNav: () => setSpots(a => a.map((x, j) => j === i ? Object.assign({}, x, { type: "nav" }) : x)),
+      setInfo: () => setSpots(a => a.map((x, j) => j === i ? Object.assign({}, x, { type: "info" }) : x)),
+      onLabel: (e) => { const v = e.target.value; setSpots(a => a.map((x, j) => j === i ? Object.assign({}, x, { label: v }) : x)); },
+      onRemove: () => setSpots(a => a.filter((_, j) => j !== i))
+    }; });
+
+    const canNext = s.step > 1 || imgs.length > 0;
+
+    return {
+      isDesktop: !mobile,
+      setDesktop: () => this.setState({ viewport: "desktop" }),
+      setMobile: () => this.setState({ viewport: "mobile" }),
+      tabDesktopStyle: tab(!mobile), tabMobileStyle: tab(mobile),
+      shellStyle: {
+        width: "100%", maxWidth: mobile ? 402 : 1120, background: "#fff", borderRadius: mobile ? 30 : 20,
+        border: "1px solid #E6E7EB", boxShadow: "0 18px 50px rgba(16,18,24,.10)", overflow: "hidden",
+        display: "flex", flexDirection: "column", minHeight: mobile ? 780 : 700, position: "relative"
+      },
+      bodyStyle: { flex: 1, padding: mobile ? "20px 16px 26px" : "26px 28px 34px", background: "#FCFCFD" },
+
+      steps, progressPct: (s.published ? 100 : (s.step / 3) * 100) + "%",
+      stepCounter: "Etapa " + s.step + " de 3",
+      stepHint: hints[s.step - 1],
+      isStep1: !s.published && s.step === 1,
+      isStep2: !s.published && s.step === 2,
+      isStep3: !s.published && s.step === 3,
+      published: s.published, notPublished: !s.published,
+
+      fileRef: this.fileRef, camRef: this.camRef, pickFiles: this.pick,
+      pickFilesBtn: (e) => { e.stopPropagation(); this.pick(); },
+      pickCamera: (e) => { e.stopPropagation(); this.shoot(); },
+      dropTitle: mobile ? "Adicione suas fotos 360°" : "Arraste suas fotos 360° aqui",
+      dropSub: mobile ? "Envie do seu celular ou fotografe na hora" : "ou use uma das opções abaixo",
+      uploadBtnStyle: {
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48,
+        padding: "0 20px", borderRadius: 12, border: "none", background: "#E8365D", color: "#fff",
+        fontSize: 15, fontWeight: 650, cursor: "pointer", flex: mobile ? "1 1 100%" : "0 0 auto"
+      },
+      cameraBtnStyle: {
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8, height: 48,
+        padding: "0 20px", borderRadius: 12, border: "1px solid #E6E7EB", background: "#fff",
+        color: "#16181D", fontSize: 15, fontWeight: 600, cursor: "pointer", flex: mobile ? "1 1 100%" : "0 0 auto"
+      },
+      onFiles: (e) => this.addFiles(e.target.files),
+      onDragOver: (e) => { e.preventDefault(); if (!s.drag) this.setState({ drag: true }); },
+      onDragLeave: () => this.setState({ drag: false }),
+      onDrop: (e) => { e.preventDefault(); this.setState({ drag: false }); this.addFiles(e.dataTransfer.files); },
+      dropStyle: {
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center",
+        padding: mobile ? "34px 18px" : "46px 24px", borderRadius: 18, cursor: "pointer",
+        border: "2px dashed " + (s.drag ? "#E8365D" : "#DADCE1"),
+        background: s.drag ? "#FFF5F7" : "#fff", transition: "all .18s ease"
+      },
+      hasImages: imgs.length > 0, noImages: imgs.length === 0,
+      images, imagesCount: imgs.length + (imgs.length === 1 ? " imagem" : " imagens"),
+
+      viewerStyle: {
+        position: "relative", width: "100%", aspectRatio: mobile ? "4 / 3" : "16 / 9", borderRadius: 16,
+        overflow: "hidden", cursor: cur ? "crosshair" : "default",
+        background: cur ? "#111 center/cover no-repeat" : "repeating-linear-gradient(135deg,#F1F2F4 0 10px,#E9EAEE 10px 20px)",
+        backgroundImage: cur ? "url(" + cur.url + ")" : undefined,
+        border: "1px solid #E6E7EB"
+      },
+      viewerHint: cur ? (mobile ? "Toque para criar · segure um ponto para mover ou excluir" : "Clique para adicionar um ponto · arraste para girar") : "Sem imagem selecionada",
+      addHotspot: (e) => {
+        if (!cur) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width) * 100, y = ((e.clientY - r.top) / r.height) * 100;
+        setSpots(a => a.concat([{ x, y, label: "", type: "nav", target: "" }]));
+        if (mobile) this.setState({ sheet: { mode: "editor", i: spots.length } });
+      },
+      hotspots, hotspotsCount: spots.length, noHotspots: spots.length === 0,
+      isMobile: mobile,
+      viewerRef: this.viewerRef,
+      preventDefault: (e) => e.preventDefault(),
+      pinDragging: !!s.pinDrag,
+      notDragging: !s.pinDrag,
+      trashLabel: s.pinDrag && s.pinDrag.over ? "Solte para excluir" : "Arraste até aqui",
+      trashStyle: {
+        position: "absolute", left: "50%", bottom: 16, transform: "translateX(-50%) scale(" + (s.pinDrag && s.pinDrag.over ? 1.12 : 1) + ")",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 3, width: 150, padding: "12px 0",
+        borderRadius: 16, color: "#fff", transition: "transform .16s ease, background .16s ease",
+        background: s.pinDrag && s.pinDrag.over ? "rgba(232,54,93,.94)" : "rgba(14,16,20,.72)",
+        backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.22)", pointerEvents: "none"
+      },
+      sheetOpen: mobile && !!s.sheet,
+      sheetIsEditor: !!(s.sheet && s.sheet.mode === "editor" && hotspots[s.sheet.i]),
+      sheetIsList: !!(s.sheet && s.sheet.mode === "list"),
+      sheetSpot: (s.sheet && hotspots[s.sheet.i]) || {},
+      openList: () => this.setState({ sheet: { mode: "list" } }),
+      closeSheet: () => this.setState({ sheet: null }),
+      summaryText: spots.length
+        ? spots.map((h, i) => (h.label || "Ponto " + (i + 1))).join(" · ")
+        : "Toque na imagem para criar um ponto",
+      summaryAction: spots.length ? "Ver todos" : "",
+      summaryRowStyle: {
+        display: "flex", alignItems: "center", gap: 10, width: "100%", marginTop: 12,
+        padding: "13px 14px", borderRadius: 14, border: "1px solid #E6E7EB", background: "#fff",
+        cursor: spots.length ? "pointer" : "default", minHeight: 56
+      },
+      summaryCountStyle: {
+        width: 26, height: 26, minWidth: 26, borderRadius: 999, fontSize: 12.5, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: spots.length ? "#FDE7EC" : "#F4F5F7", color: spots.length ? "#E8365D" : "#8A8F98"
+      },
+      totalHotspots: total,
+
+      nome: s.nome, onNome: (e) => this.setState({ nome: e.target.value }),
+      addrOpen: s.addrOpen, toggleAddr: () => this.setState({ addrOpen: !s.addrOpen }),
+      addrCaretStyle: { fontSize: 16, color: "#8A8F98", transform: s.addrOpen ? "rotate(180deg)" : "none", transition: "transform .2s" },
+      summaryThumbStyle: {
+        width: "100%", aspectRatio: "16 / 10", borderRadius: 12,
+        background: imgs[0] ? "#EDEEF1 center/cover no-repeat" : "repeating-linear-gradient(135deg,#F1F2F4 0 10px,#E9EAEE 10px 20px)",
+        backgroundImage: imgs[0] ? "url(" + imgs[0].url + ")" : undefined
+      },
+      coverName: imgs[0] ? imgs[0].room : "—",
+
+      back: () => this.setState(st => ({ step: Math.max(1, st.step - 1) })),
+      backStyle: {
+        height: 48, padding: "0 20px", borderRadius: 12, border: "1px solid #E6E7EB", background: "#fff",
+        color: "#16181D", fontSize: 15, fontWeight: 600, cursor: "pointer",
+        visibility: s.step === 1 ? "hidden" : "visible"
+      },
+      canSkip: s.step === 2 && spots.length === 0,
+      next: () => { if (!canNext) return; this.setState(st => st.step === 3 ? { published: true } : { step: st.step + 1 }); },
+      nextDisabled: !canNext,
+      nextLabel: s.step === 3 ? "Publicar tour" : "Próximo",
+      nextTitle: canNext ? "" : "Envie ao menos uma imagem 360° para continuar",
+      nextStyle: {
+        height: 48, padding: mobile ? "0 22px" : "0 28px", borderRadius: 12, border: "none",
+        background: canNext ? "#E8365D" : "#F7C7D2", color: "#fff", fontSize: 15, fontWeight: 650,
+        cursor: canNext ? "pointer" : "not-allowed", flex: mobile ? 1 : "0 0 auto"
+      },
+      restart: () => this.setState({ published: false, step: 1, images: [], spots: {}, sel: 0 })
+    };
+  }
+
+  pill(on, h) {
+    return {
+      flex: 1, height: h || 34, borderRadius: h ? 12 : 9, cursor: "pointer", fontSize: h ? 14.5 : 12.5, fontWeight: 600,
+      border: "1px solid " + (on ? "#E8365D" : "#E6E7EB"),
+      background: on ? "#FDE7EC" : "#fff", color: on ? "#E8365D" : "#6B7079"
+    };
+  }
+}
+</script>
+</body>
+</html>
