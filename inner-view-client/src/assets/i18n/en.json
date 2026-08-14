@@ -240,12 +240,18 @@
       "SUMMARY_TITLE": "Tour summary",
       "SUMMARY_ROOMS": "Rooms",
       "SUMMARY_HOTSPOTS": "Hotspots",
-      "SUMMARY_COVER": "Cover"
+      "SUMMARY_COVER": "Cover",
+      "REQUIRED": "Fill in this field to publish."
     },
     "SUCCESS": {
       "TITLE": "Tour published",
       "SUBTITLE": "Link ready to send to your clients. You can still edit rooms and hotspots whenever you want.",
-      "CREATE_ANOTHER": "Create another tour"
+      "COPY_LINK": "Copy link",
+      "COPIED": "Copied ✓",
+      "OPEN_TOUR": "View tour",
+      "CREATE_ANOTHER": "Create another tour",
+      "DISCARDED": "{{n}} point(s) without a destination were not saved.",
+      "PUBLISH_ERROR": "Could not publish the tour. Please try again."
     }
   }
 }

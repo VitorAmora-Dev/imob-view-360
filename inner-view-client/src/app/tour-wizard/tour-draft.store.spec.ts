@@ -1,3 +1,6 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
 import { TourDraftStore } from './tour-draft.store';
 import { WizardScene } from './tour-wizard.model';
 
@@ -24,8 +27,22 @@ describe('TourDraftStore (contrato)', () => {
     };
   }
 
+  // O store injeta PropertyService e VirtualTourService para publicar, então
+  // precisa de contexto de injeção. HttpClient entra na versão de teste: nenhum
+  // teste aqui chega a fazer requisição, e o testing backend garante isso —
+  // uma chamada de rede não anunciada falharia em vez de sair pela placa.
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [TourDraftStore, provideHttpClient(), provideHttpClientTesting()],
+    });
+  });
+
+  function newStore(): TourDraftStore {
+    return TestBed.inject(TourDraftStore);
+  }
+
   function storeWith(...scenes: WizardScene[]): TourDraftStore {
-    const store = new TourDraftStore();
+    const store = newStore();
     store.scenes.set(scenes.map((s, i) => ({ ...s, order: i })));
     store.selectedSceneId.set(scenes[0]?.id ?? null);
     return store;
@@ -33,7 +50,7 @@ describe('TourDraftStore (contrato)', () => {
 
   describe('a regra bloqueante da etapa 1', () => {
     it('não avança sem nenhuma imagem', () => {
-      const store = new TourDraftStore();
+      const store = newStore();
       expect(store.canAdvance()).toBe(false);
 
       store.next();
@@ -68,7 +85,7 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     it('bloqueia 2 e 3 enquanto não há imagem', () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       expect(store.canReach(2)).toBe(false);
       expect(store.canReach(3)).toBe(false);
@@ -167,7 +184,7 @@ describe('TourDraftStore (contrato)', () => {
     }
 
     it('recusa o que não é imagem, sem tentar decodificar', async () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       await store.addFiles([
         new File(['isto não é uma foto'], 'contrato.pdf', { type: 'application/pdf' }),
@@ -179,7 +196,7 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     it('recusa acima de 25 MB', async () => {
-      const store = new TourDraftStore();
+      const store = newStore();
       const huge = new File([], 'panorama.jpg', { type: 'image/jpeg' });
       Object.defineProperty(huge, 'size', { value: 26 * 1024 * 1024 });
 
@@ -189,7 +206,7 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     it('aceita um equirretangular 2:1 sem ressalva', async () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       await store.addFiles([await fileFrom(PNG_2x1, 'sala.png', 'image/png')]);
 
@@ -199,7 +216,7 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     it('AVISA sobre proporção fora de 2:1, mas aceita a imagem', async () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       await store.addFiles([await fileFrom(PNG_1x1, 'quadrada.png', 'image/png')]);
 
@@ -212,7 +229,7 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     it('usa o nome do arquivo sem extensão como nome do ambiente', async () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       await store.addFiles([await fileFrom(PNG_2x1, 'Sala de estar.png', 'image/png')]);
 
@@ -220,9 +237,57 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  describe('validação antes de publicar', () => {
+    function preenchido(store: TourDraftStore): void {
+      store.patchProperty({ name: 'Apartamento Vila Mariana', type: 'APARTMENT', purpose: 'SALE' });
+    }
+
+    it('exige nome, tipo e finalidade — a API não aceita sem eles', () => {
+      const store = storeWith(scene('a'));
+
+      expect(store.invalidFields()).toEqual(['name', 'type', 'purpose']);
+
+      preenchido(store);
+
+      expect(store.invalidFields()).toEqual([]);
+    });
+
+    it('não cobra endereço enquanto ninguém o tocou', () => {
+      const store = storeWith(scene('a'));
+      preenchido(store);
+
+      expect(store.addressTouched()).toBe(false);
+      expect(store.invalidFields()).toEqual([]);
+    });
+
+    it('cobra o endereço inteiro depois que um campo é preenchido', () => {
+      const store = storeWith(scene('a'));
+      preenchido(store);
+
+      // Meio endereço passa na API e some da busca por bairro — que é
+      // justamente para o que ele serve.
+      store.patchAddress({ street: 'Avenida Paulista' });
+
+      expect(store.invalidFields()).toEqual(['city', 'state']);
+    });
+
+    it('só mostra erro depois da primeira tentativa de publicar', async () => {
+      const store = storeWith(scene('a'));
+
+      expect(store.hasError('name')).toBe(false);
+
+      await store.publish();
+
+      expect(store.showErrors()).toBe(true);
+      expect(store.hasError('name')).toBe(true);
+      // Não publicou: continua no wizard.
+      expect(store.published()).toBe(false);
+    });
+  });
+
   describe('voltar', () => {
     it('não desce abaixo da etapa 1', () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       store.back();
 

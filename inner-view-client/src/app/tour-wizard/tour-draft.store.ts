@@ -1,4 +1,8 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import { PropertyService } from '../services/property.service';
+import { VirtualTourService } from '../services/virtual-tour.service';
+import { toCreateTourPayload } from './publish-payload';
 import {
   AddressDraft,
   EMPTY_PROPERTY,
@@ -30,6 +34,9 @@ import {
  */
 @Injectable()
 export class TourDraftStore {
+  private readonly propertyService = inject(PropertyService);
+  private readonly virtualTourService = inject(VirtualTourService);
+
   // ---- estado ------------------------------------------------------------
   readonly step = signal<WizardStep>(1);
   readonly scenes = signal<WizardScene[]>([]);
@@ -242,23 +249,174 @@ export class TourDraftStore {
     );
   }
 
-  // ---- publicar ----------------------------------------------------------
+  // ---- validação ---------------------------------------------------------
 
   /**
-   * TODO(A12): fluxo real — createProperty → createTour (com os hotspots
-   * inline, ver §2.2) → uploadCaptureFrames → montarTour → acompanharMontagem.
-   * Portar de `upload-tour.page.ts`, que faz exatamente isso hoje.
+   * Campos que impedem a publicação.
    *
-   * Por ora só chaveia o estado, para que a tela de sucesso exista e as duas
-   * frentes consigam navegar o fluxo inteiro desde o commit-zero.
+   * Nome, tipo e finalidade são exigidos pela API — não é rigor nosso. O
+   * endereço é opcional, mas se o corretor começou a preencher tem que
+   * terminar: rua, cidade e UF. Meio endereço passa na API e some da busca por
+   * bairro, que é justamente para que ele serve.
+   */
+  readonly invalidFields = computed<string[]>(() => {
+    const p = this.property();
+    const bad: string[] = [];
+    if (!p.name.trim()) bad.push('name');
+    if (!p.type) bad.push('type');
+    if (!p.purpose) bad.push('purpose');
+    if (this.addressTouched()) {
+      if (!p.address.street.trim()) bad.push('street');
+      if (!p.address.city.trim()) bad.push('city');
+      if (p.address.state.trim().length !== 2) bad.push('state');
+    }
+    return bad;
+  });
+
+  /**
+   * Erros só aparecem depois da primeira tentativa de publicar. Marcar de
+   * vermelho um formulário que a pessoa ainda nem começou a preencher é
+   * repreender antes de haver erro.
+   */
+  readonly showErrors = signal(false);
+
+  hasError(field: string): boolean {
+    return this.showErrors() && this.invalidFields().includes(field);
+  }
+
+  // ---- publicar ----------------------------------------------------------
+
+  /** Onde o publicar parou, para a tela de espera. Espelha o fluxo antigo. */
+  readonly montagem = signal<'fotos' | 'ia' | null>(null);
+  readonly montagemProntos = signal(0);
+  readonly montagemTotal = signal(0);
+
+  /** Id do tour criado — vira o link de compartilhamento na tela de sucesso. */
+  readonly publishedTourId = signal<string | null>(null);
+  readonly publishedPropertyId = signal<string | null>(null);
+
+  /** Pontos sem destino que ficaram de fora. Vira aviso, não erro. */
+  readonly discardedHotspots = signal(0);
+
+  readonly publishError = signal<string | null>(null);
+
+  /**
+   * Cria o imóvel e o tour, sobe as fotos originais e conduz a montagem por IA.
+   *
+   * O tour inteiro — ambientes e hotspots — sobe numa chamada só: o servidor
+   * aceita os hotspots inline e resolve os destinos por `tempId` na mesma
+   * transação. Ver §2.2 do plano do sprint.
    */
   async publish(): Promise<void> {
     if (this.publishing()) return;
+
+    if (this.invalidFields().length) {
+      // O botão já vem desabilitado, mas teclado e leitor de tela chegam aqui
+      // por caminhos que não passam pelo estado visual dele.
+      this.showErrors.set(true);
+      return;
+    }
+
     this.publishing.set(true);
+    this.publishError.set(null);
     try {
+      const { panoramas, discardedHotspots } = toCreateTourPayload(this.scenes());
+      this.discardedHotspots.set(discardedHotspots);
+
+      const p = this.property();
+      const property = await firstValueFrom(
+        this.propertyService.createProperty({
+          // O código é gerado aqui como na tela antiga: a API exige um, e o
+          // corretor não tem por que inventar um identificador interno.
+          code: `IML-${Date.now().toString(36).toUpperCase()}`,
+          title: p.name.trim(),
+          type: p.type as string,
+          purpose: p.purpose as string,
+          ...(this.addressTouched()
+            ? {
+                address: {
+                  street: p.address.street.trim(),
+                  number: p.address.number.trim() || undefined,
+                  complement: p.address.complement.trim() || undefined,
+                  district: p.address.district.trim() || undefined,
+                  city: p.address.city.trim(),
+                  state: p.address.state.trim().toUpperCase(),
+                  zipCode: p.address.zip.replace(/\D/g, '') || undefined,
+                },
+              }
+            : {}),
+        }),
+      );
+      this.publishedPropertyId.set(property.id);
+
+      const tour = await firstValueFrom(
+        this.virtualTourService.createTour(property.id, panoramas),
+      );
+      this.publishedTourId.set(tour.id);
+
+      // A partir daqui o tour EXISTE e é navegável. Nada abaixo pode desfazer
+      // isso, então a montagem roda em best-effort e a tela de sucesso aparece
+      // de qualquer jeito.
       this.published.set(true);
+      await this.montarTour(tour.id);
+    } catch {
+      this.publishError.set('TOUR_WIZARD.SUCCESS.PUBLISH_ERROR');
     } finally {
       this.publishing.set(false);
+    }
+  }
+
+  /**
+   * Sobe as fotos originais e acompanha a montagem por IA.
+   *
+   * O envio é aguardado: a montagem usa as fotos como referência do que existe
+   * de verdade no cômodo, e disparar antes de elas chegarem faz o servidor
+   * dispensar o panorama.
+   *
+   * Nada aqui derruba o tour. Se falhar, o corretor fica com os panoramas
+   * originais — que é exatamente o que ele teria sem esta etapa.
+   */
+  private async montarTour(tourId: string): Promise<void> {
+    const comFrames = this.readyScenes().filter((s) => s.frames?.length);
+    if (!comFrames.length) return;
+
+    try {
+      this.montagem.set('fotos');
+      this.montagemProntos.set(0);
+      this.montagemTotal.set(comFrames.length);
+
+      const tour = await firstValueFrom(this.virtualTourService.findTour(tourId));
+      let enviadas = 0;
+      for (const [i, scene] of comFrames.entries()) {
+        const panorama = tour.panoramas.find((p) => p.roomName === scene.room);
+        if (panorama && scene.frames?.length) {
+          const r = await this.virtualTourService.uploadCaptureFrames(
+            panorama.id,
+            scene.frames,
+          );
+          enviadas += r.uploaded;
+        }
+        this.montagemProntos.set(i + 1);
+      }
+
+      // Sem nenhuma foto no servidor a montagem não tem verdade de campo e todo
+      // panorama seria dispensado. Mostrar uma tela de IA para uma etapa que já
+      // se sabe que não vai acontecer é pior que não mostrar nada.
+      if (enviadas === 0) return;
+
+      this.montagem.set('ia');
+      this.montagemProntos.set(0);
+      const inicio = await firstValueFrom(this.virtualTourService.montarTour(tourId));
+      this.montagemTotal.set(inicio.total);
+
+      await this.virtualTourService.acompanharMontagem(tourId, (a) => {
+        this.montagemTotal.set(a.total);
+        this.montagemProntos.set(a.prontos + a.falhas + a.dispensados);
+      });
+    } catch {
+      // O tour já está salvo; seguir para ele é melhor que travar aqui.
+    } finally {
+      this.montagem.set(null);
     }
   }
 
@@ -270,6 +428,12 @@ export class TourDraftStore {
     this.property.set({ ...EMPTY_PROPERTY });
     this.published.set(false);
     this.publishing.set(false);
+    this.showErrors.set(false);
+    this.publishedTourId.set(null);
+    this.publishedPropertyId.set(null);
+    this.discardedHotspots.set(0);
+    this.publishError.set(null);
+    this.montagem.set(null);
   }
 }
 

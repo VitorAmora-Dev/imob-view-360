@@ -5,7 +5,28 @@
     <app-wizard-stepper />
 
     <div class="tw-body">
-      @if (store.published()) {
+      <!--
+        Tela de espera da montagem por IA. Não está no handoff porque o
+        protótipo trata o upload como instantâneo, mas o fluxo real leva cerca
+        de um minuto por ambiente — e o corretor não tem mais nada a fazer aqui
+        senão aguardar. Cobre tudo, inclusive o sucesso, para ninguém sair da
+        página no meio do envio das fotos originais.
+      -->
+      @if (store.montagem(); as etapa) {
+        <div class="tw-montagem" role="status" aria-live="polite">
+          <span class="tw-montagem__spinner" aria-hidden="true"></span>
+          <h2>{{ 'UPLOAD.MONTAGEM.TITULO' | translate }}</h2>
+          <p>
+            {{ (etapa === 'fotos' ? 'UPLOAD.MONTAGEM.ENVIANDO' : 'UPLOAD.MONTAGEM.PROCESSANDO') | translate }}
+          </p>
+          @if (store.montagemTotal() > 1) {
+            <span class="tw-montagem__contador">
+              {{ store.montagemProntos() }} / {{ store.montagemTotal() }}
+            </span>
+          }
+          <small>{{ 'UPLOAD.MONTAGEM.AVISO' | translate }}</small>
+        </div>
+      } @else if (store.published()) {
         <app-tour-published />
       } @else {
         @switch (store.step()) {
@@ -20,7 +41,7 @@
       A barra some por completo no estado publicado: não há mais nada a avançar,
       e as ações de lá (copiar link, criar outro) pertencem ao próprio conteúdo.
     -->
-    @if (!store.published()) {
+    @if (!store.published() && !store.montagem()) {
       <app-wizard-actions />
     }
   </div>

@@ -5,36 +5,57 @@
 
 <div class="tw-info">
   <form class="tw-info__form" (submit)="$event.preventDefault()">
-    <label class="tw-field">
+    <!--
+      O erro fica no campo, não só no botão: "algo está errado" sem dizer onde
+      obriga o corretor a caçar o problema num formulário que ele acabou de
+      preencher.
+    -->
+    <label class="tw-field" [class.has-error]="store.hasError('name')">
       <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.NAME_LABEL' | translate }}</span>
       <input
         type="text"
         autocomplete="off"
+        [attr.aria-invalid]="store.hasError('name') || null"
         [placeholder]="'TOUR_WIZARD.STEP3.NAME_PLACEHOLDER' | translate"
         [value]="store.property().name"
         (input)="onName($event)" />
+      @if (store.hasError('name')) {
+        <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+      }
     </label>
 
     <!-- auto-fit: lado a lado quando cabe, empilhados quando não, sem media query. -->
     <div class="tw-info__pair">
-      <label class="tw-field">
+      <label class="tw-field" [class.has-error]="store.hasError('type')">
         <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.TYPE_LABEL' | translate }}</span>
-        <select [value]="store.property().type" (change)="onType($event)">
+        <select
+          [value]="store.property().type"
+          [attr.aria-invalid]="store.hasError('type') || null"
+          (change)="onType($event)">
           <option value="">{{ 'TOUR_WIZARD.STEP3.SELECT_EMPTY' | translate }}</option>
           @for (t of types; track t) {
             <option [value]="t">{{ 'UPLOAD.TYPE.' + t | translate }}</option>
           }
         </select>
+        @if (store.hasError('type')) {
+          <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+        }
       </label>
 
-      <label class="tw-field">
+      <label class="tw-field" [class.has-error]="store.hasError('purpose')">
         <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.PURPOSE_LABEL' | translate }}</span>
-        <select [value]="store.property().purpose" (change)="onPurpose($event)">
+        <select
+          [value]="store.property().purpose"
+          [attr.aria-invalid]="store.hasError('purpose') || null"
+          (change)="onPurpose($event)">
           <option value="">{{ 'TOUR_WIZARD.STEP3.SELECT_EMPTY' | translate }}</option>
           @for (p of purposes; track p) {
             <option [value]="p">{{ 'UPLOAD.PURPOSE.' + p | translate }}</option>
           }
         </select>
+        @if (store.hasError('purpose')) {
+          <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+        }
       </label>
     </div>
 

@@ -240,12 +240,18 @@
       "SUMMARY_TITLE": "Resumo do tour",
       "SUMMARY_ROOMS": "Ambientes",
       "SUMMARY_HOTSPOTS": "Hotspots",
-      "SUMMARY_COVER": "Capa"
+      "SUMMARY_COVER": "Capa",
+      "REQUIRED": "Preencha este campo para publicar."
     },
     "SUCCESS": {
       "TITLE": "Tour publicado",
       "SUBTITLE": "Link pronto para enviar aos clientes. Você ainda pode editar ambientes e hotspots quando quiser.",
-      "CREATE_ANOTHER": "Criar outro tour"
+      "COPY_LINK": "Copiar link",
+      "COPIED": "Copiado ✓",
+      "OPEN_TOUR": "Ver tour",
+      "CREATE_ANOTHER": "Criar outro tour",
+      "DISCARDED": "{{n}} ponto(s) sem destino não foram salvos.",
+      "PUBLISH_ERROR": "Não foi possível publicar o tour. Tente de novo."
     }
   }
 }

@@ -76,3 +76,15 @@ app-tour-summary {
   font-weight: 600;
   color: var(--tw-text);
 }
+
+.tw-field.has-error {
+  input,
+  select {
+    border-color: var(--ion-color-danger);
+  }
+}
+
+.tw-field__error {
+  font-size: 12.5px;
+  color: var(--ion-color-danger);
+}

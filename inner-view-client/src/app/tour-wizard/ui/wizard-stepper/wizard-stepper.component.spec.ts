@@ -1,3 +1,6 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
 import { ChipState, WizardStepperComponent } from './wizard-stepper.component';
@@ -21,12 +24,22 @@ describe('WizardStepperComponent', () => {
     };
   }
 
-  /** Monta o componente sem TestBed: ele só depende do store. */
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [TourDraftStore, provideHttpClient(), provideHttpClientTesting()],
+    });
+  });
+
+  /**
+   * Monta só a classe do componente, sem fixture: o stepper não tem estado
+   * próprio — tudo que ele decide sai do store — e um fixture aqui testaria o
+   * renderizador do Angular, não a regra.
+   */
   function makeStepper(withImage: boolean): {
     stepper: WizardStepperComponent;
     store: TourDraftStore;
   } {
-    const store = new TourDraftStore();
+    const store = TestBed.inject(TourDraftStore);
     if (withImage) {
       store.scenes.set([scene('a')]);
       store.selectedSceneId.set('a');

@@ -58,11 +58,60 @@
   }
 }
 
-:host ::ng-deep .tw-published {
+/* -- Espera da montagem ---------------------------------------------------- */
+
+.tw-montagem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 36px 10px;
+  gap: 12px;
+  padding: 48px 16px;
   text-align: center;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--tw-text-strong);
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--tw-text-muted);
+  }
+
+  small {
+    max-width: 44ch;
+    font-size: 12.5px;
+    color: var(--tw-text-faint);
+  }
+}
+
+.tw-montagem__spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--tw-surface-track);
+  border-top-color: var(--tw-brand);
+  border-radius: 50%;
+  animation: tw-spin 0.9s linear infinite;
+
+  // Quem pediu menos movimento não deve levar um anel girando na cara por um
+  // minuto. O texto e o contador já dizem que há algo em curso.
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    border-top-color: var(--tw-border);
+  }
+}
+
+@keyframes tw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tw-montagem__contador {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--tw-text-strong);
 }
