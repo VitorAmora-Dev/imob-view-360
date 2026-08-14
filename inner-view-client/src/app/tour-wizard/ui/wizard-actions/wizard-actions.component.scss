@@ -17,6 +17,14 @@
 
 .tw-actions__spacer {
   flex: 1;
+
+  // No mobile o spacer sai de cena: ele e o botão primário são ambos flex:1 e
+  // dividiam a sobra meio a meio, deixando "Próximo" com metade da largura que
+  // devia ter. Sem ele, o primário ocupa tudo o que resta — que é o alvo de
+  // polegar que o handoff pede.
+  @include tw.tw-mobile {
+    display: none;
+  }
 }
 
 .tw-btn {

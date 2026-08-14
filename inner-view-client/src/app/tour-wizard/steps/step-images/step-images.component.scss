@@ -217,4 +217,15 @@
   margin: 0;
   padding: 0;
   list-style: none;
+
+  // Sem isso, o card que não quebra a linha de metadados fica mais baixo que
+  // os vizinhos e a fileira sai desalinhada. O <li> estica sozinho; quem
+  // precisa de ajuda é o card dentro dele.
+  > li {
+    display: flex;
+  }
+
+  app-scene-card {
+    flex: 1;
+  }
 }

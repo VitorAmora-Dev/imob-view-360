@@ -56,10 +56,15 @@
   }
 }
 
+// Quebra em duas linhas antes de truncar. O card fica estreito quando cabem
+// quatro por linha, e no protótipo o tamanho do arquivo virava "9…" — que não
+// informa nada. Uma segunda linha custa 18px; um número cortado custa a
+// informação inteira.
 .tw-scene__meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
   margin: 0;
   min-width: 0;
 }
@@ -80,10 +85,9 @@
 }
 
 .tw-scene__size {
-  overflow: hidden;
+  flex: 0 0 auto;
   font-size: 12px;
   color: var(--tw-text-faint);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
