@@ -1,0 +1,80 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--tw-border-subtle);
+  // Semitransparente com blur: o conteúdo que passa por baixo continua legível
+  // como contexto, sem competir com a ação.
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.tw-actions__spacer {
+  flex: 1;
+}
+
+.tw-btn {
+  height: var(--tw-tap-action);
+  padding: 0 28px;
+  border-radius: var(--tw-radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+
+  @include tw.tw-mobile {
+    padding: 0 22px;
+  }
+
+  &.is-hidden {
+    visibility: hidden;
+  }
+}
+
+.tw-btn--primary {
+  border: 0;
+  background: var(--tw-brand);
+  color: #fff;
+  font-weight: 650;
+
+  &:hover:not(:disabled) {
+    background: var(--tw-brand-hover);
+  }
+
+  &:disabled {
+    background: var(--tw-brand-disabled);
+    cursor: not-allowed;
+  }
+
+  // Ocupa a largura restante no mobile: é a ação primária da tela, e um botão
+  // pequeno no canto de um alvo de polegar é convite a errar.
+  @include tw.tw-mobile {
+    flex: 1;
+  }
+}
+
+.tw-btn--bordered {
+  border: 1px solid var(--tw-border);
+  background: var(--tw-surface);
+  color: var(--tw-text-strong);
+
+  &:hover {
+    background: var(--tw-surface-hover);
+  }
+}
+
+.tw-btn--ghost {
+  border: 0;
+  background: none;
+  color: var(--tw-text-muted);
+
+  &:hover {
+    color: var(--tw-text-strong);
+  }
+}

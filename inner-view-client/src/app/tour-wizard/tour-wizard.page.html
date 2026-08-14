@@ -2,51 +2,7 @@
   <app-header backHref="/home" [pageTitle]="'TOUR_WIZARD.COMMON.TITLE' | translate"></app-header>
 
   <div class="tw-shell">
-    <!--
-      Stepper + progresso. TODO(A2): chips com os quatro estados do handoff
-      (concluída / atual / futura alcançável / futura bloqueada), rótulos
-      ocultos no mobile exceto o da etapa atual.
-    -->
-    <div class="tw-stepper">
-      <ol class="tw-chips">
-        @for (n of steps; track n) {
-          <li>
-            <button
-              type="button"
-              class="tw-chip"
-              [class.is-current]="store.step() === n"
-              [class.is-done]="store.step() > n"
-              [disabled]="!store.canReach(n)"
-              [attr.aria-current]="store.step() === n ? 'step' : null"
-              (click)="store.goTo(n)">
-              <span class="tw-chip__dot" aria-hidden="true">
-                {{ store.step() > n ? '✓' : n }}
-              </span>
-              <span class="tw-chip__label">
-                {{ 'TOUR_WIZARD.COMMON.STEP_' + n | translate }}
-              </span>
-            </button>
-          </li>
-        }
-      </ol>
-
-      <div
-        class="tw-progress"
-        role="progressbar"
-        [attr.aria-valuenow]="store.step()"
-        aria-valuemin="1"
-        aria-valuemax="3"
-        [attr.aria-valuetext]="
-          'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step() }
-        ">
-        <div class="tw-progress__fill" [style.width.%]="store.progressPct()"></div>
-      </div>
-
-      <div class="tw-progress__meta">
-        <span>{{ 'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step() } }}</span>
-        <span>{{ 'TOUR_WIZARD.COMMON.HINT_' + store.step() | translate }}</span>
-      </div>
-    </div>
+    <app-wizard-stepper />
 
     <div class="tw-body">
       @if (store.published()) {
@@ -62,43 +18,10 @@
 
     <!--
       A barra some por completo no estado publicado: não há mais nada a avançar,
-      e as ações de lá (copiar link, criar outro) são do próprio conteúdo.
-      TODO(A3): acabamento visual, backdrop-filter e o tooltip do desabilitado.
+      e as ações de lá (copiar link, criar outro) pertencem ao próprio conteúdo.
     -->
     @if (!store.published()) {
-      <footer class="tw-actions">
-        <!--
-          `visibility` e não `@if`: na etapa 1 o espaço do "Voltar" é preservado
-          para o botão primário não pular de posição ao mudar de etapa.
-        -->
-        <button
-          type="button"
-          class="tw-btn tw-btn--ghost-bordered"
-          [style.visibility]="store.step() === 1 ? 'hidden' : 'visible'"
-          (click)="store.back()">
-          {{ 'TOUR_WIZARD.COMMON.BACK' | translate }}
-        </button>
-
-        <span class="tw-actions__spacer"></span>
-
-        @if (showSkip) {
-          <button type="button" class="tw-btn tw-btn--ghost" (click)="store.next()">
-            {{ 'TOUR_WIZARD.COMMON.SKIP' | translate }}
-          </button>
-        }
-
-        <button
-          type="button"
-          class="tw-btn tw-btn--primary"
-          [disabled]="!store.canAdvance() || store.publishing()"
-          [attr.aria-disabled]="!store.canAdvance()"
-          [attr.title]="
-            store.canAdvance() ? null : ('TOUR_WIZARD.COMMON.NEEDS_IMAGE' | translate)
-          "
-          (click)="store.next()">
-          {{ primaryLabelKey | translate }}
-        </button>
-      </footer>
+      <app-wizard-actions />
     }
   </div>
 </ion-content>

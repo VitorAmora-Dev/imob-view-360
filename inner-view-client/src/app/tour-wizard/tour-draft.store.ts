@@ -182,6 +182,12 @@ export class TourDraftStore {
     if (this.selectedSceneId() === id) {
       this.selectedSceneId.set(this.scenes()[0]?.id ?? null);
     }
+    // Removeu a última imagem: as etapas 2 e 3 deixam de se sustentar. Ficar
+    // parado nelas deixaria o corretor com o botão do rodapé desabilitado e o
+    // conserto duas telas atrás — e o stepper marcando a etapa 1 como concluída
+    // sem nenhuma foto. Devolver à etapa 1 põe o problema e a solução no mesmo
+    // lugar.
+    if (!this.canAdvance()) this.step.set(1);
   }
 
   selectScene(id: string): void {
