@@ -191,7 +191,8 @@
     "STEP2": {
       "TITLE": "Marque os pontos de interesse",
       "SUBTITLE": "Clique sobre a imagem para criar um hotspot. Use-os para levar o visitante a outro ambiente. Esta etapa é opcional.",
-      "COUNT": "ponto(s)"
+      "COUNT": "ponto(s)",
+      "EMPTY": "Envie uma foto 360° na etapa anterior para marcar pontos."
     },
     "STEP3": {
       "TITLE": "Informações do imóvel",

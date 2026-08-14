@@ -4,6 +4,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Panorama } from '../../models/virtual-tour.model';
 
+/**
+ * Deslocamento, em px, acima do qual o gesto conta como arrasto e não clique.
+ * Cobre o tremor de mão sem engolir um toque curto de verdade.
+ */
+const DRAG_SLOP_PX = 6;
+
 @Component({
   selector: 'app-panoramic-viewer',
   standalone: true,
@@ -89,6 +95,8 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private readonly frameCallbacks = new Set<() => void>();
+  private pointerDownAt: { x: number; y: number } | null = null;
+  private suppressNextClick = false;
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
@@ -127,9 +135,17 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       cancelAnimationFrame(this.animationFrameId);
     }
     this.renderer?.domElement.removeEventListener('click', this.onCanvasClick);
+    this.renderer?.domElement.removeEventListener('pointerdown', this.onPointerDown);
+    this.renderer?.domElement.removeEventListener('pointerup', this.onPointerUp);
     window.removeEventListener('resize', this.onWindowResize);
+    this.frameCallbacks.clear();
     this.clearHotspots();
     this.controls?.dispose();
+    // `dispose()` solta os recursos mas não o contexto WebGL em si, e o browser
+    // só mantém ~16 vivos. A etapa 2 monta e desmonta este componente a cada
+    // ida e volta entre etapas do wizard, então sem isto o canvas morre com
+    // "too many active WebGL contexts" depois de algumas navegações.
+    this.renderer?.forceContextLoss();
     this.renderer?.dispose();
   }
 
@@ -205,6 +221,8 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.scene.add(this.sphereMesh);
 
     this.renderer.domElement.addEventListener('click', this.onCanvasClick);
+    this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
+    this.renderer.domElement.addEventListener('pointerup', this.onPointerUp);
     window.addEventListener('resize', this.onWindowResize);
 
     this.animate();
@@ -279,7 +297,33 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     return sprite;
   }
 
+  private readonly onPointerDown = (event: PointerEvent) => {
+    this.pointerDownAt = { x: event.clientX, y: event.clientY };
+  };
+
+  /**
+   * Decide se o `click` que vem a seguir é clique ou sobra de arrasto.
+   *
+   * O OrbitControls gira no arrasto, e o browser dispara `click` ao soltar
+   * porque o down e o up caíram no mesmo elemento. Sem esta trava, girar o
+   * panorama em `editMode` criaria um hotspot a cada solta.
+   */
+  private readonly onPointerUp = (event: PointerEvent) => {
+    const start = this.pointerDownAt;
+    this.pointerDownAt = null;
+    if (!start) return;
+
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    this.suppressNextClick = Math.hypot(dx, dy) > DRAG_SLOP_PX;
+  };
+
   private readonly onCanvasClick = (event: MouseEvent) => {
+    if (this.suppressNextClick) {
+      this.suppressNextClick = false;
+      return;
+    }
+
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;

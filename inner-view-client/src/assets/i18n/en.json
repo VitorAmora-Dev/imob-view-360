@@ -191,7 +191,8 @@
     "STEP2": {
       "TITLE": "Mark the points of interest",
       "SUBTITLE": "Click on the image to create a hotspot. Use them to take visitors to another room. This step is optional.",
-      "COUNT": "point(s)"
+      "COUNT": "point(s)",
+      "EMPTY": "Upload a 360° photo in the previous step to mark points."
     },
     "STEP3": {
       "TITLE": "Property details",
