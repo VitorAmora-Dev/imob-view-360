@@ -73,11 +73,20 @@
   <p>{{ 'TOUR_WIZARD.STEP1.TIP' | translate }}</p>
 </aside>
 
-<!-- TODO(A8): lista de ambientes com thumbnail, nome editável e badge de capa. -->
+<!-- A lista só existe depois da primeira imagem: vazia, ela seria só um título. -->
 @if (store.scenes().length) {
-  <ul class="tw-scenes-draft">
-    @for (scene of store.scenes(); track scene.id) {
-      <li>{{ scene.room }} — {{ scene.state }}</li>
-    }
-  </ul>
+  <section class="tw-scenes">
+    <header class="tw-scenes__head">
+      <h3>{{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}</h3>
+      <span class="tw-scenes__count">{{ countKey() | translate: { n: store.scenes().length } }}</span>
+    </header>
+
+    <ul class="tw-scenes__grid" role="list">
+      @for (scene of store.scenes(); track scene.id; let i = $index) {
+        <li>
+          <app-scene-card [scene]="scene" [position]="i + 1" />
+        </li>
+      }
+    </ul>
+  </section>
 }

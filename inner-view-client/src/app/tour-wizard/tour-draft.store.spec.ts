@@ -151,6 +151,75 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  describe('validação de arquivo', () => {
+    /**
+     * PNG 2x1 real, em base64 — a validação de proporção decodifica a imagem,
+     * então um dataURL falso não serve.
+     */
+    const PNG_2x1 =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAD0lEQVR4nGP8z4AATEQyAAAJAgHz2AsvpAAAAABJRU5ErkJggg==';
+    const PNG_1x1 =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==';
+
+    async function fileFrom(dataUrl: string, name: string, type: string): Promise<File> {
+      const blob = await (await fetch(dataUrl)).blob();
+      return new File([blob], name, { type });
+    }
+
+    it('recusa o que não é imagem, sem tentar decodificar', async () => {
+      const store = new TourDraftStore();
+
+      await store.addFiles([
+        new File(['isto não é uma foto'], 'contrato.pdf', { type: 'application/pdf' }),
+      ]);
+
+      expect(store.scenes()[0].state).toBe('rejected');
+      expect(store.scenes()[0].rejectedReason).toBe('type');
+      expect(store.canAdvance()).toBe(false);
+    });
+
+    it('recusa acima de 25 MB', async () => {
+      const store = new TourDraftStore();
+      const huge = new File([], 'panorama.jpg', { type: 'image/jpeg' });
+      Object.defineProperty(huge, 'size', { value: 26 * 1024 * 1024 });
+
+      await store.addFiles([huge]);
+
+      expect(store.scenes()[0].rejectedReason).toBe('size');
+    });
+
+    it('aceita um equirretangular 2:1 sem ressalva', async () => {
+      const store = new TourDraftStore();
+
+      await store.addFiles([await fileFrom(PNG_2x1, 'sala.png', 'image/png')]);
+
+      expect(store.scenes()[0].state).toBe('ready');
+      expect(store.scenes()[0].warning).toBeUndefined();
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('AVISA sobre proporção fora de 2:1, mas aceita a imagem', async () => {
+      const store = new TourDraftStore();
+
+      await store.addFiles([await fileFrom(PNG_1x1, 'quadrada.png', 'image/png')]);
+
+      // O ponto do teste: segue publicável. Recusar bloquearia foto legítima
+      // de câmera que corta alguns pixels — quem decide é o corretor.
+      expect(store.scenes()[0].state).toBe('ready');
+      expect(store.scenes()[0].warning).toBe('ratio');
+      expect(store.canAdvance()).toBe(true);
+      expect(store.warnedScenes().length).toBe(1);
+    });
+
+    it('usa o nome do arquivo sem extensão como nome do ambiente', async () => {
+      const store = new TourDraftStore();
+
+      await store.addFiles([await fileFrom(PNG_2x1, 'Sala de estar.png', 'image/png')]);
+
+      expect(store.scenes()[0].room).toBe('Sala de estar');
+    });
+  });
+
   describe('voltar', () => {
     it('não desce abaixo da etapa 1', () => {
       const store = new TourDraftStore();

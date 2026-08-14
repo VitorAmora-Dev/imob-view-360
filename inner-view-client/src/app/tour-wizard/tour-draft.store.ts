@@ -1,8 +1,10 @@
 import { Injectable, computed, signal } from '@angular/core';
 import {
   EMPTY_PROPERTY,
+  EQUIRECTANGULAR_RATIO,
   MAX_FILE_BYTES,
   PropertyDraft,
+  RATIO_TOLERANCE,
   ROOM_NAME_MAX,
   WizardScene,
   WizardSceneRejection,
@@ -108,9 +110,10 @@ export class TourDraftStore {
    * Recebe arquivos do seletor, da câmera ou do drop e cria um ambiente por
    * arquivo, no fim da lista.
    *
-   * TODO(A7): falta a validação de proporção ~2:1 (equirretangular), que exige
-   * decodificar a imagem. Tipo e tamanho já são checados aqui porque são
-   * síncronos e baratos.
+   * O card aparece na hora, em `reading`, e só depois recebe a imagem e o
+   * veredito. Numa seleção de oito fotos de 20 MB, esperar todas para mostrar
+   * qualquer coisa dá vários segundos de tela parada — e a lista chegando aos
+   * poucos já responde ao que a pessoa acabou de fazer.
    */
   async addFiles(files: File[]): Promise<void> {
     for (const file of files) {
@@ -131,7 +134,13 @@ export class TourDraftStore {
 
       try {
         const imageData = await readAsDataUrl(file);
-        this.patchScene(scene.id, (s) => ({ ...s, imageData, state: 'ready' }));
+        const ratio = await measureAspectRatio(imageData);
+        this.patchScene(scene.id, (s) => ({
+          ...s,
+          imageData,
+          state: 'ready',
+          ...(isEquirectangular(ratio) ? {} : { warning: 'ratio' as const }),
+        }));
       } catch {
         this.patchScene(scene.id, (s) => ({
           ...s,
@@ -142,6 +151,11 @@ export class TourDraftStore {
       this.selectedSceneId.update((id) => id ?? scene.id);
     }
   }
+
+  /** Cenas aceitas mas com ressalva — alimenta o aviso antes de publicar. */
+  readonly warnedScenes = computed(() =>
+    this.scenes().filter((s) => s.state === 'ready' && s.warning),
+  );
 
   /** Adiciona um ambiente já pronto — usado pela captura 360 guiada (A6). */
   addCapturedScene(scene: Omit<WizardScene, 'id' | 'order' | 'hotspots' | 'state'>): void {
@@ -255,4 +269,26 @@ function readAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('file read failed'));
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Largura ÷ altura da imagem.
+ *
+ * Decodificar é a única forma de saber: o `type` do File diz que é JPEG, não
+ * que é um panorama. Um `<img>` fora do documento basta — só as dimensões
+ * interessam, e nada disso vai para a tela.
+ */
+function measureAspectRatio(dataUrl: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
+    // Não decodificou como imagem: o arquivo mentiu no tipo, e aí é recusa de
+    // verdade — quem chama transforma isso em `rejected`.
+    img.onerror = () => reject(new Error('not a decodable image'));
+    img.src = dataUrl;
+  });
+}
+
+function isEquirectangular(ratio: number): boolean {
+  return Math.abs(ratio - EQUIRECTANGULAR_RATIO) <= RATIO_TOLERANCE;
 }

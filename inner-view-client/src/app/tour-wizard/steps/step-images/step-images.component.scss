@@ -186,11 +186,35 @@
   color: var(--tw-text-faint);
 }
 
-/* -- Provisório (A8) ------------------------------------------------------- */
+/* -- Lista de ambientes ---------------------------------------------------- */
 
-.tw-scenes-draft {
-  margin: 0;
-  padding-left: 18px;
+.tw-scenes__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tw-text-strong);
+  }
+}
+
+.tw-scenes__count {
   font-size: 13px;
-  color: var(--tw-text-muted);
+  color: var(--tw-text-faint);
+}
+
+.tw-scenes__grid {
+  display: grid;
+  // `auto-fill` com piso de 240px: uma coluna no celular, tantas quantas
+  // couberem no desktop, sem breakpoint escrito à mão.
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }

@@ -1,4 +1,11 @@
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { ModalController } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Capture360Component } from '../../../components/capture-360/capture-360.component';
@@ -8,6 +15,7 @@ import {
   CaptureGeometry,
 } from '../../../services/virtual-tour.service';
 import { TourDraftStore } from '../../tour-draft.store';
+import { SceneCardComponent } from '../../ui/scene-card/scene-card.component';
 
 /**
  * Etapa 1 — Imagens 360°.
@@ -21,12 +29,23 @@ import { TourDraftStore } from '../../tour-draft.store';
 @Component({
   selector: 'app-tour-step-images',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, SceneCardComponent],
   templateUrl: './step-images.component.html',
   styleUrls: ['./step-images.component.scss'],
 })
 export class StepImagesComponent {
   readonly store = inject(TourDraftStore);
+
+  /**
+   * ngx-translate não tem plural, e "1 imagens" é o tipo de detalhe que faz o
+   * app parecer mal-acabado. Duas chaves resolvem — português e inglês
+   * concordam na regra do singular.
+   */
+  readonly countKey = computed(() =>
+    this.store.scenes().length === 1
+      ? 'TOUR_WIZARD.STEP1.SCENES_COUNT_ONE'
+      : 'TOUR_WIZARD.STEP1.SCENES_COUNT',
+  );
   private readonly modalController = inject(ModalController);
   private readonly translate = inject(TranslateService);
 

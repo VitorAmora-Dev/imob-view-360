@@ -197,7 +197,18 @@
       "CHIP_SIZE": "até 25 MB por foto",
       "CHIP_MULTIPLE": "várias de uma vez",
       "TIP": "Ao fotografar pelo celular, use o modo panorâmico da câmera ou uma câmera 360° pareada. Gire devagar mantendo o aparelho na altura do peito.",
-      "CAPTURED_ROOM": "Ambiente {{n}}"
+      "CAPTURED_ROOM": "Ambiente {{n}}",
+      "SCENES_TITLE": "Ambientes",
+      "SCENES_COUNT": "{{n}} imagens",
+      "SCENES_COUNT_ONE": "1 imagem",
+      "ROOM_PLACEHOLDER": "Nome do ambiente",
+      "BADGE_COVER": "Capa",
+      "BADGE_ROOM": "Ambiente {{n}}",
+      "REMOVE": "Remover o ambiente {{room}}",
+      "READING": "Lendo a imagem…",
+      "REJECTED_TYPE": "Não é uma imagem válida.",
+      "REJECTED_SIZE": "Maior que 25 MB. Reduza a foto e envie de novo.",
+      "WARN_RATIO": "A proporção não é 2:1. O tour pode sair distorcido."
     },
     "STEP2": {
       "TITLE": "Marque os pontos de interesse",

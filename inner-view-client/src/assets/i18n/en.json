@@ -197,7 +197,18 @@
       "CHIP_SIZE": "up to 25 MB per photo",
       "CHIP_MULTIPLE": "several at once",
       "TIP": "When shooting with your phone, use the camera's panorama mode or a paired 360° camera. Turn slowly, keeping the device at chest height.",
-      "CAPTURED_ROOM": "Room {{n}}"
+      "CAPTURED_ROOM": "Room {{n}}",
+      "SCENES_TITLE": "Rooms",
+      "SCENES_COUNT": "{{n}} images",
+      "SCENES_COUNT_ONE": "1 image",
+      "ROOM_PLACEHOLDER": "Room name",
+      "BADGE_COVER": "Cover",
+      "BADGE_ROOM": "Room {{n}}",
+      "REMOVE": "Remove the room {{room}}",
+      "READING": "Reading the image…",
+      "REJECTED_TYPE": "Not a valid image.",
+      "REJECTED_SIZE": "Larger than 25 MB. Shrink the photo and upload again.",
+      "WARN_RATIO": "The aspect ratio is not 2:1. The tour may look distorted."
     },
     "STEP2": {
       "TITLE": "Mark the points of interest",
