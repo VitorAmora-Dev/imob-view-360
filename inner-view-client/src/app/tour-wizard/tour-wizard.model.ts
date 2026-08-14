@@ -48,8 +48,21 @@ export interface WizardHotspot {
 /** Estado do arquivo dentro do card de ambiente da etapa 1. */
 export type WizardSceneState = 'reading' | 'ready' | 'rejected';
 
-/** Por que o arquivo foi recusado na validação de cliente (etapa 1, tarefa A7). */
-export type WizardSceneRejection = 'type' | 'size' | 'ratio';
+/**
+ * Por que o arquivo foi RECUSADO. Só o que é impossível de aproveitar: um PDF
+ * não vira panorama, e 40 MB o servidor não aceita.
+ */
+export type WizardSceneRejection = 'type' | 'size';
+
+/**
+ * Ressalva sobre um arquivo aceito — a cena segue `ready` e é publicada.
+ *
+ * Proporção fora de 2:1 é AVISO, não recusa: o handoff pede "avisar antes de
+ * subir quando a proporção estiver fora", e recusar bloquearia imagens
+ * legítimas. Uma foto quase-2:1 de uma câmera 360° real ainda produz um tour
+ * utilizável; quem decide se vale a pena é o corretor, que viu o imóvel.
+ */
+export type WizardSceneWarning = 'ratio';
 
 /** Um ambiente do tour: uma foto 360° e os pontos marcados sobre ela. */
 export interface WizardScene {
@@ -70,6 +83,8 @@ export interface WizardScene {
   geometry?: CaptureGeometry | null;
   state: WizardSceneState;
   rejectedReason?: WizardSceneRejection;
+  /** Ressalva que não impede o uso da cena. Ver `WizardSceneWarning`. */
+  warning?: WizardSceneWarning;
 }
 
 /**
@@ -130,6 +145,15 @@ export const EMPTY_PROPERTY: PropertyDraft = {
 
 /** Limite de arquivo aceito pela etapa 1 (handoff: "até 25 MB por foto"). */
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Um equirretangular é exatamente 2:1 — 360° na horizontal por 180° na
+ * vertical. A tolerância existe para não incomodar quem tem uma câmera que
+ * corta alguns pixels; fora dela, a imagem quase certamente não é um panorama
+ * (uma foto comum de celular fica perto de 1.33) e o tour sairia distorcido.
+ */
+export const EQUIRECTANGULAR_RATIO = 2;
+export const RATIO_TOLERANCE = 0.2;
 
 /** Quanto do nome do arquivo vira nome de ambiente por padrão. */
 export const ROOM_NAME_MAX = 28;
