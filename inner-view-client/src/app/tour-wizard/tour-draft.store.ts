@@ -17,6 +17,12 @@ import {
 } from './tour-wizard.model';
 
 /**
+ * Campos do endereço que a validação cobra. Ficam numa lista porque o acordeão
+ * precisa saber se algum deles está errado para se abrir — ver `addressHasError`.
+ */
+const ADDRESS_FIELDS = ['street', 'city', 'state'] as const;
+
+/**
  * Estado do rascunho do wizard.
  *
  * DONO: Frente A. A Frente B não edita este arquivo — muta cenas pelo
@@ -284,6 +290,17 @@ export class TourDraftStore {
     return this.showErrors() && this.invalidFields().includes(field);
   }
 
+  /**
+   * Há erro dentro do bloco de endereço, que é colapsável.
+   *
+   * O acordeão usa isto para se abrir sozinho: campo inválido escondido atrás
+   * de um cabeçalho fechado é um botão "Publicar" que não faz nada e não diz
+   * por quê. Quem erra tem que ver onde errou.
+   */
+  readonly addressHasError = computed(() =>
+    ADDRESS_FIELDS.some((f) => this.hasError(f)),
+  );
+
   // ---- publicar ----------------------------------------------------------
 
   /** Onde o publicar parou, para a tela de espera. Espelha o fluxo antigo. */
@@ -324,33 +341,45 @@ export class TourDraftStore {
       this.discardedHotspots.set(discardedHotspots);
 
       const p = this.property();
-      const property = await firstValueFrom(
-        this.propertyService.createProperty({
-          // O código é gerado aqui como na tela antiga: a API exige um, e o
-          // corretor não tem por que inventar um identificador interno.
-          code: `IML-${Date.now().toString(36).toUpperCase()}`,
-          title: p.name.trim(),
-          type: p.type as string,
-          purpose: p.purpose as string,
-          ...(this.addressTouched()
-            ? {
-                address: {
-                  street: p.address.street.trim(),
-                  number: p.address.number.trim() || undefined,
-                  complement: p.address.complement.trim() || undefined,
-                  district: p.address.district.trim() || undefined,
-                  city: p.address.city.trim(),
-                  state: p.address.state.trim().toUpperCase(),
-                  zipCode: p.address.zip.replace(/\D/g, '') || undefined,
-                },
-              }
-            : {}),
-        }),
-      );
-      this.publishedPropertyId.set(property.id);
+      // Tentativa repetida depois de o imóvel já ter sido criado reaproveita o
+      // que existe. Sem isto, cada clique no botão — e agora que a falha é
+      // visível vai haver cliques — gera um `code` novo e insere OUTRO imóvel,
+      // deixando um órfão sem tour na listagem da imobiliária a cada tentativa.
+      //
+      // O preço é não levar edições do formulário feitas entre a falha e o
+      // retry: a API não tem PATCH de imóvel. Duplicata suja o cadastro de quem
+      // não fez nada errado; nome desatualizado o corretor conserta depois.
+      const propertyId =
+        this.publishedPropertyId() ??
+        (
+          await firstValueFrom(
+            this.propertyService.createProperty({
+              // O código é gerado aqui como na tela antiga: a API exige um, e o
+              // corretor não tem por que inventar um identificador interno.
+              code: `IML-${Date.now().toString(36).toUpperCase()}`,
+              title: p.name.trim(),
+              type: p.type as string,
+              purpose: p.purpose as string,
+              ...(this.addressTouched()
+                ? {
+                    address: {
+                      street: p.address.street.trim(),
+                      number: p.address.number.trim() || undefined,
+                      complement: p.address.complement.trim() || undefined,
+                      district: p.address.district.trim() || undefined,
+                      city: p.address.city.trim(),
+                      state: p.address.state.trim().toUpperCase(),
+                      zipCode: p.address.zip.replace(/\D/g, '') || undefined,
+                    },
+                  }
+                : {}),
+            }),
+          )
+        ).id;
+      this.publishedPropertyId.set(propertyId);
 
       const tour = await firstValueFrom(
-        this.virtualTourService.createTour(property.id, panoramas),
+        this.virtualTourService.createTour(propertyId, panoramas),
       );
       this.publishedTourId.set(tour.id);
 

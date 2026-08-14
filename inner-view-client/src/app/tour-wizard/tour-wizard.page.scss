@@ -58,6 +58,31 @@
   }
 }
 
+/* -- Rodapé fixo ----------------------------------------------------------- */
+
+// O aviso de falha e a barra de ação sobem juntos num só bloco fixo, em vez de
+// cada um com seu `sticky`: empilhar dois elementos fixos exigiria repetir a
+// altura da barra num `bottom`, e esse número desencontra do padding da barra na
+// primeira vez que alguém mexer nela.
+.tw-shell__foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.tw-shell__error {
+  margin: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--tw-border-subtle);
+  background: var(--tw-surface);
+  font-size: 13.5px;
+  color: var(--ion-color-danger);
+
+  @include tw.tw-mobile {
+    padding: 12px 16px;
+  }
+}
+
 /* -- Espera da montagem ---------------------------------------------------- */
 
 .tw-montagem {

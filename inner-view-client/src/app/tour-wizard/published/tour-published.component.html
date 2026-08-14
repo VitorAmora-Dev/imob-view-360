@@ -14,10 +14,6 @@
   </p>
 }
 
-@if (store.publishError()) {
-  <p class="tw-pub__note is-error" role="alert">{{ store.publishError()! | translate }}</p>
-}
-
 <!-- O link fica visível para quem não puder usar o botão — sem permissão de
      área de transferência, selecionar à mão continua sendo um caminho. -->
 @if (shareUrl(); as url) {

@@ -136,3 +136,15 @@
   font-weight: 600;
   color: var(--tw-text);
 }
+
+// Repetido da etapa 3 porque o encapsulamento do Angular não atravessa a
+// fronteira do componente: os estilos de `step-info` alcançam a tag
+// `<app-address-accordion>`, não os campos que ela tem dentro.
+.tw-field.has-error input {
+  border-color: var(--ion-color-danger);
+}
+
+.tw-field__error {
+  font-size: 12.5px;
+  color: var(--ion-color-danger);
+}

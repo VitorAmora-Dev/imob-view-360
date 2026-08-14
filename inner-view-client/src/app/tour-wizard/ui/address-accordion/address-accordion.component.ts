@@ -1,4 +1,11 @@
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { CepNotFoundError, CepService } from '../../../services/cep.service';
@@ -35,6 +42,18 @@ export class AddressAccordionComponent {
 
   /** Evita repetir a consulta do mesmo CEP a cada tecla e a cada blur. */
   private lastLookedUp = '';
+
+  constructor() {
+    // Tentou publicar com o endereço pela metade: os campos culpados estão
+    // dentro de um bloco fechado, e o botão não faz nada sem dizer por quê.
+    // Abrir na hora põe o erro à vista de quem acabou de apertá-lo.
+    //
+    // Também cobre o remonte: ir para a etapa 2 e voltar destrói este
+    // componente e zera o `isOpen`, o que voltaria a esconder o problema.
+    effect(() => {
+      if (this.store.addressHasError()) this.isOpen.set(true);
+    });
+  }
 
   toggle(): void {
     this.isOpen.update((v) => !v);
@@ -83,7 +102,14 @@ export class AddressAccordionComponent {
       // o corretor de procurar qual campo ainda falta.
       this.numberInput()?.nativeElement.focus();
     } catch (error) {
-      this.cepState.set(error instanceof CepNotFoundError ? 'notFound' : 'error');
+      const naoExiste = error instanceof CepNotFoundError;
+      // "Esse CEP não existe" é resposta e vale para sempre — repetir a consulta
+      // só gastaria rede. Falha de rede não é resposta: manter o CEP como "já
+      // consultado" tranca os dois caminhos de retry, que comparam contra este
+      // valor, e a dica de erro fica na tela para sempre mesmo com a conexão de
+      // volta. Limpar devolve a segunda chance.
+      if (!naoExiste) this.lastLookedUp = '';
+      this.cepState.set(naoExiste ? 'notFound' : 'error');
     }
   }
 

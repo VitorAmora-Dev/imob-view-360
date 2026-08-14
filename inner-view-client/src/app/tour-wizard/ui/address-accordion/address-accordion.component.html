@@ -44,14 +44,24 @@
       </p>
     </div>
 
+    <!--
+      Rua, cidade e UF cobram erro; número e complemento não. É a regra do
+      `invalidFields`: endereço é opcional, mas começado tem que fechar — e o
+      corretor precisa ver qual dos campos está faltando, não só descobrir que o
+      botão não funciona.
+    -->
     <div class="tw-acc__row tw-acc__row--2-1">
-      <label class="tw-field">
+      <label class="tw-field" [class.has-error]="store.hasError('street')">
         <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.STREET' | translate }}</span>
         <input
           type="text"
           autocomplete="address-line1"
+          [attr.aria-invalid]="store.hasError('street') || null"
           [value]="store.property().address.street"
           (input)="onField('street', $event)" />
+        @if (store.hasError('street')) {
+          <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+        }
       </label>
       <label class="tw-field">
         <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.NUMBER' | translate }}</span>
@@ -82,22 +92,33 @@
     </div>
 
     <div class="tw-acc__row tw-acc__row--2-1">
-      <label class="tw-field">
+      <label class="tw-field" [class.has-error]="store.hasError('city')">
         <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.CITY' | translate }}</span>
         <input
           type="text"
           autocomplete="address-level2"
+          [attr.aria-invalid]="store.hasError('city') || null"
           [value]="store.property().address.city"
           (input)="onField('city', $event)" />
+        @if (store.hasError('city')) {
+          <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+        }
       </label>
-      <label class="tw-field">
+      <label class="tw-field" [class.has-error]="store.hasError('state')">
         <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.STATE' | translate }}</span>
         <input
           type="text"
           maxlength="2"
           autocapitalize="characters"
+          [attr.aria-invalid]="store.hasError('state') || null"
           [value]="store.property().address.state"
           (input)="onState($event)" />
+        <!-- Mensagem própria: aqui "preencha" não basta, o que falha é o
+             tamanho — quem escreveu "São Paulo" no lugar de "SP" precisa saber
+             que o campo quer a sigla. -->
+        @if (store.hasError('state')) {
+          <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.STATE_REQUIRED' | translate }}</span>
+        }
       </label>
     </div>
   </div>

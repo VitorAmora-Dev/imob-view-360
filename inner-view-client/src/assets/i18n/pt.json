@@ -241,7 +241,8 @@
       "SUMMARY_ROOMS": "Ambientes",
       "SUMMARY_HOTSPOTS": "Hotspots",
       "SUMMARY_COVER": "Capa",
-      "REQUIRED": "Preencha este campo para publicar."
+      "REQUIRED": "Preencha este campo para publicar.",
+      "STATE_REQUIRED": "Use a sigla do estado, com 2 letras (ex.: SP)."
     },
     "SUCCESS": {
       "TITLE": "Tour publicado",

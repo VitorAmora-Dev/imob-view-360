@@ -1,6 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { PropertyService } from '../services/property.service';
+import { VirtualTourService } from '../services/virtual-tour.service';
 import { TourDraftStore } from './tour-draft.store';
 import { WizardScene } from './tour-wizard.model';
 
@@ -292,6 +295,94 @@ describe('TourDraftStore (contrato)', () => {
       store.back();
 
       expect(store.step()).toBe(1);
+    });
+  });
+
+  /**
+   * O que acontece quando publicar dá errado.
+   *
+   * Nenhum destes existia, e é exatamente por isso que os três defeitos abaixo
+   * passaram: o caminho feliz foi conferido contra a API real, o infeliz nunca
+   * foi exercitado.
+   */
+  describe('falha ao publicar', () => {
+    /** Deixa o formulário válido para o publicar chegar até a rede. */
+    function pronto(store: TourDraftStore): void {
+      store.patchProperty({
+        name: 'Apartamento Vila Mariana',
+        type: 'APARTMENT',
+        purpose: 'SALE',
+      });
+    }
+
+    it('registra o erro sem marcar como publicado', async () => {
+      const store = storeWith(scene('a'));
+      pronto(store);
+      const property = TestBed.inject(PropertyService);
+      spyOn(property, 'createProperty').and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+
+      await store.publish();
+
+      // As duas coisas juntas: sem `published`, a tela de sucesso não monta —
+      // então o erro TEM que estar num lugar que apareça sem ela.
+      expect(store.published()).toBe(false);
+      expect(store.publishError()).toBe('TOUR_WIZARD.SUCCESS.PUBLISH_ERROR');
+      // E o botão volta a ficar clicável, senão o corretor fica preso.
+      expect(store.publishing()).toBe(false);
+    });
+
+    it('não cria um segundo imóvel quando a tentativa se repete', async () => {
+      const store = storeWith(scene('a'));
+      pronto(store);
+      const property = TestBed.inject(PropertyService);
+      const tours = TestBed.inject(VirtualTourService);
+      // Só o `id` interessa ao publicar; o resto do Property não é lido.
+      const create = spyOn(property, 'createProperty').and.returnValue(
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      // O imóvel entra, o tour falha: é o buraco por onde a duplicata nascia.
+      const createTour = spyOn(tours, 'createTour').and.returnValue(
+        throwError(() => new Error('413')),
+      );
+
+      await store.publish();
+      expect(store.publishedPropertyId()).toBe('imovel-1');
+
+      createTour.and.returnValue(
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      await store.publish();
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(store.published()).toBe(true);
+      expect(store.publishedTourId()).toBe('tour-1');
+    });
+
+    it('acusa erro dentro do bloco de endereço, que é colapsável', async () => {
+      const store = storeWith(scene('a'));
+      pronto(store);
+      store.patchAddress({ street: 'Avenida Paulista' });
+
+      await store.publish();
+
+      // Sem isto o acordeão fica fechado sobre os campos culpados e o botão
+      // "Publicar" não faz nada nem explica por quê.
+      expect(store.addressHasError()).toBe(true);
+      expect(store.hasError('city')).toBe(true);
+      expect(store.hasError('state')).toBe(true);
+    });
+
+    it('não acusa endereço quando o erro está fora dele', async () => {
+      const store = storeWith(scene('a'));
+
+      await store.publish();
+
+      expect(store.hasError('name')).toBe(true);
+      expect(store.addressHasError()).toBe(false);
     });
   });
 });

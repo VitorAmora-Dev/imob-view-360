@@ -37,12 +37,26 @@
       }
     </div>
 
-    <!--
-      A barra some por completo no estado publicado: não há mais nada a avançar,
-      e as ações de lá (copiar link, criar outro) pertencem ao próprio conteúdo.
-    -->
-    @if (!store.published() && !store.montagem()) {
-      <app-wizard-actions />
-    }
+    <div class="tw-shell__foot">
+      <!--
+        Falha ao publicar mora aqui, e não dentro da tela de sucesso.
+        `published()` só vira true depois de o tour existir, então a tela de
+        sucesso nunca monta quando a publicação falha — o aviso ficava
+        inalcançável justamente no único caso em que ele tem o que dizer. Junto
+        da barra fixa, aparece na altura do botão que a pessoa acabou de apertar.
+      -->
+      @if (store.publishError(); as erro) {
+        <p class="tw-shell__error" role="alert">{{ erro | translate }}</p>
+      }
+
+      <!--
+        A barra some por completo no estado publicado: não há mais nada a
+        avançar, e as ações de lá (copiar link, criar outro) pertencem ao próprio
+        conteúdo.
+      -->
+      @if (!store.published() && !store.montagem()) {
+        <app-wizard-actions />
+      }
+    </div>
   </div>
 </ion-content>

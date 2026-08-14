@@ -241,7 +241,8 @@
       "SUMMARY_ROOMS": "Rooms",
       "SUMMARY_HOTSPOTS": "Hotspots",
       "SUMMARY_COVER": "Cover",
-      "REQUIRED": "Fill in this field to publish."
+      "REQUIRED": "Fill in this field to publish.",
+      "STATE_REQUIRED": "Use the 2-letter state code (e.g. SP)."
     },
     "SUCCESS": {
       "TITLE": "Tour published",
