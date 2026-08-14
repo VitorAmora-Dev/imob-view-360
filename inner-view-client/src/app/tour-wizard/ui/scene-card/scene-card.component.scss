@@ -1,3 +1,5 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
 :host {
   display: flex;
   gap: 12px;
@@ -48,6 +50,13 @@
   font: inherit;
   font-size: 14px;
   color: var(--tw-text-strong);
+
+  // 16px é obrigatório no mobile: abaixo disso o iOS dá zoom sozinho ao focar o
+  // campo, e aí a grade de ambientes sai do enquadramento — uma vez por
+  // renomeação, oito vezes numa sessão de oito fotos.
+  @include tw.tw-mobile {
+    font-size: 16px;
+  }
 
   &:focus {
     border-color: var(--tw-brand);

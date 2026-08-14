@@ -242,7 +242,10 @@
       "SUMMARY_HOTSPOTS": "Hotspots",
       "SUMMARY_COVER": "Cover",
       "REQUIRED": "Fill in this field to publish.",
-      "STATE_REQUIRED": "Use the 2-letter state code (e.g. SP)."
+      "STATE_REQUIRED": "Use the 2-letter state code (e.g. SP).",
+      "WARN_RATIO_ONE": "1 room is not 2:1 and may look distorted in the tour.",
+      "WARN_RATIO": "{{n}} rooms are not 2:1 and may look distorted in the tour.",
+      "WARN_SIZE": "The photos add up to more than the server accepts in one publish. Remove a room or shrink the largest images."
     },
     "SUCCESS": {
       "TITLE": "Tour published",

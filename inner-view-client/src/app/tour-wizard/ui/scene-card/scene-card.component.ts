@@ -21,12 +21,30 @@ import { WizardScene } from '../../tour-wizard.model';
 })
 export class SceneCardComponent {
   readonly scene = input.required<WizardScene>();
-  /** Posição na lista, 1-based — só para rotular "Ambiente N". */
-  readonly position = input.required<number>();
 
   private readonly store = inject(TourDraftStore);
 
-  readonly isCover = computed(() => this.position() === 1);
+  /**
+   * Número do ambiente entre os VÁLIDOS, 1-based. Zero quando a cena não é
+   * válida — aí não há número a dar, e o card mostra o motivo da recusa no lugar
+   * do badge. Contar as recusadas fazia a numeração pular junto com a do tour
+   * publicado, que só conhece as válidas.
+   */
+  readonly roomNumber = computed(
+    () =>
+      this.store.readyScenes().findIndex((s) => s.id === this.scene().id) + 1,
+  );
+
+  /**
+   * Capa é a primeira cena VÁLIDA, não a primeira da lista.
+   *
+   * Derivar da posição punha o badge num arquivo recusado sempre que ele fosse o
+   * primeiro — enquanto `coverScene()` e o `initialPanorama` do payload apontavam
+   * para outro. A tela dizia uma coisa e o tour publicado fazia outra.
+   */
+  readonly isCover = computed(
+    () => this.store.coverScene()?.id === this.scene().id,
+  );
 
   readonly sizeLabel = computed(() => formatBytes(this.scene().fileSize));
 

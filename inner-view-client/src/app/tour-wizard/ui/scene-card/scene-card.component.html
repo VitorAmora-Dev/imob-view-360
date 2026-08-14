@@ -22,9 +22,9 @@
   <p class="tw-scene__meta">
     @if (isCover()) {
       <span class="tw-badge tw-badge--cover">{{ 'TOUR_WIZARD.STEP1.BADGE_COVER' | translate }}</span>
-    } @else {
+    } @else if (roomNumber() > 0) {
       <span class="tw-badge">
-        {{ 'TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: position() } }}
+        {{ 'TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: roomNumber() } }}
       </span>
     }
     <span class="tw-scene__size">{{ sizeLabel() }}</span>

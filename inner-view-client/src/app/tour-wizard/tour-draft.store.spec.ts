@@ -298,6 +298,82 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  describe('seleção e cena recusada', () => {
+    it('não cai numa cena recusada ao remover a selecionada', () => {
+      const store = storeWith(
+        scene('ruim', { state: 'rejected', rejectedReason: 'type' }),
+        scene('boa'),
+      );
+      store.selectedSceneId.set('boa');
+
+      store.removeScene('boa');
+
+      // A etapa 2 abre o editor sobre a cena selecionada; uma recusada não tem
+      // imagem para abrir.
+      expect(store.selectedSceneId()).toBeNull();
+    });
+
+    it('a capa é a primeira cena válida, não a primeira da lista', () => {
+      const store = storeWith(
+        scene('ruim', { state: 'rejected', rejectedReason: 'size' }),
+        scene('boa'),
+      );
+
+      expect(store.coverScene()?.id).toBe('boa');
+    });
+  });
+
+  describe('captura guiada', () => {
+    it('mede o tamanho em bytes, não em caracteres da dataURL', () => {
+      const store = newStore();
+      // 9 bytes viram 12 caracteres de base64: usar o comprimento da string
+      // inflava o tamanho exibido em ~33%.
+      const nove = btoa('123456789');
+      expect(nove.length).toBe(12);
+
+      store.addCapturedScene({
+        room: 'Sala',
+        fileName: 'captura-360-1.jpg',
+        imageData: `data:image/jpeg;base64,${nove}`,
+      });
+
+      expect(store.scenes()[0].fileSize).toBe(9);
+      expect(store.scenes()[0].state).toBe('ready');
+    });
+  });
+
+  describe('tamanho total da publicação', () => {
+    it('avisa quando as imagens somam mais do que cabe numa requisição', () => {
+      const store = storeWith(
+        scene('a', { fileSize: 20 * 1024 * 1024 }),
+        scene('b', { fileSize: 20 * 1024 * 1024 }),
+      );
+
+      // Duas fotos que passam no teto de 25 MB por arquivo e ainda assim
+      // estouram o corpo de 50 MB do servidor depois do base64.
+      expect(store.oversized()).toBe(true);
+    });
+
+    it('não avisa quando cabe', () => {
+      const store = storeWith(scene('a', { fileSize: 8 * 1024 * 1024 }));
+
+      expect(store.oversized()).toBe(false);
+    });
+
+    it('ignora cena recusada na conta — ela não sobe', () => {
+      const store = storeWith(
+        scene('a', { fileSize: 8 * 1024 * 1024 }),
+        scene('b', {
+          fileSize: 40 * 1024 * 1024,
+          state: 'rejected',
+          rejectedReason: 'size',
+        }),
+      );
+
+      expect(store.oversized()).toBe(false);
+    });
+  });
+
   /**
    * O que acontece quando publicar dá errado.
    *

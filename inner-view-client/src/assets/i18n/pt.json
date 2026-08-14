@@ -242,7 +242,10 @@
       "SUMMARY_HOTSPOTS": "Hotspots",
       "SUMMARY_COVER": "Capa",
       "REQUIRED": "Preencha este campo para publicar.",
-      "STATE_REQUIRED": "Use a sigla do estado, com 2 letras (ex.: SP)."
+      "STATE_REQUIRED": "Use a sigla do estado, com 2 letras (ex.: SP).",
+      "WARN_RATIO_ONE": "1 ambiente não está em 2:1 e pode sair distorcido no tour.",
+      "WARN_RATIO": "{{n}} ambientes não estão em 2:1 e podem sair distorcidos no tour.",
+      "WARN_SIZE": "As fotos somam mais do que o servidor aceita numa publicação. Remova algum ambiente ou reduza as imagens maiores."
     },
     "SUCCESS": {
       "TITLE": "Tour publicado",

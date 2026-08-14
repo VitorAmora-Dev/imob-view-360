@@ -82,9 +82,9 @@
     </header>
 
     <ul class="tw-scenes__grid" role="list">
-      @for (scene of store.scenes(); track scene.id; let i = $index) {
+      @for (scene of store.scenes(); track scene.id) {
         <li>
-          <app-scene-card [scene]="scene" [position]="i + 1" />
+          <app-scene-card [scene]="scene" />
         </li>
       }
     </ul>

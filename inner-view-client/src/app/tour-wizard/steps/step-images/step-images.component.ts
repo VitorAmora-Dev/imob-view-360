@@ -64,6 +64,9 @@ export class StepImagesComponent {
 
   readonly cameraAvailable = captureSupported();
 
+  /** Quantas capturas guiadas já saíram daqui — só para numerar o ambiente. */
+  private capturasFeitas = 0;
+
   // ---- entrada por arquivo -----------------------------------------------
 
   /**
@@ -144,11 +147,14 @@ export class StepImagesComponent {
     // Sem perguntar o nome do ambiente aqui: ele é editável no card, logo
     // abaixo. Um diálogo modal entre a captura e o resultado interrompe quem
     // acabou de girar em torno do próprio celular por um minuto.
-    const n = this.store.scenes().length + 1;
+    // O contador anda com o total de capturas já feitas nesta sessão, não com o
+    // tamanho da lista: derivar de `scenes().length` reaproveitava o número
+    // depois de uma remoção, e dois ambientes com o mesmo nome confundem tanto o
+    // corretor quanto quem for ligar hotspots na etapa 2.
+    const n = ++this.capturasFeitas;
     this.store.addCapturedScene({
       room: this.translate.instant('TOUR_WIZARD.STEP1.CAPTURED_ROOM', { n }),
       fileName: `captura-360-${n}.jpg`,
-      fileSize: data.imageData.length,
       imageData: data.imageData,
       frames: data.frames,
       geometry: data.geometry,

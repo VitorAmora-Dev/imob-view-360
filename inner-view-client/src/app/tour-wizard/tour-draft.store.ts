@@ -1,5 +1,7 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { VirtualTour } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { toCreateTourPayload } from './publish-payload';
@@ -21,6 +23,19 @@ import {
  * precisa saber se algum deles está errado para se abrir — ver `addressHasError`.
  */
 const ADDRESS_FIELDS = ['street', 'city', 'state'] as const;
+
+/**
+ * Teto prático das imagens de UMA publicação.
+ *
+ * O tour inteiro sobe numa requisição só, e o servidor corta em 50 MB de corpo
+ * (`IMAGE_BODY_LIMIT`). Base64 infla cada byte em ~33%, então o que cabe de
+ * imagem de verdade são ~37 MB; 34 deixa folga para o JSON em volta — nomes,
+ * hotspots, geometria.
+ *
+ * O limite por arquivo não protege disto: são 25 MB CADA, sem teto de
+ * quantidade, e duas fotos grandes já estouram o corpo.
+ */
+const MAX_PUBLISH_BYTES = 34 * 1024 * 1024;
 
 /**
  * Estado do rascunho do wizard.
@@ -82,6 +97,19 @@ export class TourDraftStore {
   /** Capa do tour: a primeira cena válida. */
   readonly coverScene = computed<WizardScene | null>(
     () => this.readyScenes()[0] ?? null,
+  );
+
+  /**
+   * As imagens somam mais do que cabe numa publicação.
+   *
+   * Avisa, não bloqueia: a conta é uma estimativa do lado de cá, e travar o
+   * botão por causa dela impediria de publicar alguém que talvez coubesse. O
+   * 413, se vier, agora tem mensagem própria.
+   */
+  readonly oversized = computed(
+    () =>
+      this.readyScenes().reduce((n, s) => n + s.fileSize, 0) >
+      MAX_PUBLISH_BYTES,
   );
 
   // ---- navegação ---------------------------------------------------------
@@ -155,6 +183,11 @@ export class TourDraftStore {
           state: 'ready',
           ...(isEquirectangular(ratio) ? {} : { warning: 'ratio' as const }),
         }));
+        // Só cena válida pode virar a selecionada, e por isso isto está DENTRO
+        // do try: fora dele, um arquivo recusado no meio da leitura continuava
+        // sendo escolhido, e a etapa 2 abria o editor de hotspots sobre uma cena
+        // sem imagem — cujos pontos o publicar depois descarta em silêncio.
+        this.selectedSceneId.update((id) => id ?? scene.id);
       } catch {
         this.patchScene(scene.id, (s) => ({
           ...s,
@@ -162,7 +195,6 @@ export class TourDraftStore {
           rejectedReason: 'type',
         }));
       }
-      this.selectedSceneId.update((id) => id ?? scene.id);
     }
   }
 
@@ -171,17 +203,30 @@ export class TourDraftStore {
     this.scenes().filter((s) => s.state === 'ready' && s.warning),
   );
 
-  /** Adiciona um ambiente já pronto — usado pela captura 360 guiada (A6). */
-  addCapturedScene(scene: Omit<WizardScene, 'id' | 'order' | 'hotspots' | 'state'>): void {
+  /**
+   * Adiciona um ambiente já pronto — usado pela captura 360 guiada (A6).
+   *
+   * O tamanho é medido aqui, e não recebido: o chamador só tem a dataURL, e o
+   * comprimento dela não é o tamanho do arquivo. A captura também passa pelo
+   * mesmo teto de tamanho do upload — uma costura grande demais era aceita como
+   * válida e só estourava lá na frente, no publicar.
+   */
+  addCapturedScene(
+    scene: Omit<WizardScene, 'id' | 'order' | 'hotspots' | 'state' | 'fileSize'>,
+  ): void {
+    const fileSize = dataUrlBytes(scene.imageData);
+    const rejeitada = fileSize > MAX_FILE_BYTES;
     const created: WizardScene = {
       ...scene,
+      fileSize,
       id: crypto.randomUUID(),
       order: this.scenes().length,
       hotspots: [],
-      state: 'ready',
+      state: rejeitada ? 'rejected' : 'ready',
+      ...(rejeitada ? { rejectedReason: 'size' as const } : {}),
     };
     this.scenes.update((list) => [...list, created]);
-    this.selectedSceneId.update((id) => id ?? created.id);
+    if (!rejeitada) this.selectedSceneId.update((id) => id ?? created.id);
   }
 
   renameScene(id: string, room: string): void {
@@ -208,7 +253,9 @@ export class TourDraftStore {
         })),
     );
     if (this.selectedSceneId() === id) {
-      this.selectedSceneId.set(this.scenes()[0]?.id ?? null);
+      // `readyScenes`, não `scenes`: cair numa cena recusada deixaria a etapa 2
+      // apontada para algo sem imagem.
+      this.selectedSceneId.set(this.readyScenes()[0]?.id ?? null);
     }
     // Removeu a última imagem: as etapas 2 e 3 deixam de se sustentar. Ficar
     // parado nelas deixaria o corretor com o botão do rodapé desabilitado e o
@@ -387,9 +434,9 @@ export class TourDraftStore {
       // isso, então a montagem roda em best-effort e a tela de sucesso aparece
       // de qualquer jeito.
       this.published.set(true);
-      await this.montarTour(tour.id);
-    } catch {
-      this.publishError.set('TOUR_WIZARD.SUCCESS.PUBLISH_ERROR');
+      await this.montarTour(tour);
+    } catch (error) {
+      this.publishError.set(publishErrorKey(error));
     } finally {
       this.publishing.set(false);
     }
@@ -405,8 +452,17 @@ export class TourDraftStore {
    * Nada aqui derruba o tour. Se falhar, o corretor fica com os panoramas
    * originais — que é exatamente o que ele teria sem esta etapa.
    */
-  private async montarTour(tourId: string): Promise<void> {
-    const comFrames = this.readyScenes().filter((s) => s.frames?.length);
+  private async montarTour(tour: VirtualTour): Promise<void> {
+    // A posição dentro das cenas válidas É o `order` que o payload mandou
+    // (`publish-payload.ts`), então é por ele que a cena reencontra seu
+    // panorama. Casar por nome, como estava, errava de duas formas: o payload
+    // manda `room.trim()` e a busca comparava sem trim, e nome repetido — que
+    // acontece, porque "Ambiente N" reaproveita número depois de uma remoção —
+    // mandava as fotos de duas cenas para o mesmo panorama, deixando o outro
+    // sem nenhuma.
+    const comFrames = this.readyScenes()
+      .map((scene, ordem) => ({ scene, ordem }))
+      .filter(({ scene }) => scene.frames?.length);
     if (!comFrames.length) return;
 
     try {
@@ -414,10 +470,12 @@ export class TourDraftStore {
       this.montagemProntos.set(0);
       this.montagemTotal.set(comFrames.length);
 
-      const tour = await firstValueFrom(this.virtualTourService.findTour(tourId));
+      // Sem `findTour`: o `createTour` já devolveu os panoramas com id e order,
+      // e rebaixá-los custava outro download de tudo o que acabou de subir —
+      // `GET /virtual-tours/:id` traz o `imageData` de cada um.
       let enviadas = 0;
-      for (const [i, scene] of comFrames.entries()) {
-        const panorama = tour.panoramas.find((p) => p.roomName === scene.room);
+      for (const [i, { scene, ordem }] of comFrames.entries()) {
+        const panorama = tour.panoramas.find((p) => p.order === ordem);
         if (panorama && scene.frames?.length) {
           const r = await this.virtualTourService.uploadCaptureFrames(
             panorama.id,
@@ -435,10 +493,10 @@ export class TourDraftStore {
 
       this.montagem.set('ia');
       this.montagemProntos.set(0);
-      const inicio = await firstValueFrom(this.virtualTourService.montarTour(tourId));
+      const inicio = await firstValueFrom(this.virtualTourService.montarTour(tour.id));
       this.montagemTotal.set(inicio.total);
 
-      await this.virtualTourService.acompanharMontagem(tourId, (a) => {
+      await this.virtualTourService.acompanharMontagem(tour.id, (a) => {
         this.montagemTotal.set(a.total);
         this.montagemProntos.set(a.prontos + a.falhas + a.dispensados);
       });
@@ -466,10 +524,40 @@ export class TourDraftStore {
   }
 }
 
+/**
+ * Mensagem à altura do que falhou.
+ *
+ * 413 é a falha previsível deste fluxo — as fotos somam mais do que o servidor
+ * aceita numa requisição — e é a única com conserto do lado do corretor: tirar
+ * um ambiente ou reduzir as imagens. Dizer só "não deu para publicar" o deixaria
+ * repetindo o mesmo envio de dezenas de MB para receber o mesmo resultado.
+ */
+function publishErrorKey(error: unknown): string {
+  const status = (error as HttpErrorResponse | undefined)?.status;
+  return status === 413
+    ? 'TOUR_WIZARD.STEP3.WARN_SIZE'
+    : 'TOUR_WIZARD.SUCCESS.PUBLISH_ERROR';
+}
+
 function rejectionFor(file: File): WizardSceneRejection | null {
   if (!file.type.startsWith('image/')) return 'type';
   if (file.size > MAX_FILE_BYTES) return 'size';
   return null;
+}
+
+/**
+ * Bytes reais por trás de uma dataURL base64.
+ *
+ * `dataUrl.length` conta caracteres, e base64 gasta 4 caracteres a cada 3
+ * bytes: usar o comprimento direto inflava o tamanho em ~33%, mostrando "12,3
+ * MB" para um panorama de 9 MB — perto do teto de 25 MB que a própria tela
+ * anuncia, e portanto assustando à toa.
+ */
+function dataUrlBytes(dataUrl: string): number {
+  const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  if (!base64) return 0;
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 }
 
 function defaultRoomName(fileName: string): string {
