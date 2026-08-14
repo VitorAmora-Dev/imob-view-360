@@ -22,6 +22,7 @@ import {
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
 import { captureSupported } from '../components/capture-360/capture-support';
+import { dataUriToBlob, panoramaFilename, toPanoramaDataUri } from './panorama-download.util';
 
 @Component({
   selector: 'app-inner-view-page',
@@ -110,6 +111,25 @@ export class InnerViewPagePage implements OnInit {
 
   onPanoramaChange(panorama: Panorama) {
     this.currentPanorama = panorama;
+  }
+
+  /** Baixa o panorama que está sendo visto como JPEG (só no cliente). */
+  onDownloadPanorama() {
+    if (!this.currentPanorama) return;
+    try {
+      const blob = dataUriToBlob(toPanoramaDataUri(this.currentPanorama.imageData));
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = panoramaFilename(this.property?.title ?? '', this.currentPanorama.roomName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      this.showToast('INNER_VIEW.DOWNLOAD_SUCCESS', 'success');
+    } catch {
+      this.showToast('INNER_VIEW.DOWNLOAD_ERROR', 'danger');
+    }
   }
 
   toggleHotspotEdit() {
