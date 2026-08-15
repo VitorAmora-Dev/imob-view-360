@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { VirtualTour } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
@@ -57,6 +57,22 @@ const MAX_PUBLISH_BYTES = 34 * 1024 * 1024;
 export class TourDraftStore {
   private readonly propertyService = inject(PropertyService);
   private readonly virtualTourService = inject(VirtualTourService);
+
+  /**
+   * Corta o acompanhamento da montagem quando a tela morre.
+   *
+   * O store é fornecido pela página, então some com ela. O laço de
+   * acompanhamento, não: ele seguiria por até dez minutos chamando `set()` num
+   * store destruído e segurando, pela closure, as cenas inteiras em base64.
+   * Sair da tela no meio da montagem — o voltar do navegador basta — era o
+   * suficiente. A montagem em si continua no servidor; o que para aqui é só
+   * ficar olhando.
+   */
+  private readonly abortar = new AbortController();
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.abortar.abort());
+  }
 
   // ---- estado ------------------------------------------------------------
   readonly step = signal<WizardStep>(1);
@@ -475,6 +491,10 @@ export class TourDraftStore {
       // `GET /virtual-tours/:id` traz o `imageData` de cada um.
       let enviadas = 0;
       for (const [i, { scene, ordem }] of comFrames.entries()) {
+        // Saiu da tela no meio do envio: parar aqui evita subir dezenas de MB
+        // que ninguém mais está esperando. O que já subiu fica, e uma volta ao
+        // tour reencontra o estado — o envio é por índice, não duplica.
+        if (this.abortar.signal.aborted) return;
         const panorama = tour.panoramas.find((p) => p.order === ordem);
         if (panorama && scene.frames?.length) {
           const r = await this.virtualTourService.uploadCaptureFrames(
@@ -496,10 +516,14 @@ export class TourDraftStore {
       const inicio = await firstValueFrom(this.virtualTourService.montarTour(tour.id));
       this.montagemTotal.set(inicio.total);
 
-      await this.virtualTourService.acompanharMontagem(tour.id, (a) => {
-        this.montagemTotal.set(a.total);
-        this.montagemProntos.set(a.prontos + a.falhas + a.dispensados);
-      });
+      await this.virtualTourService.acompanharMontagem(
+        tour.id,
+        (a) => {
+          this.montagemTotal.set(a.total);
+          this.montagemProntos.set(a.prontos + a.falhas + a.dispensados);
+        },
+        { sinal: this.abortar.signal },
+      );
     } catch {
       // O tour já está salvo; seguir para ele é melhor que travar aqui.
     } finally {
