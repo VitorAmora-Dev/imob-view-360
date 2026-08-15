@@ -15,8 +15,8 @@ Branch: `feature/tour-wizard-hotspots`.
 
 | Tarefa | Estado | Onde |
 |---|---|---|
-| B1 — host do viewer em `editMode` | feito (falta hachura/dica do handoff) | `steps/step-hotspots/` |
-| B2 — overlay HTML de pins | feito, **sem estilo** (§8) | `hotspots/hotspot-overlay/` |
+| B1 — host do viewer em `editMode` | feito, com hachura no estado sem foto | `steps/step-hotspots/` |
+| B2 — overlay HTML de pins | feito, com acabamento | `hotspots/hotspot-overlay/` |
 | B3 — `HotspotEditorStore` | veio quase pronto do commit-zero | `hotspot-editor.store.ts` |
 | B4 — criar no clique, navegar no pin | feito | `step-hotspots.component.ts` |
 | B5 — rail de ambientes | feito | `hotspots/scene-rail/` |
@@ -31,7 +31,7 @@ O formulário de um ponto é um componente só, o `hotspots/hotspot-card/`, usad
 pelo painel do desktop e pelo sheet do mobile. Duas cópias divergiriam na
 primeira mudança de regra.
 
-Suíte em **264 passando**, zero falhando. As 3 falhas herdadas do §2.2 foram
+Suíte em **266 passando**, zero falhando. As 3 falhas herdadas do §2.2 foram
 corrigidas na branch de integração.
 
 Arquivos tocados, todos dentro do §7: `hotspots/**`, `steps/step-hotspots/**`,
@@ -210,8 +210,12 @@ Na ordem em que eu pegaria:
    da lixeira.
 4. ~~B10~~ — feito.
 5. ~~B12~~ — feito. Fica registrado o que a passagem de teclado encontrou, em §9.
-6. B2 acabamento — pílula, blur, `pulseRing`, ellipsis. Por último de propósito,
-   para estilizar uma coisa só uma vez.
+6. ~~B2 acabamento~~ — feito por último de propósito, e valeu: estilizei uma vez
+   só, já sabendo de que estados o pin precisava.
+
+**A frente B está fechada.** O que sobra são as duas anotações abaixo, que são
+decisões de escopo e não trabalho pendente: a geometria da lixeira no mobile
+(§1 desta seção) e o buraco de a11y de criar/mover ponto (§9).
 
 Uma decisão do B10 que merece um segundo par de olhos: os 184×96px da lixeira
 vêm do handoff e são generosos no desktop, mas no 375×760 o viewer tem 328×246 —

@@ -74,12 +74,30 @@
   white-space: nowrap;
 }
 
+// Estado sem imagem (B1). A hachura ocupa exatamente a caixa que a foto vai
+// ocupar, com a mesma proporção do viewer: assim a etapa não encolhe e depois
+// salta quando a imagem chega, e fica claro que o que falta é a foto, não o
+// resto da tela.
 .tw-viewer__empty {
+  display: grid;
+  place-items: center;
   margin: 0;
-  padding: 40px 16px;
+  padding: 24px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   border: 1px dashed var(--tw-border-dashed);
   border-radius: var(--tw-radius-md);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--tw-surface-muted) 0 9px,
+    var(--tw-surface) 9px 18px
+  );
   text-align: center;
   font-size: 14px;
   color: var(--tw-text-muted);
+  text-wrap: pretty;
+
+  @include tw.tw-mobile {
+    aspect-ratio: 4 / 3;
+  }
 }

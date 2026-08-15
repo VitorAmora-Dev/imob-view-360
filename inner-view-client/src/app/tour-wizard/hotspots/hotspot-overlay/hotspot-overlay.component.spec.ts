@@ -142,6 +142,45 @@ describe('HotspotOverlayComponent', () => {
     expect(pins()[0]).toBe(botao); // `track` por id reaproveitou o nó
   });
 
+  it('o dedo acerta 44px, mesmo com a pílula desenhada em 34', async () => {
+    // Vários pontos sobre uma foto com 44px de altura cada pesam demais, então
+    // a pílula é menor e a área de toque é esticada por fora. Antes do
+    // acabamento o pin media 5×13px — dá para clicar com mouse e não dá para
+    // acertar com o polegar.
+    host.hotspots.set([hs('p', 0.75, 0.5)]);
+    fixture.detectChanges();
+    await frames();
+
+    const pin = pins()[0];
+    expect(Math.round(pin.getBoundingClientRect().height)).toBe(34);
+
+    // A área vem do ::before. O hit test de verdade, com `elementFromPoint`,
+    // não serve aqui: a página do Karma tem o relatório do Jasmine por cima da
+    // fixture e o ponto medido cai nele. Foi medido no navegador — 44px nos
+    // dois eixos — e o que se trava aqui é a regra que produz esse número.
+    const area = getComputedStyle(pin, '::before');
+    expect(area.height).toBe('44px');
+    expect(area.minWidth).toBe('44px');
+  });
+
+  it('só pulsa o ponto que leva a algum lugar', async () => {
+    // O anel é a promessa de "clique aqui e você vai para outro lugar" que o
+    // visitante vai ver. Pulsar num ponto sem destino seria ensaiar uma
+    // promessa que ele ainda não cumpre.
+    host.hotspots.set([
+      { ...hs('com', 0.75, 0.5), target: 'outro' },
+      hs('sem', 0.72, 0.5),
+    ]);
+    fixture.detectChanges();
+    await frames();
+
+    const anel = (el: HTMLElement) =>
+      getComputedStyle(el.querySelector('.tw-pin__dot')!, '::after').animationName;
+
+    expect(anel(pins()[0])).toBe('tw-pulse-ring');
+    expect(anel(pins()[1])).toBe('none');
+  });
+
   /**
    * Long-press e arraste (B9).
    *

@@ -60,8 +60,10 @@ interface Pressao {
  * nós só quando a lista de hotspots muda, e o laço de frame não toca em
  * estado do Angular — só escreve `transform` direto no elemento.
  *
- * SEM ESTILO de propósito: §8 do plano manda provar a projeção antes de
- * estilizar qualquer pin. A aparência entra depois, com os tokens.
+ * O estilo entrou por último, como manda o §8 do plano: primeiro provar a
+ * projeção, depois desenhar. E o que se paga por ter esperado é ter estilizado
+ * uma vez só, já sabendo de que estados o pin precisa — com destino, órfão, em
+ * arraste, em foco.
  */
 @Component({
   selector: 'app-hotspot-overlay',
@@ -82,11 +84,13 @@ interface Pressao {
         (contextmenu)="$event.preventDefault()"
         (click)="onClick(hotspot.id, $event)">
         <!--
-          O rótulo visível cai no número quando o ponto ainda não tem nome; o
-          aria-label acima carrega a descrição inteira, porque "3" sozinho não
-          diz nada a quem não vê a foto.
+          O dot leva o anel de pulso; o rótulo visível cai no número quando o
+          ponto ainda não tem nome. Os dois são aria-hidden porque o rótulo
+          acessível do botão já carrega a descrição inteira — "3" sozinho não
+          diz nada a quem não vê a foto, e o dot não diz nada a ninguém.
         -->
-        <span aria-hidden="true">{{ hotspot.label || i + 1 }}</span>
+        <span class="tw-pin__dot" aria-hidden="true"></span>
+        <span class="tw-pin__label" aria-hidden="true">{{ hotspot.label || i + 1 }}</span>
       </button>
     }
   `,
@@ -118,15 +122,130 @@ interface Pressao {
            só, mas é um pin piscando no canto a cada ponto criado. O laço o
            torna visível junto com a primeira posição. */
         visibility: hidden;
+
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 34px;
+        max-width: 168px;
+        padding: 0 13px 0 11px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: var(--tw-radius-pill);
+        background: var(--tw-pin-bg);
+        /* A pílula fica sobre uma foto qualquer: sem o blur, um trecho de céu
+           claro atrás dela deixa o texto branco ilegível mesmo com o fundo a
+           78% de opacidade. */
+        backdrop-filter: blur(7px);
+        box-shadow: var(--tw-shadow-pin);
+        color: #fff;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1;
+        cursor: grab;
+
+        /* NÃO usa --tw-ease-pin, apesar do nome do token: ele inclui
+           transform, e o transform deste elemento é reescrito a cada frame
+           pelo laço de posicionamento. Uma transição de 0,14s ali faria o pin
+           correr atrás da câmera com um sexto de segundo de atraso — que é
+           exatamente o defeito que o overlay existe para não ter. */
+        transition: box-shadow 0.14s ease, border-color 0.14s ease;
       }
 
-      /* Provisório, até o acabamento do B2. O pin ainda não tem desenho
-         nenhum, mas um arraste sem retorno visual é indistinguível de um
-         travamento: sem isto, no mouse — que não vibra — nada na tela diz que o
-         ponto foi pego. */
+      /* A área que o dedo acerta, esticada por fora sem mexer no desenho.
+         A pílula tem 34px de altura porque 44 pesa demais sobre a foto, ainda
+         mais com vários pontos; o piso de toque da WCAG vale do mesmo jeito. */
+      .tw-pin::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100%;
+        min-width: 44px;
+        height: 44px;
+        transform: translate(-50%, -50%);
+      }
+
+      .tw-pin:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+        /* O halo escuro é o que garante o contraste do anel branco quando a
+           foto atrás também é clara. */
+        box-shadow: var(--tw-shadow-pin), 0 0 0 5px rgba(0, 0, 0, 0.55);
+      }
+
+      .tw-pin__dot {
+        position: relative;
+        flex: 0 0 auto;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--tw-brand);
+      }
+
+      /* O anel de pulso. Nasce em opacity 0 e quem o acende é a animação — daí
+         desligar a animação bastar para sumir com ele, sem deixar um círculo
+         opaco parado em volta do dot. */
+      .tw-pin__dot::after {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        border-radius: 50%;
+        background: var(--tw-brand);
+        opacity: 0;
+        animation: tw-pulse-ring 2.4s ease-out infinite;
+      }
+
+      .tw-pin__label {
+        /* min-width: 0 para o ellipsis valer dentro do flex; sem ele o nome
+           comprido estica a pílula em vez de ser cortado. */
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Ponto sem destino: dot vazado e borda de atenção, SEM pulso.
+         O anel é a promessa de "clique aqui e você vai para outro lugar" que o
+         visitante vai ver — e é justamente o que este ponto ainda não cumpre.
+         Pulsar aqui seria ensaiar uma promessa falsa. */
+      .tw-pin.is-orphan {
+        border-color: rgba(253, 246, 227, 0.5);
+      }
+
+      .tw-pin.is-orphan .tw-pin__dot {
+        background: transparent;
+        box-shadow: inset 0 0 0 2px var(--tw-warn-soft);
+      }
+
+      .tw-pin.is-orphan .tw-pin__dot::after {
+        animation: none;
+      }
+
       .tw-pin.is-dragging {
         box-shadow: var(--tw-shadow-pin-drag);
+        border-color: rgba(255, 255, 255, 0.4);
         cursor: grabbing;
+      }
+
+      /* Um anel pulsando debaixo do próprio dedo não informa nada e concorre
+         com a lixeira pela atenção. */
+      .tw-pin.is-dragging .tw-pin__dot::after {
+        animation: none;
+      }
+
+      /* B12. O tour-wizard.scss zera os tokens de transição, mas nem a animação
+         do anel nem a transição escrita à mão acima passam por token — ficam
+         aqui. O que some é o movimento: a cor do dot, o contorno e a sombra
+         continuam distinguindo cada estado. */
+      @media (prefers-reduced-motion: reduce) {
+        .tw-pin {
+          transition: none;
+        }
+
+        .tw-pin__dot::after {
+          animation: none;
+        }
       }
     `,
   ],
