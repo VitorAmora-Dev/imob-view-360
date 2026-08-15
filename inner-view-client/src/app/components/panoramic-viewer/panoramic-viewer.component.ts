@@ -324,36 +324,54 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.hotspotTargetMap.clear();
   }
 
+  /**
+   * O pin que o visitante vê, com a MESMA identidade do pin do wizard.
+   *
+   * Era uma pílula branca com seta preta, enquanto o corretor marca os pontos
+   * numa etapa cujo pin é escuro com dot na cor da marca — duas linguagens para
+   * a mesma coisa, e quem monta o tour não reconhecia o que tinha publicado.
+   *
+   * As cores saem dos tokens `--tw-pin-bg` e `--tw-brand` lidos do documento, e
+   * não de hex copiado. Isto aqui é canvas, não CSS: ler a fonte é a única
+   * forma de não virar uma terceira cópia da identidade, que é o tipo de
+   * duplicação que já custou um bug de eixo neste mesmo arquivo. Os fallbacks
+   * cobrem o caso de a folha do wizard não estar carregada.
+   */
   private createHotspotSprite(label: string): THREE.Sprite {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 96;
     const ctx = canvas.getContext('2d')!;
 
-    // Background pill — white guest-favorite-badge language over the photo
+    const raiz = getComputedStyle(document.documentElement);
+    const token = (nome: string, padrao: string) =>
+      raiz.getPropertyValue(nome).trim() || padrao;
+
+    // A pílula. `roundRect` com raio igual à metade da altura é o equivalente
+    // em canvas do `border-radius: 999px` do pin do wizard.
     ctx.beginPath();
     ctx.roundRect(4, 4, 248, 88, 44);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillStyle = token('--tw-pin-bg', 'rgba(16, 18, 24, 0.78)');
     ctx.fill();
-    ctx.strokeStyle = '#dddddd';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Arrow icon
-    ctx.fillStyle = '#222222';
-    ctx.font = 'bold 36px "Inter Variable", Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('⟶', 48, 48);
+    // O dot na cor da marca, no lugar da seta.
+    ctx.beginPath();
+    ctx.arc(44, 48, 10, 0, Math.PI * 2);
+    ctx.fillStyle = token('--tw-brand', '#ff385c');
+    ctx.fill();
 
-    // Label text
     if (label) {
-      ctx.fillStyle = '#222222';
-      ctx.font = '600 18px "Inter Variable", Inter, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '600 22px "Inter Variable", Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      const maxWidth = 180;
-      ctx.fillText(label, 80, 48, maxWidth);
+      // Reticências de verdade. O `maxWidth` do `fillText` ESPREME a fonte para
+      // caber, e um nome comprido sai condensado e ilegível; o pin do wizard
+      // corta com ellipsis, e aqui é a mesma promessa.
+      ctx.fillText(this.comReticencias(ctx, label, 172), 68, 49);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -362,6 +380,21 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // Scale keeps canvas aspect ratio (256:96 ≈ 8:3), sized for visibility at r=490
     sprite.scale.set(80, 30, 1);
     return sprite;
+  }
+
+  /** Corta o texto e põe reticências, como o `text-overflow` do pin HTML. */
+  private comReticencias(
+    ctx: CanvasRenderingContext2D,
+    texto: string,
+    limite: number,
+  ): string {
+    if (ctx.measureText(texto).width <= limite) return texto;
+
+    let corte = texto.length;
+    while (corte > 1 && ctx.measureText(`${texto.slice(0, corte)}…`).width > limite) {
+      corte--;
+    }
+    return `${texto.slice(0, corte)}…`;
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
