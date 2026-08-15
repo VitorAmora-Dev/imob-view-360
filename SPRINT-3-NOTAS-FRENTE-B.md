@@ -42,27 +42,41 @@ Frente A foi alterado.
 
 ## 2. Três decisões que não são de uma frente só
 
-### 2.1 `addHotspots` desenha os hotspots espelhados — NÃO corrigido
+### 2.1 `addHotspots` desenhava os hotspots espelhados — CORRIGIDO em `f7803a4`
 
-`panoramic-viewer.component.ts`, em `addHotspots`:
+> Esta seção dizia "NÃO corrigido" e ficou desatualizada por seis commits, até um
+> code review apontar que o documento contradizia o código no merge. O texto
+> abaixo é o registro do que foi feito, não mais uma pendência.
+
+`panoramic-viewer.component.ts`, em `addHotspots`, calculava:
 
 ```ts
 const theta = (1 - hotspot.positionY) * Math.PI;   // errado
 ```
 
-Deveria ser `positionY * Math.PI`. Ver §3 para a derivação.
+quando o certo é `positionY * Math.PI`. Ver §3 para a derivação.
 
-O efeito: a função renderiza refletido no equador o mesmo ponto que o
-`onCanvasClick` do próprio componente gravou. Como `hotspotPlaced` é o único
-produtor de `positionX`/`positionY` no cliente, **os hotspots do inner-view são
-desenhados no lugar errado hoje**. O dado no banco está certo; só a renderização
-inverte.
+O efeito era renderizar refletido no equador o mesmo ponto que o `onCanvasClick`
+do próprio componente gravou. Como `hotspotPlaced` é o único produtor de
+`positionX`/`positionY` no cliente, **todo hotspot do inner-view aparecia no
+lugar errado**. O dado no banco sempre esteve certo; só a renderização invertia.
 
-Não corrigi porque muda o que a página do inner-view mostra para todos os tours
-já existentes, e isso não é chamada de uma frente sozinha. É uma linha.
+**O que isso muda para quem já usava o app:** os tours publicados antes desta
+correção passam a mostrar os hotspots no lugar certo. Não há migração porque não
+há dado a migrar — mas é uma mudança visível, e o corretor que tenha marcado um
+ponto "até o sprite cair onde eu queria" vai ver aquele ponto se mover.
 
-O wizard não é afetado: a etapa 2 passa `originHotspots: []` ao viewer, porque
-quem desenha os pins é o overlay HTML.
+A pendência que esta seção registrava era o aval das duas frentes, que o Vitor
+não podia dar sozinho. Ele foi dado pelo Dev A depois de assumir as duas, com a
+mudança sinalizada explicitamente na mensagem do merge da Frente B.
+
+Provado no dado publicado, não só em teste: um ponto marcado a 0,179 da altura
+do canvas na etapa 2 é desenhado a 0,179 no inner-view depois de publicar. A
+primeira verificação caiu no equador, onde o espelhamento dá erro zero — a
+armadilha do §3 — e não provava nada.
+
+O wizard nunca foi afetado: a etapa 2 passa `originHotspots: []` ao viewer,
+porque quem desenha os pins é o overlay HTML.
 
 ### 2.2 A branch de integração está vermelha
 

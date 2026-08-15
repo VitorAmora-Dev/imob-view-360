@@ -42,11 +42,19 @@ export class HotspotPanelComponent {
      * escondido não faz nada — quem responde lá é o sheet, com o mesmo estado.
      */
     effect(() => {
-      const alvo = this.editor.editing();
-      if (!alvo) return;
+      // Depende do ID pedido, e não do objeto `editing()`. O objeto muda de
+      // identidade a cada mutação do próprio ponto, e este efeito então
+      // re-rodava a cada tecla e a cada `pointermove` de arraste — na prática,
+      // escolher um destino no <select> devolvia o foco para o campo de nome no
+      // meio da interação. Reproduzido no navegador: SELECT → INPUT.tw-hp__name.
+      //
+      // `sheet()` só muda quando alguém pede outra coisa, que é exatamente
+      // quando levar o foco faz sentido.
+      const estado = this.editor.sheet();
+      if (estado?.mode !== 'editor') return;
 
       const campo = this.host.nativeElement.querySelector<HTMLInputElement>(
-        `#hs-label-${CSS.escape(alvo.id)}`,
+        `#hs-label-${CSS.escape(estado.hotspotId)}`,
       );
       campo?.focus();
       campo?.scrollIntoView({ block: 'nearest' });

@@ -103,7 +103,11 @@ export class HotspotEditorStore {
       ...s,
       hotspots: s.hotspots.filter((h) => h.id !== id),
     }));
-    if (this.sheet()?.mode === 'editor') this.closeSheet();
+    // Fecha o editor só se o ponto excluído for o que estava aberto. Sem a
+    // comparação, largar OUTRO ponto na lixeira descartava a edição em
+    // andamento deste, sem explicação nenhuma.
+    const aberto = this.sheet();
+    if (aberto?.mode === 'editor' && aberto.hotspotId === id) this.closeSheet();
   }
 
   // ---- sheet -------------------------------------------------------------

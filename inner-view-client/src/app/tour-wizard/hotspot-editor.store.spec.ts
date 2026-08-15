@@ -94,6 +94,30 @@ describe('HotspotEditorStore — arraste', () => {
     );
   });
 
+  it('excluir outro ponto não descarta a edição em andamento', () => {
+    // Largar o ponto B na lixeira enquanto se edita o A fechava o editor do A
+    // com o texto pela metade. A guarda não comparava id nenhum.
+    draft.scenes.set([
+      cena([ponto(), { id: 'h2', u: 0.2, v: 0.2, label: '', target: null }]),
+    ]);
+    draft.selectedSceneId.set('a');
+    editor.openEditor('h1');
+
+    editor.remove('h2');
+
+    expect(editor.sheet()).toEqual({ mode: 'editor', hotspotId: 'h1' });
+  });
+
+  it('excluir o ponto aberto fecha o editor', () => {
+    // O outro lado: sem isso, o sheet ficaria aberto sobre um ponto que não
+    // existe mais.
+    editor.openEditor('h1');
+
+    editor.remove('h1');
+
+    expect(editor.sheet()).toBeNull();
+  });
+
   it('soltar encerra o arraste', () => {
     editor.startDrag('h1');
     expect(editor.pinDrag()).toEqual({ hotspotId: 'h1', overTrash: false });
