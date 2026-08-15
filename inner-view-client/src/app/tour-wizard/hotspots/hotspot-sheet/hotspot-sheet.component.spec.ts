@@ -6,7 +6,7 @@ import { provideTranslateService } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardHotspot, WizardScene } from '../../tour-wizard.model';
-import { TW_MOBILE_QUERY } from '../viewport';
+import { TW_MOBILE_QUERY } from '../media';
 import { HotspotSheetComponent } from './hotspot-sheet.component';
 
 /**

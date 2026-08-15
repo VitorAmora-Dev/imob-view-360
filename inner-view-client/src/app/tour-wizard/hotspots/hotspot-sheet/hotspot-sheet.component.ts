@@ -3,7 +3,7 @@ import { IonContent, IonModal } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { HotspotCardComponent } from '../hotspot-card/hotspot-card.component';
-import { isMobileViewport } from '../viewport';
+import { isMobileViewport } from '../media';
 
 /**
  * Bottom sheet dos hotspots, no mobile (tarefa B8).

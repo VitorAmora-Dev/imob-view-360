@@ -25,13 +25,13 @@ Branch: `feature/tour-wizard-hotspots`.
 | B8 — bottom sheet | feito | `hotspots/hotspot-sheet/` |
 | B9 — long-press e arraste | feito | `hotspot-overlay/`, `hotspot-editor.store.ts` |
 | B10 — lixeira | feito | `hotspots/hotspot-trash/` |
-| B12 — a11y | metade: `aria-label` dos pins e nome do diálogo | — |
+| B12 — a11y | feito | espalhado; `media.ts` para o `prefers-reduced-motion` |
 
 O formulário de um ponto é um componente só, o `hotspots/hotspot-card/`, usado
 pelo painel do desktop e pelo sheet do mobile. Duas cópias divergiriam na
 primeira mudança de regra.
 
-Suíte em **236 passando**, zero falhando. As 3 falhas herdadas do §2.2 foram
+Suíte em **264 passando**, zero falhando. As 3 falhas herdadas do §2.2 foram
 corrigidas na branch de integração.
 
 Arquivos tocados, todos dentro do §7: `hotspots/**`, `steps/step-hotspots/**`,
@@ -209,8 +209,7 @@ Na ordem em que eu pegaria:
    e o `pinDragMoved` já carrega `clientX`/`clientY` justamente para o hit test
    da lixeira.
 4. ~~B10~~ — feito.
-5. B12 — o que falta de a11y: lista de pontos navegável por teclado como
-   alternativa ao clique na imagem, e `prefers-reduced-motion`.
+5. ~~B12~~ — feito. Fica registrado o que a passagem de teclado encontrou, em §9.
 6. B2 acabamento — pílula, blur, `pulseRing`, ellipsis. Por último de propósito,
    para estilizar uma coisa só uma vez.
 
@@ -231,3 +230,49 @@ aparece inteira e clicável. É o comportamento normal de uma barra de ação
 `sticky`, não um defeito, mas quem verificar isso de novo precisa usar
 `elementFromPoint`, e não `getComputedStyle(...).display`: o segundo diz que a
 linha está lá mesmo quando ninguém consegue tocá-la.
+
+---
+
+## 9. O que a passagem de teclado encontrou (B12)
+
+Tabulei a etapa 2 inteira no navegador em vez de conferir por leitura. A ordem
+de foco sai assim, e está boa: os pins visíveis (com rótulo descritivo), o rail
+de ambientes, e depois cada card do painel — nome, excluir, destino.
+
+Três coisas que só apareceram por fazer isso:
+
+**Enter num pin não navegava.** A trava de clique do B9 é ligada no `pointerup`
+do arraste e só era desligada pelo clique seguinte ou pelo `pointerdown`
+seguinte — e quem usa teclado não gera nenhum dos dois. Depois de qualquer
+arraste com o mouse, ela ficava pendurada até o próximo toque de ponteiro, que
+podia não vir nunca. O conserto é `event.detail > 0`: o `click` de ponteiro traz
+`detail` ≥ 1, o que o Enter sintetiza traz 0.
+
+De quebra: `element.click()` também gera `detail` 0, então os testes que usavam
+isso para simular a sobra de um arraste estavam exercitando o caminho errado.
+Agora o spec tem `cliqueDePonteiro` e `cliqueDeTeclado` separados.
+
+**Um pin fora de vista não é alcançável pelo teclado.** Ele fica com
+`visibility: hidden`, o que o tira da ordem de foco — o que está certo —, mas
+girar o panorama é só de ponteiro, então não há como trazê-lo à vista. A
+alternativa existe e é o painel (desktop) ou o sheet (mobile), onde todo ponto do
+ambiente aparece, e o rail leva a qualquer ambiente. É por isso que o B12 pede
+essa lista.
+
+**Criar e mover ponto seguem sendo só de ponteiro.** Criar exige clicar numa
+posição da imagem; mover é o arraste do B9. Nenhum dos dois está no B12, e não
+inventei um gesto de teclado por conta própria — mas fica anotado como o buraco
+real de a11y da etapa, para quem for decidir o escopo do próximo sprint.
+
+Sobre o `prefers-reduced-motion`: o `tour-wizard.scss` já zera os tokens de
+transição, mas isso não desliga os valores. Faltavam dois, e ambos entraram —
+o `scale` do pin em arraste, que sai do laço de frame e por isso precisa da
+preferência em TypeScript (`media.ts`), e o `scale(1.12)` da lixeira ativa. Nos
+dois casos o que fica é a informação sem movimento: sombra no pin, cor na
+lixeira.
+
+Medido com `emulateMedia`, com uma lição de método: ler `getComputedStyle` uma
+vez só, logo depois de aplicar a classe, pega a transição no meio do caminho e
+mente. Com série temporal (0, 100, 200, 400ms) dá para ver a transição sair de
+`scale(1)` e assentar em `scale(1.12)` aos ~200ms no modo normal, e já nascer
+`none` no modo reduzido.

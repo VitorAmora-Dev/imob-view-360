@@ -5,6 +5,7 @@ import { provideTranslateService } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { WizardHotspot } from '../../tour-wizard.model';
 import { hotspotToWorld, projectToScreen } from '../hotspot-projection';
+import { TW_REDUCED_MOTION_QUERY } from '../media';
 import { HotspotOverlayComponent } from './hotspot-overlay.component';
 
 /**
@@ -175,6 +176,22 @@ describe('HotspotOverlayComponent', () => {
       });
     }
 
+    /**
+     * Os dois cliques são eventos diferentes, e o overlay depende disso.
+     *
+     * O que o browser dispara ao fim de um gesto de ponteiro traz `detail` ≥ 1;
+     * o que o Enter num <button> sintetiza traz `detail` 0. `element.click()`
+     * também gera 0 — usá-lo para simular a sobra de um arraste testaria o
+     * caminho errado.
+     */
+    function cliqueDePonteiro(el: HTMLElement): void {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    }
+
+    function cliqueDeTeclado(el: HTMLElement): void {
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    }
+
     async function comUmPin(): Promise<HTMLElement> {
       host.hotspots.set([hs('p', 0.75, 0.5)]);
       fixture.detectChanges();
@@ -238,7 +255,7 @@ describe('HotspotOverlayComponent', () => {
       pin.dispatchEvent(mouse('pointerdown'));
       pin.dispatchEvent(mouse('pointermove', PONTO.x + 3, PONTO.y));
       pin.dispatchEvent(mouse('pointerup'));
-      pin.click();
+      cliqueDePonteiro(pin);
 
       expect(host.iniciados).toEqual([]);
       expect(host.ativados).toEqual(['p']);
@@ -266,7 +283,7 @@ describe('HotspotOverlayComponent', () => {
       jasmine.clock().tick(LONG_PRESS_MS);
       pin.dispatchEvent(toque('pointermove', 800, 300));
       pin.dispatchEvent(toque('pointerup'));
-      pin.click();
+      cliqueDePonteiro(pin);
 
       expect(host.fins).toBe(1);
       expect(host.ativados).toEqual([]);
@@ -282,7 +299,7 @@ describe('HotspotOverlayComponent', () => {
       pin.dispatchEvent(toque('pointerdown'));
       pin.dispatchEvent(toque('pointermove', PONTO.x + 120, PONTO.y));
       pin.dispatchEvent(toque('pointerup'));
-      pin.click();
+      cliqueDePonteiro(pin);
 
       expect(host.iniciados).toEqual([]); // não virou arraste: andou cedo demais
       expect(host.ativados).toEqual([]); // e também não virou clique
@@ -296,8 +313,8 @@ describe('HotspotOverlayComponent', () => {
       pin.dispatchEvent(toque('pointerdown'));
       jasmine.clock().tick(LONG_PRESS_MS);
       pin.dispatchEvent(toque('pointerup'));
-      pin.click();
-      pin.click();
+      cliqueDePonteiro(pin);
+      cliqueDePonteiro(pin);
 
       expect(host.ativados).toEqual(['p']);
     });
@@ -317,6 +334,26 @@ describe('HotspotOverlayComponent', () => {
       expect(host.movimentos).toEqual([]);
     });
 
+    it('o teclado nunca cai na trava de clique', async () => {
+      // Encontrado no navegador, tabulando pela etapa: depois de arrastar um
+      // ponto com o mouse, dar Tab até um pin e apertar Enter não fazia nada.
+      //
+      // A trava é ligada no `pointerup` e só é desligada pelo clique seguinte
+      // ou pelo `pointerdown` seguinte — e quem usa teclado não gera nenhum dos
+      // dois. Ela ficava pendurada até o próximo toque de ponteiro, que podia
+      // não vir nunca.
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      jasmine.clock().tick(LONG_PRESS_MS);
+      pin.dispatchEvent(toque('pointermove', 800, 300));
+      pin.dispatchEvent(toque('pointerup'));
+
+      cliqueDeTeclado(pin);
+
+      expect(host.ativados).toEqual(['p']);
+    });
+
     it('aumenta o ponto que está sendo arrastado', async () => {
       // Sai do laço de frame e não do CSS: aquele reescreve `transform` a cada
       // frame e sobrescreveria um `scale` de classe.
@@ -330,6 +367,64 @@ describe('HotspotOverlayComponent', () => {
       expect(pin.style.transform).toContain('scale(');
       jasmine.clock().install();
     });
+  });
+});
+
+/**
+ * Menos movimento (B12).
+ *
+ * O `tour-wizard.scss` já zera os tokens de transição numa media query, mas o
+ * aumento do pin em arraste não passa por CSS: o laço de frame reescreve
+ * `transform` sessenta vezes por segundo, então quem decide se o `scale` entra
+ * é o TypeScript — e a preferência precisa chegar até lá.
+ */
+describe('HotspotOverlayComponent — menos movimento', () => {
+  @Component({
+    standalone: true,
+    imports: [PanoramicViewerComponent, HotspotOverlayComponent],
+    template: `
+      <div style="width: 1280px; height: 720px; position: relative">
+        <app-panoramic-viewer #viewer [editMode]="true" />
+        <app-hotspot-overlay
+          [viewer]="viewer"
+          [hotspots]="hotspots()"
+          [draggingId]="'p'" />
+      </div>
+    `,
+  })
+  class HostSemMovimentoComponent {
+    readonly hotspots = signal<WizardHotspot[]>([hs('p', 0.75, 0.5)]);
+  }
+
+  it('não aumenta o ponto em arraste quando o sistema pede menos movimento', async () => {
+    const real = window.matchMedia.bind(window);
+    spyOn(window, 'matchMedia').and.callFake((consulta: string) =>
+      consulta === TW_REDUCED_MOTION_QUERY
+        ? ({
+            matches: true,
+            addEventListener: () => undefined,
+            removeEventListener: () => undefined,
+          } as unknown as MediaQueryList)
+        : real(consulta),
+    );
+
+    await TestBed.configureTestingModule({
+      imports: [HostSemMovimentoComponent],
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(HostSemMovimentoComponent);
+    fixture.detectChanges();
+    await frames();
+
+    const pin: HTMLElement = fixture.nativeElement.querySelector('[data-hotspot-id]');
+
+    // Continua posicionado — o que sai é só o crescimento. A sombra da classe
+    // `is-dragging` segue lá, e ela é cor, não deslocamento.
+    expect(pin.style.transform).toContain('translate3d');
+    expect(pin.style.transform).not.toContain('scale(');
+
+    fixture.destroy();
   });
 });
 

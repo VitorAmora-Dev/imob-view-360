@@ -16,6 +16,7 @@ import {
   isWithinCanvas,
   projectToScreen,
 } from '../hotspot-projection';
+import { prefersReducedMotion } from '../media';
 
 /**
  * Quanto tempo o dedo fica parado antes de o ponto soltar e passar a segui-lo.
@@ -79,7 +80,7 @@ interface Pressao {
         (pointerup)="onPointerUp()"
         (pointercancel)="onPointerCancel()"
         (contextmenu)="$event.preventDefault()"
-        (click)="onClick(hotspot.id)">
+        (click)="onClick(hotspot.id, $event)">
         <!--
           O rótulo visível cai no número quando o ponto ainda não tem nome; o
           aria-label acima carrega a descrição inteira, porque "3" sozinho não
@@ -172,6 +173,7 @@ export class HotspotOverlayComponent {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly translate = inject(TranslateService);
+  private readonly semMovimento = prefersReducedMotion();
 
   /**
    * O que o leitor de tela anuncia no pin.
@@ -312,11 +314,21 @@ export class HotspotOverlayComponent {
     this.cancelarPressao();
   }
 
-  onClick(hotspotId: string): void {
-    if (this.engolirClique) {
+  onClick(hotspotId: string, event: MouseEvent): void {
+    // `detail > 0` é o que separa clique de ponteiro de clique de teclado: o
+    // Enter num <button> gera um `click` sintético com `detail` 0.
+    //
+    // Sem essa distinção a trava fica pendurada. Ela é ligada no `pointerup` do
+    // arraste e só é desligada pelo clique que vem em seguida ou pelo
+    // `pointerdown` seguinte — e um usuário de teclado não gera nenhum dos
+    // dois. Encontrado no navegador: depois de arrastar um ponto com o mouse,
+    // dar Tab até outro pin e apertar Enter não fazia nada. Nada no console.
+    if (this.engolirClique && event.detail > 0) {
       this.engolirClique = false;
       return;
     }
+
+    this.engolirClique = false;
     this.pinActivated.emit(hotspotId);
   }
 
@@ -360,7 +372,9 @@ export class HotspotOverlayComponent {
 
     const porId = new Map(this.hotspots().map((h) => [h.id, h]));
     const elements = this.host.nativeElement.children;
-    const arrastado = this.draggingId();
+    // Sem o aumento quando o sistema pede menos movimento (B12). O ponto em
+    // arraste continua distinguível pela sombra, que é cor e não deslocamento.
+    const arrastado = this.semMovimento() ? null : this.draggingId();
 
     for (let i = 0; i < elements.length; i++) {
       const el = elements[i] as HTMLElement;

@@ -52,6 +52,16 @@
   transform: scale(1.12);
 }
 
+// B12. Some o crescimento, fica a cor: a informação "o dedo chegou" não pode
+// depender de movimento, mas também não pode sumir junto com ele. O
+// `tour-wizard.scss` já zera a transição por token; aqui vai o valor em si, que
+// token nenhum alcança.
+@media (prefers-reduced-motion: reduce) {
+  .tw-trash.is-active {
+    transform: none;
+  }
+}
+
 .tw-trash__icon {
   flex: 0 0 auto;
   font-size: 16px;
