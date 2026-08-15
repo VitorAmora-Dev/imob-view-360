@@ -37,15 +37,15 @@ h2 {
   text-wrap: pretty;
 }
 
+// Só a ressalva dos pontos descartados usa isto. O `.is-error` que existia
+// aqui morreu junto com o aviso de falha ao publicar, que saiu desta tela: ela
+// só monta quando o tour existe, então erro de publicação nunca chegava a ser
+// pintado por esta regra.
 .tw-pub__note {
   max-width: 44ch;
   margin: 0;
   font-size: 13px;
   color: var(--tw-warn-text);
-
-  &.is-error {
-    color: var(--ion-color-danger);
-  }
 }
 
 .tw-pub__link {

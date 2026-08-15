@@ -452,6 +452,58 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.hasError('state')).toBe(true);
     });
 
+    /**
+     * O caso que a busca por nome errava.
+     *
+     * Dois ambientes com o MESMO nome mandavam as fotos originais das duas
+     * cenas para o primeiro panorama: a segunda ficava sem nenhuma, e a
+     * montagem por IA a dispensava por falta de verdade de campo. Nome com
+     * espaço no fim errava sozinho, porque o payload manda `trim()` e a busca
+     * comparava sem.
+     */
+    it('manda as fotos de cada cena para o panorama da MESMA ordem', async () => {
+      const frames = (i: number) =>
+        [{ index: i }] as unknown as WizardScene['frames'];
+      const store = storeWith(
+        scene('a', { room: 'Ambiente 2 ', frames: frames(0) }),
+        scene('b', { room: 'Ambiente 2', frames: frames(1) }),
+      );
+      pronto(store);
+
+      spyOn(TestBed.inject(PropertyService), 'createProperty').and.returnValue(
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'createTour').and.returnValue(
+        of({
+          id: 'tour-1',
+          panoramas: [
+            { id: 'pan-0', roomName: 'Ambiente 2', order: 0 },
+            { id: 'pan-1', roomName: 'Ambiente 2', order: 1 },
+          ],
+        } as unknown) as ReturnType<VirtualTourService['createTour']>,
+      );
+      const upload = spyOn(tours, 'uploadCaptureFrames').and.resolveTo({
+        uploaded: 1,
+      } as never);
+      spyOn(tours, 'montarTour').and.returnValue(
+        of({ total: 2 }) as ReturnType<VirtualTourService['montarTour']>,
+      );
+      spyOn(tours, 'acompanharMontagem').and.resolveTo(undefined as never);
+      // Se voltasse a existir, seria o round-trip que baixa tudo de novo.
+      const refetch = spyOn(tours, 'findTour');
+
+      await store.publish();
+
+      expect(upload.calls.allArgs().map((a) => a[0])).toEqual([
+        'pan-0',
+        'pan-1',
+      ]);
+      expect(upload.calls.argsFor(0)[1]).toBe(store.scenes()[0].frames!);
+      expect(upload.calls.argsFor(1)[1]).toBe(store.scenes()[1].frames!);
+      expect(refetch).not.toHaveBeenCalled();
+    });
+
     it('não acusa endereço quando o erro está fora dele', async () => {
       const store = storeWith(scene('a'));
 
