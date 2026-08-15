@@ -1,0 +1,77 @@
+// Os tokens do sheet já existiam em `tour-wizard.scss` desde o commit-zero,
+// desenhados para esta tela — `--tw-radius-sheet`, `--tw-shadow-sheet` e
+// `--tw-scrim`. Aqui eles são repassados às variáveis do IonModal em vez de
+// reescritos, para o sheet não destoar do resto do wizard.
+ion-modal.tw-sheet {
+  --border-radius: var(--tw-radius-sheet);
+  --box-shadow: var(--tw-shadow-sheet);
+  --backdrop-opacity: 1;
+  --background: var(--tw-surface);
+}
+
+// O scrim do Ionic é preto puro com opacidade; o token do wizard já é a cor
+// final, então a opacidade acima vai a 1 e a cor vem inteira daqui.
+ion-modal.tw-sheet::part(backdrop) {
+  background: var(--tw-scrim);
+}
+
+.tw-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tw-sheet__title {
+  margin: 0;
+  // `min-width: 0` para o título com nome longo virar ellipsis em vez de
+  // empurrar o "Concluído" para fora da tela.
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tw-text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tw-sheet__done {
+  flex: 0 0 auto;
+  // Altura do piso de toque; o padding lateral dá a largura sem depender do
+  // tamanho da palavra traduzida.
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--tw-radius-sm);
+  background: transparent;
+  color: var(--tw-brand);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--tw-focus-ring);
+    outline-offset: 1px;
+  }
+}
+
+.tw-sheet__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  // O respiro embaixo é para o último card não encostar na borda do sheet
+  // quando a lista rola até o fim.
+  padding: 0 0 16px;
+  list-style: none;
+}
+
+.tw-sheet__empty {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--tw-text-muted);
+  text-wrap: pretty;
+}

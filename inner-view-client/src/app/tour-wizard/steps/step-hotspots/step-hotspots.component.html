@@ -1,0 +1,59 @@
+<header class="tw-step-head">
+  <h2>{{ 'TOUR_WIZARD.STEP2.TITLE' | translate }}</h2>
+  <p>{{ 'TOUR_WIZARD.STEP2.SUBTITLE' | translate }}</p>
+</header>
+
+@if (viewerPanoramas().length) {
+  <div class="tw-step2">
+    <div class="tw-step2__stage">
+      <div class="tw-viewer">
+        <app-panoramic-viewer
+          #viewer
+          [panoramas]="viewerPanoramas()"
+          [editMode]="true"
+          (hotspotPlaced)="onPlaced($event)" />
+
+        <!--
+          ANTES do overlay no DOM: assim o pin em arraste passa por cima do
+          alvo, e não desaparece atrás dele bem no instante em que se precisa
+          ver o que está sendo largado.
+        -->
+        <app-hotspot-trash #trash />
+
+        <app-hotspot-overlay
+          [viewer]="viewer"
+          [hotspots]="editor.hotspots()"
+          [roomNames]="roomNames()"
+          [draggingId]="editor.pinDrag()?.hotspotId ?? null"
+          (pinActivated)="onPinActivated($event)"
+          (pinDragStarted)="editor.startDrag($event)"
+          (pinDragMoved)="onPinDragMoved($event)"
+          (pinDragEnded)="editor.endDrag()" />
+
+        <!--
+          A dica fica sobre a imagem porque é ali que a ação acontece, e some
+          assim que o primeiro ponto existe: instrução que não some vira ruído
+          permanente para quem já entendeu.
+        -->
+        @if (!editor.hotspots().length) {
+          <p class="tw-viewer__hint">{{ 'TOUR_WIZARD.STEP2.HINT' | translate }}</p>
+        }
+      </div>
+
+      <app-scene-rail />
+
+      <!-- Só no mobile: no desktop o painel ao lado já mostra a lista inteira. -->
+      <app-hotspot-summary-row class="tw-step2__row" />
+    </div>
+
+    <app-hotspot-panel class="tw-step2__panel" />
+  </div>
+
+  <!--
+    Sobreposição, não layout: fica fora da grade de propósito. Ele mesmo decide
+    que não existe no desktop — ver `isMobileViewport`.
+  -->
+  <app-hotspot-sheet />
+} @else {
+  <p class="tw-viewer__empty">{{ 'TOUR_WIZARD.STEP2.EMPTY' | translate }}</p>
+}

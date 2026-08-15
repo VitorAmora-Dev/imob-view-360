@@ -1,0 +1,35 @@
+<!--
+  `role="list"` explícito: o Safari remove a semântica de lista quando o CSS
+  zera o `list-style`, e aí o leitor de tela deixa de anunciar "3 itens" — que
+  é justamente o que orienta quem não vê as miniaturas.
+-->
+<ul class="tw-rail" role="list">
+  @for (scene of scenes(); track scene.id; let i = $index) {
+    <li>
+      <button
+        type="button"
+        class="tw-rail__item"
+        [class.is-selected]="scene.id === selectedId()"
+        [attr.aria-current]="scene.id === selectedId() ? 'true' : null"
+        (click)="select(scene.id)">
+        <span
+          class="tw-rail__thumb"
+          [style.background-image]="'url(' + scene.imageData + ')'"
+          aria-hidden="true"></span>
+
+        <span class="tw-rail__text">
+          <span class="tw-rail__name">{{ scene.room || ('TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: i + 1 }) }}</span>
+          <!--
+            A contagem vive dentro do botão, e não num badge à parte, para o
+            leitor de tela ler nome e pontos como uma coisa só.
+          -->
+          @if (countOf(scene.id); as n) {
+            <span class="tw-rail__count">{{ n }} {{ 'TOUR_WIZARD.STEP2.COUNT' | translate }}</span>
+          } @else {
+            <span class="tw-rail__count is-empty">{{ 'TOUR_WIZARD.STEP2.RAIL_NONE' | translate }}</span>
+          }
+        </span>
+      </button>
+    </li>
+  }
+</ul>

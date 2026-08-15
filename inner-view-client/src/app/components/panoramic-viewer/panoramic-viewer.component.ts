@@ -4,6 +4,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Panorama } from '../../models/virtual-tour.model';
 
+/**
+ * Deslocamento, em px, acima do qual o gesto conta como arrasto e não clique.
+ * Cobre o tremor de mão sem engolir um toque curto de verdade.
+ */
+const DRAG_SLOP_PX = 6;
+
 @Component({
   selector: 'app-panoramic-viewer',
   standalone: true,
@@ -56,6 +62,72 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
   loading = true;
 
+  /**
+   * Câmera do three.js, para o overlay HTML de pins da etapa 2 projetar cada
+   * hotspot em coordenadas de tela. `null` até o init, que é adiado um tick.
+   */
+  get viewerCamera(): THREE.PerspectiveCamera | null {
+    return this.initialized ? this.camera : null;
+  }
+
+  /** Tamanho do canvas em px CSS — o denominador da projeção para a tela. */
+  get viewerSize(): { width: number; height: number } | null {
+    if (!this.initialized) return null;
+    const canvas = this.renderer.domElement;
+    return { width: canvas.clientWidth, height: canvas.clientHeight };
+  }
+
+  /**
+   * Assina um callback rodado ao fim de cada frame, já com a câmera atualizada
+   * pelo OrbitControls. Devolve a função que cancela.
+   *
+   * Deliberadamente NÃO é um `@Output`: um EventEmitter aqui dispararia change
+   * detection do Angular 60 vezes por segundo. Quem assina escreve direto no
+   * DOM. E é chamado de dentro deste laço, e não de um requestAnimationFrame
+   * próprio, para que os pins e a foto andem no mesmo frame — em laços
+   * separados eles saem de sincronia e os pins arrastam atrás no giro rápido.
+   */
+  onFrame(callback: () => void): () => void {
+    this.frameCallbacks.add(callback);
+    return () => {
+      this.frameCallbacks.delete(callback);
+    };
+  }
+
+  /**
+   * O par `(u, v)` do panorama sob um ponto da tela, em coordenadas de cliente.
+   * `null` antes do init ou quando o raio não acerta a esfera.
+   *
+   * O `v` sai já na convenção do backend (`positionY`, com 0 no TOPO), que é a
+   * mesma de `hotspotPlaced` e do `WizardHotspot` — ver a cadeia inteira em
+   * `hotspot-projection.ts`.
+   *
+   * É público porque o arraste de pin (B9) precisa da MESMA conta que o clique:
+   * um ponto arrastado tem de parar exatamente onde um clique no mesmo pixel o
+   * colocaria. Duas implementações da conversão divergiriam, e o sintoma seria
+   * o pin escapando do dedo — sem erro nenhum no console.
+   */
+  uvAt(clientX: number, clientY: number): { u: number; v: number } | null {
+    if (!this.initialized) return null;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const hits = this.raycaster.intersectObject(this.sphereMesh);
+    const uv = hits[0]?.uv;
+
+    // Three.js SphereGeometry has -x in its formula; scale(-1,1,1) cancels it
+    // back to +x, so positionX = u directly. The vertical axis flips once:
+    // the geometry writes uv.y = 1 at the top pole, and the backend wants 0
+    // there.
+    return uv ? { u: uv.x, v: 1 - uv.y } : null;
+  }
+
+  private readonly frameCallbacks = new Set<() => void>();
+  private pointerDownAt: { x: number; y: number } | null = null;
+  private suppressNextClick = false;
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
@@ -94,9 +166,17 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       cancelAnimationFrame(this.animationFrameId);
     }
     this.renderer?.domElement.removeEventListener('click', this.onCanvasClick);
+    this.renderer?.domElement.removeEventListener('pointerdown', this.onPointerDown);
+    this.renderer?.domElement.removeEventListener('pointerup', this.onPointerUp);
     window.removeEventListener('resize', this.onWindowResize);
+    this.frameCallbacks.clear();
     this.clearHotspots();
     this.controls?.dispose();
+    // `dispose()` solta os recursos mas não o contexto WebGL em si, e o browser
+    // só mantém ~16 vivos. A etapa 2 monta e desmonta este componente a cada
+    // ida e volta entre etapas do wizard, então sem isto o canvas morre com
+    // "too many active WebGL contexts" depois de algumas navegações.
+    this.renderer?.forceContextLoss();
     this.renderer?.dispose();
   }
 
@@ -172,6 +252,8 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.scene.add(this.sphereMesh);
 
     this.renderer.domElement.addEventListener('click', this.onCanvasClick);
+    this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
+    this.renderer.domElement.addEventListener('pointerup', this.onPointerUp);
     window.addEventListener('resize', this.onWindowResize);
 
     this.animate();
@@ -179,10 +261,20 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
   private addHotspots(panorama: Panorama) {
     for (const hotspot of panorama.originHotspots) {
-      // Convert UV coords (positionX, positionY) to 3D world position inside the inverted sphere.
-      // Uses Three.js SphereGeometry UV mapping: phi = positionX * 2π, theta = (1-positionY) * π
+      // De (positionX, positionY) para a posição 3D dentro da esfera invertida.
+      //
+      // `theta` é medido a partir de +Y, e `positionY = 0` é o TOPO — daí a
+      // multiplicação direta. A cadeia, que é fácil de derivar ao contrário:
+      // `SphereGeometry` grava `uv.y = 1 - v_geom` com `v_geom = 0` no polo de
+      // cima, e `onCanvasClick` emite `positionY = 1 - uv.y`. Os dois "1 -" se
+      // cancelam: `positionY = v_geom`, e o theta da geometria é `v_geom * π`.
+      //
+      // Estava `(1 - positionY) * π` — que espelhava no equador exatamente o
+      // ponto que o clique deste mesmo componente havia gravado. Passava
+      // despercebido porque o erro é ZERO no equador, que é onde caem tanto o
+      // seed quanto o clique de teste típico, no centro do canvas.
       const phi = hotspot.positionX * 2 * Math.PI;
-      const theta = (1 - hotspot.positionY) * Math.PI;
+      const theta = hotspot.positionY * Math.PI;
       const r = 490;
       const x = r * Math.cos(phi) * Math.sin(theta);
       const y = r * Math.cos(theta);
@@ -246,24 +338,46 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     return sprite;
   }
 
+  private readonly onPointerDown = (event: PointerEvent) => {
+    this.pointerDownAt = { x: event.clientX, y: event.clientY };
+  };
+
+  /**
+   * Decide se o `click` que vem a seguir é clique ou sobra de arrasto.
+   *
+   * O OrbitControls gira no arrasto, e o browser dispara `click` ao soltar
+   * porque o down e o up caíram no mesmo elemento. Sem esta trava, girar o
+   * panorama em `editMode` criaria um hotspot a cada solta.
+   */
+  private readonly onPointerUp = (event: PointerEvent) => {
+    const start = this.pointerDownAt;
+    this.pointerDownAt = null;
+    if (!start) return;
+
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    this.suppressNextClick = Math.hypot(dx, dy) > DRAG_SLOP_PX;
+  };
+
   private readonly onCanvasClick = (event: MouseEvent) => {
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    if (this.suppressNextClick) {
+      this.suppressNextClick = false;
+      return;
+    }
 
     if (this.editMode) {
-      this.raycaster.setFromCamera(this.mouse, this.camera);
-      const hits = this.raycaster.intersectObject(this.sphereMesh);
-      if (hits.length > 0 && hits[0].uv) {
-        // Three.js SphereGeometry has -x in its formula; scale(-1,1,1) cancels it back to +x.
-        // addHotspots uses theta=(1-posY)*π while UV v maps to theta=v*π, so posY = 1-v.
-        // posX maps directly: posX = u.
-        this.hotspotPlaced.emit({ positionX: hits[0].uv.x, positionY: 1 - hits[0].uv.y });
+      const uv = this.uvAt(event.clientX, event.clientY);
+      if (uv) {
+        this.hotspotPlaced.emit({ positionX: uv.u, positionY: uv.v });
       }
       return;
     }
 
     if (this.hotspotSprites.length === 0) return;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const intersects = this.raycaster.intersectObjects(this.hotspotSprites);
     if (intersects.length > 0) {
@@ -286,5 +400,6 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.animationFrameId = requestAnimationFrame(() => this.animate());
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    for (const callback of this.frameCallbacks) callback();
   }
 }

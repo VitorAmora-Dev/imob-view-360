@@ -1,0 +1,75 @@
+// O HOST é a área de acerto: 184×96px, os "96px de altura e ±92px do eixo" do
+// handoff. Fica ancorado na base do viewer, centrado no eixo.
+//
+// `pointer-events: none` porque o ponteiro está capturado pelo pin durante todo
+// o arraste — a lixeira nunca recebe evento nenhum, e quem pergunta se o dedo
+// está sobre ela é a etapa, por `contains()`. Deixar a camada capturável só
+// criaria a chance de ela roubar um clique fora do arraste.
+:host {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 184px;
+  height: 96px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+// O que se vê é menor que a área que conta. Mirar com o dedo, arrastando, com o
+// próprio dedo cobrindo o alvo, é bem mais difícil do que mirar parado.
+.tw-trash {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-hint-bg);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: var(--tw-ease-trash);
+  // A pílula não pode passar da área que conta: ela é o que se vê, e o que se
+  // vê promete onde soltar. Uma borda desenhada 40px além da borda que responde
+  // faria o ponto voltar para a foto sem explicação. O `max-width` é a trava
+  // para a tradução que esticar mais do que a nossa.
+  max-width: 100%;
+  box-sizing: border-box;
+  // `min-width: 0` junto, senão o `max-width` não vale de nada: item de grade
+  // nasce com `min-width: auto`, que num texto `nowrap` é a largura inteira da
+  // frase e ganha do máximo. Foi exatamente assim que a pílula passou de 258px
+  // numa área de 184.
+  min-width: 0;
+}
+
+// O segundo estado. Cor e tamanho mudam juntos porque só a cor não se percebe
+// com o dedo em cima: metade do alvo está coberta na hora que a informação
+// importa.
+.tw-trash.is-active {
+  background: var(--tw-trash-active);
+  transform: scale(1.12);
+}
+
+// B12. Some o crescimento, fica a cor: a informação "o dedo chegou" não pode
+// depender de movimento, mas também não pode sumir junto com ele. O
+// `tour-wizard.scss` já zera a transição por token; aqui vai o valor em si, que
+// token nenhum alcança.
+@media (prefers-reduced-motion: reduce) {
+  .tw-trash.is-active {
+    transform: none;
+  }
+}
+
+.tw-trash__icon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.tw-trash__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

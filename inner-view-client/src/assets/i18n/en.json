@@ -191,7 +191,27 @@
     "STEP2": {
       "TITLE": "Mark the points of interest",
       "SUBTITLE": "Click on the image to create a hotspot. Use them to take visitors to another room. This step is optional.",
-      "COUNT": "point(s)"
+      "COUNT": "point(s)",
+      "HINT": "Click to add a point · drag to look around",
+      "RAIL_NONE": "no points",
+      "PANEL_TITLE": "Hotspots",
+      "PANEL_EMPTY": "No points in this room yet. Click on the image to create the first one.",
+      "LABEL_OF": "Name of point {{n}}",
+      "LABEL_PLACEHOLDER": "E.g. Kitchen, Suite",
+      "REMOVE": "Delete point {{n}}",
+      "TARGET": "Destination",
+      "TARGET_EMPTY": "Pick a room…",
+      "NO_TARGET_WARN": "Without a destination this point is not saved when you publish.",
+      "NEEDS_SECOND_ROOM": "With a single room there is nowhere to send the visitor. Upload another photo in step 1.",
+      "SEE_ALL": "See all",
+      "PIN_NAV": "Point {{nome}}, goes to {{destino}}",
+      "PIN_ORPHAN": "Point {{nome}}, no destination. Tap to edit.",
+      "EMPTY": "Upload a 360° photo in the previous step to mark points.",
+      "SHEET_EDIT": "Point {{n}}",
+      "SHEET_LIST": "Points in this room",
+      "SHEET_DONE": "Done",
+      "TRASH_HINT": "Delete",
+      "TRASH_RELEASE": "Release to delete"
     },
     "STEP3": {
       "TITLE": "Property details",
