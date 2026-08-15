@@ -12,6 +12,14 @@
           [panoramas]="viewerPanoramas()"
           [editMode]="true"
           (hotspotPlaced)="onPlaced($event)" />
+
+        <!--
+          ANTES do overlay no DOM: assim o pin em arraste passa por cima do
+          alvo, e não desaparece atrás dele bem no instante em que se precisa
+          ver o que está sendo largado.
+        -->
+        <app-hotspot-trash #trash />
+
         <app-hotspot-overlay
           [viewer]="viewer"
           [hotspots]="editor.hotspots()"
@@ -19,7 +27,7 @@
           [draggingId]="editor.pinDrag()?.hotspotId ?? null"
           (pinActivated)="onPinActivated($event)"
           (pinDragStarted)="editor.startDrag($event)"
-          (pinDragMoved)="editor.dragTo($event.u, $event.v)"
+          (pinDragMoved)="onPinDragMoved($event)"
           (pinDragEnded)="editor.endDrag()" />
 
         <!--

@@ -150,7 +150,28 @@ export class HotspotEditorStore {
     this.update(drag.hotspotId, { u, v: Math.min(V_MAX, Math.max(V_MIN, v)) });
   }
 
+  /**
+   * O dedo entrou ou saiu do alvo da lixeira (B10). Quem mede é a etapa, que
+   * tem o retângulo do alvo; aqui só se guarda, para o alvo saber que estado
+   * desenhar.
+   */
+  setOverTrash(over: boolean): void {
+    const drag = this.pinDrag();
+    if (!drag || drag.overTrash === over) return;
+    this.pinDrag.set({ ...drag, overTrash: over });
+  }
+
+  /**
+   * Solta o ponto. Sobre a lixeira, exclui.
+   *
+   * A decisão mora aqui, e não na etapa, porque este é o único lugar que muta
+   * hotspot — e porque "soltar" e "soltar na lixeira" são o mesmo gesto com
+   * dois fins: separá-los em dois métodos deixaria o chamador escolher o
+   * errado.
+   */
   endDrag(): void {
+    const drag = this.pinDrag();
     this.pinDrag.set(null);
+    if (drag?.overTrash) this.remove(drag.hotspotId);
   }
 }

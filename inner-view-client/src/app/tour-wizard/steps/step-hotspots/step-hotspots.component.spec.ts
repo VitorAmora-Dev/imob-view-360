@@ -116,6 +116,37 @@ describe('StepHotspotsComponent — clique no pin', () => {
     expect(fixture.componentInstance.viewerPanoramas()[0].originHotspots).toEqual([]);
   });
 
+  it('liga o arraste à lixeira, sem que um saiba do outro', () => {
+    // O overlay não sabe que existe lixeira; a lixeira não sabe que existe
+    // arraste. Quem junta as duas pontas é a etapa, e é isso que se prova aqui.
+    draft.scenes.set([scene('a', [hotspot('h1', null)]), scene('b')]);
+    draft.selectedSceneId.set('a');
+    monta();
+    editor.startDrag('h1');
+    fixture.detectChanges();
+
+    const alvo: HTMLElement = fixture.nativeElement.querySelector('app-hotspot-trash');
+    const r = alvo.getBoundingClientRect();
+
+    fixture.componentInstance.onPinDragMoved({
+      u: 0.4,
+      v: 0.4,
+      clientX: r.left + r.width / 2,
+      clientY: r.top + r.height / 2,
+    });
+    expect(editor.pinDrag()?.overTrash).toBeTrue();
+
+    fixture.componentInstance.onPinDragMoved({
+      u: 0.4,
+      v: 0.1,
+      clientX: r.left + r.width / 2,
+      clientY: r.top - 200,
+    });
+    expect(editor.pinDrag()?.overTrash).toBeFalse();
+    // E o ponto seguiu o ponteiro nos dois casos.
+    expect(editor.hotspots()[0].v).toBe(0.1);
+  });
+
   it('não monta o viewer para cena recusada', () => {
     draft.scenes.set([
       { ...scene('a'), state: 'rejected', rejectedReason: 'type' },

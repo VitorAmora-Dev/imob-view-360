@@ -209,7 +209,9 @@
       "EMPTY": "Upload a 360° photo in the previous step to mark points.",
       "SHEET_EDIT": "Point {{n}}",
       "SHEET_LIST": "Points in this room",
-      "SHEET_DONE": "Done"
+      "SHEET_DONE": "Done",
+      "TRASH_HINT": "Delete",
+      "TRASH_RELEASE": "Release to delete"
     },
     "STEP3": {
       "TITLE": "Property details",

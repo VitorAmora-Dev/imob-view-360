@@ -209,7 +209,9 @@
       "PIN_ORPHAN": "Ponto {{nome}}, sem destino. Toque para editar.",
       "SHEET_EDIT": "Ponto {{n}}",
       "SHEET_LIST": "Pontos deste ambiente",
-      "SHEET_DONE": "Concluído"
+      "SHEET_DONE": "Concluído",
+      "TRASH_HINT": "Excluir",
+      "TRASH_RELEASE": "Solte para excluir"
     },
     "STEP3": {
       "TITLE": "Informações do imóvel",

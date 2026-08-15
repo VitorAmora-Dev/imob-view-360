@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, viewChild } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { Panorama } from '../../../models/virtual-tour.model';
@@ -7,6 +7,7 @@ import { HotspotOverlayComponent } from '../../hotspots/hotspot-overlay/hotspot-
 import { HotspotPanelComponent } from '../../hotspots/hotspot-panel/hotspot-panel.component';
 import { HotspotSheetComponent } from '../../hotspots/hotspot-sheet/hotspot-sheet.component';
 import { HotspotSummaryRowComponent } from '../../hotspots/hotspot-summary-row/hotspot-summary-row.component';
+import { HotspotTrashComponent } from '../../hotspots/hotspot-trash/hotspot-trash.component';
 import { SceneRailComponent } from '../../hotspots/scene-rail/scene-rail.component';
 import { TourDraftStore } from '../../tour-draft.store';
 
@@ -29,6 +30,7 @@ import { TourDraftStore } from '../../tour-draft.store';
     HotspotPanelComponent,
     HotspotSummaryRowComponent,
     HotspotSheetComponent,
+    HotspotTrashComponent,
   ],
   providers: [HotspotEditorStore],
   templateUrl: './step-hotspots.component.html',
@@ -100,5 +102,27 @@ export class StepHotspotsComponent {
     }
 
     this.editor.openEditor(hotspotId);
+  }
+
+  private readonly trash = viewChild(HotspotTrashComponent);
+
+  /**
+   * O ponto seguiu o dedo (B9) e, de quebra, a lixeira responde (B10).
+   *
+   * O hit test é da lixeira, que conhece o próprio retângulo; a etapa é só quem
+   * junta as duas pontas, porque é ela que tem as duas na mão. Isso mantém o
+   * overlay sem saber que existe lixeira e a lixeira sem saber que existe
+   * arraste.
+   */
+  onPinDragMoved(event: {
+    u: number;
+    v: number;
+    clientX: number;
+    clientY: number;
+  }): void {
+    this.editor.dragTo(event.u, event.v);
+    this.editor.setOverTrash(
+      this.trash()?.contains(event.clientX, event.clientY) ?? false,
+    );
   }
 }

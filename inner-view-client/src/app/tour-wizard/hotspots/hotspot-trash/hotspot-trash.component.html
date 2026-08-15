@@ -1,0 +1,12 @@
+@if (dragging()) {
+  <div class="tw-trash" [class.is-active]="active()">
+    <span class="tw-trash__icon">🗑</span>
+    <span class="tw-trash__text">
+      @if (active()) {
+        {{ 'TOUR_WIZARD.STEP2.TRASH_RELEASE' | translate }}
+      } @else {
+        {{ 'TOUR_WIZARD.STEP2.TRASH_HINT' | translate }}
+      }
+    </span>
+  </div>
+}

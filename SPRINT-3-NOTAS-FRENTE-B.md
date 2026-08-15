@@ -24,7 +24,7 @@ Branch: `feature/tour-wizard-hotspots`.
 | B7 — linha-resumo do mobile | feito | `hotspots/hotspot-summary-row/` |
 | B8 — bottom sheet | feito | `hotspots/hotspot-sheet/` |
 | B9 — long-press e arraste | feito | `hotspot-overlay/`, `hotspot-editor.store.ts` |
-| B10 — lixeira | não começado | — |
+| B10 — lixeira | feito | `hotspots/hotspot-trash/` |
 | B12 — a11y | metade: `aria-label` dos pins e nome do diálogo | — |
 
 O formulário de um ponto é um componente só, o `hotspots/hotspot-card/`, usado
@@ -208,13 +208,24 @@ Na ordem em que eu pegaria:
 3. ~~B9~~ — feito. O overlay emite `pinDragStarted`/`pinDragMoved`/`pinDragEnded`,
    e o `pinDragMoved` já carrega `clientX`/`clientY` justamente para o hit test
    da lixeira.
-4. B10 — a lixeira, que só faz sentido com o arraste de pé.
+4. ~~B10~~ — feito.
 5. B12 — o que falta de a11y: lista de pontos navegável por teclado como
    alternativa ao clique na imagem, e `prefers-reduced-motion`.
 6. B2 acabamento — pílula, blur, `pulseRing`, ellipsis. Por último de propósito,
    para estilizar uma coisa só uma vez.
 
-Uma medição que vale carregar: no 375×760, a linha-resumo (B7) fica **abaixo da
+Uma decisão do B10 que merece um segundo par de olhos: os 184×96px da lixeira
+vêm do handoff e são generosos no desktop, mas no 375×760 o viewer tem 328×246 —
+o alvo cobre **56% da largura e 39% da altura**, ou seja um quinto da foto vira
+zona de exclusão enquanto se arrasta. Um ponto no chão, ao centro da imagem, não
+dá para posicionar arrastando.
+
+Não mexi na geometria porque ela é o que o handoff pede, e porque o caminho
+natural continua aberto: a lixeira só existe DURANTE o arraste, e criar um ponto
+ali é um clique, sem lixeira nenhuma na tela. Mas se o desenho mudar, é aqui que
+muda.
+
+Outra medição que vale carregar: no 375×760, a linha-resumo (B7) fica **abaixo da
 dobra** quando se chega à etapa 2 — são 167px de rolagem até o fim, e aí ela
 aparece inteira e clicável. É o comportamento normal de uma barra de ação
 `sticky`, não um defeito, mas quem verificar isso de novo precisa usar
