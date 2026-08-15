@@ -4,7 +4,8 @@
   Angular as escreve. Invertidas, o sheet do "Ver todos" abriria na altura do
   editor na primeira vez.
 
-  O nome acessível do diálogo é posto em `didPresent`, e não aqui — ver
+  O nome acessível do diálogo não sai daqui: ele vive no shadow DOM do Ionic.
+  O `didPresent` acha o nó e um effect mantém o nome em dia — ver
   `nomearDialogo`.
 -->
 <ion-modal

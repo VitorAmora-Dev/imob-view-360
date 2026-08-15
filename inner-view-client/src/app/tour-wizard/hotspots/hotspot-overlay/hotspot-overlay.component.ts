@@ -530,9 +530,21 @@ export class HotspotOverlayComponent {
    * índice. Índice acopla a ordem do DOM à ordem do array: no dia em que as
    * duas divergirem — um `track` diferente, uma reordenação, um filtro — cada
    * pin passa a assumir a coordenada de outro, e o sintoma é um ponto no lugar
-   * errado, sem erro nenhum no console. Custa um `Map` por frame sobre uma
-   * lista de dezenas de itens, o que é irrelevante perto de disparar o próprio
-   * `render()` do three.js.
+   * errado, sem erro nenhum no console.
+   *
+   * Custa um `Map` por frame, e isso já foi levantado como alocação por frame.
+   * Medido no navegador, com o `reposition` real chamado em lote (o
+   * `performance.now()` do Chrome está travado em 100µs, então um cronômetro
+   * por chamada só devolve zero ou 100):
+   *
+   *              | laço inteiro | do qual, o Map | de um frame de 16,7ms
+   *     8 pins   |    22,8µs    |  0,35µs (1,5%) |        0,14%
+   *     40 pins  |    98,4µs    |  5,31µs (5,4%) |        0,59%
+   *
+   * Escala linear, e mesmo em 40 pontos — bem além do realista para um ambiente
+   * — o laço TODO não chega a 0,6% do frame. Trocar o `Map` por estrutura
+   * guardada compraria centésimos de por cento de frame ao preço de sincronizar
+   * cache com a lista; o casamento por id é que não pode ser perdido.
    *
    * Os elementos vêm de `host.children` pelo mesmo motivo de robustez: é uma
    * coleção viva, sem depender de quando o Angular reavalia uma consulta.

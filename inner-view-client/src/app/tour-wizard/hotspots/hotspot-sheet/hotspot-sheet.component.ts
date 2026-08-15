@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { IonContent, IonModal } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
@@ -77,6 +77,35 @@ export class HotspotSheetComponent {
   );
 
   /**
+   * O `.modal-wrapper` do shadow root, enquanto o sheet está apresentado.
+   *
+   * Signal e não campo comum para o effect abaixo reagir tanto à apresentação
+   * quanto à troca de título.
+   */
+  private readonly dialogo = signal<Element | null>(null);
+
+  constructor() {
+    // O nome do diálogo SEGUE o título, em vez de ser escrito uma vez só no
+    // `didPresent`.
+    //
+    // Hoje o título não muda com o sheet aberto, e isso dá para conferir: só
+    // existem dois chamadores de `openEditor`/`openList` em produção — o pin da
+    // foto e o "Ver todos" da linha-resumo —, e os dois ficam atrás do backdrop
+    // do modal. O `editingIndex` também não escorrega, porque no modo editor só
+    // o card do próprio ponto é renderizado e excluí-lo fecha o sheet.
+    //
+    // Ou seja: cinco fatos independentes se apoiando, nenhum deles escrito em
+    // lugar nenhum, para um nome de diálogo continuar certo. Basta alguém fazer
+    // o card da lista abrir o editor — pedido nada estranho — e o VoiceOver
+    // passa a anunciar a lista enquanto a tela mostra um ponto, sem nada
+    // quebrar e sem teste nenhum reclamar. Reagir ao título custa estas quatro
+    // linhas e dispensa a prova.
+    effect(() => {
+      this.dialogo()?.setAttribute('aria-label', this.title());
+    });
+  }
+
+  /**
    * Dá nome ao diálogo, entrando no shadow DOM do Ionic.
    *
    * Isto é feio e não foi a primeira tentativa. Medido no navegador, com a
@@ -98,9 +127,12 @@ export class HotspotSheetComponent {
    */
   nomearDialogo(event: Event): void {
     const modal = event.target as HTMLElement;
-    modal.shadowRoot
-      ?.querySelector('.modal-wrapper')
-      ?.setAttribute('aria-label', this.title());
+    const wrapper = modal.shadowRoot?.querySelector('.modal-wrapper') ?? null;
+    // Escrito já, além do effect abaixo: o effect só corre na próxima detecção
+    // de mudanças, e o foco entra no diálogo no instante do `didPresent`. Um
+    // frame de diálogo anônimo é justamente o frame que o leitor de tela lê.
+    wrapper?.setAttribute('aria-label', this.title());
+    this.dialogo.set(wrapper);
   }
 
   /**
@@ -109,6 +141,7 @@ export class HotspotSheetComponent {
    * já foi fechado e reabrir sozinho na próxima troca de ambiente.
    */
   close(): void {
+    this.dialogo.set(null);
     this.editor.closeSheet();
   }
 }

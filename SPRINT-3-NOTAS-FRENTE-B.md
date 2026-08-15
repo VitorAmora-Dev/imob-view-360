@@ -294,3 +294,56 @@ vez só, logo depois de aplicar a classe, pega a transição no meio do caminho 
 mente. Com série temporal (0, 100, 200, 400ms) dá para ver a transição sair de
 `scale(1)` e assentar em `scale(1.12)` aos ~200ms no modo normal, e já nascer
 `none` no modo reduzido.
+
+## 10. O que sobrou do code review
+
+Rodei o plugin de code review sobre a frente e verifiquei cada achado em vez de
+aceitá-lo. Dos quinze, **três não sobreviveram à verificação** — o que é o
+motivo de a nota existir: a lista de achados é hipótese, não laudo.
+
+**Derrubados por medição:**
+
+- *"`suppressNextClick` fica travado depois de uma pinça."* Não fica. O
+  `onPointerUp` **atribui** em vez de acumular, então o próprio `pointerup` do
+  toque limpo zera a trava antes de o `click` chegar. Simulado no navegador: o
+  ponto é criado.
+- *"Falta cobertura para excluir soltando na lixeira."* Existe. Provado por
+  mutação: tirar o `if (drag?.overTrash)` do `endDrag` derruba um teste.
+- *"Alocações por frame no laço de posicionamento."* Ver a tabela no
+  `reposition` — 22,8µs por frame com 8 pins, 98,4µs com 40, dos quais o `Map`
+  é 1,5% e 5,4%. O laço TODO não chega a 0,6% de um frame no pior caso.
+  Junto: o `getBoundingClientRect` por `pointermove` da lixeira soma **3,3ms
+  num arraste inteiro de 150 movimentos**, e cachear o retângulo custaria
+  invalidação em `resize`, giro de tela e teclado virtual.
+
+**Confirmados e consertados:** recarga da textura a cada mexida num hotspot
+(era o único bloqueador de verdade), vazamento de textura e de geometria,
+`setTimeout` de init sobrevivendo ao destroy, foco roubado do select, editor
+fechado ao excluir OUTRO ponto, gesto preso quando um segundo dedo encosta,
+ponto criado no polo por clique no teto, rótulo do pin recalculado 60×/s, e
+`user-select` brigando com o long-press do iOS (este último **não verificado em
+iOS real** — só o CSS confirmado).
+
+**Sobre o nome do diálogo do sheet.** O achado dizia que escrever o `aria-label`
+só no `didPresent` deixa o nome velho se o modo mudar com o sheet aberto. Fui
+conferir e hoje isso é inalcançável — mas por **cinco fatos independentes**
+apoiados uns nos outros, nenhum deles escrito em lugar nenhum: só há dois
+chamadores de `openEditor`/`openList` em produção, os dois ficam atrás do
+backdrop, no modo editor só o card do próprio ponto é renderizado, e excluí-lo
+fecha o sheet. Basta alguém fazer o card da lista abrir o editor — pedido nada
+estranho — e o VoiceOver passa a anunciar a lista enquanto a tela mostra um
+ponto, sem nada quebrar.
+
+Em vez de provar o negativo, o nome passou a **seguir** o título por effect.
+Quatro linhas, e a prova deixa de ser necessária. O teste que segura isso falha
+com a mensagem certa quando o effect sai: `SHEET_LIST` anunciado com o editor
+aberto.
+
+**Fora do escopo desta rodada:** o `addHotspots` do viewer compartilhado
+reimplementa o `hotspotToWorld` linha a linha — é a mesma duplicação que
+produziu o bug do eixo espelhado deste sprint, e hoje só um teste a segura.
+Chamar a função compartilhada é o conserto óbvio, mas ela mora em
+`tour-wizard/hotspots/`, e importá-la faria um componente compartilhado depender
+de uma pasta de feature. O certo é mover o módulo para um lugar neutro, e isso é
+reestruturação depois do merge das duas frentes — decisão de quem tocar o
+próximo sprint, não de uma rodada de review.

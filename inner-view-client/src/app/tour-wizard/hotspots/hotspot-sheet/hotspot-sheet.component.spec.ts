@@ -184,6 +184,54 @@ describe('HotspotSheetComponent', () => {
     );
   });
 
+  it('o nome do diálogo acompanha o título, e não só a apresentação', () => {
+    // Escrever o nome uma vez no `didPresent` só está certo enquanto o título
+    // não puder mudar com o sheet aberto — o que hoje é verdade por acidente,
+    // e por acidente de cinco fatos distintos (ver o effect no componente).
+    // Este teste desfaz a dependência: o dia em que alguém fizer o card da
+    // lista abrir o editor, o nome vai junto.
+    const fixture = monta();
+    editor.openList();
+    fixture.detectChanges();
+
+    const host = document.createElement('div');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'modal-wrapper';
+    host.attachShadow({ mode: 'open' }).appendChild(wrapper);
+    fixture.componentInstance.nomearDialogo({ target: host } as unknown as Event);
+    const naLista = wrapper.getAttribute('aria-label');
+
+    // O modal continua apresentado; só o modo mudou.
+    editor.openEditor('h2');
+    fixture.detectChanges();
+
+    expect(wrapper.getAttribute('aria-label')).not.toBe(naLista);
+    expect(wrapper.getAttribute('aria-label')).toBe(
+      fixture.componentInstance.title(),
+    );
+  });
+
+  it('para de escrever no diálogo depois de fechado', () => {
+    // Sem soltar o nó, o componente escreveria para sempre num wrapper
+    // descartado — e o seguraria vivo junto.
+    const fixture = monta();
+    editor.openList();
+    fixture.detectChanges();
+
+    const host = document.createElement('div');
+    const wrapper = document.createElement('div');
+    wrapper.className = 'modal-wrapper';
+    host.attachShadow({ mode: 'open' }).appendChild(wrapper);
+    fixture.componentInstance.nomearDialogo({ target: host } as unknown as Event);
+
+    fixture.componentInstance.close();
+    wrapper.removeAttribute('aria-label');
+    editor.openEditor('h2');
+    fixture.detectChanges();
+
+    expect(wrapper.getAttribute('aria-label')).toBeNull();
+  });
+
   it('não explode se o Ionic mudar o shadow DOM por baixo', () => {
     // Degradar em silêncio é o certo aqui: o sheet inteiro não pode parar de
     // abrir porque um seletor de a11y deixou de casar.

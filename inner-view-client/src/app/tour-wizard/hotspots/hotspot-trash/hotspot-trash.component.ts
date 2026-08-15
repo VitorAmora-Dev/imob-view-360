@@ -43,6 +43,17 @@ export class HotspotTrashComponent {
    * Lê o retângulo do próprio host a cada chamada — durante um arraste o layout
    * não muda, mas guardar o retângulo faria a lixeira errar depois de um giro
    * de tela ou de o teclado do celular abrir e fechar.
+   *
+   * Ler layout num `pointermove` é o padrão clássico de reflow forçado, e o
+   * mecanismo existe mesmo: o laço de frame do overlay escreve `transform` nos
+   * pins, e esta leitura obriga o browser a recalcular antes de responder. Foi
+   * medido num arraste de verdade, com 150 movimentos: **3,3ms somados**, ou
+   * ~22µs por movimento, contra ~1,4µs quando o layout já está limpo. Num
+   * arraste de ~2s isso é 0,2% do tempo, e nenhuma chamada passou de 0,5ms.
+   *
+   * Ou seja: o custo é real e é pequeno demais para pagar por um cache que
+   * precisaria ser invalidado no `resize`, no giro de tela e no teclado virtual
+   * — e que erraria em silêncio quando alguém esquecesse um deles.
    */
   contains(clientX: number, clientY: number): boolean {
     if (!this.dragging()) return false;
