@@ -14,6 +14,10 @@ export interface PinDragState {
   overTrash: boolean;
 }
 
+/** Limites do eixo vertical, do handoff: 2% do topo, 4% da base. */
+export const V_MIN = 0.02;
+export const V_MAX = 0.96;
+
 /**
  * Edição de hotspots da etapa 2.
  *
@@ -116,9 +120,37 @@ export class HotspotEditorStore {
     this.sheet.set(null);
   }
 
-  // ---- TODO(B9): gesto de arraste ----------------------------------------
-  // `pinDrag` já existe acima para que o balão de dica e a lixeira saibam
-  // quando aparecer. Falta o gesto: long-press de 320ms com Pointer Events,
-  // clamp de 2–98% em X e 2–96% em Y, hit test da lixeira (últimos 96px de
-  // altura, faixa central de ±92px) e supressão do clique seguinte.
+  // ---- arraste (B9) ------------------------------------------------------
+
+  /**
+   * O ponto passou a seguir o dedo. Quem reconhece o gesto é o overlay, que é
+   * quem sabe onde os pins estão na tela; aqui só se guarda que há um arraste
+   * em curso, para a lixeira (B10) e o estilo do pin saberem.
+   */
+  startDrag(hotspotId: string): void {
+    this.pinDrag.set({ hotspotId, overTrash: false });
+  }
+
+  /**
+   * Move o ponto em arraste para um par `(u, v)` do panorama.
+   *
+   * Só o eixo VERTICAL é limitado, e isso é uma divergência consciente do plano
+   * (que pede 2–98% em X também). `u` dá a volta: 0 e 1 são o mesmo meridiano,
+   * a costura da foto. Limitá-lo criaria uma faixa morta bem ali — e uma
+   * incoerência, porque o clique que CRIA um ponto não tem limite nenhum, então
+   * daria para criar em u=0,99 e nunca mais arrastar de volta para lá.
+   *
+   * O limite em `v` é outra história: 0 e 1 são os polos, onde o equirretangular
+   * está infinitamente esticado e todos os `u` colapsam no mesmo pixel. Um ponto
+   * de navegação ali não aponta para lugar nenhum.
+   */
+  dragTo(u: number, v: number): void {
+    const drag = this.pinDrag();
+    if (!drag) return;
+    this.update(drag.hotspotId, { u, v: Math.min(V_MAX, Math.max(V_MIN, v)) });
+  }
+
+  endDrag(): void {
+    this.pinDrag.set(null);
+  }
 }

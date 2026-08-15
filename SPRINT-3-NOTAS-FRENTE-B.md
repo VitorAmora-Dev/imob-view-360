@@ -23,7 +23,8 @@ Branch: `feature/tour-wizard-hotspots`.
 | B6 — painel do desktop | feito | `hotspots/hotspot-panel/` |
 | B7 — linha-resumo do mobile | feito | `hotspots/hotspot-summary-row/` |
 | B8 — bottom sheet | feito | `hotspots/hotspot-sheet/` |
-| B9, B10 | não começados | — |
+| B9 — long-press e arraste | feito | `hotspot-overlay/`, `hotspot-editor.store.ts` |
+| B10 — lixeira | não começado | — |
 | B12 — a11y | metade: `aria-label` dos pins e nome do diálogo | — |
 
 O formulário de um ponto é um componente só, o `hotspots/hotspot-card/`, usado
@@ -177,7 +178,16 @@ E uma que só aparece em teste: o OrbitControls chama `setPointerCapture` no
 escrever teste que dispara ponteiro no canvas precisa neutralizar a chamada —
 há exemplo em `panoramic-viewer.component.spec.ts`.
 
-Uma terceira, agora no `IonModal` (B8). O `role="dialog"` **não** fica no
+Uma terceira, do arraste (B9): **capturar o ponteiro no `pointerdown`**, e não
+quando o arraste começa. Adiar a captura parece mais educado e não é: o pin sem
+estilo tem 5×13px hoje, o mouse sai dele antes de percorrer a folga de 8px, e
+sem captura o `pointermove` seguinte vai para o canvas. O arraste de mouse
+simplesmente não começava, e nada no console dizia por quê. O preço da captura é
+que o browser passa a disparar o `click` no pin mesmo quando a solta é longe
+dele — daí a trava de clique valer para todo gesto que passou da folga, e não só
+para o arraste.
+
+Uma quarta, agora no `IonModal` (B8). O `role="dialog"` **não** fica no
 `<ion-modal>`: fica num `.modal-wrapper` dentro do shadow root. Medido na árvore
 de acessibilidade, `aria-label` ou `aria-labelledby` no host nomeiam o host, que
 é um nó genérico — o diálogo continua anônimo. E `aria-labelledby` no wrapper
@@ -195,8 +205,9 @@ Na ordem em que eu pegaria:
 1. ~~As duas pendências do §2~~ — §2.2 corrigido na integração; §2.1 corrigido em
    `f7803a4`.
 2. ~~B5 e B6~~, ~~B4 completo~~, ~~B7~~, ~~B8~~ — feitos.
-3. B9 — long-press e arraste. O `pinDrag` já está declarado no store esperando o
-   gesto, com um `TODO(B9)` descrevendo o que falta.
+3. ~~B9~~ — feito. O overlay emite `pinDragStarted`/`pinDragMoved`/`pinDragEnded`,
+   e o `pinDragMoved` já carrega `clientX`/`clientY` justamente para o hit test
+   da lixeira.
 4. B10 — a lixeira, que só faz sentido com o arraste de pé.
 5. B12 — o que falta de a11y: lista de pontos navegável por teclado como
    alternativa ao clique na imagem, e `prefers-reduced-motion`.

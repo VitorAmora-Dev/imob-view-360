@@ -1,8 +1,10 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideTranslateService } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { WizardHotspot } from '../../tour-wizard.model';
+import { hotspotToWorld, projectToScreen } from '../hotspot-projection';
 import { HotspotOverlayComponent } from './hotspot-overlay.component';
 
 /**
@@ -17,12 +19,24 @@ import { HotspotOverlayComponent } from './hotspot-overlay.component';
   template: `
     <div style="width: 1280px; height: 720px; position: relative">
       <app-panoramic-viewer #viewer [editMode]="true" />
-      <app-hotspot-overlay [viewer]="viewer" [hotspots]="hotspots()" />
+      <app-hotspot-overlay
+        [viewer]="viewer"
+        [hotspots]="hotspots()"
+        [draggingId]="draggingId()"
+        (pinActivated)="ativados.push($event)"
+        (pinDragStarted)="iniciados.push($event)"
+        (pinDragMoved)="movimentos.push($event)"
+        (pinDragEnded)="fins = fins + 1" />
     </div>
   `,
 })
 class HostComponent {
   readonly hotspots = signal<WizardHotspot[]>([]);
+  readonly draggingId = signal<string | null>(null);
+  readonly ativados: string[] = [];
+  readonly iniciados: string[] = [];
+  readonly movimentos: { u: number; v: number; clientX: number; clientY: number }[] = [];
+  fins = 0;
 }
 
 function hs(id: string, u: number, v: number): WizardHotspot {
@@ -125,5 +139,250 @@ describe('HotspotOverlayComponent', () => {
     expect(antes!.x).toBeCloseTo(640, 0);
     expect(Math.abs(depois!.x - 640)).toBeGreaterThan(20);
     expect(pins()[0]).toBe(botao); // `track` por id reaproveitou o nó
+  });
+
+  /**
+   * Long-press e arraste (B9).
+   *
+   * O gesto é reconhecido no overlay porque é ele que sabe onde os pins estão
+   * na tela. O que se prova aqui é a MÁQUINA DE ESTADOS — quando o arraste
+   * começa, quando não começa, e o que acontece com o clique que o browser
+   * dispara depois. A conta de posição está no `uvAt`, provada à parte.
+   */
+  describe('arraste do pin', () => {
+    const PONTO = { x: 700, y: 400 };
+    /** Valor do handoff. Escrito à mão aqui de propósito: é contrato, não
+     *  detalhe — se alguém mexer na constante, este teste tem de reclamar. */
+    const LONG_PRESS_MS = 320;
+
+    function toque(tipo: string, x = PONTO.x, y = PONTO.y): PointerEvent {
+      return new PointerEvent(tipo, {
+        pointerId: 1,
+        pointerType: 'touch',
+        clientX: x,
+        clientY: y,
+        bubbles: true,
+      });
+    }
+
+    function mouse(tipo: string, x = PONTO.x, y = PONTO.y): PointerEvent {
+      return new PointerEvent(tipo, {
+        pointerId: 1,
+        pointerType: 'mouse',
+        clientX: x,
+        clientY: y,
+        bubbles: true,
+      });
+    }
+
+    async function comUmPin(): Promise<HTMLElement> {
+      host.hotspots.set([hs('p', 0.75, 0.5)]);
+      fixture.detectChanges();
+      await frames();
+      // O relógio só é trocado DEPOIS do init do viewer, que também usa
+      // setTimeout — congelá-lo antes deixaria o viewer sem câmera.
+      jasmine.clock().install();
+      return pins()[0];
+    }
+
+    afterEach(() => jasmine.clock().uninstall());
+
+    it('o dedo parado por 320ms pega o ponto', async () => {
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      expect(host.iniciados).toEqual([]); // ainda não: o gesto é o tempo
+
+      jasmine.clock().tick(LONG_PRESS_MS);
+
+      expect(host.iniciados).toEqual(['p']);
+    });
+
+    it('o dedo que anda antes dos 320ms não pega nada', async () => {
+      // É a regra do DoD: passar o polegar sobre um ponto para rolar a tela não
+      // pode sequestrar o ponto.
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      jasmine.clock().tick(100);
+      pin.dispatchEvent(toque('pointermove', PONTO.x, PONTO.y + 30));
+      jasmine.clock().tick(LONG_PRESS_MS);
+
+      expect(host.iniciados).toEqual([]);
+    });
+
+    it('o tremor de quem segura o telefone não cancela', async () => {
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      pin.dispatchEvent(toque('pointermove', PONTO.x + 4, PONTO.y + 4));
+      jasmine.clock().tick(LONG_PRESS_MS);
+
+      expect(host.iniciados).toEqual(['p']);
+    });
+
+    it('o mouse arrasta na hora, sem esperar', async () => {
+      // Esperar 320ms de mouse parado seria um gesto que ninguém descobre, e o
+      // DoD pede mover em desktop também.
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(mouse('pointerdown'));
+      pin.dispatchEvent(mouse('pointermove', PONTO.x + 40, PONTO.y));
+
+      expect(host.iniciados).toEqual(['p']);
+    });
+
+    it('o mouse que mal se mexe ainda é clique', async () => {
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(mouse('pointerdown'));
+      pin.dispatchEvent(mouse('pointermove', PONTO.x + 3, PONTO.y));
+      pin.dispatchEvent(mouse('pointerup'));
+      pin.click();
+
+      expect(host.iniciados).toEqual([]);
+      expect(host.ativados).toEqual(['p']);
+    });
+
+    it('o ponto em arraste segue o ponteiro', async () => {
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      jasmine.clock().tick(LONG_PRESS_MS);
+      pin.dispatchEvent(toque('pointermove', 800, 300));
+
+      expect(host.movimentos.length).toBe(1);
+      expect(host.movimentos[0].clientX).toBe(800);
+      expect(host.movimentos[0].u).toBeGreaterThanOrEqual(0);
+      expect(host.movimentos[0].u).toBeLessThanOrEqual(1);
+    });
+
+    it('largar o ponto não navega junto', async () => {
+      // O browser dispara `click` no alvo da captura depois do `pointerup`.
+      // Sem a trava, soltar um ponto sobre a foto abriria o destino dele.
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      jasmine.clock().tick(LONG_PRESS_MS);
+      pin.dispatchEvent(toque('pointermove', 800, 300));
+      pin.dispatchEvent(toque('pointerup'));
+      pin.click();
+
+      expect(host.fins).toBe(1);
+      expect(host.ativados).toEqual([]);
+    });
+
+    it('passar o dedo por cima e soltar adiante não navega', async () => {
+      // Com a captura ligada no `pointerdown`, o browser dispara o `click` no
+      // pin mesmo quando a solta acontece longe dele. Sem a trava, encostar num
+      // ponto no meio de um gesto qualquer levaria o corretor para outro
+      // ambiente sem ele ter pedido.
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      pin.dispatchEvent(toque('pointermove', PONTO.x + 120, PONTO.y));
+      pin.dispatchEvent(toque('pointerup'));
+      pin.click();
+
+      expect(host.iniciados).toEqual([]); // não virou arraste: andou cedo demais
+      expect(host.ativados).toEqual([]); // e também não virou clique
+    });
+
+    it('o clique seguinte volta a valer', async () => {
+      // A trava vale para UM clique. Se ficasse ligada, o ponto arrastado
+      // nunca mais navegaria.
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      jasmine.clock().tick(LONG_PRESS_MS);
+      pin.dispatchEvent(toque('pointerup'));
+      pin.click();
+      pin.click();
+
+      expect(host.ativados).toEqual(['p']);
+    });
+
+    it('o ponteiro cancelado encerra o arraste', async () => {
+      // Chamada recebida, dedo saindo da tela, gesto do sistema — o browser
+      // manda `pointercancel` e nenhum `pointerup`. Sem isto o ponto ficaria
+      // grudado no ponteiro para sempre.
+      const pin = await comUmPin();
+
+      pin.dispatchEvent(toque('pointerdown'));
+      jasmine.clock().tick(LONG_PRESS_MS);
+      pin.dispatchEvent(toque('pointercancel'));
+      pin.dispatchEvent(toque('pointermove', 900, 200));
+
+      expect(host.fins).toBe(1);
+      expect(host.movimentos).toEqual([]);
+    });
+
+    it('aumenta o ponto que está sendo arrastado', async () => {
+      // Sai do laço de frame e não do CSS: aquele reescreve `transform` a cada
+      // frame e sobrescreveria um `scale` de classe.
+      const pin = await comUmPin();
+      jasmine.clock().uninstall();
+
+      host.draggingId.set('p');
+      fixture.detectChanges();
+      await frames();
+
+      expect(pin.style.transform).toContain('scale(');
+      jasmine.clock().install();
+    });
+  });
+});
+
+/**
+ * A ida e volta do arraste: o par `(u, v)` que o `uvAt` devolve para um pixel
+ * tem de projetar de volta NAQUELE pixel.
+ *
+ * É o que faz o ponto parar debaixo do dedo em vez de escapar dele. Roda contra
+ * o viewer de verdade porque o que está sob teste é justamente o acordo entre a
+ * esfera do three.js e a câmera.
+ */
+describe('PanoramicViewerComponent.uvAt', () => {
+  @Component({
+    standalone: true,
+    imports: [PanoramicViewerComponent],
+    template: `
+      <div style="width: 1280px; height: 720px; position: relative">
+        <app-panoramic-viewer #viewer [editMode]="true" />
+      </div>
+    `,
+  })
+  class ViewerSozinhoComponent {}
+
+  it('devolve o par que projeta de volta no mesmo pixel', async () => {
+    await TestBed.configureTestingModule({ imports: [ViewerSozinhoComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(ViewerSozinhoComponent);
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 60));
+
+    const viewer: PanoramicViewerComponent = fixture.debugElement.query(
+      By.directive(PanoramicViewerComponent),
+    ).componentInstance;
+    const canvas: HTMLCanvasElement = fixture.nativeElement.querySelector('canvas');
+    const rect = canvas.getBoundingClientRect();
+
+    // Fora do centro de propósito: no centro o erro de um eixo trocado é
+    // exatamente zero, e o teste passaria com a conta errada.
+    const alvo = { x: rect.left + rect.width * 0.62, y: rect.top + rect.height * 0.38 };
+    const uv = viewer.uvAt(alvo.x, alvo.y);
+
+    expect(uv).not.toBeNull();
+
+    const volta = projectToScreen(
+      hotspotToWorld(uv!.u, uv!.v),
+      viewer.viewerCamera!,
+      rect.width,
+      rect.height,
+    );
+
+    expect(volta).not.toBeNull();
+    expect(volta!.x).toBeCloseTo(alvo.x - rect.left, 0);
+    expect(volta!.y).toBeCloseTo(alvo.y - rect.top, 0);
+
+    fixture.destroy();
   });
 });

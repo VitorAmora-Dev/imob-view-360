@@ -94,6 +94,37 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     };
   }
 
+  /**
+   * O par `(u, v)` do panorama sob um ponto da tela, em coordenadas de cliente.
+   * `null` antes do init ou quando o raio não acerta a esfera.
+   *
+   * O `v` sai já na convenção do backend (`positionY`, com 0 no TOPO), que é a
+   * mesma de `hotspotPlaced` e do `WizardHotspot` — ver a cadeia inteira em
+   * `hotspot-projection.ts`.
+   *
+   * É público porque o arraste de pin (B9) precisa da MESMA conta que o clique:
+   * um ponto arrastado tem de parar exatamente onde um clique no mesmo pixel o
+   * colocaria. Duas implementações da conversão divergiriam, e o sintoma seria
+   * o pin escapando do dedo — sem erro nenhum no console.
+   */
+  uvAt(clientX: number, clientY: number): { u: number; v: number } | null {
+    if (!this.initialized) return null;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const hits = this.raycaster.intersectObject(this.sphereMesh);
+    const uv = hits[0]?.uv;
+
+    // Three.js SphereGeometry has -x in its formula; scale(-1,1,1) cancels it
+    // back to +x, so positionX = u directly. The vertical axis flips once:
+    // the geometry writes uv.y = 1 at the top pole, and the backend wants 0
+    // there.
+    return uv ? { u: uv.x, v: 1 - uv.y } : null;
+  }
+
   private readonly frameCallbacks = new Set<() => void>();
   private pointerDownAt: { x: number; y: number } | null = null;
   private suppressNextClick = false;
@@ -334,23 +365,19 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       return;
     }
 
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
     if (this.editMode) {
-      this.raycaster.setFromCamera(this.mouse, this.camera);
-      const hits = this.raycaster.intersectObject(this.sphereMesh);
-      if (hits.length > 0 && hits[0].uv) {
-        // Three.js SphereGeometry has -x in its formula; scale(-1,1,1) cancels it back to +x.
-        // addHotspots uses theta=(1-posY)*π while UV v maps to theta=v*π, so posY = 1-v.
-        // posX maps directly: posX = u.
-        this.hotspotPlaced.emit({ positionX: hits[0].uv.x, positionY: 1 - hits[0].uv.y });
+      const uv = this.uvAt(event.clientX, event.clientY);
+      if (uv) {
+        this.hotspotPlaced.emit({ positionX: uv.u, positionY: uv.v });
       }
       return;
     }
 
     if (this.hotspotSprites.length === 0) return;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const intersects = this.raycaster.intersectObjects(this.hotspotSprites);
     if (intersects.length > 0) {

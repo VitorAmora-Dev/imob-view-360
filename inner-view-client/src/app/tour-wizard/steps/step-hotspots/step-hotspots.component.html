@@ -16,7 +16,11 @@
           [viewer]="viewer"
           [hotspots]="editor.hotspots()"
           [roomNames]="roomNames()"
-          (pinActivated)="onPinActivated($event)" />
+          [draggingId]="editor.pinDrag()?.hotspotId ?? null"
+          (pinActivated)="onPinActivated($event)"
+          (pinDragStarted)="editor.startDrag($event)"
+          (pinDragMoved)="editor.dragTo($event.u, $event.v)"
+          (pinDragEnded)="editor.endDrag()" />
 
         <!--
           A dica fica sobre a imagem porque é ali que a ação acontece, e some
