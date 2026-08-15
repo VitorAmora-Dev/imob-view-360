@@ -5,6 +5,7 @@ import { Panorama } from '../../../models/virtual-tour.model';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { HotspotOverlayComponent } from '../../hotspots/hotspot-overlay/hotspot-overlay.component';
 import { HotspotPanelComponent } from '../../hotspots/hotspot-panel/hotspot-panel.component';
+import { HotspotSheetComponent } from '../../hotspots/hotspot-sheet/hotspot-sheet.component';
 import { HotspotSummaryRowComponent } from '../../hotspots/hotspot-summary-row/hotspot-summary-row.component';
 import { SceneRailComponent } from '../../hotspots/scene-rail/scene-rail.component';
 import { TourDraftStore } from '../../tour-draft.store';
@@ -12,8 +13,7 @@ import { TourDraftStore } from '../../tour-draft.store';
 /**
  * Etapa 2 — Hotspots.
  *
- * DONO: Frente B. B1, B2, B5 e B6 de pé; faltam B4 (navegar no pin), B7 a B10
- * e B12.
+ * DONO: Frente B. B1 a B8 de pé; faltam B9, B10 e o resto do B12.
  *
  * O `HotspotEditorStore` é fornecido AQUI, e não na página: o estado de edição
  * não deve sobreviver a sair da etapa 2 e voltar.
@@ -28,6 +28,7 @@ import { TourDraftStore } from '../../tour-draft.store';
     SceneRailComponent,
     HotspotPanelComponent,
     HotspotSummaryRowComponent,
+    HotspotSheetComponent,
   ],
   providers: [HotspotEditorStore],
   templateUrl: './step-hotspots.component.html',

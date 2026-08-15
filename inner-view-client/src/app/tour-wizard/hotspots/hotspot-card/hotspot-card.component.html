@@ -1,0 +1,59 @@
+<div class="tw-hp__row">
+  <span class="tw-hp__index" aria-hidden="true">{{ index() + 1 }}</span>
+
+  <!--
+    O rótulo visível é o número; o <label> some para a vista mas fica para o
+    leitor de tela, que senão anunciaria só "campo de edição" e deixaria a
+    pessoa sem saber qual dos pontos está editando.
+  -->
+  <label class="tw-visually-hidden" [attr.for]="'hs-label-' + hotspot().id">
+    {{ 'TOUR_WIZARD.STEP2.LABEL_OF' | translate: { n: index() + 1 } }}
+  </label>
+  <input
+    class="tw-hp__name"
+    type="text"
+    [id]="'hs-label-' + hotspot().id"
+    [value]="hotspot().label"
+    [placeholder]="'TOUR_WIZARD.STEP2.LABEL_PLACEHOLDER' | translate"
+    (input)="onLabel($event)" />
+
+  <button
+    type="button"
+    class="tw-hp__remove"
+    [attr.aria-label]="'TOUR_WIZARD.STEP2.REMOVE' | translate: { n: index() + 1 }"
+    (click)="remove()">
+    <span aria-hidden="true">✕</span>
+  </button>
+</div>
+
+@if (hasTargets()) {
+  <label class="tw-hp__field">
+    <span class="tw-hp__field-label">{{ 'TOUR_WIZARD.STEP2.TARGET' | translate }}</span>
+    <!--
+      Mesma lição da etapa 3: a seleção sai do `[selected]` de cada <option>, e
+      não de um `[value]` no <select>. O value é atribuído antes de o `@for`
+      criar as opções e não gruda, então o campo voltaria a "Escolha o
+      ambiente" a cada remonte da etapa.
+    -->
+    <select (change)="onTarget($event)">
+      <option value="" [selected]="!hotspot().target">
+        {{ 'TOUR_WIZARD.STEP2.TARGET_EMPTY' | translate }}
+      </option>
+      @for (scene of targets(); track scene.id) {
+        <option [value]="scene.id" [selected]="hotspot().target === scene.id">
+          {{ scene.room }}
+        </option>
+      }
+    </select>
+  </label>
+
+  <!--
+    Aviso, não erro: o ponto sem destino não impede publicar — ele é descartado,
+    e o corretor é avisado na tela de sucesso. Dizer aqui evita a surpresa lá.
+  -->
+  @if (!hotspot().target) {
+    <p class="tw-hp__warn">{{ 'TOUR_WIZARD.STEP2.NO_TARGET_WARN' | translate }}</p>
+  }
+} @else {
+  <p class="tw-hp__warn">{{ 'TOUR_WIZARD.STEP2.NEEDS_SECOND_ROOM' | translate }}</p>
+}

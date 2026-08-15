@@ -206,7 +206,10 @@
       "NEEDS_SECOND_ROOM": "Com um ambiente só não há para onde levar o visitante. Envie outra foto na etapa 1.",
       "SEE_ALL": "Ver todos",
       "PIN_NAV": "Ponto {{nome}}, leva para {{destino}}",
-      "PIN_ORPHAN": "Ponto {{nome}}, sem destino. Toque para editar."
+      "PIN_ORPHAN": "Ponto {{nome}}, sem destino. Toque para editar.",
+      "SHEET_EDIT": "Ponto {{n}}",
+      "SHEET_LIST": "Pontos deste ambiente",
+      "SHEET_DONE": "Concluído"
     },
     "STEP3": {
       "TITLE": "Informações do imóvel",

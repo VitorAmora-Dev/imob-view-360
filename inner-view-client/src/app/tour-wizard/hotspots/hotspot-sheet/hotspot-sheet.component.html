@@ -1,0 +1,58 @@
+<!--
+  `breakpoints` e `initialBreakpoint` vêm ANTES de `isOpen`: o Ionic lê a altura
+  inicial no momento de apresentar, e a ordem das ligações é a ordem em que o
+  Angular as escreve. Invertidas, o sheet do "Ver todos" abriria na altura do
+  editor na primeira vez.
+
+  O nome acessível do diálogo é posto em `didPresent`, e não aqui — ver
+  `nomearDialogo`.
+-->
+<ion-modal
+  class="tw-sheet"
+  [breakpoints]="breakpoints"
+  [initialBreakpoint]="initialBreakpoint()"
+  [isOpen]="isOpen()"
+  (didPresent)="nomearDialogo($event)"
+  (didDismiss)="close()">
+  <ng-template>
+    <ion-content class="ion-padding">
+      <header class="tw-sheet__head">
+        <h2 class="tw-sheet__title">{{ title() }}</h2>
+
+        <!--
+          Fechar explícito além do arrasto: o handle é descoberto por quem já
+          conhece o gesto, e este é o primeiro sheet do app.
+        -->
+        <button type="button" class="tw-sheet__done" (click)="close()">
+          {{ 'TOUR_WIZARD.STEP2.SHEET_DONE' | translate }}
+        </button>
+      </header>
+
+      @if (mode() === 'editor') {
+        <!--
+          `@if` no ponto e não só no modo: excluir de dentro do editor apaga o
+          hotspot antes de a animação de saída terminar, e sem a guarda o card
+          renderizaria com o ponto já inexistente no último frame.
+        -->
+        @if (editing(); as alvo) {
+          <app-hotspot-card [hotspot]="alvo" [index]="editingIndex()" />
+        }
+      } @else if (hotspots().length) {
+        <ul class="tw-sheet__list" role="list">
+          @for (hotspot of hotspots(); track hotspot.id; let i = $index) {
+            <li>
+              <app-hotspot-card [hotspot]="hotspot" [index]="i" />
+            </li>
+          }
+        </ul>
+      } @else {
+        <!--
+          Dá para esvaziar a lista aqui dentro, excluindo o último ponto. Fechar
+          o sheet sozinho nesse instante pareceria um bug; a mesma frase do
+          painel explica o que fazer.
+        -->
+        <p class="tw-sheet__empty">{{ 'TOUR_WIZARD.STEP2.PANEL_EMPTY' | translate }}</p>
+      }
+    </ion-content>
+  </ng-template>
+</ion-modal>

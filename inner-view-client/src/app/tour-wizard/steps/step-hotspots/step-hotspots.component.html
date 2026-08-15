@@ -36,6 +36,12 @@
 
     <app-hotspot-panel class="tw-step2__panel" />
   </div>
+
+  <!--
+    Sobreposição, não layout: fica fora da grade de propósito. Ele mesmo decide
+    que não existe no desktop — ver `isMobileViewport`.
+  -->
+  <app-hotspot-sheet />
 } @else {
   <p class="tw-viewer__empty">{{ 'TOUR_WIZARD.STEP2.EMPTY' | translate }}</p>
 }

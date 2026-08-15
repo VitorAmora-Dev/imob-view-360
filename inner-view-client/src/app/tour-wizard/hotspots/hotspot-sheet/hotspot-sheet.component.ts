@@ -1,0 +1,114 @@
+import { Component, computed, inject } from '@angular/core';
+import { IonContent, IonModal } from '@ionic/angular/standalone';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { HotspotEditorStore } from '../../hotspot-editor.store';
+import { HotspotCardComponent } from '../hotspot-card/hotspot-card.component';
+import { isMobileViewport } from '../viewport';
+
+/**
+ * Bottom sheet dos hotspots, no mobile (tarefa B8).
+ *
+ * DONO: Frente B.
+ *
+ * É o painel do desktop no telefone. Não há largura para uma coluna ao lado da
+ * foto, e o sheet resolve isso sem tirar a foto da tela: ele cobre a metade de
+ * baixo e o ponto que se está editando continua visível em cima.
+ *
+ * `IonModal` com `breakpoints` em vez de um painel à mão (§1, item 5 do plano):
+ * arrastar para baixo, prender o foco, fechar no Esc, devolver o foco a quem
+ * abriu e a animação de entrada vêm prontos. Escrever isso de novo seria
+ * reescrever um trap de foco, que é onde a a11y costuma morrer.
+ *
+ * Dois modos, o mesmo estado do desktop:
+ *
+ * - `editor` — um ponto só, aberto pelo clique num pin sem destino;
+ * - `list` — todos os do ambiente, aberto pelo "Ver todos" da linha-resumo.
+ */
+@Component({
+  selector: 'app-hotspot-sheet',
+  standalone: true,
+  imports: [IonModal, IonContent, TranslatePipe, HotspotCardComponent],
+  templateUrl: './hotspot-sheet.component.html',
+  styleUrls: ['./hotspot-sheet.component.scss'],
+})
+export class HotspotSheetComponent {
+  readonly editor = inject(HotspotEditorStore);
+  private readonly translate = inject(TranslateService);
+  private readonly isMobile = isMobileViewport();
+
+  /**
+   * O `0` é o que permite arrastar para baixo até fechar; sem ele o sheet trava
+   * na menor parada e a única saída vira o botão.
+   */
+  readonly breakpoints = [0, 0.5, 0.9];
+
+  readonly mode = computed(() => this.editor.sheet()?.mode ?? null);
+
+  /**
+   * No desktop o sheet não abre nunca: quem responde ao mesmo estado lá é o
+   * painel ao lado do viewer, que leva o foco ao card do ponto. Abrir os dois
+   * daria duas cópias do mesmo formulário na tela.
+   */
+  readonly isOpen = computed(() => this.isMobile() && this.mode() !== null);
+
+  /**
+   * A lista abre alta porque é para varrer; o editor abre na metade porque o
+   * ponto que se está editando está na foto, logo acima — cobri-lo tiraria a
+   * única referência do que se está nomeando.
+   */
+  readonly initialBreakpoint = computed(() => (this.mode() === 'list' ? 0.9 : 0.5));
+
+  readonly hotspots = computed(() => this.editor.hotspots());
+  readonly editing = computed(() => this.editor.editing());
+
+  /** Posição do ponto em edição na lista — é o número que o pin mostra. */
+  readonly editingIndex = computed(() => {
+    const alvo = this.editing();
+    return alvo ? this.hotspots().findIndex((h) => h.id === alvo.id) : -1;
+  });
+
+  /** Título do sheet — e também o nome acessível do diálogo. */
+  readonly title = computed(() =>
+    this.mode() === 'list'
+      ? this.translate.instant('TOUR_WIZARD.STEP2.SHEET_LIST')
+      : this.translate.instant('TOUR_WIZARD.STEP2.SHEET_EDIT', {
+          n: this.editingIndex() + 1,
+        }),
+  );
+
+  /**
+   * Dá nome ao diálogo, entrando no shadow DOM do Ionic.
+   *
+   * Isto é feio e não foi a primeira tentativa. Medido no navegador, com a
+   * árvore de acessibilidade na mão:
+   *
+   * - o `role="dialog"` NÃO fica no `<ion-modal>`, e sim num `.modal-wrapper`
+   *   dentro do shadow root;
+   * - `aria-label` ou `aria-labelledby` no host nomeiam o host, que é um nó
+   *   genérico — o diálogo continua sem nome;
+   * - `aria-labelledby` no wrapper também não resolveria: IDREF não atravessa
+   *   fronteira de shadow, e o `<h2>` está na luz.
+   *
+   * Sobra o `aria-label` literal no wrapper. Sem ele o VoiceOver anuncia
+   * "diálogo" e mais nada, e o nome é justamente o que diz se a pessoa caiu num
+   * ponto ou na lista inteira.
+   *
+   * Se o Ionic renomear a classe, o nome some em silêncio — nada quebra, mas a
+   * verificação de a11y do B12 precisa passar por aqui de novo.
+   */
+  nomearDialogo(event: Event): void {
+    const modal = event.target as HTMLElement;
+    modal.shadowRoot
+      ?.querySelector('.modal-wrapper')
+      ?.setAttribute('aria-label', this.title());
+  }
+
+  /**
+   * Chamado tanto pelo botão quanto pelo arrasto para baixo e pelo Esc. Zerar o
+   * estado nos três casos é o que impede o sheet de "lembrar" de um ponto que
+   * já foi fechado e reabrir sozinho na próxima troca de ambiente.
+   */
+  close(): void {
+    this.editor.closeSheet();
+  }
+}

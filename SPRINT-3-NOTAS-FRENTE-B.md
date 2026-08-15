@@ -7,8 +7,7 @@
 > Escrito para quem pegar a etapa 2 no meio, e para a Frente A saber o que a
 > alcança. Se algo aqui divergir do código, o código vence.
 
-Branch: `feature/tour-wizard-hotspots`, quatro commits sobre o commit-zero
-(`b069201`).
+Branch: `feature/tour-wizard-hotspots`.
 
 ---
 
@@ -19,10 +18,20 @@ Branch: `feature/tour-wizard-hotspots`, quatro commits sobre o commit-zero
 | B1 — host do viewer em `editMode` | feito (falta hachura/dica do handoff) | `steps/step-hotspots/` |
 | B2 — overlay HTML de pins | feito, **sem estilo** (§8) | `hotspots/hotspot-overlay/` |
 | B3 — `HotspotEditorStore` | veio quase pronto do commit-zero | `hotspot-editor.store.ts` |
-| B4 — criar no clique | criação feita; falta navegar/abrir editor | `step-hotspots.component.ts` |
-| B5–B12 | não começados | — |
+| B4 — criar no clique, navegar no pin | feito | `step-hotspots.component.ts` |
+| B5 — rail de ambientes | feito | `hotspots/scene-rail/` |
+| B6 — painel do desktop | feito | `hotspots/hotspot-panel/` |
+| B7 — linha-resumo do mobile | feito | `hotspots/hotspot-summary-row/` |
+| B8 — bottom sheet | feito | `hotspots/hotspot-sheet/` |
+| B9, B10 | não começados | — |
+| B12 — a11y | metade: `aria-label` dos pins e nome do diálogo | — |
 
-**29 testes novos.** Suíte em 197 passando / 3 falhando (as 3 são herdadas, ver §2.2).
+O formulário de um ponto é um componente só, o `hotspots/hotspot-card/`, usado
+pelo painel do desktop e pelo sheet do mobile. Duas cópias divergiriam na
+primeira mudança de regra.
+
+Suíte em **236 passando**, zero falhando. As 3 falhas herdadas do §2.2 foram
+corrigidas na branch de integração.
 
 Arquivos tocados, todos dentro do §7: `hotspots/**`, `steps/step-hotspots/**`,
 `panoramic-viewer.component.ts`, e o bloco `TOUR_WIZARD.STEP2` do i18n. Nada da
@@ -168,17 +177,35 @@ E uma que só aparece em teste: o OrbitControls chama `setPointerCapture` no
 escrever teste que dispara ponteiro no canvas precisa neutralizar a chamada —
 há exemplo em `panoramic-viewer.component.spec.ts`.
 
+Uma terceira, agora no `IonModal` (B8). O `role="dialog"` **não** fica no
+`<ion-modal>`: fica num `.modal-wrapper` dentro do shadow root. Medido na árvore
+de acessibilidade, `aria-label` ou `aria-labelledby` no host nomeiam o host, que
+é um nó genérico — o diálogo continua anônimo. E `aria-labelledby` no wrapper
+também não resolveria, porque IDREF não atravessa fronteira de shadow. O único
+caminho é `aria-label` literal no wrapper, em `didPresent`; está em
+`hotspot-sheet.component.ts`, com o porquê escrito. Se o Ionic renomear a classe,
+o nome some em silêncio.
+
 ---
 
 ## 7. Próximos passos sugeridos
 
 Na ordem em que eu pegaria:
 
-1. As duas pendências do §2 que travam o DoD (§2.2 é de uma linha).
-2. B5 e B6 — rail de ambientes e painel do desktop. Destravam a edição real
-   (nomear, apontar destino) e não dependem de mais nada.
-3. B4 completo — clicar num pin com destino navega, sem destino abre o editor.
-4. B8 e B9 — sheet do mobile e arraste. O `pinDrag` já está declarado no store
-   esperando o gesto, com um `TODO(B9)` descrevendo o que falta.
-5. B2 acabamento — pílula, blur, `pulseRing`, ellipsis. Só depois de B5/B6, para
-   estilizar uma coisa só uma vez.
+1. ~~As duas pendências do §2~~ — §2.2 corrigido na integração; §2.1 corrigido em
+   `f7803a4`.
+2. ~~B5 e B6~~, ~~B4 completo~~, ~~B7~~, ~~B8~~ — feitos.
+3. B9 — long-press e arraste. O `pinDrag` já está declarado no store esperando o
+   gesto, com um `TODO(B9)` descrevendo o que falta.
+4. B10 — a lixeira, que só faz sentido com o arraste de pé.
+5. B12 — o que falta de a11y: lista de pontos navegável por teclado como
+   alternativa ao clique na imagem, e `prefers-reduced-motion`.
+6. B2 acabamento — pílula, blur, `pulseRing`, ellipsis. Por último de propósito,
+   para estilizar uma coisa só uma vez.
+
+Uma medição que vale carregar: no 375×760, a linha-resumo (B7) fica **abaixo da
+dobra** quando se chega à etapa 2 — são 167px de rolagem até o fim, e aí ela
+aparece inteira e clicável. É o comportamento normal de uma barra de ação
+`sticky`, não um defeito, mas quem verificar isso de novo precisa usar
+`elementFromPoint`, e não `getComputedStyle(...).display`: o segundo diz que a
+linha está lá mesmo quando ninguém consegue tocá-la.

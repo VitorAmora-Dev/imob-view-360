@@ -206,7 +206,10 @@
       "SEE_ALL": "See all",
       "PIN_NAV": "Point {{nome}}, goes to {{destino}}",
       "PIN_ORPHAN": "Point {{nome}}, no destination. Tap to edit.",
-      "EMPTY": "Upload a 360° photo in the previous step to mark points."
+      "EMPTY": "Upload a 360° photo in the previous step to mark points.",
+      "SHEET_EDIT": "Point {{n}}",
+      "SHEET_LIST": "Points in this room",
+      "SHEET_DONE": "Done"
     },
     "STEP3": {
       "TITLE": "Property details",

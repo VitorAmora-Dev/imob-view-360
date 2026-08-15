@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
@@ -43,6 +44,8 @@ describe('StepHotspotsComponent — clique no pin', () => {
         TourDraftStore,
         provideHttpClient(),
         provideHttpClientTesting(),
+        // A etapa monta o bottom sheet (B8), que é um `IonModal`.
+        provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
       ],
     });
