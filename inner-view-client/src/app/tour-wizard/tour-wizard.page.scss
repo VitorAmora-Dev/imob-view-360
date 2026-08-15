@@ -1,9 +1,9 @@
-// Shell do wizard. Commit-zero: estrutura e medidas do handoff, sem acabamento
-// — as tarefas A2 e A3 terminam stepper e barra de ação.
+// Arranjo da página. O stepper e a barra de ação levam os próprios estilos —
+// aqui fica só o que é do empilhamento.
 //
-// Todo valor sai de `_tour-wizard.scss`. Se faltar um token, ele nasce lá, não
-// aqui: os hex soltos são exatamente como as duas frentes acabam com telas que
-// não combinam.
+// Todo valor sai de `tour-wizard.scss`. Se faltar um token, ele nasce lá, não
+// aqui: hex solto espalhado pelos componentes é como as duas frentes acabam com
+// telas que não combinam.
 
 @use '../../theme/tour-wizard-mixins' as tw;
 
@@ -16,109 +16,6 @@
   background: var(--tw-surface-body);
 }
 
-/* -- Stepper --------------------------------------------------------------- */
-
-.tw-stepper {
-  padding: 18px 20px 0;
-  background: var(--tw-surface);
-}
-
-.tw-chips {
-  display: flex;
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tw-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px 6px 6px;
-  border: 0;
-  border-radius: var(--tw-radius-pill);
-  background: transparent;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  &.is-current {
-    background: var(--tw-brand-soft);
-  }
-
-  @include tw.tw-mobile {
-    padding: 6px;
-  }
-}
-
-.tw-chip__dot {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--tw-surface-track);
-  color: var(--tw-text-faint);
-  font-size: 12.5px;
-  font-weight: 700;
-
-  .is-current &,
-  .is-done & {
-    background: var(--tw-brand);
-    color: #fff;
-  }
-}
-
-.tw-chip__label {
-  font-size: 13.5px;
-  font-weight: 550;
-  color: var(--tw-text-muted);
-  white-space: nowrap;
-
-  .is-current & {
-    font-weight: 700;
-    color: var(--tw-text-strong);
-  }
-
-  // Em 375px os três rótulos não cabem numa linha. Só o da etapa atual fica —
-  // os demais viram dots numerados, que é informação suficiente.
-  @include tw.tw-mobile {
-    display: none;
-
-    .is-current & {
-      display: inline;
-    }
-  }
-}
-
-.tw-progress {
-  height: 4px;
-  margin-top: 14px;
-  border-radius: var(--tw-radius-pill);
-  background: var(--tw-surface-track);
-  overflow: hidden;
-}
-
-.tw-progress__fill {
-  height: 100%;
-  background: var(--tw-brand);
-  transition: var(--tw-ease-progress);
-}
-
-.tw-progress__meta {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 8px;
-  font-size: 12.5px;
-  color: var(--tw-text-faint);
-}
-
-/* -- Corpo ----------------------------------------------------------------- */
-
 .tw-body {
   flex: 1;
   padding: 26px 28px 34px;
@@ -128,11 +25,22 @@
   }
 }
 
+// Cabeçalho de etapa: as três etapas repetem a mesma dupla h2 + parágrafo, e o
+// `::ng-deep` evita reimplementá-la em cada uma. É deliberado, e o alcance está
+// limitado pelo `:host`.
 :host ::ng-deep .tw-step-head {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-bottom: 20px;
+
+  // Zerar as margens é obrigatório, não higiene: o `global.scss` dá 18px/10px
+  // ao h2 e 15px ao p, e em coluna flex margem não colapsa — o gap de 8px
+  // virava 33px na tela.
+  h2,
+  p {
+    margin: 0;
+  }
 
   h2 {
     font-size: 24px;
@@ -142,6 +50,7 @@
   }
 
   p {
+    // Linha longa demais cansa; `pretty` evita a órfã na última linha.
     max-width: 56ch;
     font-size: 15px;
     color: var(--tw-text-muted);
@@ -149,85 +58,85 @@
   }
 }
 
-/* -- Barra de ação --------------------------------------------------------- */
+/* -- Rodapé fixo ----------------------------------------------------------- */
 
-.tw-actions {
+// O aviso de falha e a barra de ação sobem juntos num só bloco fixo, em vez de
+// cada um com seu `sticky`: empilhar dois elementos fixos exigiria repetir a
+// altura da barra num `bottom`, e esse número desencontra do padding da barra na
+// primeira vez que alguém mexer nela.
+.tw-shell__foot {
   position: sticky;
   bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
+  z-index: 2;
+}
+
+.tw-shell__error {
+  margin: 0;
+  padding: 12px 20px;
   border-top: 1px solid var(--tw-border-subtle);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
-}
-
-.tw-actions__spacer {
-  flex: 1;
-}
-
-.tw-btn {
-  height: var(--tw-tap-action);
-  padding: 0 28px;
-  border-radius: var(--tw-radius-sm);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-
-  @include tw.tw-mobile {
-    padding: 0 22px;
-  }
-}
-
-.tw-btn--primary {
-  border: 0;
-  background: var(--tw-brand);
-  color: #fff;
-  font-weight: 650;
-
-  &:hover:not(:disabled) {
-    background: var(--tw-brand-hover);
-  }
-
-  &:disabled {
-    background: var(--tw-brand-disabled);
-    cursor: not-allowed;
-  }
-
-  // No mobile ocupa a largura restante — é a ação primária da tela.
-  @include tw.tw-mobile {
-    flex: 1;
-  }
-}
-
-.tw-btn--ghost-bordered {
-  border: 1px solid var(--tw-border);
   background: var(--tw-surface);
-  color: var(--tw-text-strong);
+  font-size: 13.5px;
+  color: var(--ion-color-danger);
 
-  &:hover {
-    background: var(--tw-surface-hover);
+  @include tw.tw-mobile {
+    padding: 12px 16px;
   }
 }
 
-.tw-btn--ghost {
-  border: 0;
-  background: none;
-  color: var(--tw-text-muted);
+/* -- Espera da montagem ---------------------------------------------------- */
 
-  &:hover {
-    color: var(--tw-text-strong);
-  }
-}
-
-/* -- Sucesso --------------------------------------------------------------- */
-
-:host ::ng-deep .tw-published {
+.tw-montagem {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 36px 10px;
+  gap: 12px;
+  padding: 48px 16px;
   text-align: center;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--tw-text-strong);
+  }
+
+  p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--tw-text-muted);
+  }
+
+  small {
+    max-width: 44ch;
+    font-size: 12.5px;
+    color: var(--tw-text-faint);
+  }
+}
+
+.tw-montagem__spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid var(--tw-surface-track);
+  border-top-color: var(--tw-brand);
+  border-radius: 50%;
+  animation: tw-spin 0.9s linear infinite;
+
+  // Quem pediu menos movimento não deve levar um anel girando na cara por um
+  // minuto. O texto e o contador já dizem que há algo em curso.
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    border-top-color: var(--tw-border);
+  }
+}
+
+@keyframes tw-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tw-montagem__contador {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--tw-text-strong);
 }

@@ -1,3 +1,9 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { of, throwError } from 'rxjs';
+import { PropertyService } from '../services/property.service';
+import { VirtualTourService } from '../services/virtual-tour.service';
 import { TourDraftStore } from './tour-draft.store';
 import { WizardScene } from './tour-wizard.model';
 
@@ -24,8 +30,22 @@ describe('TourDraftStore (contrato)', () => {
     };
   }
 
+  // O store injeta PropertyService e VirtualTourService para publicar, então
+  // precisa de contexto de injeção. HttpClient entra na versão de teste: nenhum
+  // teste aqui chega a fazer requisição, e o testing backend garante isso —
+  // uma chamada de rede não anunciada falharia em vez de sair pela placa.
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [TourDraftStore, provideHttpClient(), provideHttpClientTesting()],
+    });
+  });
+
+  function newStore(): TourDraftStore {
+    return TestBed.inject(TourDraftStore);
+  }
+
   function storeWith(...scenes: WizardScene[]): TourDraftStore {
-    const store = new TourDraftStore();
+    const store = newStore();
     store.scenes.set(scenes.map((s, i) => ({ ...s, order: i })));
     store.selectedSceneId.set(scenes[0]?.id ?? null);
     return store;
@@ -33,7 +53,7 @@ describe('TourDraftStore (contrato)', () => {
 
   describe('a regra bloqueante da etapa 1', () => {
     it('não avança sem nenhuma imagem', () => {
-      const store = new TourDraftStore();
+      const store = newStore();
       expect(store.canAdvance()).toBe(false);
 
       store.next();
@@ -68,7 +88,7 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     it('bloqueia 2 e 3 enquanto não há imagem', () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       expect(store.canReach(2)).toBe(false);
       expect(store.canReach(3)).toBe(false);
@@ -151,13 +171,346 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  describe('validação de arquivo', () => {
+    /**
+     * PNG 2x1 real, em base64 — a validação de proporção decodifica a imagem,
+     * então um dataURL falso não serve.
+     */
+    const PNG_2x1 =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAD0lEQVR4nGP8z4AATEQyAAAJAgHz2AsvpAAAAABJRU5ErkJggg==';
+    const PNG_1x1 =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABh6FO1AAAAABJRU5ErkJggg==';
+
+    async function fileFrom(dataUrl: string, name: string, type: string): Promise<File> {
+      const blob = await (await fetch(dataUrl)).blob();
+      return new File([blob], name, { type });
+    }
+
+    it('recusa o que não é imagem, sem tentar decodificar', async () => {
+      const store = newStore();
+
+      await store.addFiles([
+        new File(['isto não é uma foto'], 'contrato.pdf', { type: 'application/pdf' }),
+      ]);
+
+      expect(store.scenes()[0].state).toBe('rejected');
+      expect(store.scenes()[0].rejectedReason).toBe('type');
+      expect(store.canAdvance()).toBe(false);
+    });
+
+    it('recusa acima de 25 MB', async () => {
+      const store = newStore();
+      const huge = new File([], 'panorama.jpg', { type: 'image/jpeg' });
+      Object.defineProperty(huge, 'size', { value: 26 * 1024 * 1024 });
+
+      await store.addFiles([huge]);
+
+      expect(store.scenes()[0].rejectedReason).toBe('size');
+    });
+
+    it('aceita um equirretangular 2:1 sem ressalva', async () => {
+      const store = newStore();
+
+      await store.addFiles([await fileFrom(PNG_2x1, 'sala.png', 'image/png')]);
+
+      expect(store.scenes()[0].state).toBe('ready');
+      expect(store.scenes()[0].warning).toBeUndefined();
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('AVISA sobre proporção fora de 2:1, mas aceita a imagem', async () => {
+      const store = newStore();
+
+      await store.addFiles([await fileFrom(PNG_1x1, 'quadrada.png', 'image/png')]);
+
+      // O ponto do teste: segue publicável. Recusar bloquearia foto legítima
+      // de câmera que corta alguns pixels — quem decide é o corretor.
+      expect(store.scenes()[0].state).toBe('ready');
+      expect(store.scenes()[0].warning).toBe('ratio');
+      expect(store.canAdvance()).toBe(true);
+      expect(store.warnedScenes().length).toBe(1);
+    });
+
+    it('usa o nome do arquivo sem extensão como nome do ambiente', async () => {
+      const store = newStore();
+
+      await store.addFiles([await fileFrom(PNG_2x1, 'Sala de estar.png', 'image/png')]);
+
+      expect(store.scenes()[0].room).toBe('Sala de estar');
+    });
+  });
+
+  describe('validação antes de publicar', () => {
+    function preenchido(store: TourDraftStore): void {
+      store.patchProperty({ name: 'Apartamento Vila Mariana', type: 'APARTMENT', purpose: 'SALE' });
+    }
+
+    it('exige nome, tipo e finalidade — a API não aceita sem eles', () => {
+      const store = storeWith(scene('a'));
+
+      expect(store.invalidFields()).toEqual(['name', 'type', 'purpose']);
+
+      preenchido(store);
+
+      expect(store.invalidFields()).toEqual([]);
+    });
+
+    it('não cobra endereço enquanto ninguém o tocou', () => {
+      const store = storeWith(scene('a'));
+      preenchido(store);
+
+      expect(store.addressTouched()).toBe(false);
+      expect(store.invalidFields()).toEqual([]);
+    });
+
+    it('cobra o endereço inteiro depois que um campo é preenchido', () => {
+      const store = storeWith(scene('a'));
+      preenchido(store);
+
+      // Meio endereço passa na API e some da busca por bairro — que é
+      // justamente para o que ele serve.
+      store.patchAddress({ street: 'Avenida Paulista' });
+
+      expect(store.invalidFields()).toEqual(['city', 'state']);
+    });
+
+    it('só mostra erro depois da primeira tentativa de publicar', async () => {
+      const store = storeWith(scene('a'));
+
+      expect(store.hasError('name')).toBe(false);
+
+      await store.publish();
+
+      expect(store.showErrors()).toBe(true);
+      expect(store.hasError('name')).toBe(true);
+      // Não publicou: continua no wizard.
+      expect(store.published()).toBe(false);
+    });
+  });
+
   describe('voltar', () => {
     it('não desce abaixo da etapa 1', () => {
-      const store = new TourDraftStore();
+      const store = newStore();
 
       store.back();
 
       expect(store.step()).toBe(1);
+    });
+  });
+
+  describe('seleção e cena recusada', () => {
+    it('não cai numa cena recusada ao remover a selecionada', () => {
+      const store = storeWith(
+        scene('ruim', { state: 'rejected', rejectedReason: 'type' }),
+        scene('boa'),
+      );
+      store.selectedSceneId.set('boa');
+
+      store.removeScene('boa');
+
+      // A etapa 2 abre o editor sobre a cena selecionada; uma recusada não tem
+      // imagem para abrir.
+      expect(store.selectedSceneId()).toBeNull();
+    });
+
+    it('a capa é a primeira cena válida, não a primeira da lista', () => {
+      const store = storeWith(
+        scene('ruim', { state: 'rejected', rejectedReason: 'size' }),
+        scene('boa'),
+      );
+
+      expect(store.coverScene()?.id).toBe('boa');
+    });
+  });
+
+  describe('captura guiada', () => {
+    it('mede o tamanho em bytes, não em caracteres da dataURL', () => {
+      const store = newStore();
+      // 9 bytes viram 12 caracteres de base64: usar o comprimento da string
+      // inflava o tamanho exibido em ~33%.
+      const nove = btoa('123456789');
+      expect(nove.length).toBe(12);
+
+      store.addCapturedScene({
+        room: 'Sala',
+        fileName: 'captura-360-1.jpg',
+        imageData: `data:image/jpeg;base64,${nove}`,
+      });
+
+      expect(store.scenes()[0].fileSize).toBe(9);
+      expect(store.scenes()[0].state).toBe('ready');
+    });
+  });
+
+  describe('tamanho total da publicação', () => {
+    it('avisa quando as imagens somam mais do que cabe numa requisição', () => {
+      const store = storeWith(
+        scene('a', { fileSize: 20 * 1024 * 1024 }),
+        scene('b', { fileSize: 20 * 1024 * 1024 }),
+      );
+
+      // Duas fotos que passam no teto de 25 MB por arquivo e ainda assim
+      // estouram o corpo de 50 MB do servidor depois do base64.
+      expect(store.oversized()).toBe(true);
+    });
+
+    it('não avisa quando cabe', () => {
+      const store = storeWith(scene('a', { fileSize: 8 * 1024 * 1024 }));
+
+      expect(store.oversized()).toBe(false);
+    });
+
+    it('ignora cena recusada na conta — ela não sobe', () => {
+      const store = storeWith(
+        scene('a', { fileSize: 8 * 1024 * 1024 }),
+        scene('b', {
+          fileSize: 40 * 1024 * 1024,
+          state: 'rejected',
+          rejectedReason: 'size',
+        }),
+      );
+
+      expect(store.oversized()).toBe(false);
+    });
+  });
+
+  /**
+   * O que acontece quando publicar dá errado.
+   *
+   * Nenhum destes existia, e é exatamente por isso que os três defeitos abaixo
+   * passaram: o caminho feliz foi conferido contra a API real, o infeliz nunca
+   * foi exercitado.
+   */
+  describe('falha ao publicar', () => {
+    /** Deixa o formulário válido para o publicar chegar até a rede. */
+    function pronto(store: TourDraftStore): void {
+      store.patchProperty({
+        name: 'Apartamento Vila Mariana',
+        type: 'APARTMENT',
+        purpose: 'SALE',
+      });
+    }
+
+    it('registra o erro sem marcar como publicado', async () => {
+      const store = storeWith(scene('a'));
+      pronto(store);
+      const property = TestBed.inject(PropertyService);
+      spyOn(property, 'createProperty').and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+
+      await store.publish();
+
+      // As duas coisas juntas: sem `published`, a tela de sucesso não monta —
+      // então o erro TEM que estar num lugar que apareça sem ela.
+      expect(store.published()).toBe(false);
+      expect(store.publishError()).toBe('TOUR_WIZARD.SUCCESS.PUBLISH_ERROR');
+      // E o botão volta a ficar clicável, senão o corretor fica preso.
+      expect(store.publishing()).toBe(false);
+    });
+
+    it('não cria um segundo imóvel quando a tentativa se repete', async () => {
+      const store = storeWith(scene('a'));
+      pronto(store);
+      const property = TestBed.inject(PropertyService);
+      const tours = TestBed.inject(VirtualTourService);
+      // Só o `id` interessa ao publicar; o resto do Property não é lido.
+      const create = spyOn(property, 'createProperty').and.returnValue(
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      // O imóvel entra, o tour falha: é o buraco por onde a duplicata nascia.
+      const createTour = spyOn(tours, 'createTour').and.returnValue(
+        throwError(() => new Error('413')),
+      );
+
+      await store.publish();
+      expect(store.publishedPropertyId()).toBe('imovel-1');
+
+      createTour.and.returnValue(
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      await store.publish();
+
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(store.published()).toBe(true);
+      expect(store.publishedTourId()).toBe('tour-1');
+    });
+
+    it('acusa erro dentro do bloco de endereço, que é colapsável', async () => {
+      const store = storeWith(scene('a'));
+      pronto(store);
+      store.patchAddress({ street: 'Avenida Paulista' });
+
+      await store.publish();
+
+      // Sem isto o acordeão fica fechado sobre os campos culpados e o botão
+      // "Publicar" não faz nada nem explica por quê.
+      expect(store.addressHasError()).toBe(true);
+      expect(store.hasError('city')).toBe(true);
+      expect(store.hasError('state')).toBe(true);
+    });
+
+    /**
+     * O caso que a busca por nome errava.
+     *
+     * Dois ambientes com o MESMO nome mandavam as fotos originais das duas
+     * cenas para o primeiro panorama: a segunda ficava sem nenhuma, e a
+     * montagem por IA a dispensava por falta de verdade de campo. Nome com
+     * espaço no fim errava sozinho, porque o payload manda `trim()` e a busca
+     * comparava sem.
+     */
+    it('manda as fotos de cada cena para o panorama da MESMA ordem', async () => {
+      const frames = (i: number) =>
+        [{ index: i }] as unknown as WizardScene['frames'];
+      const store = storeWith(
+        scene('a', { room: 'Ambiente 2 ', frames: frames(0) }),
+        scene('b', { room: 'Ambiente 2', frames: frames(1) }),
+      );
+      pronto(store);
+
+      spyOn(TestBed.inject(PropertyService), 'createProperty').and.returnValue(
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'createTour').and.returnValue(
+        of({
+          id: 'tour-1',
+          panoramas: [
+            { id: 'pan-0', roomName: 'Ambiente 2', order: 0 },
+            { id: 'pan-1', roomName: 'Ambiente 2', order: 1 },
+          ],
+        } as unknown) as ReturnType<VirtualTourService['createTour']>,
+      );
+      const upload = spyOn(tours, 'uploadCaptureFrames').and.resolveTo({
+        uploaded: 1,
+      } as never);
+      spyOn(tours, 'montarTour').and.returnValue(
+        of({ total: 2 }) as ReturnType<VirtualTourService['montarTour']>,
+      );
+      spyOn(tours, 'acompanharMontagem').and.resolveTo(undefined as never);
+      // Se voltasse a existir, seria o round-trip que baixa tudo de novo.
+      const refetch = spyOn(tours, 'findTour');
+
+      await store.publish();
+
+      expect(upload.calls.allArgs().map((a) => a[0])).toEqual([
+        'pan-0',
+        'pan-1',
+      ]);
+      expect(upload.calls.argsFor(0)[1]).toBe(store.scenes()[0].frames!);
+      expect(upload.calls.argsFor(1)[1]).toBe(store.scenes()[1].frames!);
+      expect(refetch).not.toHaveBeenCalled();
+    });
+
+    it('não acusa endereço quando o erro está fora dele', async () => {
+      const store = storeWith(scene('a'));
+
+      await store.publish();
+
+      expect(store.hasError('name')).toBe(true);
+      expect(store.addressHasError()).toBe(false);
     });
   });
 });

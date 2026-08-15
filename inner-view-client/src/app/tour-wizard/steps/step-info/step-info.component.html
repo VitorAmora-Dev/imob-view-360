@@ -1,0 +1,79 @@
+<header class="tw-step-head">
+  <h2>{{ 'TOUR_WIZARD.STEP3.TITLE' | translate }}</h2>
+  <p>{{ 'TOUR_WIZARD.STEP3.SUBTITLE' | translate }}</p>
+</header>
+
+<div class="tw-info">
+  <form class="tw-info__form" (submit)="$event.preventDefault()">
+    <!--
+      O erro fica no campo, não só no botão: "algo está errado" sem dizer onde
+      obriga o corretor a caçar o problema num formulário que ele acabou de
+      preencher.
+    -->
+    <label class="tw-field" [class.has-error]="store.hasError('name')">
+      <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.NAME_LABEL' | translate }}</span>
+      <input
+        type="text"
+        autocomplete="off"
+        [attr.aria-invalid]="store.hasError('name') || null"
+        [placeholder]="'TOUR_WIZARD.STEP3.NAME_PLACEHOLDER' | translate"
+        [value]="store.property().name"
+        (input)="onName($event)" />
+      @if (store.hasError('name')) {
+        <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+      }
+    </label>
+
+    <!-- auto-fit: lado a lado quando cabe, empilhados quando não, sem media query. -->
+    <div class="tw-info__pair">
+      <!--
+        A seleção vem do `[selected]` de cada <option>, não de um `[value]` no
+        <select>: o value é atribuído antes de o `@for` criar as opções, então
+        não gruda, e o campo voltava a "Selecione…" toda vez que a etapa
+        remontava — ir conferir a etapa 2 e voltar bastava. O store continuava
+        com o valor certo, e a tela dizia o contrário.
+      -->
+      <label class="tw-field" [class.has-error]="store.hasError('type')">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.TYPE_LABEL' | translate }}</span>
+        <select
+          [attr.aria-invalid]="store.hasError('type') || null"
+          (change)="onType($event)">
+          <option value="" [selected]="!store.property().type">
+            {{ 'TOUR_WIZARD.STEP3.SELECT_EMPTY' | translate }}
+          </option>
+          @for (t of types; track t) {
+            <option [value]="t" [selected]="store.property().type === t">
+              {{ 'UPLOAD.TYPE.' + t | translate }}
+            </option>
+          }
+        </select>
+        @if (store.hasError('type')) {
+          <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+        }
+      </label>
+
+      <label class="tw-field" [class.has-error]="store.hasError('purpose')">
+        <span class="tw-field__label">{{ 'TOUR_WIZARD.STEP3.PURPOSE_LABEL' | translate }}</span>
+        <select
+          [attr.aria-invalid]="store.hasError('purpose') || null"
+          (change)="onPurpose($event)">
+          <option value="" [selected]="!store.property().purpose">
+            {{ 'TOUR_WIZARD.STEP3.SELECT_EMPTY' | translate }}
+          </option>
+          @for (p of purposes; track p) {
+            <option [value]="p" [selected]="store.property().purpose === p">
+              {{ 'UPLOAD.PURPOSE.' + p | translate }}
+            </option>
+          }
+        </select>
+        @if (store.hasError('purpose')) {
+          <span class="tw-field__error">{{ 'TOUR_WIZARD.STEP3.REQUIRED' | translate }}</span>
+        }
+      </label>
+    </div>
+
+    <app-address-accordion />
+  </form>
+
+  <app-tour-summary />
+</div>

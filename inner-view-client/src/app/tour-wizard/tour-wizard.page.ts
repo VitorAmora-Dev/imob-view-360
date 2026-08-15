@@ -7,21 +7,21 @@ import { StepHotspotsComponent } from './steps/step-hotspots/step-hotspots.compo
 import { StepImagesComponent } from './steps/step-images/step-images.component';
 import { StepInfoComponent } from './steps/step-info/step-info.component';
 import { TourDraftStore } from './tour-draft.store';
-import { WizardStep } from './tour-wizard.model';
+import { WizardActionsComponent } from './ui/wizard-actions/wizard-actions.component';
+import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.component';
 
 /**
- * Shell do wizard de criação de tour: topbar, stepper, progresso, corpo da
- * etapa e barra de ação.
+ * Wizard de criação de tour: topbar, stepper, corpo da etapa e barra de ação.
  *
- * DONO: Frente A. Commit-zero — o esqueleto navega de ponta a ponta; o acabamento
- * do stepper e da barra de ação são as tarefas A2 e A3.
+ * DONO: Frente A.
  *
- * A ação primária fica SEMPRE no rodapé, no desktop e no mobile. O progresso é
- * indicador de estado, não comando, e a ação tem que vir depois do conteúdo que
- * a confirma — por isso nada de botão junto à barra de progresso.
+ * A página é só o arranjo — quem sabe algo são o stepper, a barra de ação e
+ * cada etapa, todos lendo o mesmo `TourDraftStore`. Por isso ela não tem nem
+ * `@Input` nem estado próprio.
  *
- * O `TourDraftStore` é fornecido aqui, e não em `root`: o rascunho morre com a
- * tela (não há persistência — ver §2.3 do plano do sprint).
+ * O store é fornecido AQUI, e não em `root`: o rascunho morre junto com a tela
+ * (não há persistência — ver §2.3 do plano do sprint) e "Criar outro tour" é
+ * só um `reset()`.
  */
 @Component({
   selector: 'app-tour-wizard',
@@ -33,6 +33,8 @@ import { WizardStep } from './tour-wizard.model';
     IonContent,
     TranslatePipe,
     AppHeaderComponent,
+    WizardStepperComponent,
+    WizardActionsComponent,
     StepImagesComponent,
     StepHotspotsComponent,
     StepInfoComponent,
@@ -41,31 +43,11 @@ import { WizardStep } from './tour-wizard.model';
 })
 export class TourWizardPage {
   readonly store = inject(TourDraftStore);
-  readonly steps: WizardStep[] = [1, 2, 3];
 
   @ViewChild(AppHeaderComponent) private header?: AppHeaderComponent;
 
   /** O header encolhe com o scroll e depende do container do ion-content. */
   onScroll(event: CustomEvent<{ scrollTop: number }>): void {
     this.header?.onContentScroll(event.detail.scrollTop);
-  }
-
-  /** Rótulo do botão primário: "Publicar tour" fecha o fluxo na última etapa. */
-  get primaryLabelKey(): string {
-    return this.store.step() === 3
-      ? 'TOUR_WIZARD.COMMON.PUBLISH'
-      : 'TOUR_WIZARD.COMMON.NEXT';
-  }
-
-  /**
-   * "Pular" só existe na etapa 2, e só enquanto o ambiente não tem nenhum
-   * ponto: com um ponto criado, pular deixa de ser a saída óbvia e o botão
-   * vira ruído ao lado de "Próximo".
-   */
-  get showSkip(): boolean {
-    return (
-      this.store.step() === 2 &&
-      (this.store.selectedScene()?.hotspots.length ?? 0) === 0
-    );
   }
 }

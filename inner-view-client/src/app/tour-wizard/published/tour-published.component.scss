@@ -1,0 +1,80 @@
+@use '../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 10px;
+  text-align: center;
+}
+
+.tw-pub__icon {
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: var(--tw-brand-soft);
+  color: var(--tw-brand);
+  font-size: 28px;
+  line-height: 1;
+}
+
+h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--tw-text-strong);
+}
+
+.tw-pub__lead {
+  max-width: 44ch;
+  margin: 0;
+  font-size: 15px;
+  color: var(--tw-text-muted);
+  text-wrap: pretty;
+}
+
+// Só a ressalva dos pontos descartados usa isto. O `.is-error` que existia
+// aqui morreu junto com o aviso de falha ao publicar, que saiu desta tela: ela
+// só monta quando o tour existe, então erro de publicação nunca chegava a ser
+// pintado por esta regra.
+.tw-pub__note {
+  max-width: 44ch;
+  margin: 0;
+  font-size: 13px;
+  color: var(--tw-warn-text);
+}
+
+.tw-pub__link {
+  max-width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--tw-radius-xs);
+  background: var(--tw-surface-muted);
+  font-size: 13px;
+  color: var(--tw-text-muted);
+  // O link é longo e não pode empurrar a largura da página num celular.
+  overflow-wrap: anywhere;
+}
+
+.tw-pub__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+
+  @include tw.tw-mobile {
+    width: 100%;
+  }
+}
+
+// Aparência vem de `tour-wizard.scss`; aqui só o empilhamento das três ações.
+.tw-btn {
+  @include tw.tw-mobile {
+    flex: 1 1 100%;
+  }
+}

@@ -186,7 +186,29 @@
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",
       "SUBTITLE": "Cada imagem vira um ambiente do tour. Você pode adicionar mais depois — para continuar, uma já basta.",
-      "EMPTY": "Nenhuma imagem ainda."
+      "EMPTY": "Nenhuma imagem ainda.",
+      "DROP_TITLE": "Arraste suas fotos 360° aqui",
+      "DROP_TITLE_MOBILE": "Adicione suas fotos 360°",
+      "DROP_SUB": "ou use uma das opções abaixo",
+      "DROP_SUB_MOBILE": "Envie do seu celular ou fotografe na hora",
+      "UPLOAD_FILES": "Enviar arquivos",
+      "TAKE_PHOTO": "Tirar foto agora",
+      "CHIP_FORMAT": "JPG equirretangular 2:1",
+      "CHIP_SIZE": "até 25 MB por foto",
+      "CHIP_MULTIPLE": "várias de uma vez",
+      "TIP": "Ao fotografar pelo celular, use o modo panorâmico da câmera ou uma câmera 360° pareada. Gire devagar mantendo o aparelho na altura do peito.",
+      "CAPTURED_ROOM": "Ambiente {{n}}",
+      "SCENES_TITLE": "Ambientes",
+      "SCENES_COUNT": "{{n}} imagens",
+      "SCENES_COUNT_ONE": "1 imagem",
+      "ROOM_PLACEHOLDER": "Nome do ambiente",
+      "BADGE_COVER": "Capa",
+      "BADGE_ROOM": "Ambiente {{n}}",
+      "REMOVE": "Remover o ambiente {{room}}",
+      "READING": "Lendo a imagem…",
+      "REJECTED_TYPE": "Não é uma imagem válida.",
+      "REJECTED_SIZE": "Maior que 25 MB. Reduza a foto e envie de novo.",
+      "WARN_RATIO": "A proporção não é 2:1. O tour pode sair distorcido."
     },
     "STEP2": {
       "TITLE": "Marque os pontos de interesse",
@@ -216,13 +238,44 @@
     "STEP3": {
       "TITLE": "Informações do imóvel",
       "SUBTITLE": "Só o essencial agora. O endereço é opcional e pode ficar para depois.",
-      "SUMMARY_SCENES": "ambiente(s)",
-      "SUMMARY_HOTSPOTS": "hotspot(s)"
+      "NAME_LABEL": "Nome do imóvel",
+      "NAME_PLACEHOLDER": "Ex.: Apartamento Vila Mariana, 82 m²",
+      "TYPE_LABEL": "Tipo",
+      "PURPOSE_LABEL": "Finalidade",
+      "SELECT_EMPTY": "Selecione…",
+      "ADDRESS_TITLE": "Endereço",
+      "ADDRESS_OPTIONAL": "opcional",
+      "CEP_LABEL": "CEP",
+      "CEP_PLACEHOLDER": "00000-000",
+      "CEP_HINT": "preenchemos o resto pra você",
+      "CEP_LOADING": "Buscando o endereço…",
+      "CEP_NOT_FOUND": "CEP não encontrado. Preencha o endereço manualmente.",
+      "CEP_ERROR": "Não deu para consultar o CEP agora. Preencha manualmente.",
+      "STREET": "Rua",
+      "NUMBER": "Número",
+      "DISTRICT": "Bairro",
+      "COMPLEMENT": "Complemento",
+      "CITY": "Cidade",
+      "STATE": "UF",
+      "SUMMARY_TITLE": "Resumo do tour",
+      "SUMMARY_ROOMS": "Ambientes",
+      "SUMMARY_HOTSPOTS": "Hotspots",
+      "SUMMARY_COVER": "Capa",
+      "REQUIRED": "Preencha este campo para publicar.",
+      "STATE_REQUIRED": "Use a sigla do estado, com 2 letras (ex.: SP).",
+      "WARN_RATIO_ONE": "1 ambiente não está em 2:1 e pode sair distorcido no tour.",
+      "WARN_RATIO": "{{n}} ambientes não estão em 2:1 e podem sair distorcidos no tour.",
+      "WARN_SIZE": "As fotos somam mais do que o servidor aceita numa publicação. Remova algum ambiente ou reduza as imagens maiores."
     },
     "SUCCESS": {
       "TITLE": "Tour publicado",
       "SUBTITLE": "Link pronto para enviar aos clientes. Você ainda pode editar ambientes e hotspots quando quiser.",
-      "CREATE_ANOTHER": "Criar outro tour"
+      "COPY_LINK": "Copiar link",
+      "COPIED": "Copiado ✓",
+      "OPEN_TOUR": "Ver tour",
+      "CREATE_ANOTHER": "Criar outro tour",
+      "DISCARDED": "{{n}} ponto(s) sem destino não foram salvos.",
+      "PUBLISH_ERROR": "Não foi possível publicar o tour. Tente de novo."
     }
   }
 }

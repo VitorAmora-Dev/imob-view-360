@@ -1,0 +1,123 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-md);
+  background: var(--tw-surface);
+}
+
+.tw-scene__thumb {
+  flex: 0 0 auto;
+  width: 66px;
+  height: 50px;
+  border-radius: var(--tw-radius-xs);
+  background-color: var(--tw-surface-track);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.tw-scene__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  // Sem isso o input estoura o card em vez de encolher: um filho flex tem
+  // min-width auto por padrão, e o conteúdo passa a definir o piso.
+  flex: 1;
+  min-width: 0;
+}
+
+.tw-scene__name {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-xs);
+  font: inherit;
+  font-size: 14px;
+  color: var(--tw-text-strong);
+
+  // 16px é obrigatório no mobile: abaixo disso o iOS dá zoom sozinho ao focar o
+  // campo, e aí a grade de ambientes sai do enquadramento — uma vez por
+  // renomeação, oito vezes numa sessão de oito fotos.
+  @include tw.tw-mobile {
+    font-size: 16px;
+  }
+
+  &:focus {
+    border-color: var(--tw-brand);
+    outline: 2px solid var(--tw-focus-ring);
+    outline-offset: 1px;
+  }
+}
+
+// Quebra em duas linhas antes de truncar. O card fica estreito quando cabem
+// quatro por linha, e no protótipo o tamanho do arquivo virava "9…" — que não
+// informa nada. Uma segunda linha custa 18px; um número cortado custa a
+// informação inteira.
+.tw-scene__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+  min-width: 0;
+}
+
+.tw-badge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-surface-muted);
+  color: var(--tw-text-muted);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.tw-badge--cover {
+  background: var(--tw-brand-soft);
+  color: var(--tw-brand);
+}
+
+.tw-scene__size {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--tw-text-faint);
+  white-space: nowrap;
+}
+
+.tw-scene__note {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--tw-text-faint);
+
+  &.is-error {
+    color: var(--ion-color-danger);
+  }
+
+  // Ressalva não é erro: a cena vai ser publicada. Tom de atenção, não o
+  // vermelho de falha — senão o corretor apaga uma foto que estava boa.
+  &.is-warning {
+    color: var(--tw-warn-text);
+  }
+}
+
+.tw-scene__remove {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-xs);
+  background: var(--tw-surface);
+  color: var(--tw-text-faint);
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease;
+
+  &:hover {
+    border-color: var(--tw-brand-border);
+    color: var(--tw-brand);
+  }
+}
