@@ -1,0 +1,58 @@
+:host {
+  display: block;
+}
+
+.tw-sum-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  // Piso de linha do handoff: é um alvo de toque, não só um rótulo.
+  min-height: var(--tw-tap-row);
+  padding: 8px 14px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-sm);
+  background: var(--tw-surface);
+}
+
+.tw-sum-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // Quem cede espaço é o texto, não o botão: "Ver todos" tem largura fixa e
+  // curta, e cortá-lo deixaria a linha sem saída.
+  flex: 1;
+  min-width: 0;
+}
+
+.tw-sum-row__count {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--tw-text-strong);
+}
+
+.tw-sum-row__names {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--tw-text-muted);
+}
+
+.tw-sum-row__all {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-surface);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tw-text-strong);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--tw-focus-ring);
+    outline-offset: 2px;
+  }
+}

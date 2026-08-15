@@ -1,4 +1,5 @@
-import { Component, ElementRef, effect, inject, input } from '@angular/core';
+import { Component, ElementRef, effect, inject, input, output } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { WizardHotspot } from '../../tour-wizard.model';
 import {
@@ -30,9 +31,20 @@ import {
   selector: 'app-hotspot-overlay',
   standalone: true,
   template: `
-    @for (hotspot of hotspots(); track hotspot.id) {
-      <button #pin type="button" class="tw-pin" [attr.data-hotspot-id]="hotspot.id">
-        {{ hotspot.label || $index + 1 }}
+    @for (hotspot of hotspots(); track hotspot.id; let i = $index) {
+      <button
+        type="button"
+        class="tw-pin"
+        [class.is-orphan]="!hotspot.target"
+        [attr.data-hotspot-id]="hotspot.id"
+        [attr.aria-label]="ariaLabel(hotspot, i)"
+        (click)="pinActivated.emit(hotspot.id)">
+        <!--
+          O rótulo visível cai no número quando o ponto ainda não tem nome; o
+          aria-label acima carrega a descrição inteira, porque "3" sozinho não
+          diz nada a quem não vê a foto.
+        -->
+        <span aria-hidden="true">{{ hotspot.label || i + 1 }}</span>
       </button>
     }
   `,
@@ -66,8 +78,32 @@ import {
 export class HotspotOverlayComponent {
   readonly hotspots = input<WizardHotspot[]>([]);
   readonly viewer = input<PanoramicViewerComponent | null>(null);
+  /** Nomes dos ambientes, por id — só para o pin dizer para onde leva. */
+  readonly roomNames = input<Record<string, string>>({});
+
+  /**
+   * Quem decide o que o clique faz é a etapa, não o overlay: com destino
+   * navega, sem destino abre o editor. Aqui só se sabe qual pin foi tocado.
+   */
+  readonly pinActivated = output<string>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly translate = inject(TranslateService);
+
+  /**
+   * O que o leitor de tela anuncia no pin.
+   *
+   * Um `<button>` cujo conteúdo é "2" não diz nada: nem que é um ponto de
+   * navegação, nem para onde vai. A a11y é metade da razão de os pins serem
+   * HTML e não sprites — desperdiçá-la aqui seria perder a aposta.
+   */
+  ariaLabel(hotspot: WizardHotspot, index: number): string {
+    const nome = hotspot.label.trim() || String(index + 1);
+    const destino = hotspot.target ? this.roomNames()[hotspot.target] : null;
+    return destino
+      ? this.translate.instant('TOUR_WIZARD.STEP2.PIN_NAV', { nome, destino })
+      : this.translate.instant('TOUR_WIZARD.STEP2.PIN_ORPHAN', { nome });
+  }
 
   constructor() {
     effect((onCleanup) => {

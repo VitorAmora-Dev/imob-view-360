@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideTranslateService } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { WizardHotspot } from '../../tour-wizard.model';
 import { HotspotOverlayComponent } from './hotspot-overlay.component';
@@ -47,6 +48,10 @@ describe('HotspotOverlayComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HostComponent],
+      // O overlay traduz o `aria-label` do pin (B4/B12). Nada aqui depende do
+      // texto — o que está sob teste é a projeção —, mas sem o provider o
+      // componente nem chega a ser construído.
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
     }).compileComponents();
 
     fixture = TestBed.createComponent(HostComponent);

@@ -203,7 +203,10 @@
       "TARGET": "Destino",
       "TARGET_EMPTY": "Escolha o ambiente…",
       "NO_TARGET_WARN": "Sem destino este ponto não é salvo ao publicar.",
-      "NEEDS_SECOND_ROOM": "Com um ambiente só não há para onde levar o visitante. Envie outra foto na etapa 1."
+      "NEEDS_SECOND_ROOM": "Com um ambiente só não há para onde levar o visitante. Envie outra foto na etapa 1.",
+      "SEE_ALL": "Ver todos",
+      "PIN_NAV": "Ponto {{nome}}, leva para {{destino}}",
+      "PIN_ORPHAN": "Ponto {{nome}}, sem destino. Toque para editar."
     },
     "STEP3": {
       "TITLE": "Informações do imóvel",

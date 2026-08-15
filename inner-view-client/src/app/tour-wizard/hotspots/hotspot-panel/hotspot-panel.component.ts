@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
@@ -26,6 +26,29 @@ import { TourDraftStore } from '../../tour-draft.store';
 export class HotspotPanelComponent {
   private readonly draft = inject(TourDraftStore);
   readonly editor = inject(HotspotEditorStore);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  constructor() {
+    /**
+     * Clicar num pin sem destino pede "edite este ponto". No mobile isso abre o
+     * bottom sheet; no desktop o painel já está aberto, então o equivalente é
+     * levar o foco ao campo daquele ponto — senão o clique no pin não teria
+     * resposta nenhuma numa lista de oito cards.
+     *
+     * O card já existe quando se chega aqui: o editor é aberto a partir de um
+     * pin, e pin só existe para hotspot que já está na lista.
+     */
+    effect(() => {
+      const alvo = this.editor.editing();
+      if (!alvo) return;
+
+      const campo = this.host.nativeElement.querySelector<HTMLInputElement>(
+        `#hs-label-${CSS.escape(alvo.id)}`,
+      );
+      campo?.focus();
+      campo?.scrollIntoView({ block: 'nearest' });
+    });
+  }
 
   readonly hotspots = computed(() => this.editor.hotspots());
   readonly targets = computed(() => this.editor.targetOptions());

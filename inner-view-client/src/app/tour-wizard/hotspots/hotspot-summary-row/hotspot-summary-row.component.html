@@ -1,0 +1,19 @@
+@if (count()) {
+  <div class="tw-sum-row">
+    <div class="tw-sum-row__text">
+      <span class="tw-sum-row__count">
+        {{ count() }} {{ 'TOUR_WIZARD.STEP2.COUNT' | translate }}
+      </span>
+      <!--
+        Os nomes numa linha só, com ellipsis: dois ou três cabem, e a partir daí
+        o "Ver todos" é o caminho. Quebrar em várias linhas empurraria a barra
+        de ação para fora da dobra, que é o que esta linha existe para evitar.
+      -->
+      <span class="tw-sum-row__names">{{ names() }}</span>
+    </div>
+
+    <button type="button" class="tw-sum-row__all" (click)="editor.openList()">
+      {{ 'TOUR_WIZARD.STEP2.SEE_ALL' | translate }}
+    </button>
+  </div>
+}

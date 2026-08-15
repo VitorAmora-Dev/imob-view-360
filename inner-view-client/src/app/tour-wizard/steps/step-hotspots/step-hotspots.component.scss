@@ -34,6 +34,13 @@
   }
 }
 
+// O inverso do painel: a linha-resumo é do mobile.
+.tw-step2__row {
+  @include tw.tw-desktop {
+    display: none;
+  }
+}
+
 .tw-viewer {
   position: relative;
   width: 100%;

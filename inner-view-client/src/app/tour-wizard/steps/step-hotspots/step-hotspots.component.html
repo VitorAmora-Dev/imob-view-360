@@ -12,7 +12,11 @@
           [panoramas]="viewerPanoramas()"
           [editMode]="true"
           (hotspotPlaced)="onPlaced($event)" />
-        <app-hotspot-overlay [viewer]="viewer" [hotspots]="editor.hotspots()" />
+        <app-hotspot-overlay
+          [viewer]="viewer"
+          [hotspots]="editor.hotspots()"
+          [roomNames]="roomNames()"
+          (pinActivated)="onPinActivated($event)" />
 
         <!--
           A dica fica sobre a imagem porque é ali que a ação acontece, e some
@@ -25,6 +29,9 @@
       </div>
 
       <app-scene-rail />
+
+      <!-- Só no mobile: no desktop o painel ao lado já mostra a lista inteira. -->
+      <app-hotspot-summary-row class="tw-step2__row" />
     </div>
 
     <app-hotspot-panel class="tw-step2__panel" />

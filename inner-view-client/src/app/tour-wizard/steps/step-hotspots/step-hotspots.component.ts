@@ -5,6 +5,7 @@ import { Panorama } from '../../../models/virtual-tour.model';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { HotspotOverlayComponent } from '../../hotspots/hotspot-overlay/hotspot-overlay.component';
 import { HotspotPanelComponent } from '../../hotspots/hotspot-panel/hotspot-panel.component';
+import { HotspotSummaryRowComponent } from '../../hotspots/hotspot-summary-row/hotspot-summary-row.component';
 import { SceneRailComponent } from '../../hotspots/scene-rail/scene-rail.component';
 import { TourDraftStore } from '../../tour-draft.store';
 
@@ -26,6 +27,7 @@ import { TourDraftStore } from '../../tour-draft.store';
     HotspotOverlayComponent,
     SceneRailComponent,
     HotspotPanelComponent,
+    HotspotSummaryRowComponent,
   ],
   providers: [HotspotEditorStore],
   templateUrl: './step-hotspots.component.html',
@@ -66,5 +68,36 @@ export class StepHotspotsComponent {
    */
   onPlaced(event: { positionX: number; positionY: number }): void {
     this.editor.add(event.positionX, event.positionY);
+  }
+
+  /** Nomes por id, para o pin poder dizer para onde leva (a11y). */
+  readonly roomNames = computed<Record<string, string>>(() => {
+    const mapa: Record<string, string> = {};
+    for (const s of this.draft.readyScenes()) mapa[s.id] = s.room;
+    return mapa;
+  });
+
+  /**
+   * Clique no pin (B4).
+   *
+   * Com destino, NAVEGA — e nunca abre o editor. É regra dura do DoD, e a
+   * razão é que este é o único lugar onde o corretor confere o que o visitante
+   * vai viver: se clicar num ponto abrisse um formulário, ele nunca veria o
+   * tour funcionando enquanto o monta.
+   *
+   * Sem destino não há para onde ir, e aí o clique vira o que resta de útil:
+   * abrir a edição daquele ponto.
+   */
+  onPinActivated(hotspotId: string): void {
+    const hotspot = this.editor.hotspots().find((h) => h.id === hotspotId);
+    if (!hotspot) return;
+
+    if (hotspot.target) {
+      this.editor.closeSheet();
+      this.draft.selectScene(hotspot.target);
+      return;
+    }
+
+    this.editor.openEditor(hotspotId);
   }
 }

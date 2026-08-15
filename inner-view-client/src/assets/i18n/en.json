@@ -203,6 +203,9 @@
       "TARGET_EMPTY": "Pick a room…",
       "NO_TARGET_WARN": "Without a destination this point is not saved when you publish.",
       "NEEDS_SECOND_ROOM": "With a single room there is nowhere to send the visitor. Upload another photo in step 1.",
+      "SEE_ALL": "See all",
+      "PIN_NAV": "Point {{nome}}, goes to {{destino}}",
+      "PIN_ORPHAN": "Point {{nome}}, no destination. Tap to edit.",
       "EMPTY": "Upload a 360° photo in the previous step to mark points."
     },
     "STEP3": {
