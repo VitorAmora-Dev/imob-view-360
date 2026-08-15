@@ -347,3 +347,50 @@ Chamar a função compartilhada é o conserto óbvio, mas ela mora em
 de uma pasta de feature. O certo é mover o módulo para um lugar neutro, e isso é
 reestruturação depois do merge das duas frentes — decisão de quem tocar o
 próximo sprint, não de uma rodada de review.
+
+## 11. O pin do inner-view no celular: dois defeitos e uma escolha
+
+Veio de teste em aparelho de verdade: "os pins estão difíceis de enxergar e a
+nitidez está baixa". A cor era o palpite; a medição achou outra coisa antes.
+
+**Defeito 1 — o viewer renderizava 11% dos pixels da tela.** O
+`WebGLRenderer` nasce com `pixelRatio` 1 e nunca chamávamos `setPixelRatio`.
+Medido num DPR 3: buffer de 358×269 para uma tela de 1074×807, ou um terço da
+resolução linear, ampliado pelo compositor. Não era a foto nem a costura — era
+o viewer INTEIRO desenhando pequeno e sendo esticado.
+
+Corrigido com teto de 2. DPR 3 custaria 9× os pixels de DPR 1 num GPU de
+celular desenhando uma esfera de 120×80 segmentos; 2× já são 4× os pixels e é
+o degrau em que a diferença ainda se vê. Reaplicado no `resize`, porque arrastar
+a janela entre monitores muda o DPR.
+
+**Defeito 2 — o sprite nunca mostrou as cores que desenhamos.** A
+`CanvasTexture` não declarava `colorSpace`. Com `outputColorSpace = 'srgb'` no
+renderer, uma textura que não se declara sRGB é lida como linear e convertida de
+novo na saída. O desvio, calculado e conferido contra o print:
+
+| gravado | exibido |
+|---|---|
+| `#ff385c` (Rausch) | `#ff81a2` — rosa claro |
+| `#101218` (pílula) | `#474b56` — cinza médio |
+
+A foto já fazia isso certo desde sempre, no `loadPanorama`. Só o sprite ficou de
+fora — e é por isso que o pin parecia um borrão cinza com um ponto rosa.
+
+**A escolha — onde entra o vermelho.** O pedido foi pintar o pin da cor da
+marca. Medi as duas leituras antes de decidir: branco sobre a Rausch `#ff385c`
+dá **3,5:1**, abaixo do 4,5:1 que a WCAG pede para texto normal; branco sobre a
+pílula escura dá **~17:1** no pior caso (a pílula a 95% sobre uma foto branca).
+
+Como o pedido nasceu de "enxergar melhor", pintar a pílula de vermelho andaria
+para trás justamente onde mais dói. O vermelho foi para a SILHUETA — borda de
+5px, dot maior — e o texto ficou onde se lê. Com halo escuro por fora, porque
+borda vermelha sobre teto branco desaparece, e este pin flutua sobre uma foto
+que ninguém controla.
+
+O pin passou de ~28px para **50,4×134,7px de CSS**, acima do piso de 44 da
+WCAG — que aqui vale duplo, porque o sprite é também o alvo do raycast.
+
+O pin do wizard levou a mesma borda (2px, proporcional aos 5px do sprite: as
+pílulas têm 34px e 76px de altura). Os dois continuam a mesma coisa, que foi o
+pedido quando o inner-view ainda tinha pílula branca com seta.

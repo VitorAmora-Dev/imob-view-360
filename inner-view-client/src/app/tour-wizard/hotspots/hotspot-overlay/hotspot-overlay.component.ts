@@ -141,7 +141,12 @@ interface Pressao {
         height: 34px;
         max-width: 168px;
         padding: 0 13px 0 11px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        /* A borda é da marca, e não um branco a 18%, para o pin ser notado
+           sobre foto qualquer — o mesmo motivo e a mesma cor do sprite do
+           inner-view, que é este pin visto pelo visitante. 2px aqui equivalem
+           aos 5px de lá: a pílula do sprite tem 76px de altura lógica contra os
+           34px desta, e o que se mantém é a proporção, não o número. */
+        border: 2px solid var(--tw-brand);
         border-radius: var(--tw-radius-pill);
         background: var(--tw-pin-bg);
         /* A pílula fica sobre uma foto qualquer: sem o blur, um trecho de céu

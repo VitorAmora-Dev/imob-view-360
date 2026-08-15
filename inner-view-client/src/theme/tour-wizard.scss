@@ -59,6 +59,21 @@
   --tw-trash-active: rgba(232, 54, 93, 0.94); // lixeira com pin sobre ela
   --tw-focus-ring: rgba(255, 56, 92, 0.2); //    anel de foco, 2px
 
+  /* -- O mesmo pin, desenhado em canvas ---------------------------------- */
+  // O pin do inner-view é sprite do three.js, não elemento: não existe
+  // backdrop-filter atrás dele. A pílula do wizard pode viver a 78% de
+  // opacidade PORQUE o blur já separa o texto da foto; repetir os mesmos 78%
+  // sem blur devolve uma pílula translúcida sobre uma foto qualquer, e é ali
+  // que a leitura morre — ainda mais em tela de celular, ao sol, para quem já
+  // não enxerga de perto.
+  //
+  // Mesma identidade, paga em opacidade em vez de desfoque. É a única
+  // divergência consciente entre os dois pins.
+  --tw-pin-bg-canvas: rgba(11, 13, 18, 0.95);
+  // Halo escuro POR FORA da pílula. A borda da marca some contra um teto claro
+  // ou uma parede clara; o halo é o que garante silhueta sobre foto qualquer.
+  --tw-pin-halo-canvas: rgba(0, 0, 0, 0.55);
+
   /* -- Raios ------------------------------------------------------------- */
   // O handoff usa nove raios distintos (7 a 22px). A escala do projeto tem
   // cinco. Colapsados nos degraus mais próximos: a diferença de 1–2px não é

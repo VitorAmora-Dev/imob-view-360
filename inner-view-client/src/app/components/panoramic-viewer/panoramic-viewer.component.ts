@@ -252,6 +252,25 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     );
   }
 
+  /**
+   * Quantos pixels de verdade por pixel de CSS.
+   *
+   * Sem isto o `WebGLRenderer` fica em 1, que é o padrão do three.js, e num
+   * celular de DPR 3 o viewer desenha **11% dos pixels que a tela tem** —
+   * medido: buffer de 358×269 numa tela de 1074×807. O compositor estica o
+   * resto. Não é a foto que está ruim nem a costura: é o viewer renderizando em
+   * um terço da resolução linear e sendo ampliado.
+   *
+   * O teto de 2 não é timidez. DPR 3 custaria 9× os pixels de DPR 1, e este
+   * viewer não desenha um cubo: é uma esfera de 120×80 segmentos com uma
+   * equirretangular que pode ter 8192px de largura, num GPU de celular. A 2×
+   * já são 4× os pixels, e é o degrau em que a diferença ainda se vê a olho —
+   * de 2 para 3 quase não se vê, e o custo é o mesmo tanto de novo.
+   */
+  private pixelRatioAlvo(): number {
+    return Math.min(window.devicePixelRatio || 1, 2);
+  }
+
   private initThreeJS() {
     const container = this.canvasContainer.nativeElement;
 
@@ -261,6 +280,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.camera.position.set(0, 0, 0.1);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setPixelRatio(this.pixelRatioAlvo());
     this.renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(this.renderer.domElement);
 
@@ -338,47 +358,87 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    * cobrem o caso de a folha do wizard não estar carregada.
    */
   private createHotspotSprite(label: string): THREE.Sprite {
+    // Desenha em coordenadas lógicas de 256×96 e guarda o dobro de texels.
+    //
+    // O sprite ocupa ~280px FÍSICOS numa tela de celular (14° de largura num
+    // FOV horizontal de ~39°, a 2× de pixel ratio). Uma textura de 256 seria
+    // ampliada justo onde mora o texto. 512 cobre isso com folga; acima disso
+    // o mipmap devolve o borrão que a supera­mostragem tinha comprado, porque
+    // o sprite passa a ser minificado demais.
+    const ESCALA = 2;
+    const L = 256;
+    const A = 96;
+
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 96;
+    canvas.width = L * ESCALA;
+    canvas.height = A * ESCALA;
     const ctx = canvas.getContext('2d')!;
+    ctx.scale(ESCALA, ESCALA);
 
     const raiz = getComputedStyle(document.documentElement);
     const token = (nome: string, padrao: string) =>
       raiz.getPropertyValue(nome).trim() || padrao;
+    const marca = token('--tw-brand', '#ff385c');
 
-    // A pílula. `roundRect` com raio igual à metade da altura é o equivalente
-    // em canvas do `border-radius: 999px` do pin do wizard.
+    // Halo escuro por fora, antes de tudo. Uma borda vermelha sobre um teto
+    // branco ou uma parede clara desaparece; o halo é o que dá silhueta sobre
+    // foto QUALQUER, que é a condição real deste pin — ele flutua sobre uma
+    // imagem que ninguém controla.
+    ctx.save();
+    ctx.shadowColor = token('--tw-pin-halo-canvas', 'rgba(0, 0, 0, 0.55)');
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 3;
     ctx.beginPath();
-    ctx.roundRect(4, 4, 248, 88, 44);
-    ctx.fillStyle = token('--tw-pin-bg', 'rgba(16, 18, 24, 0.78)');
+    ctx.roundRect(10, 10, L - 20, A - 20, (A - 20) / 2);
+    ctx.fillStyle = token('--tw-pin-bg-canvas', 'rgba(11, 13, 18, 0.95)');
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-    ctx.lineWidth = 2;
+    ctx.restore();
+
+    // A borda é da marca, e é ela que faz o pin ser notado de longe.
+    //
+    // A alternativa era pintar a PÍLULA inteira de vermelho. Medi as duas:
+    // branco sobre a Rausch #ff385c dá 3,5:1, abaixo do 4,5:1 que a WCAG pede
+    // para texto normal; branco sobre esta pílula dá ~17:1. Como o pedido é
+    // justamente enxergar melhor, o vermelho entra na silhueta e o texto fica
+    // onde se lê. Ver §11 das notas do sprint.
+    ctx.beginPath();
+    ctx.roundRect(10, 10, L - 20, A - 20, (A - 20) / 2);
+    ctx.strokeStyle = marca;
+    ctx.lineWidth = 5;
     ctx.stroke();
 
-    // O dot na cor da marca, no lugar da seta.
+    // O dot, maior que antes: é a única mancha cheia da cor da marca.
     ctx.beginPath();
-    ctx.arc(44, 48, 10, 0, Math.PI * 2);
-    ctx.fillStyle = token('--tw-brand', '#ff385c');
+    ctx.arc(52, A / 2, 13, 0, Math.PI * 2);
+    ctx.fillStyle = marca;
     ctx.fill();
 
     if (label) {
       ctx.fillStyle = '#ffffff';
-      ctx.font = '600 22px "Inter Variable", Inter, sans-serif';
+      ctx.font = '700 28px "Inter Variable", Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       // Reticências de verdade. O `maxWidth` do `fillText` ESPREME a fonte para
       // caber, e um nome comprido sai condensado e ilegível; o pin do wizard
       // corta com ellipsis, e aqui é a mesma promessa.
-      ctx.fillText(this.comReticencias(ctx, label, 172), 68, 49);
+      ctx.fillText(this.comReticencias(ctx, label, L - 78 - 20), 78, A / 2 + 1);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
+    // SEM isto o pin sai lavado, e foi o que apareceu no celular: o renderer
+    // trabalha com `outputColorSpace = 'srgb'`, então uma textura que não se
+    // declara sRGB é lida como se fosse linear e convertida de novo na saída.
+    // Medido: #ff385c chegava à tela como #ff81a2, um rosa claro, e a pílula
+    // #101218 como #474b56, um cinza médio. A foto já fazia isso certo desde
+    // sempre (`loadPanorama`); só o sprite ficou de fora.
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+
     const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
     const sprite = new THREE.Sprite(material);
-    // Scale keeps canvas aspect ratio (256:96 ≈ 8:3), sized for visibility at r=490
-    sprite.scale.set(80, 30, 1);
+    // Mantém a proporção 8:3 do canvas. 1,5× o tamanho anterior: a 80×30 o pin
+    // dava ~28px de altura no celular, e o piso de alvo da WCAG é 44.
+    sprite.scale.set(120, 45, 1);
     return sprite;
   }
 
@@ -452,6 +512,11 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     const container = this.canvasContainer.nativeElement;
     this.camera.aspect = container.clientWidth / container.clientHeight;
     this.camera.updateProjectionMatrix();
+    // O DPR também muda aqui, e não só no primeiro desenho: arrastar a janela
+    // de um monitor comum para um Retina dispara `resize` com um
+    // `devicePixelRatio` novo. Sem reaplicar, a tela boa herda a resolução da
+    // ruim e não há nada na interface que explique por quê.
+    this.renderer.setPixelRatio(this.pixelRatioAlvo());
     this.renderer.setSize(container.clientWidth, container.clientHeight);
   };
 
