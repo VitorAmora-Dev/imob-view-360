@@ -1,0 +1,78 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+// Viewer e painel lado a lado no desktop; empilhados no mobile, onde o painel
+// dá lugar ao bottom sheet (B8).
+.tw-step2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+
+  @include tw.tw-mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tw-step2__stage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  // Sem isto, o viewer com largura intrínseca grande estoura a coluna da grade
+  // em vez de encolher dentro dela.
+  min-width: 0;
+}
+
+.tw-step2__panel {
+  @include tw.tw-mobile {
+    display: none;
+  }
+}
+
+.tw-viewer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--tw-radius-md);
+  background: #000;
+
+  // Mais alto no mobile: em 16/9 a faixa de imagem fica baixa demais para
+  // acertar um ponto com o polegar sem ampliar antes.
+  @include tw.tw-mobile {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+.tw-viewer__hint {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  // Não intercepta o clique: a dica cobre justamente a área onde se marca.
+  pointer-events: none;
+  margin: 0;
+  padding: 9px 14px;
+  max-width: calc(100% - 24px);
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-hint-bg);
+  color: #fff;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tw-viewer__empty {
+  margin: 0;
+  padding: 40px 16px;
+  border: 1px dashed var(--tw-border-dashed);
+  border-radius: var(--tw-radius-md);
+  text-align: center;
+  font-size: 14px;
+  color: var(--tw-text-muted);
+}

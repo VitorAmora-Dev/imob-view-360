@@ -1,10 +1,4 @@
-import {
-  Component,
-  ElementRef,
-  effect,
-  input,
-  viewChildren,
-} from '@angular/core';
+import { Component, ElementRef, effect, inject, input } from '@angular/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { WizardHotspot } from '../../tour-wizard.model';
 import {
@@ -59,6 +53,12 @@ import {
         /* Posição vem do laço de frame, em transform — nunca em top/left,
            que forçariam layout 60 vezes por segundo. */
         will-change: transform;
+        /* Nasce invisível. Entre o clique que cria o hotspot e o primeiro
+           frame do laço, o pin já está no DOM e ainda sem transform — ou seja,
+           em (0,0), o canto do canvas, e não onde a pessoa clicou. É um frame
+           só, mas é um pin piscando no canto a cada ponto criado. O laço o
+           torna visível junto com a primeira posição. */
+        visibility: hidden;
       }
     `,
   ],
@@ -67,8 +67,7 @@ export class HotspotOverlayComponent {
   readonly hotspots = input<WizardHotspot[]>([]);
   readonly viewer = input<PanoramicViewerComponent | null>(null);
 
-  private readonly pins =
-    viewChildren<ElementRef<HTMLButtonElement>>('pin');
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   constructor() {
     effect((onCleanup) => {
@@ -80,18 +79,32 @@ export class HotspotOverlayComponent {
     });
   }
 
+  /**
+   * Reposiciona os pins. Roda a cada frame, fora do ciclo do Angular.
+   *
+   * O casamento entre elemento e hotspot é por `data-hotspot-id`, e não por
+   * índice. Índice acopla a ordem do DOM à ordem do array: no dia em que as
+   * duas divergirem — um `track` diferente, uma reordenação, um filtro — cada
+   * pin passa a assumir a coordenada de outro, e o sintoma é um ponto no lugar
+   * errado, sem erro nenhum no console. Custa um `Map` por frame sobre uma
+   * lista de dezenas de itens, o que é irrelevante perto de disparar o próprio
+   * `render()` do three.js.
+   *
+   * Os elementos vêm de `host.children` pelo mesmo motivo de robustez: é uma
+   * coleção viva, sem depender de quando o Angular reavalia uma consulta.
+   */
   private reposition(viewer: PanoramicViewerComponent): void {
     const camera = viewer.viewerCamera;
     const size = viewer.viewerSize;
     if (!camera || !size) return;
 
-    const hotspots = this.hotspots();
-    const elements = this.pins();
+    const porId = new Map(this.hotspots().map((h) => [h.id, h]));
+    const elements = this.host.nativeElement.children;
 
     for (let i = 0; i < elements.length; i++) {
-      const hotspot = hotspots[i];
+      const el = elements[i] as HTMLElement;
+      const hotspot = porId.get(el.dataset['hotspotId'] ?? '');
       if (!hotspot) continue;
-      const el = elements[i].nativeElement;
 
       const point = projectToScreen(
         hotspotToWorld(hotspot.u, hotspot.v),

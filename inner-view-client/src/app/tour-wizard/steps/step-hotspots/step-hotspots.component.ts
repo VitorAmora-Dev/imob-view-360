@@ -4,12 +4,15 @@ import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/p
 import { Panorama } from '../../../models/virtual-tour.model';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { HotspotOverlayComponent } from '../../hotspots/hotspot-overlay/hotspot-overlay.component';
+import { HotspotPanelComponent } from '../../hotspots/hotspot-panel/hotspot-panel.component';
+import { SceneRailComponent } from '../../hotspots/scene-rail/scene-rail.component';
 import { TourDraftStore } from '../../tour-draft.store';
 
 /**
  * Etapa 2 — Hotspots.
  *
- * DONO: Frente B. B1 e B2 de pé; faltam B5 a B12.
+ * DONO: Frente B. B1, B2, B5 e B6 de pé; faltam B4 (navegar no pin), B7 a B10
+ * e B12.
  *
  * O `HotspotEditorStore` é fornecido AQUI, e não na página: o estado de edição
  * não deve sobreviver a sair da etapa 2 e voltar.
@@ -17,51 +20,16 @@ import { TourDraftStore } from '../../tour-draft.store';
 @Component({
   selector: 'app-tour-step-hotspots',
   standalone: true,
-  imports: [TranslatePipe, PanoramicViewerComponent, HotspotOverlayComponent],
-  providers: [HotspotEditorStore],
-  template: `
-    <header class="tw-step-head">
-      <h2>{{ 'TOUR_WIZARD.STEP2.TITLE' | translate }}</h2>
-      <p>{{ 'TOUR_WIZARD.STEP2.SUBTITLE' | translate }}</p>
-    </header>
-
-    @if (viewerPanoramas().length) {
-      <div class="tw-viewer">
-        <app-panoramic-viewer
-          #viewer
-          [panoramas]="viewerPanoramas()"
-          [editMode]="true"
-          (hotspotPlaced)="onPlaced($event)" />
-        <app-hotspot-overlay [viewer]="viewer" [hotspots]="editor.hotspots()" />
-      </div>
-
-      <p class="tw-viewer__meta">
-        {{ draft.selectedScene()?.room }} — {{ editor.hotspots().length }}
-        {{ 'TOUR_WIZARD.STEP2.COUNT' | translate }}
-      </p>
-    } @else {
-      <p class="tw-viewer__empty">{{ 'TOUR_WIZARD.STEP2.EMPTY' | translate }}</p>
-    }
-  `,
-  styles: [
-    `
-      .tw-viewer {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 16 / 9;
-        overflow: hidden;
-        border-radius: 12px;
-        background: #000;
-      }
-
-      /* TODO(B1): 4/3 no mobile, hachura e balão de dica do handoff. */
-      @media (max-width: 767px) {
-        .tw-viewer {
-          aspect-ratio: 4 / 3;
-        }
-      }
-    `,
+  imports: [
+    TranslatePipe,
+    PanoramicViewerComponent,
+    HotspotOverlayComponent,
+    SceneRailComponent,
+    HotspotPanelComponent,
   ],
+  providers: [HotspotEditorStore],
+  templateUrl: './step-hotspots.component.html',
+  styleUrls: ['./step-hotspots.component.scss'],
 })
 export class StepHotspotsComponent {
   readonly draft = inject(TourDraftStore);

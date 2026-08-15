@@ -192,7 +192,18 @@
       "TITLE": "Marque os pontos de interesse",
       "SUBTITLE": "Clique sobre a imagem para criar um hotspot. Use-os para levar o visitante a outro ambiente. Esta etapa é opcional.",
       "COUNT": "ponto(s)",
-      "EMPTY": "Envie uma foto 360° na etapa anterior para marcar pontos."
+      "EMPTY": "Envie uma foto 360° na etapa anterior para marcar pontos.",
+      "HINT": "Clique para adicionar um ponto · arraste para girar",
+      "RAIL_NONE": "sem pontos",
+      "PANEL_TITLE": "Hotspots",
+      "PANEL_EMPTY": "Nenhum ponto neste ambiente ainda. Clique sobre a imagem para criar o primeiro.",
+      "LABEL_OF": "Nome do ponto {{n}}",
+      "LABEL_PLACEHOLDER": "Ex.: Cozinha, Suíte",
+      "REMOVE": "Excluir o ponto {{n}}",
+      "TARGET": "Destino",
+      "TARGET_EMPTY": "Escolha o ambiente…",
+      "NO_TARGET_WARN": "Sem destino este ponto não é salvo ao publicar.",
+      "NEEDS_SECOND_ROOM": "Com um ambiente só não há para onde levar o visitante. Envie outra foto na etapa 1."
     },
     "STEP3": {
       "TITLE": "Informações do imóvel",

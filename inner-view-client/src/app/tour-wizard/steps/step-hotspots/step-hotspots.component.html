@@ -1,0 +1,34 @@
+<header class="tw-step-head">
+  <h2>{{ 'TOUR_WIZARD.STEP2.TITLE' | translate }}</h2>
+  <p>{{ 'TOUR_WIZARD.STEP2.SUBTITLE' | translate }}</p>
+</header>
+
+@if (viewerPanoramas().length) {
+  <div class="tw-step2">
+    <div class="tw-step2__stage">
+      <div class="tw-viewer">
+        <app-panoramic-viewer
+          #viewer
+          [panoramas]="viewerPanoramas()"
+          [editMode]="true"
+          (hotspotPlaced)="onPlaced($event)" />
+        <app-hotspot-overlay [viewer]="viewer" [hotspots]="editor.hotspots()" />
+
+        <!--
+          A dica fica sobre a imagem porque é ali que a ação acontece, e some
+          assim que o primeiro ponto existe: instrução que não some vira ruído
+          permanente para quem já entendeu.
+        -->
+        @if (!editor.hotspots().length) {
+          <p class="tw-viewer__hint">{{ 'TOUR_WIZARD.STEP2.HINT' | translate }}</p>
+        }
+      </div>
+
+      <app-scene-rail />
+    </div>
+
+    <app-hotspot-panel class="tw-step2__panel" />
+  </div>
+} @else {
+  <p class="tw-viewer__empty">{{ 'TOUR_WIZARD.STEP2.EMPTY' | translate }}</p>
+}
