@@ -46,23 +46,52 @@ export class StepHotspotsComponent {
    * `originHotspots` vai VAZIO de propósito: quem desenha os pontos é o overlay
    * HTML (B2). Deixar a lista cheia faria o viewer desenhar também os sprites
    * dele, e apareceriam dois pins por hotspot.
+   *
+   * O `equal` NÃO é otimização — é correção, e custou uma medição para
+   * aparecer. `patchScene` cria uma cena nova a cada mutação de hotspot, então
+   * este computed devolvia um array novo a cada tecla digitada no nome de um
+   * ponto e a cada `pointermove` de um arraste. O `ngOnChanges` do viewer não
+   * distingue "trocou a foto" de "mexeu num hotspot": ele vê a referência mudar
+   * e chama `loadInitialPanorama()`, que decodifica a equirretangular inteira
+   * de novo e a sobe para a GPU.
+   *
+   * Medido no navegador antes do conserto: 5 teclas no campo de nome = 5
+   * recargas de textura; um arraste = mais 18. Com uma foto de 8192×4096 são
+   * megabytes por gesto.
+   *
+   * Comparar só o que o viewer consome faz o Angular preservar a instância
+   * anterior quando nada disso mudou, e a ligação para de disparar. O nome do
+   * ambiente fica de fora de propósito: renomear não precisa recarregar foto
+   * nenhuma.
    */
-  readonly viewerPanoramas = computed<Panorama[]>(() => {
-    const scene = this.draft.selectedScene();
-    if (!scene || scene.state !== 'ready') return [];
+  readonly viewerPanoramas = computed<Panorama[]>(
+    () => {
+      const scene = this.draft.selectedScene();
+      if (!scene || scene.state !== 'ready') return [];
 
-    return [
-      {
-        id: scene.id,
-        roomName: scene.room,
-        imageData: scene.imageData,
-        order: scene.order,
-        initialPanorama: true,
-        originHotspots: [],
-        measurements: [],
-      },
-    ];
-  });
+      return [
+        {
+          id: scene.id,
+          roomName: scene.room,
+          imageData: scene.imageData,
+          order: scene.order,
+          initialPanorama: true,
+          originHotspots: [],
+          measurements: [],
+        },
+      ];
+    },
+    {
+      equal: (a, b) =>
+        a.length === b.length &&
+        a.every(
+          (p, i) =>
+            p.id === b[i].id &&
+            p.imageData === b[i].imageData &&
+            p.order === b[i].order,
+        ),
+    },
+  );
 
   /**
    * O viewer já entrega o par no formato do backend (`positionX`, e

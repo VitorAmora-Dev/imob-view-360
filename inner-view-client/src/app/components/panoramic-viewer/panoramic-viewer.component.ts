@@ -138,10 +138,12 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private animationFrameId: number | null = null;
+  private initTimeout: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
 
   ngAfterViewInit() {
-    setTimeout(() => {
+    this.initTimeout = setTimeout(() => {
+      this.initTimeout = null;
       this.initThreeJS();
       this.initialized = true;
       if (this.panoramas.length > 0) {
@@ -162,6 +164,17 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   ngOnDestroy() {
+    // O init é adiado um tick, e o componente pode morrer antes de ele rodar —
+    // a etapa 2 monta o viewer dentro de um `@if` que some quando a última cena
+    // válida sai. Sem cancelar, o timeout ainda dispararia `initThreeJS()`
+    // sobre um container já desanexado, criando um contexto WebGL órfão, um
+    // laço de rAF que ninguém para e um listener de resize que ninguém tira —
+    // exatamente os vazamentos que o `forceContextLoss()` abaixo existe para
+    // evitar.
+    if (this.initTimeout !== null) {
+      clearTimeout(this.initTimeout);
+      this.initTimeout = null;
+    }
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
     }
@@ -171,6 +184,11 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     window.removeEventListener('resize', this.onWindowResize);
     this.frameCallbacks.clear();
     this.clearHotspots();
+    // A esfera também é nossa: geometria, material e a textura carregada.
+    const material = this.sphereMesh?.material as THREE.MeshBasicMaterial | undefined;
+    material?.map?.dispose();
+    material?.dispose();
+    this.sphereMesh?.geometry.dispose();
     this.controls?.dispose();
     // `dispose()` solta os recursos mas não o contexto WebGL em si, e o browser
     // só mantém ~16 vivos. A etapa 2 monta e desmonta este componente a cada
@@ -214,8 +232,16 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
         // selection picks a coarse level and the ceiling and floor go soft.
         // This is a texture-filtering blur, not a stitching one.
         texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
-        (this.sphereMesh.material as THREE.MeshBasicMaterial).map = texture;
-        (this.sphereMesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
+
+        const material = this.sphereMesh.material as THREE.MeshBasicMaterial;
+        // A textura anterior tem de ser solta ANTES de perder a referência.
+        // `map = novaTextura` só troca o ponteiro: a antiga continua ocupando
+        // memória de GPU até o contexto morrer, e uma equirretangular de
+        // 8192×4096 são ~128 MB descomprimidos. Trocar de ambiente algumas
+        // vezes bastava para chegar em CONTEXT_LOST_WEBGL e a tela ficar preta.
+        material.map?.dispose();
+        material.map = texture;
+        material.needsUpdate = true;
         this.clearHotspots();
         this.addHotspots(panorama);
         this.loading = false;

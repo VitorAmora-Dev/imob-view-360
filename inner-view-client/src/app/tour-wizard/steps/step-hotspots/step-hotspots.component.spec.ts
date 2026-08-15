@@ -106,6 +106,46 @@ describe('StepHotspotsComponent — clique no pin', () => {
     expect(editor.sheet()).toBeNull();
   });
 
+  it('mexer num hotspot não troca o array que vai para o viewer', () => {
+    // O viewer recarrega a foto inteira quando a referência de `panoramas`
+    // muda — ele não distingue "trocou a imagem" de "mexeu num ponto". Como
+    // `patchScene` cria cena nova a cada mutação, sem o `equal` do computed
+    // isto virava uma decodificação de equirretangular por tecla digitada e
+    // por `pointermove` de arraste. Medido no navegador: 5 teclas = 5
+    // recargas, um arraste = mais 18.
+    //
+    // O teste é de IDENTIDADE de propósito. Comparar valores é o que a suíte
+    // já fazia, e foi exatamente por isso que ela não viu nada.
+    draft.scenes.set([scene('a', [hotspot('h1', null)]), scene('b')]);
+    draft.selectedSceneId.set('a');
+    monta();
+
+    const antes = fixture.componentInstance.viewerPanoramas();
+
+    editor.update('h1', { label: 'Cozinha' });
+    expect(fixture.componentInstance.viewerPanoramas()).toBe(antes);
+
+    editor.startDrag('h1');
+    editor.dragTo(0.2, 0.3);
+    expect(fixture.componentInstance.viewerPanoramas()).toBe(antes);
+
+    editor.add(0.6, 0.6);
+    expect(fixture.componentInstance.viewerPanoramas()).toBe(antes);
+  });
+
+  it('trocar de ambiente troca o array, senão a foto não mudaria', () => {
+    // O outro lado da moeda: o `equal` não pode segurar a mudança que importa.
+    draft.scenes.set([scene('a'), scene('b')]);
+    draft.selectedSceneId.set('a');
+    monta();
+
+    const antes = fixture.componentInstance.viewerPanoramas();
+    draft.selectScene('b');
+
+    expect(fixture.componentInstance.viewerPanoramas()).not.toBe(antes);
+    expect(fixture.componentInstance.viewerPanoramas()[0].id).toBe('b');
+  });
+
   it('não manda ao viewer os hotspots da cena', () => {
     // Quem desenha os pins é o overlay HTML; deixar a lista cheia faria o
     // viewer desenhar os sprites dele também, e apareceriam dois por ponto.
