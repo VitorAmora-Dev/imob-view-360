@@ -230,10 +230,20 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
   private addHotspots(panorama: Panorama) {
     for (const hotspot of panorama.originHotspots) {
-      // Convert UV coords (positionX, positionY) to 3D world position inside the inverted sphere.
-      // Uses Three.js SphereGeometry UV mapping: phi = positionX * 2π, theta = (1-positionY) * π
+      // De (positionX, positionY) para a posição 3D dentro da esfera invertida.
+      //
+      // `theta` é medido a partir de +Y, e `positionY = 0` é o TOPO — daí a
+      // multiplicação direta. A cadeia, que é fácil de derivar ao contrário:
+      // `SphereGeometry` grava `uv.y = 1 - v_geom` com `v_geom = 0` no polo de
+      // cima, e `onCanvasClick` emite `positionY = 1 - uv.y`. Os dois "1 -" se
+      // cancelam: `positionY = v_geom`, e o theta da geometria é `v_geom * π`.
+      //
+      // Estava `(1 - positionY) * π` — que espelhava no equador exatamente o
+      // ponto que o clique deste mesmo componente havia gravado. Passava
+      // despercebido porque o erro é ZERO no equador, que é onde caem tanto o
+      // seed quanto o clique de teste típico, no centro do canvas.
       const phi = hotspot.positionX * 2 * Math.PI;
-      const theta = (1 - hotspot.positionY) * Math.PI;
+      const theta = hotspot.positionY * Math.PI;
       const r = 490;
       const x = r * Math.cos(phi) * Math.sin(theta);
       const y = r * Math.cos(theta);
