@@ -72,6 +72,16 @@ describe('HotspotEditorStore — arraste', () => {
     expect(editor.hotspots()[0].v).toBe(V_MAX);
   });
 
+  it('clicar no teto também não cria ponto no polo', () => {
+    // A regra estava só no arraste. Olhar para cima e clicar no teto criava
+    // exatamente o ponto degenerado que o clamp existe para impedir — e o
+    // `toCreateTourPayload` passa `v` direto para `positionY`, então ele
+    // persistia.
+    editor.add(0.5, 0.001);
+
+    expect(editor.hotspots()[1].v).toBe(V_MIN);
+  });
+
   it('deixa o ponto ir até a costura da foto', () => {
     // Divergência consciente do plano, que pede clamp de 2–98% em X também.
     // `u` dá a volta: 0 e 1 são o mesmo meridiano. Limitá-lo criaria uma faixa

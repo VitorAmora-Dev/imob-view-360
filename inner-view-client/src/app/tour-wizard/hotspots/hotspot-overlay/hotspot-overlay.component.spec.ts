@@ -358,6 +358,39 @@ describe('HotspotOverlayComponent', () => {
       expect(host.ativados).toEqual(['p']);
     });
 
+    it('um segundo dedo não sequestra nem trava o arraste em curso', async () => {
+      // Reproduzido no navegador antes do conserto: o `pointerdown` do segundo
+      // dedo zerava `arrastando` sem emitir o fim, e o `pointerup` do primeiro
+      // então não emitia nada — o `pinDrag` do store ficava preso, com a
+      // lixeira pendurada sobre a foto e sem saída a não ser arrastar de novo.
+      const pin = await comUmPin();
+      const outroDedo = (tipo: string) =>
+        new PointerEvent(tipo, {
+          pointerId: 99,
+          pointerType: 'touch',
+          clientX: PONTO.x + 200,
+          clientY: PONTO.y,
+          bubbles: true,
+        });
+
+      pin.dispatchEvent(toque('pointerdown'));
+      jasmine.clock().tick(LONG_PRESS_MS);
+      expect(host.iniciados).toEqual(['p']);
+
+      // Segundo dedo encosta e sai, no meio do arraste.
+      pin.dispatchEvent(outroDedo('pointerdown'));
+      pin.dispatchEvent(outroDedo('pointermove'));
+      pin.dispatchEvent(outroDedo('pointerup'));
+
+      expect(host.iniciados).toEqual(['p']); // não começou um segundo arraste
+      expect(host.fins).toBe(0); // e nem encerrou o primeiro pelas costas
+
+      // O dedo dono solta: é ELE quem encerra.
+      pin.dispatchEvent(toque('pointerup'));
+
+      expect(host.fins).toBe(1);
+    });
+
     it('o ponteiro cancelado encerra o arraste', async () => {
       // Chamada recebida, dedo saindo da tela, gesto do sistema — o browser
       // manda `pointercancel` e nenhum `pointerup`. Sem isto o ponto ficaria

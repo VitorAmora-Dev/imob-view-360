@@ -19,6 +19,22 @@ export const V_MIN = 0.02;
 export const V_MAX = 0.96;
 
 /**
+ * Segura o ponto longe dos polos.
+ *
+ * Nos polos o equirretangular está infinitamente esticado e todos os `u`
+ * colapsam no mesmo pixel: um ponto de navegação ali não aponta para lugar
+ * nenhum. Vale para QUALQUER forma de criar ou mover um ponto — a regra estava
+ * só no arraste, e clicar no teto criava exatamente o ponto degenerado que ela
+ * existe para impedir.
+ *
+ * O eixo horizontal não tem limite de propósito: `u` dá a volta, 0 e 1 são o
+ * mesmo meridiano, e limitá-lo criaria uma faixa morta na costura da foto.
+ */
+export function clampV(v: number): number {
+  return Math.min(V_MAX, Math.max(V_MIN, v));
+}
+
+/**
  * Edição de hotspots da etapa 2.
  *
  * DONO: Frente B. A Frente A não edita este arquivo.
@@ -76,7 +92,7 @@ export class HotspotEditorStore {
     const hotspot: WizardHotspot = {
       id: crypto.randomUUID(),
       u,
-      v,
+      v: clampV(v),
       label: '',
       target: null,
     };
@@ -151,7 +167,7 @@ export class HotspotEditorStore {
   dragTo(u: number, v: number): void {
     const drag = this.pinDrag();
     if (!drag) return;
-    this.update(drag.hotspotId, { u, v: Math.min(V_MAX, Math.max(V_MIN, v)) });
+    this.update(drag.hotspotId, { u, v: clampV(v) });
   }
 
   /**

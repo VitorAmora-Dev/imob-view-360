@@ -2,6 +2,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  computed,
   effect,
   inject,
   input,
@@ -42,6 +43,8 @@ interface Pressao {
   x: number;
   y: number;
   deToque: boolean;
+  /** Só o dedo que começou o gesto continua mandando nele. Ver `onPointerDown`. */
+  pointerId: number;
 }
 
 /**
@@ -69,20 +72,20 @@ interface Pressao {
   selector: 'app-hotspot-overlay',
   standalone: true,
   template: `
-    @for (hotspot of hotspots(); track hotspot.id; let i = $index) {
+    @for (pin of pins(); track pin.hotspot.id; let i = $index) {
       <button
         type="button"
         class="tw-pin"
-        [class.is-orphan]="!hotspot.target"
-        [class.is-dragging]="draggingId() === hotspot.id"
-        [attr.data-hotspot-id]="hotspot.id"
-        [attr.aria-label]="ariaLabel(hotspot, i)"
-        (pointerdown)="onPointerDown(hotspot.id, $event)"
+        [class.is-orphan]="!pin.hotspot.target"
+        [class.is-dragging]="draggingId() === pin.hotspot.id"
+        [attr.data-hotspot-id]="pin.hotspot.id"
+        [attr.aria-label]="pin.ariaLabel"
+        (pointerdown)="onPointerDown(pin.hotspot.id, $event)"
         (pointermove)="onPointerMove($event)"
-        (pointerup)="onPointerUp()"
-        (pointercancel)="onPointerCancel()"
+        (pointerup)="onPointerUp($event)"
+        (pointercancel)="onPointerCancel($event)"
         (contextmenu)="$event.preventDefault()"
-        (click)="onClick(hotspot.id, $event)">
+        (click)="onClick(pin.hotspot.id, $event)">
         <!--
           O dot leva o anel de pulso; o rótulo visível cai no número quando o
           ponto ainda não tem nome. Os dois são aria-hidden porque o rótulo
@@ -90,7 +93,7 @@ interface Pressao {
           diz nada a quem não vê a foto, e o dot não diz nada a ninguém.
         -->
         <span class="tw-pin__dot" aria-hidden="true"></span>
-        <span class="tw-pin__label" aria-hidden="true">{{ hotspot.label || i + 1 }}</span>
+        <span class="tw-pin__label" aria-hidden="true">{{ pin.rotulo }}</span>
       </button>
     }
   `,
@@ -113,6 +116,15 @@ interface Pressao {
            nunca rolou; o pin só acompanha a vizinhança. Sem isto o browser
            trata o arraste do pin como rolagem e engole os pointermove. */
         touch-action: none;
+        /* O long-press de 320ms cai exatamente na janela em que iOS e Android
+           abrem a seleção de texto e a lupa sobre um botão com rótulo. O gesto
+           de arrastar e o callout do sistema começariam no mesmo instante, e no
+           iOS a seleção resultante emite pointercancel — o ponto seria pego e
+           largado no mesmo movimento. O contextmenu já é prevenido, mas ele não
+           cobre seleção. */
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
         /* Posição vem do laço de frame, em transform — nunca em top/left,
            que forçariam layout 60 vezes por segundo. */
         will-change: transform;
@@ -295,19 +307,37 @@ export class HotspotOverlayComponent {
   private readonly semMovimento = prefersReducedMotion();
 
   /**
-   * O que o leitor de tela anuncia no pin.
+   * Os pins com o texto já resolvido.
    *
-   * Um `<button>` cujo conteúdo é "2" não diz nada: nem que é um ponto de
-   * navegação, nem para onde vai. A a11y é metade da razão de os pins serem
-   * HTML e não sprites — desperdiçá-la aqui seria perder a aposta.
+   * É um `computed`, e não uma chamada de método no template, porque o laço de
+   * render roda DENTRO da zona do Angular (§2.3 das notas da frente: medido em
+   * ~62 frames/s com `NgZone.isInAngularZone()` verdadeiro). Cada frame é uma
+   * tarefa de zona, então toda expressão do template era reavaliada 60 vezes
+   * por segundo — com 8 pins, umas 500 chamadas de `translate.instant()` por
+   * segundo, cada uma interpolando parâmetros e alocando string.
+   *
+   * O overlay foi escrito de propósito para o laço de frame não passar por
+   * binding do Angular; deixar o rótulo como método desfazia metade disso.
+   * Aqui ele só recalcula quando os hotspots ou os nomes de ambiente mudam.
+   *
+   * O que o leitor de tela anuncia: um `<button>` cujo conteúdo é "2" não diz
+   * nada — nem que é um ponto de navegação, nem para onde vai. A a11y é metade
+   * da razão de os pins serem HTML e não sprites.
    */
-  ariaLabel(hotspot: WizardHotspot, index: number): string {
-    const nome = hotspot.label.trim() || String(index + 1);
-    const destino = hotspot.target ? this.roomNames()[hotspot.target] : null;
-    return destino
-      ? this.translate.instant('TOUR_WIZARD.STEP2.PIN_NAV', { nome, destino })
-      : this.translate.instant('TOUR_WIZARD.STEP2.PIN_ORPHAN', { nome });
-  }
+  readonly pins = computed(() => {
+    const nomes = this.roomNames();
+    return this.hotspots().map((hotspot, index) => {
+      const nome = hotspot.label.trim() || String(index + 1);
+      const destino = hotspot.target ? nomes[hotspot.target] : null;
+      return {
+        hotspot,
+        rotulo: hotspot.label || index + 1,
+        ariaLabel: destino
+          ? this.translate.instant('TOUR_WIZARD.STEP2.PIN_NAV', { nome, destino })
+          : this.translate.instant('TOUR_WIZARD.STEP2.PIN_ORPHAN', { nome }),
+      };
+    });
+  });
 
   constructor() {
     effect((onCleanup) => {
@@ -335,6 +365,15 @@ export class HotspotOverlayComponent {
   private engolirClique = false;
 
   onPointerDown(hotspotId: string, event: PointerEvent): void {
+    // Um arraste em curso não é interrompido por um segundo dedo.
+    //
+    // Antes, o `cancelarPressao()` abaixo zerava `arrastando` sem emitir
+    // `pinDragEnded`, e o `pointerup` seguinte via `arrastando === false` e
+    // também não emitia nada. O `pinDrag` do store ficava preso para sempre: a
+    // lixeira pendurada sobre a foto e o pin travado em escala, sem saída a não
+    // ser completar outro arraste inteiro. Reproduzido com dois dedos.
+    if (this.arrastando) return;
+
     this.cancelarPressao();
     this.engolirClique = false;
 
@@ -344,6 +383,7 @@ export class HotspotOverlayComponent {
       x: event.clientX,
       y: event.clientY,
       deToque: event.pointerType !== 'mouse',
+      pointerId: event.pointerId,
     };
 
     // A captura vem JÁ, e não quando o arraste começa.
@@ -372,6 +412,10 @@ export class HotspotOverlayComponent {
   }
 
   onPointerMove(event: PointerEvent): void {
+    // Só o dedo dono do gesto o comanda. Sem isto, um segundo dedo encostando
+    // na tela move o ponto que o primeiro está arrastando.
+    if (!this.doDono(event)) return;
+
     if (this.arrastando) {
       // A conversão é a MESMA do clique que cria um ponto — é o `uvAt` do
       // viewer. Uma segunda implementação divergiria, e o pin escaparia do dedo.
@@ -416,7 +460,9 @@ export class HotspotOverlayComponent {
     this.comecarArraste();
   }
 
-  onPointerUp(): void {
+  onPointerUp(event: PointerEvent): void {
+    if (!this.doDono(event)) return;
+
     if (this.arrastando) {
       // Largar um ponto não pode navegar para o destino dele. O `engolirClique`
       // já foi ligado no primeiro movimento, mas o long-press sem movimento
@@ -427,7 +473,14 @@ export class HotspotOverlayComponent {
     this.cancelarPressao();
   }
 
-  onPointerCancel(): void {
+  /** Se o evento é do ponteiro que começou a pressão em curso. */
+  private doDono(event: PointerEvent): boolean {
+    return this.pressao === null || this.pressao.pointerId === event.pointerId;
+  }
+
+  onPointerCancel(event: PointerEvent): void {
+    if (!this.doDono(event)) return;
+
     // Não há clique depois de um cancelamento, então não há o que engolir.
     if (this.arrastando) this.pinDragEnded.emit();
     this.cancelarPressao();
