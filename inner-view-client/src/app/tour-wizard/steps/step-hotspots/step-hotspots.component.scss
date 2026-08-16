@@ -101,3 +101,27 @@
     aspect-ratio: 4 / 3;
   }
 }
+
+/* Bloqueio e aviso da ligação entre ambientes.
+   Mesma forma, cores diferentes: quem lê rápido distingue pela cor, quem não
+   distingue cor lê o texto — a mensagem nunca depende só do vermelho. */
+.tw-step2__bloqueio,
+.tw-step2__aviso {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: var(--tw-radius-md);
+  border-left: 3px solid currentColor;
+  font-size: 13px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.tw-step2__bloqueio {
+  color: var(--tw-error-text);
+  background: var(--tw-error-soft);
+}
+
+.tw-step2__aviso {
+  color: var(--tw-warn-text);
+  background: var(--tw-warn-soft);
+}

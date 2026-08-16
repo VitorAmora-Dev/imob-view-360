@@ -5,6 +5,7 @@ import { VirtualTour } from '../models/virtual-tour.model';
 import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { toCreateTourPayload } from './publish-payload';
+import * as grafo from './scene-graph';
 import {
   AddressDraft,
   EMPTY_PROPERTY,
@@ -99,7 +100,59 @@ export class TourDraftStore {
    * Única regra bloqueante do fluxo: sem imagem não há tour, e as etapas 2 e 3
    * não fazem sentido. Vale para o botão "Próximo" e para os chips do stepper.
    */
-  readonly canAdvance = computed(() => this.readyScenes().length > 0);
+  /**
+   * A regra da imagem: sem foto nenhuma, nada nas etapas 2 e 3 se sustenta.
+   *
+   * Separada de `canAdvance` porque as duas já foram a mesma coisa e não são
+   * mais. Esta responde "o rascunho existe?"; a outra, "dá para sair da etapa
+   * em que estou?". Quem cuida de recuperação — voltar à etapa 1 quando a
+   * última imagem some — quer ESTA, senão um tour com ambiente ilhado jogaria o
+   * corretor duas telas atrás no meio da edição.
+   */
+  readonly temImagem = computed(() => this.readyScenes().length > 0);
+
+  /**
+   * A etapa 2 é opcional quando não há segundo ambiente — e só então.
+   *
+   * Vale para o texto da barra de progresso, para o subtítulo da etapa e para o
+   * botão "Pular": os três diziam "opcional" sem condição nenhuma, e agora
+   * dizem a mesma coisa a partir do mesmo lugar. Três cópias da regra é como
+   * uma delas fica para trás.
+   */
+  readonly etapa2Opcional = computed(() => this.readyScenes().length < 2);
+
+  /** Dica da barra de progresso. Ver `etapa2Opcional`. */
+  readonly hintKey = computed(() =>
+    this.step() === 2 && !this.etapa2Opcional()
+      ? 'TOUR_WIZARD.COMMON.HINT_2_REQUIRED'
+      : `TOUR_WIZARD.COMMON.HINT_${this.step()}`,
+  );
+
+  /** Ambientes que o visitante não alcança, e de onde ele não sai. Ver `scene-graph`. */
+  readonly ambientesIlhados = computed(() => grafo.ambientesIlhados(this.scenes()));
+  readonly becosSemSaida = computed(() => grafo.becosSemSaida(this.scenes()));
+
+  /**
+   * Dá para sair da etapa atual.
+   *
+   * A etapa 2 deixou de ser opcional, e a razão é da tela do visitante, não de
+   * gosto: o `embed` é só o viewer, e o viewer não tem lista de ambientes nem
+   * menu — o ÚNICO jeito de trocar de ambiente é clicar num hotspot. Publicar
+   * cinco ambientes sem ligação entrega um tour em que se vê um só, e os outros
+   * quatro ficam pagos e invisíveis.
+   *
+   * A regra é alcançabilidade, e não "pelo menos um ponto": com cinco
+   * ambientes, um ponto liga dois e deixa três de fora — a contagem passaria e
+   * o tour continuaria quebrado.
+   *
+   * Com UM ambiente a etapa segue opcional de verdade: não há destino possível,
+   * e o `ambientesIlhados` devolve vazio.
+   */
+  readonly canAdvance = computed(() => {
+    if (!this.temImagem()) return false;
+    if (this.step() === 2) return this.ambientesIlhados().length === 0;
+    return true;
+  });
 
   /** Soma de TODOS os ambientes, não só o selecionado — é o que o resumo mostra. */
   readonly totalHotspots = computed(() =>
@@ -278,7 +331,12 @@ export class TourDraftStore {
     // conserto duas telas atrás — e o stepper marcando a etapa 1 como concluída
     // sem nenhuma foto. Devolver à etapa 1 põe o problema e a solução no mesmo
     // lugar.
-    if (!this.canAdvance()) this.step.set(1);
+    //
+    // `temImagem` e não `canAdvance`: remover uma cena pode ilhar outra, e aí
+    // `canAdvance` fica falso na etapa 2 — usar essa aqui teria arrastado o
+    // corretor de volta à etapa 1 no meio da edição, para consertar uma ligação
+    // que se conserta na etapa 2 mesmo.
+    if (!this.temImagem()) this.step.set(1);
   }
 
   selectScene(id: string): void {

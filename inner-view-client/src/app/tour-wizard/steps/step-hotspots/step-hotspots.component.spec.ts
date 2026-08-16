@@ -187,6 +187,33 @@ describe('StepHotspotsComponent — clique no pin', () => {
     expect(editor.hotspots()[0].v).toBe(0.1);
   });
 
+  it('criar um ponto já abre a edição dele', () => {
+    // Antes eram dois cliques: um para criar, outro no pin para nomear. O
+    // segundo não decidia nada e nada na tela contava que ele existia — dava
+    // para criar cinco pontos e nunca descobrir como nomeá-los.
+    draft.scenes.set([scene('a'), scene('b')]);
+    draft.selectedSceneId.set('a');
+    monta();
+
+    fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.4 });
+
+    const criado = editor.hotspots()[0];
+    expect(editor.sheet()).toEqual({ mode: 'editor', hotspotId: criado.id });
+  });
+
+  it('não abre a edição quando não há segundo ambiente', () => {
+    // O editor só saberia dizer "precisa de um segundo ambiente", e diria isso
+    // a cada clique na foto.
+    draft.scenes.set([scene('a')]);
+    draft.selectedSceneId.set('a');
+    monta();
+
+    fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.4 });
+
+    expect(editor.hotspots().length).toBe(1);
+    expect(editor.sheet()).toBeNull();
+  });
+
   it('não monta o viewer para cena recusada', () => {
     draft.scenes.set([
       { ...scene('a'), state: 'rejected', rejectedReason: 'type' },

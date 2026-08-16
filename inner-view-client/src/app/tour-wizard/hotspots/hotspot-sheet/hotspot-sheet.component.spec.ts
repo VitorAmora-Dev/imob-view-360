@@ -184,6 +184,21 @@ describe('HotspotSheetComponent', () => {
     );
   });
 
+  it('não abre o editor de um ponto que não existe mais', () => {
+    // Rendeu "Ponto 0" sobre um corpo vazio na tela. O `remove()` do store
+    // fecha o editor ao apagar o ponto aberto, então pela interface isto não
+    // acontece — mas o sheet não deve depender disso para não renderizar lixo.
+    const fixture = monta();
+    editor.openEditor('h1');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.isOpen()).toBeTrue();
+
+    draft.scenes.set([scene('a', [])]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.isOpen()).toBeFalse();
+  });
+
   it('o nome do diálogo acompanha o título, e não só a apresentação', () => {
     // Escrever o nome uma vez no `didPresent` só está certo enquanto o título
     // não puder mudar com o sheet aberto — o que hoje é verdade por acidente,

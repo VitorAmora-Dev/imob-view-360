@@ -394,3 +394,54 @@ WCAG — que aqui vale duplo, porque o sprite é também o alvo do raycast.
 O pin do wizard levou a mesma borda (2px, proporcional aos 5px do sprite: as
 pílulas têm 34px e 76px de altura). Os dois continuam a mesma coisa, que foi o
 pedido quando o inner-view ainda tinha pílula branca com seta.
+
+## 12. A etapa 2 deixou de ser opcional
+
+Pedido do produto, com uma correção de rumo no meio. A proposta era "obrigar
+pelo menos um hotspot, salvo quando há um ambiente só". A investigação mostrou
+que o problema era maior e que a regra proposta era pequena demais para ele.
+
+**Por que obrigar.** A tela do visitante é o `embed`, que é
+`<app-panoramic-viewer>` e mais nada — e o template do viewer é um canvas e um
+spinner. Não há lista de ambientes, menu nem seta: **clicar num hotspot é o
+único jeito de trocar de ambiente**. Publicar cinco ambientes sem ligação
+entrega um tour em que se vê UM. Os outros quatro foram fotografados,
+costurados, enviados, guardados — e são invisíveis. O wizard é o único lugar que
+pode pegar isso antes de o link ir para um cliente.
+
+**Por que "pelo menos um" não serve.** Com cinco ambientes, um ponto liga dois e
+deixa três de fora: a regra passa e o tour continua quebrado. A regra que
+corresponde ao defeito é **alcançabilidade** — busca em largura a partir do
+ambiente inicial, que é o mesmo que o payload marca com `initialPanorama`. Está
+em `scene-graph.ts`, com o nome de cada ambiente ilhado, porque "2 ambientes sem
+ligação" manda procurar e "Cozinha, Quarto" manda consertar.
+
+**Beco sem saída avisa, não bloqueia.** Alcançar não é poder voltar. Mas o aviso
+some enquanto houver ambiente ilhado: as mesmas ligações que faltam produzem os
+dois sintomas, e mostrar as duas listas juntas apontaria dois problemas onde há
+um.
+
+**As arestas saem do payload**, e não das cenas cruas. Quem decide se um hotspot
+conta é o `toCreateTourPayload`, que descarta ponto sem destino e ponto para
+cena removida. Reimplementar essa regra criaria duas verdades — e a do wizard
+poderia liberar exatamente o ambiente órfão que a regra existe para impedir.
+Este sprint já pagou uma vez por duplicar em vez de chamar (o eixo espelhado).
+
+**"Opcional" virou condicional, de um lugar só.** O texto da barra de progresso,
+o subtítulo da etapa e o botão "Pular" diziam a mesma coisa sem condição, em
+três cópias. Agora os três leem `etapa2Opcional()` — com um ambiente a etapa
+segue genuinamente opcional, porque não há destino possível.
+
+**Criar um ponto já abre a edição dele.** Eram dois cliques: um para criar,
+outro no pin para nomear. O segundo não decidia nada, e nada na tela contava que
+ele existia — dava para criar cinco pontos e nunca descobrir como nomeá-los. O
+`add()` já devolvia o id "para o chamador abrir o editor" e o retorno era jogado
+fora: ponta solta, não decisão. O que segurava era a etapa ser opcional, e
+deixou de ser. Com um ambiente só não abre — o editor só saberia dizer "precisa
+de um segundo ambiente".
+
+**De quebra:** montando o cenário de teste apareceu um sheet renderizando
+"Ponto 0" sobre corpo vazio, quando o ponto aberto some por fora do `remove()`.
+Não é alcançável pela interface hoje. Virou guarda no `isOpen` mesmo assim, pela
+razão do §10: tela que só não quebra porque nenhum outro caminho mexe em
+`scenes` não é tela sã, é tela que ainda não achou o caminho.

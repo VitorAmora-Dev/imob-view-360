@@ -1,7 +1,33 @@
 <header class="tw-step-head">
   <h2>{{ 'TOUR_WIZARD.STEP2.TITLE' | translate }}</h2>
-  <p>{{ 'TOUR_WIZARD.STEP2.SUBTITLE' | translate }}</p>
+  <p>
+    {{
+      (draft.etapa2Opcional()
+        ? 'TOUR_WIZARD.STEP2.SUBTITLE_SOLO'
+        : 'TOUR_WIZARD.STEP2.SUBTITLE'
+      ) | translate
+    }}
+  </p>
 </header>
+
+<!--
+  Bloqueio e aviso ficam no TOPO, antes da foto, e não junto ao botão do rodapé.
+  Quem trava o "Próximo" precisa ler o motivo antes de tentar — descobrir a
+  regra ao esbarrar nela é o que faz uma validação parecer birra do sistema.
+
+  `role="alert"` no bloqueio e `role="status"` no aviso: um interrompe o leitor
+  de tela, o outro espera a vez. É a diferença entre "isto impede de seguir" e
+  "isto você deveria saber".
+-->
+@if (ilhados()) {
+  <p class="tw-step2__bloqueio" role="alert">
+    {{ 'TOUR_WIZARD.STEP2.UNREACHABLE' | translate: { ambientes: ilhados() } }}
+  </p>
+} @else if (becos()) {
+  <p class="tw-step2__aviso" role="status">
+    {{ 'TOUR_WIZARD.STEP2.DEAD_END' | translate: { ambientes: becos() } }}
+  </p>
+}
 
 @if (viewerPanoramas().length) {
   <div class="tw-step2">

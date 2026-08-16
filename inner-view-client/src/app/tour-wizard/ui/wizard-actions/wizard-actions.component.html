@@ -34,9 +34,7 @@
   class="tw-btn tw-btn--primary"
   [disabled]="primaryDisabled()"
   [attr.aria-disabled]="primaryDisabled() ? 'true' : null"
-  [attr.title]="
-    store.canAdvance() ? null : ('TOUR_WIZARD.COMMON.NEEDS_IMAGE' | translate)
-  "
+  [attr.title]="motivoBloqueio() ? (motivoBloqueio()! | translate) : null"
   (click)="store.next()">
   {{ primaryLabelKey() | translate }}
 </button>

@@ -28,17 +28,39 @@ export class WizardActionsComponent {
   );
 
   /**
-   * "Pular" só existe na etapa 2, e só enquanto o ambiente não tem ponto
-   * nenhum: com um ponto já criado, pular deixa de ser a saída óbvia e o botão
-   * vira ruído ao lado de "Próximo".
+   * "Pular" só existe na etapa 2, e só enquanto ela é de fato pulável — ou
+   * seja, com UM ambiente, onde não há destino possível para ponto nenhum.
+   *
+   * Com dois ou mais, pular passou a ser mentira: o visitante não teria como
+   * sair do ambiente inicial, porque o viewer não tem outra navegação. Um botão
+   * que oferece um caminho bloqueado é pior do que botão nenhum.
+   *
+   * E some assim que o ambiente ganha um ponto: com um ponto criado, pular
+   * deixa de ser a saída óbvia e o botão vira ruído ao lado de "Próximo".
    */
   readonly showSkip = computed(
     () =>
       this.store.step() === 2 &&
+      this.store.readyScenes().length < 2 &&
       (this.store.selectedScene()?.hotspots.length ?? 0) === 0,
   );
 
   readonly primaryDisabled = computed(
     () => !this.store.canAdvance() || this.store.publishing(),
   );
+
+  /**
+   * Por que o botão está desligado, para o `title` do hover.
+   *
+   * A falta de imagem e a falta de ligação travam o mesmo botão por motivos
+   * diferentes, e a frase genérica de antes ("envie uma imagem") mandaria o
+   * corretor para a etapa errada.
+   */
+  readonly motivoBloqueio = computed(() => {
+    if (!this.store.temImagem()) return 'TOUR_WIZARD.COMMON.NEEDS_IMAGE';
+    if (this.store.step() === 2 && this.store.ambientesIlhados().length) {
+      return 'TOUR_WIZARD.STEP2.NEEDS_LINKS';
+    }
+    return null;
+  });
 }

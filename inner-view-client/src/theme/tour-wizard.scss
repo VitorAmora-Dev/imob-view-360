@@ -42,6 +42,15 @@
   --tw-warn-text: #8a6100;
   --tw-warn-soft: #fdf6e3;
 
+  /* -- Erro -------------------------------------------------------------- */
+  // NOVO. Aviso e erro precisam ser distinguíveis por COR e não só por texto:
+  // o âmbar acima diz "olha isto", este vermelho diz "isto impede de seguir".
+  // Reúsa o danger do design system (#c13515, ~5,5:1 sobre branco, passa AA) em
+  // vez da Rausch da marca, que é cor de ação primária — pintar um bloqueio da
+  // mesma cor do botão "Próximo" faria o erro parecer um convite.
+  --tw-error-text: var(--ion-color-danger);
+  --tw-error-soft: #fdf0ed;
+
   /* -- Bordas e superfícies ---------------------------------------------- */
   --tw-border: var(--app-hairline); //          handoff border/default #E6E7EB
   --tw-border-subtle: var(--app-hairline-soft); //     border/subtle    #ECEDF0

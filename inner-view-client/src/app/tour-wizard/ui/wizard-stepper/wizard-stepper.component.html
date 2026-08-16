@@ -41,5 +41,6 @@
 
 <p class="tw-progress__meta">
   <span>{{ 'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step() } }}</span>
-  <span>{{ 'TOUR_WIZARD.COMMON.HINT_' + store.step() | translate }}</span>
+  <!-- A chave vem do store: na etapa 2 ela depende de haver segundo ambiente. -->
+  <span>{{ store.hintKey() | translate }}</span>
 </p>

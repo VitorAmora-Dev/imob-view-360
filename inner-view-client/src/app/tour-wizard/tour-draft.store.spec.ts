@@ -132,6 +132,84 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  describe('a regra bloqueante da etapa 2', () => {
+    // A etapa deixou de ser opcional, e o motivo é da tela do VISITANTE: o
+    // `embed` é só o viewer, e o viewer não tem lista de ambientes nem menu —
+    // clicar num ponto é a única forma de trocar de ambiente. Publicar sem
+    // ligação entrega ambientes pagos e invisíveis.
+    const ponto = (id: string, target: string | null) => ({
+      id,
+      u: 0.5,
+      v: 0.5,
+      label: '',
+      target,
+    });
+
+    it('com um ambiente só, segue opcional', () => {
+      // Não há destino possível: cobrar ligação seria cobrar o impossível.
+      const store = storeWith(scene('a'));
+      store.goTo(2);
+
+      expect(store.canAdvance()).toBe(true);
+      expect(store.etapa2Opcional()).toBe(true);
+    });
+
+    it('trava com dois ambientes sem ligação', () => {
+      const store = storeWith(scene('a'), scene('b'));
+      store.goTo(2);
+
+      expect(store.canAdvance()).toBe(false);
+      expect(store.ambientesIlhados().map((s) => s.id)).toEqual(['b']);
+    });
+
+    it('libera quando todo ambiente é alcançável', () => {
+      const store = storeWith(
+        scene('a', { hotspots: [ponto('h1', 'b')] }),
+        scene('b'),
+      );
+      store.goTo(2);
+
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('um ponto sem destino não conta como ligação', () => {
+      // Órfão é descartado na publicação. Se contasse, o wizard liberaria um
+      // tour que o servidor recebe quebrado — que é o defeito inteiro.
+      const store = storeWith(
+        scene('a', { hotspots: [ponto('h1', null)] }),
+        scene('b'),
+      );
+      store.goTo(2);
+
+      expect(store.canAdvance()).toBe(false);
+    });
+
+    it('não trava as outras etapas', () => {
+      // A regra é da etapa 2. Nas etapas 1 e 3 o mesmo rascunho anda.
+      const store = storeWith(scene('a'), scene('b'));
+
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('remover um ambiente não joga o corretor de volta à etapa 1', () => {
+      // `removeScene` devolve à etapa 1 quando some a última imagem. Se essa
+      // guarda olhasse `canAdvance`, ilhar um ambiente na etapa 2 arrastaria o
+      // corretor duas telas atrás — para consertar algo que se conserta ali
+      // mesmo.
+      const store = storeWith(
+        scene('a', { hotspots: [ponto('h1', 'b')] }),
+        scene('b'),
+        scene('c', { hotspots: [ponto('h2', 'a')] }),
+      );
+      store.goTo(2);
+
+      store.removeScene('a');
+
+      expect(store.step()).toBe(2);
+      expect(store.canAdvance()).toBe(false);
+    });
+  });
+
   describe('patchScene — a porta da Frente B', () => {
     it('altera só a cena alvo', () => {
       const store = storeWith(scene('a'), scene('b'));

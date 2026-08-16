@@ -49,7 +49,21 @@ export class HotspotSheetComponent {
    * painel ao lado do viewer, que leva o foco ao card do ponto. Abrir os dois
    * daria duas cópias do mesmo formulário na tela.
    */
-  readonly isOpen = computed(() => this.isMobile() && this.mode() !== null);
+  readonly isOpen = computed(() => {
+    if (!this.isMobile() || this.mode() === null) return false;
+    // No modo editor, só abre se o ponto ainda existir.
+    //
+    // Sem isto o sheet renderiza o cabeçalho de um ponto que já não existe —
+    // visto na tela: "Ponto 0" (o `editingIndex` devolve -1) sobre um corpo
+    // vazio. O `remove()` do store fecha o editor quando apaga o ponto aberto,
+    // então hoje isso não é alcançável pela interface; apareceu ao mexer nas
+    // cenas por fora dele.
+    //
+    // Fica como guarda mesmo assim, pela mesma razão do nome do diálogo: uma
+    // tela quebrada que depende de nenhum outro caminho jamais mexer em
+    // `scenes` não é uma tela sã, é uma que ainda não encontrou o caminho.
+    return this.mode() !== 'editor' || this.editing() !== null;
+  });
 
   /**
    * A lista abre alta porque é para varrer; o editor abre na metade porque o

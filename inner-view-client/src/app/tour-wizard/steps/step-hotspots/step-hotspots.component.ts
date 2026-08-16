@@ -10,6 +10,7 @@ import { HotspotSummaryRowComponent } from '../../hotspots/hotspot-summary-row/h
 import { HotspotTrashComponent } from '../../hotspots/hotspot-trash/hotspot-trash.component';
 import { SceneRailComponent } from '../../hotspots/scene-rail/scene-rail.component';
 import { TourDraftStore } from '../../tour-draft.store';
+import { WizardScene } from '../../tour-wizard.model';
 
 /**
  * Etapa 2 — Hotspots.
@@ -99,7 +100,45 @@ export class StepHotspotsComponent {
    * `WizardHotspot` guarda em `u`/`v` — não há conversão aqui.
    */
   onPlaced(event: { positionX: number; positionY: number }): void {
-    this.editor.add(event.positionX, event.positionY);
+    const id = this.editor.add(event.positionX, event.positionY);
+
+    // Criar o ponto e ABRIR a edição dele, no mesmo gesto.
+    //
+    // Antes eram dois cliques: um para criar, outro no pin para nomear. O
+    // segundo era cerimônia — não há decisão entre "marquei aqui" e "agora
+    // configuro" —, e pior, nada na tela contava que ele existia. Dava para
+    // criar cinco pontos e nunca descobrir como nomeá-los. O próprio `add()` já
+    // devolvia o id "para o chamador abrir o editor", e o retorno era jogado
+    // fora: ponta solta, não decisão.
+    //
+    // O que segurava a mão era a etapa ser opcional — exigir formulário no
+    // toque brigaria com isso. Ela deixou de ser (ver `canAdvance`), e um ponto
+    // sem destino é descartado na publicação de qualquer forma.
+    //
+    // No desktop não existe sheet: quem responde a este mesmo estado é o painel
+    // ao lado, levando o foco ao campo de nome do card novo.
+    //
+    // Com um ambiente só, não abre: o editor não teria destino nenhum a
+    // oferecer, e só saberia dizer "precisa de um segundo ambiente" a cada
+    // clique na foto.
+    if (id && this.editor.targetOptions().length) this.editor.openEditor(id);
+  }
+
+  /**
+   * Os ambientes que o visitante não alcança, e os de onde não se sai, por
+   * nome.
+   *
+   * Nome e não contagem: "2 ambientes sem ligação" manda procurar; "Cozinha,
+   * Quarto" manda consertar. Sem os nomes, uma regra que bloqueia vira muro.
+   *
+   * O fallback para `fileName` é o mesmo do publicar — cena sem nome digitado
+   * ainda precisa ser chamada de alguma coisa.
+   */
+  readonly ilhados = computed(() => this.nomes(this.draft.ambientesIlhados()));
+  readonly becos = computed(() => this.nomes(this.draft.becosSemSaida()));
+
+  private nomes(cenas: readonly WizardScene[]): string {
+    return cenas.map((s) => s.room.trim() || s.fileName).join(', ');
   }
 
   /** Nomes por id, para o pin poder dizer para onde leva (a11y). */
