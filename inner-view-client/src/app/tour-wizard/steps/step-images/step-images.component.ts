@@ -7,7 +7,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { ModalController } from '@ionic/angular/standalone';
-import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { TranslatePipe } from '@ngx-translate/core';
 import { Capture360Component } from '../../../components/capture-360/capture-360.component';
 import { captureSupported } from '../../../components/capture-360/capture-support';
 import {
@@ -47,7 +47,6 @@ export class StepImagesComponent {
       : 'TOUR_WIZARD.STEP1.SCENES_COUNT',
   );
   private readonly modalController = inject(ModalController);
-  private readonly translate = inject(TranslateService);
 
   private readonly fileInput =
     viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
@@ -141,19 +140,26 @@ export class StepImagesComponent {
       imageData: string;
       frames: CaptureFrameUpload[];
       geometry: CaptureGeometry | null;
+      room: string;
     }>();
     if (role !== 'confirm' || !data?.imageData) return;
 
-    // Sem perguntar o nome do ambiente aqui: ele é editável no card, logo
-    // abaixo. Um diálogo modal entre a captura e o resultado interrompe quem
-    // acabou de girar em torno do próprio celular por um minuto.
-    // O contador anda com o total de capturas já feitas nesta sessão, não com o
-    // tamanho da lista: derivar de `scenes().length` reaproveitava o número
-    // depois de uma remoção, e dois ambientes com o mesmo nome confundem tanto o
-    // corretor quanto quem for ligar hotspots na etapa 2.
+    // O nome vem da tela de preview da captura, onde a pessoa ainda está dentro
+    // do cômodo olhando o resultado — que é onde a evidência está. Aqui ele
+    // apenas chega; pode vir vazio, e a etapa 1 cobra depois.
+    //
+    // Antes vinha "Ambiente N" daqui. O badge do card continua mostrando esse
+    // número, então a identidade ordinal não se perdeu — o que se perdeu foi um
+    // nome de mentira ocupando o campo e fazendo o corretor achar que já estava
+    // resolvido, até o seletor de destino da etapa 2 oferecer "Ambiente 1,
+    // Ambiente 2".
+    //
+    // O contador segue existindo para o nome do ARQUIVO: ele anda com o total
+    // de capturas da sessão, não com o tamanho da lista, porque derivar de
+    // `scenes().length` reaproveitava o número depois de uma remoção.
     const n = ++this.capturasFeitas;
     this.store.addCapturedScene({
-      room: this.translate.instant('TOUR_WIZARD.STEP1.CAPTURED_ROOM', { n }),
+      room: data.room ?? '',
       fileName: `captura-360-${n}.jpg`,
       imageData: data.imageData,
       frames: data.frames,

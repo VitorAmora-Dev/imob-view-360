@@ -653,3 +653,45 @@ O campo de nome do ponto deixou de ser "dê um nome" e virou "escreva outro, se
 quiser" — e mostra como placeholder o nome herdado, que é o texto que o pin
 exibe. Sem isso, a diferença entre vazio e preenchido exigiria uma frase de
 ajuda.
+
+## 17. Nomear a captura no preview, não num modal
+
+Continuação do §16, e uma correção do que ficou lá. Eu tinha deixado a captura
+guiada nomeando "Ambiente N", com o argumento de que cobrar formulário logo
+depois de um minuto girando com o telefone é o pior momento possível. O
+argumento sobre o MOMENTO estava certo; a conclusão, não.
+
+Nomear funciona onde está a EVIDÊNCIA:
+
+- no upload, a evidência é a miniatura na lista — por isso o card é o lugar;
+- na captura, a evidência é a pessoa estar **de pé dentro do cômodo**. Isso é
+  verdade naquele instante e nunca mais com a mesma força. Dez minutos depois
+  são oito miniaturas de parede branca e um esforço de memória para separar o
+  quarto do escritório.
+
+Então a captura merece ser nomeada na hora — eu estava errado em tratar os dois
+caminhos igual.
+
+**No preview, não num modal depois do "Usar".** A tela de preview já é a
+confirmação: mostra o panorama, tem "Confira o resultado" e os botões Refazer /
+Usar. Um campo acima deles custa zero telas e zero toques; um diálogo depois do
+"Usar" custaria uma tela e um fechamento pelo mesmo campo. Mesma regra do §16 —
+não se cria superfície para um campo que cabe numa que a pessoa já está olhando.
+
+Três decisões que valem mais que o campo em si:
+
+- **Sem foco automático.** O teclado subiria cobrindo justamente o panorama que
+  a pessoa veio conferir, que é o propósito declarado da tela.
+- **Sem obrigar ali.** A etapa 1 já é o portão. Aqui é oportunidade — e assim a
+  objeção original ("pior momento para cobrar") continua respeitada.
+- **Chips de sugestão.** Digitar em pé, segurando o telefone, é a fricção real;
+  um toque resolve o caso comum. Vêm de UMA chave separada por vírgula, e não de
+  uma chave por item, para o tradutor trocar o conjunto inteiro pelo que faz
+  sentido no idioma — a lista de cômodos de uma casa não é a mesma em toda
+  parte.
+
+O `CAPTURED_ROOM` saiu: o badge do card continua mostrando "Ambiente N", então a
+identidade ordinal não se perdeu. O que se perdeu foi um nome de mentira
+ocupando o campo. O contador segue existindo para o nome do ARQUIVO.
+
+Refazer NÃO apaga o nome: quem refaz está refazendo o mesmo cômodo.

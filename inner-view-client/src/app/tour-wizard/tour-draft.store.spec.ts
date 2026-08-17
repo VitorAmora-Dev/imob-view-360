@@ -487,6 +487,23 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.scenes()[0].fileSize).toBe(9);
       expect(store.scenes()[0].state).toBe('ready');
     });
+
+    it('cena capturada sem nome é cobrada como qualquer outra', () => {
+      // O nome agora vem da tela de preview da captura, e pode vir vazio: lá
+      // ele é oportunidade, não cobrança — quem acabou de girar um minuto com o
+      // telefone na mão não deve ser parado por um formulário. Quem segura é a
+      // etapa 1, igual para foto enviada e foto capturada.
+      const store = newStore();
+
+      store.addCapturedScene({
+        room: '',
+        fileName: 'captura-360-1.jpg',
+        imageData: `data:image/jpeg;base64,${btoa('123456789')}`,
+      });
+
+      expect(store.canAdvance()).toBe(false);
+      expect(store.ambientesSemNome().length).toBe(1);
+    });
   });
 
   describe('tamanho total da publicação', () => {
