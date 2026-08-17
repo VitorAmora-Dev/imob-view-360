@@ -1,4 +1,12 @@
-import { Component, ElementRef, computed, effect, inject } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { HotspotCardComponent } from '../hotspot-card/hotspot-card.component';
@@ -27,6 +35,7 @@ import { HotspotCardComponent } from '../hotspot-card/hotspot-card.component';
 export class HotspotPanelComponent {
   readonly editor = inject(HotspotEditorStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   constructor() {
     /**
@@ -35,11 +44,18 @@ export class HotspotPanelComponent {
      * levar o foco ao campo daquele ponto — senão o clique no pin não teria
      * resposta nenhuma numa lista de oito cards.
      *
-     * O card já existe quando se chega aqui: o editor é aberto a partir de um
-     * pin, e pin só existe para hotspot que já está na lista.
-     *
      * No mobile este painel está com `display: none` e o `focus()` num elemento
      * escondido não faz nada — quem responde lá é o sheet, com o mesmo estado.
+     *
+     * O `afterNextRender` não é cerimônia. Aqui dizia que "o card já existe
+     * quando se chega aqui, porque o editor é aberto a partir de um pin, e pin
+     * só existe para hotspot que já está na lista" — e isso deixou de ser
+     * verdade no dia em que criar um ponto passou a abrir a edição dele. Nesse
+     * caminho o hotspot nasce e o editor abre no MESMO tick: o `querySelector`
+     * corria antes de o `@for` criar o card, achava `null`, e no desktop o
+     * clique na foto não tinha resposta nenhuma — nem sheet, que lá não abre,
+     * nem foco. Medido: `document.activeElement` seguia em BODY a 768px e a
+     * 900px, enquanto a 390px o sheet abria normalmente.
      */
     effect(() => {
       // Depende do ID pedido, e não do objeto `editing()`. O objeto muda de
@@ -53,11 +69,16 @@ export class HotspotPanelComponent {
       const estado = this.editor.sheet();
       if (estado?.mode !== 'editor') return;
 
-      const campo = this.host.nativeElement.querySelector<HTMLInputElement>(
-        `#hs-label-${CSS.escape(estado.hotspotId)}`,
+      afterNextRender(
+        () => {
+          const campo = this.host.nativeElement.querySelector<HTMLInputElement>(
+            `#hs-label-${CSS.escape(estado.hotspotId)}`,
+          );
+          campo?.focus();
+          campo?.scrollIntoView({ block: 'nearest' });
+        },
+        { injector: this.injector },
       );
-      campo?.focus();
-      campo?.scrollIntoView({ block: 'nearest' });
     });
   }
 

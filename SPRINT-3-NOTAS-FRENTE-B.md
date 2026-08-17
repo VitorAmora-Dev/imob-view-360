@@ -445,3 +445,39 @@ de um segundo ambiente".
 Não é alcançável pela interface hoje. Virou guarda no `isOpen` mesmo assim, pela
 razão do §10: tela que só não quebra porque nenhum outro caminho mexe em
 `scenes` não é tela sã, é tela que ainda não achou o caminho.
+
+## 13. O foco que sumiu no desktop — e a suposição que envelheceu
+
+Relato: "cliquei e não abriu o modal". Reproduzido e medido no navegador, com o
+mesmo tour em três larguras:
+
+| largura | sheet | foco |
+|---|---|---|
+| 390px | abre | (no modal) |
+| 768px | não abre — correto | **BODY** |
+| 900px | não abre — correto | **BODY** |
+
+No desktop o clique na foto criava o ponto e **nada mais acontecia**. Não havia
+sheet, que ali não abre de propósito, e o painel também não recebia o foco.
+
+A causa estava escrita, em português, no comentário do próprio efeito:
+
+> "O card já existe quando se chega aqui: o editor é aberto a partir de um pin,
+> e pin só existe para hotspot que já está na lista."
+
+Era verdade — enquanto o ÚNICO caminho para abrir o editor fosse clicar num pin
+existente. O §12 criou um segundo caminho, em que o hotspot nasce e o editor
+abre no mesmo tick, e aí o `querySelector` corre antes de o `@for` criar o card
+e acha `null`. Conserto: `afterNextRender`. Teste conferido por mutação, e ele
+falha com o sintoma certo (`activeElement` em BODY).
+
+A lição não é sobre foco. Duas vezes nesta mesma semana a mesma coisa mordeu:
+uma invariante verdadeira, escrita como comentário, que deixou de valer quando
+alguém — eu — acrescentou um caminho novo. No §10 dava para fechar por
+construção e foi o que se fez. Aqui não dava, então o que resta é o teste, que
+é o único comentário que reclama quando envelhece.
+
+Vale notar o que NÃO era: os breakpoints do CSS (`max-width: 767px` no
+`_tour-wizard-mixins.scss`) e do TypeScript (`TW_MOBILE_QUERY`) são idênticos,
+então não existe faixa de largura em que o painel some e o sheet não abre. Foi a
+primeira hipótese e ela estava errada.

@@ -148,6 +148,26 @@ describe('HotspotPanelComponent', () => {
     expect(editor.hotspots()[0].target).toBeNull();
   });
 
+  it('leva o foco ao card de um ponto que ACABOU de nascer', async () => {
+    // O caso que quebrou no navegador. Enquanto o editor só era aberto a partir
+    // de um pin já existente, o card sempre estava no DOM quando o efeito
+    // corria. Criar o ponto e abrir a edição no mesmo tick inverteu isso: o
+    // `querySelector` rodava antes de o `@for` criar o card, achava `null`, e no
+    // desktop o clique na foto não tinha resposta nenhuma — o sheet lá não abre.
+    draft.scenes.set([scene('a'), scene('b')]);
+    draft.selectedSceneId.set('a');
+    const fixture = monta();
+
+    const id = editor.add(0.3, 0.4);
+    editor.openEditor(id);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(document.activeElement).toBe(
+      fixture.nativeElement.querySelector(`#hs-label-${id}`),
+    );
+  });
+
   it('remove o ponto pelo botão', () => {
     draft.scenes.set([scene('a', [hotspot('h1'), hotspot('h2')]), scene('b')]);
     draft.selectedSceneId.set('a');
