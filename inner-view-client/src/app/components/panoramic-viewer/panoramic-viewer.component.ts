@@ -1,5 +1,6 @@
 import { Component, Input, OnDestroy, OnChanges, SimpleChanges, ElementRef, ViewChild, AfterViewInit, Output, EventEmitter } from '@angular/core';
 import { IonSpinner } from '@ionic/angular/standalone';
+import { TranslatePipe } from '@ngx-translate/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Panorama } from '../../models/virtual-tour.model';
@@ -13,8 +14,62 @@ const DRAG_SLOP_PX = 6;
 @Component({
   selector: 'app-panoramic-viewer',
   standalone: true,
-  imports: [IonSpinner],
+  imports: [IonSpinner, TranslatePipe],
   template: `
+    <!--
+      A planta na parede.
+
+      O visitante só trocava de ambiente clicando num hotspot: sem lista, sem
+      menu, sem voltar. Um ambiente que ninguém ligou não ficava difícil de
+      achar — ficava INEXISTENTE, fotografado e pago, e a única defesa era o
+      wizard proibir de publicar assim.
+
+      Mora aqui dentro, e não nas páginas que usam o viewer, de propósito: se
+      fosse peça avulsa, a próxima tela que mostrasse um tour esqueceria de
+      incluí-la e o buraco voltaria calado. Sendo do viewer, não existe tour sem
+      ela.
+
+      Some sozinha com um ambiente só — não há para onde ir. Fora isso, quem não
+      a quiser precisa DIZER que não quer: o padrão é aparecer, para que
+      esquecer de pensar no assunto seja o caso seguro.
+
+      Nada aqui pode ser getter que aloque nem chamada de método: o laço de
+      render deste componente roda DENTRO da zona, então cada expressão do
+      template é reavaliada umas 60 vezes por segundo. Tudo o que o template lê
+      é campo simples, recalculado no ngOnChanges e ao trocar de panorama.
+    -->
+    @if (mostrarNav) {
+      <nav class="viewer-nav" [attr.aria-label]="'VIEWER.ROOMS' | translate">
+        <button
+          type="button"
+          class="viewer-nav__atual"
+          [attr.aria-expanded]="navAberta"
+          (click)="alternarNav()"
+          (keydown.escape)="navAberta = false">
+          <span class="viewer-nav__dot" aria-hidden="true"></span>
+          <span class="viewer-nav__nome">{{ nomeAtual }}</span>
+          <span class="viewer-nav__seta" aria-hidden="true">{{ navAberta ? '▴' : '▾' }}</span>
+        </button>
+
+        @if (navAberta) {
+          <ul class="viewer-nav__lista" (keydown.escape)="navAberta = false">
+            @for (sala of ambientes; track sala.id) {
+              <li>
+                <button
+                  type="button"
+                  class="viewer-nav__item"
+                  [class.is-atual]="sala.id === idAtual"
+                  [attr.aria-current]="sala.id === idAtual ? 'true' : null"
+                  (click)="irPara(sala.id)">
+                  {{ sala.roomName }}
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </nav>
+    }
+
     <div #canvasContainer class="canvas-container">
       @if (loading) {
         <div class="loading-overlay">
@@ -50,6 +105,106 @@ const DRAG_SLOP_PX = 6;
       height: 48px;
       color: #fff;
     }
+
+    /* ---- A planta na parede -------------------------------------------- */
+
+    .viewer-nav {
+      position: absolute;
+      /* A página hospedeira ajusta o topo: no inner-view há um cabeçalho
+         sobreposto ocupando esta faixa; no embed não há nada. Uma variável só,
+         com valor que já serve ao caso simples. */
+      top: var(--viewer-nav-top, 16px);
+      left: 16px;
+      z-index: 5;
+      max-width: min(260px, calc(100% - 32px));
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .viewer-nav__atual,
+    .viewer-nav__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      /* Piso de alvo da WCAG. Isto é tocado com o polegar, sobre uma foto. */
+      min-height: 44px;
+      padding: 0 14px;
+      border: 2px solid var(--tw-brand, #ff385c);
+      border-radius: 999px;
+      /* Mesma pílula do pin: é a mesma linguagem de "toque aqui para ir". */
+      background: var(--tw-pin-bg-canvas, rgba(11, 13, 18, 0.95));
+      backdrop-filter: blur(7px);
+      box-shadow: var(--tw-shadow-pin, 0 3px 12px rgba(0, 0, 0, 0.3));
+      color: #fff;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .viewer-nav__dot {
+      flex: 0 0 auto;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--tw-brand, #ff385c);
+    }
+
+    .viewer-nav__nome {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .viewer-nav__seta {
+      flex: 0 0 auto;
+      opacity: 0.75;
+      font-size: 12px;
+    }
+
+    .viewer-nav__lista {
+      /* Teto com rolagem: num celular a foto tem pouca altura, e um tour de dez
+         ambientes faria a lista passar da tela inteira. */
+      max-height: min(46vh, 320px);
+      overflow-y: auto;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .viewer-nav__item {
+      border-color: rgba(255, 255, 255, 0.22);
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .viewer-nav__item:hover {
+      border-color: rgba(255, 255, 255, 0.45);
+    }
+
+    /* O ambiente em que se está: marcado por cor da marca E por peso do texto,
+       nunca só por cor — e o atributo aria-current conta a mesma coisa a quem
+       não enxerga nenhuma das duas. */
+    .viewer-nav__item.is-atual {
+      border-color: var(--tw-brand, #ff385c);
+      font-weight: 700;
+    }
+
+    .viewer-nav__atual:focus-visible,
+    .viewer-nav__item:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 5px rgba(0, 0, 0, 0.55);
+    }
   `]
 })
 export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDestroy {
@@ -57,10 +212,53 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
   @Input() panoramas: Panorama[] = [];
   @Input() editMode = false;
+
+  /**
+   * Se a lista de ambientes aparece. Padrão ligado, e isso é a parte que
+   * importa: quem monta uma tela nova ganha a navegação sem pedir, e só perde
+   * se disser explicitamente que tem outra.
+   *
+   * Amarrei isto ao `editMode` primeiro, e estava errado: no wizard a etapa 2
+   * tem o próprio trilho de ambientes e a lista sobraria, mas o inner-view usa
+   * o MESMO `editMode` para marcar hotspots — e ali desligar a lista tirava a
+   * única navegação que o dono tinha, sem nada no lugar.
+   */
+  @Input() roomNav = true;
   @Output() panoramaChange = new EventEmitter<Panorama>();
   @Output() hotspotPlaced = new EventEmitter<{ positionX: number; positionY: number }>();
 
   loading = true;
+
+  // ---- planta na parede ---------------------------------------------------
+  //
+  // TUDO aqui é campo simples, e não getter nem método. O template deste
+  // componente é reavaliado a cada frame do laço de render (~60/s, dentro da
+  // zona), então um getter que ordenasse a lista devolveria um array novo
+  // sessenta vezes por segundo — e o `@for` refaria o diff em cima disso.
+
+  /** Ambientes na ordem do tour, para a lista. */
+  ambientes: Panorama[] = [];
+  mostrarNav = false;
+  navAberta = false;
+  idAtual: string | null = null;
+  nomeAtual = '';
+
+  alternarNav(): void {
+    this.navAberta = !this.navAberta;
+  }
+
+  irPara(id: string): void {
+    this.navAberta = false;
+    if (id === this.idAtual) return;
+    this.navigateTo(id);
+  }
+
+  /** Recalcula o que a nav mostra. Chamado quando as entradas ou a cena mudam. */
+  private atualizarNav(): void {
+    this.ambientes = [...this.panoramas].sort((a, b) => a.order - b.order);
+    this.mostrarNav = this.roomNav && this.ambientes.length > 1;
+    if (!this.mostrarNav) this.navAberta = false;
+  }
 
   /**
    * Câmera do three.js, para o overlay HTML de pins da etapa 2 projetar cada
@@ -161,6 +359,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     if (changes['editMode'] && this.initialized) {
       this.renderer.domElement.style.cursor = this.editMode ? 'crosshair' : 'grab';
     }
+    // Fora do `initialized`: a lista de ambientes é HTML e não depende de o
+    // three.js já ter subido. Presa ao init, ela não apareceria no primeiro
+    // desenho — o init é adiado um tick de propósito.
+    if (changes['panoramas'] || changes['roomNav']) this.atualizarNav();
   }
 
   ngOnDestroy() {
@@ -245,6 +447,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
         this.clearHotspots();
         this.addHotspots(panorama);
         this.loading = false;
+        // A nav diz onde a pessoa ESTÁ, então ela troca de nome quando a foto
+        // troca — venha a troca da própria lista ou de um clique num hotspot.
+        this.idAtual = panorama.id;
+        this.nomeAtual = panorama.roomName;
         this.panoramaChange.emit(panorama);
       },
       undefined,
@@ -458,6 +664,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    // Encostar na foto fecha a lista. Ela cobre um pedaço da imagem, e quem
+    // volta a mexer no panorama já decidiu que não era dali que queria sair —
+    // exigir um segundo toque no botão para fechá-la seria cobrar pedágio.
+    this.navAberta = false;
     this.pointerDownAt = { x: event.clientX, y: event.clientY };
   };
 

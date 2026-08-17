@@ -180,3 +180,15 @@ app-panoramic-viewer {
     padding-bottom: 12px;
   }
 }
+
+// A lista de ambientes do viewer nasce a 16px do topo, que serve ao embed —
+// lá não há nada acima dela. Aqui há: o cabeçalho é sobreposto e ocupa essa
+// faixa inteira. Empurra para baixo dele.
+//
+// A conta repete `--header-nav-height` (64px) e o inset de segurança em vez de
+// ler `--header-total-height`: aquela variável é declarada no :host do
+// app-header, e propriedade customizada só desce pela árvore de quem a declara
+// — o viewer é IRMÃO do cabeçalho, não filho, e nunca a enxergaria.
+app-panoramic-viewer {
+  --viewer-nav-top: calc(64px + var(--ion-safe-area-top, 0px) + 12px);
+}

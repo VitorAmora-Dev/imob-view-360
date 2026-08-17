@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideTranslateService } from '@ngx-translate/core';
 import * as THREE from 'three';
 import { Panorama } from '../../models/virtual-tour.model';
 import { hotspotToWorld } from '../../tour-wizard/hotspots/hotspot-projection';
@@ -16,6 +17,8 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PanoramicViewerComponent],
+      // A lista de ambientes traduz o próprio nome acessível.
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
     }).compileComponents();
 
     fixture = TestBed.createComponent(PanoramicViewerComponent);
@@ -204,5 +207,132 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
     await afterInit();
 
     expect(frames).toBe(congelado);
+  });
+
+  /**
+   * A planta na parede.
+   *
+   * Ela mora no viewer, e não nas páginas, porque é estrutural: sem ela o
+   * visitante só troca de ambiente por hotspot, e um ambiente que ninguém ligou
+   * fica invisível — fotografado, pago e inalcançável. Se fosse peça avulsa, a
+   * próxima tela que mostrasse um tour esqueceria de incluí-la.
+   */
+  describe('lista de ambientes', () => {
+    function sala(id: string, roomName: string, order: number): Panorama {
+      return {
+        id,
+        roomName,
+        imageData: '',
+        order,
+        initialPanorama: order === 0,
+        measurements: [],
+        originHotspots: [],
+      };
+    }
+
+    /** Aplica as entradas passando pelo `ngOnChanges`, como o Angular faria. */
+    function comPanoramas(lista: Panorama[], roomNav = true): void {
+      component.panoramas = lista;
+      component.roomNav = roomNav;
+      component.ngOnChanges({
+        panoramas: { currentValue: lista, previousValue: [], firstChange: true, isFirstChange: () => true },
+      });
+      fixture.detectChanges();
+    }
+
+    const textos = () =>
+      [...fixture.nativeElement.querySelectorAll('.viewer-nav__item')].map(
+        (b: HTMLElement) => b.textContent!.trim(),
+      );
+
+    it('não aparece com um ambiente só — não há para onde ir', () => {
+      comPanoramas([sala('a', 'Sala', 0)]);
+
+      expect(component.mostrarNav).toBeFalse();
+      expect(fixture.nativeElement.querySelector('.viewer-nav')).toBeNull();
+    });
+
+    it('aparece a partir do segundo ambiente', () => {
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);
+
+      expect(component.mostrarNav).toBeTrue();
+      expect(fixture.nativeElement.querySelector('.viewer-nav')).not.toBeNull();
+    });
+
+    it('só some se a tela DISSER que tem outra navegação', () => {
+      // O padrão é aparecer. Amarrar isto ao `editMode` foi a primeira versão e
+      // estava errada: o wizard usa esse modo tendo um trilho próprio, mas o
+      // inner-view usa o MESMO modo para marcar hotspots — e lá desligar a
+      // lista tirava a única navegação que existia.
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)], false);
+
+      expect(component.mostrarNav).toBeFalse();
+    });
+
+    it('aparece mesmo em modo de edição, se ninguém disse o contrário', () => {
+      component.editMode = true;
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);
+
+      expect(component.mostrarNav).toBeTrue();
+    });
+
+    it('lista na ordem do tour, não na ordem em que as cenas chegaram', () => {
+      comPanoramas([
+        sala('c', 'Quarto', 2),
+        sala('a', 'Sala', 0),
+        sala('b', 'Cozinha', 1),
+      ]);
+      component.navAberta = true;
+      fixture.detectChanges();
+
+      expect(textos()).toEqual(['Sala', 'Cozinha', 'Quarto']);
+    });
+
+    it('marca onde a pessoa está, e não só por cor', () => {
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);
+      component.idAtual = 'b';
+      component.navAberta = true;
+      fixture.detectChanges();
+
+      const marcados = [
+        ...fixture.nativeElement.querySelectorAll('[aria-current="true"]'),
+      ].map((b: HTMLElement) => b.textContent!.trim());
+
+      expect(marcados).toEqual(['Cozinha']);
+    });
+
+    it('escolher o ambiente em que já se está não recarrega a foto', () => {
+      // Recarregar decodifica a equirretangular inteira e a sobe para a GPU.
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);
+      component.idAtual = 'a';
+      const espia = spyOn(component, 'navigateTo');
+
+      component.irPara('a');
+
+      expect(espia).not.toHaveBeenCalled();
+      expect(component.navAberta).toBeFalse();
+    });
+
+    it('escolher outro ambiente navega e fecha a lista', () => {
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);
+      component.idAtual = 'a';
+      component.navAberta = true;
+      const espia = spyOn(component, 'navigateTo');
+
+      component.irPara('b');
+
+      expect(espia).toHaveBeenCalledWith('b');
+      expect(component.navAberta).toBeFalse();
+    });
+
+    it('deixar de ter segundo ambiente fecha a lista aberta', () => {
+      // Senão ela ficaria pendurada sobre a foto, listando um ambiente só.
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);
+      component.navAberta = true;
+
+      comPanoramas([sala('a', 'Sala', 0)]);
+
+      expect(component.navAberta).toBeFalse();
+    });
   });
 });

@@ -530,3 +530,60 @@ testar quando isto ficou pronto, e tomá-las de volta atrapalharia o teste dele.
 Unitário cobre o estado (333 testes); o que falta ver é o posicional — âncora,
 clamp, transbordo em tela pequena —, que é justamente o que teste unitário não
 enxerga.
+
+## 15. A planta na parede
+
+O §12 pôs um fiscal na saída da obra: não se publica enquanto todo ambiente não
+tiver porta. Estava certo, mas era remendo — ele existia porque a tela do
+visitante não tinha navegação nenhuma. O `embed` era o viewer e mais nada, e o
+viewer era um canvas e um spinner: **clicar num hotspot era o único jeito de
+trocar de ambiente**.
+
+Agora o viewer tem a lista de ambientes. Pílula escura no canto superior
+esquerdo dizendo onde a pessoa está; toca e abre a lista; escolhe e vai.
+
+**Mora no viewer, não nas páginas.** Se fosse peça avulsa, a próxima tela que
+mostrasse um tour esqueceria de incluí-la e o buraco voltaria calado. Sendo do
+viewer, não existe tour sem ela — mesmo princípio do §10 e do §12: fechar por
+construção em vez de confiar que ninguém esquece.
+
+**O padrão é aparecer.** Quem não quiser precisa dizer (`roomNav`). Amarrei isso
+ao `editMode` primeiro e estava errado: o wizard usa esse modo tendo um trilho
+próprio, mas o inner-view usa o MESMO modo para marcar hotspots — e ali
+desligar a lista tirava a única navegação que o dono tinha. Com opção explícita
+e padrão ligado, esquecer de pensar no assunto é o caso seguro.
+
+**Nada no template é getter nem método.** O laço de render deste componente roda
+DENTRO da zona, então cada expressão é reavaliada ~60 vezes por segundo: um
+getter que ordenasse a lista devolveria array novo sessenta vezes por segundo, e
+o `@for` refaria o diff em cima. Tudo é campo simples, recalculado no
+`ngOnChanges` e ao trocar de foto. É a mesma lição do rótulo do pin (§10),
+aplicada antes de virar defeito desta vez.
+
+A posição do topo sai de uma variável CSS porque o inner-view tem cabeçalho
+sobreposto e o embed não tem nada. A conta repete os 64px do cabeçalho em vez de
+ler `--header-total-height`: aquela variável é declarada no host do
+`app-header`, e propriedade customizada só desce pela árvore de quem a declara —
+o viewer é IRMÃO do cabeçalho, não filho, e nunca a enxergaria.
+
+### A crase, quinta vez — e o verificador falhou
+
+O `checa-crases.js` do §10 deixou passar. Ele olhava linha a linha e só
+examinava as que TINHAM um abridor de comentário; minhas crases estavam numa
+linha de continuação de um `<!-- -->` de vários parágrafos, sem marcador nenhum
+na própria linha. Reescrito com estado de comentário ao longo do bloco, e
+provado com o defeito injetado: aponta a linha exata.
+
+Lição: uma ferramenta que existe para pegar um erro precisa ser testada CONTRA o
+erro que ela ainda não viu, não só contra o que motivou escrevê-la.
+
+### O fiscal continua de pé, e é de propósito
+
+Com a lista, o bloqueio de alcançabilidade do §12 passa a ser mais rígido do que
+o necessário: nenhum ambiente fica invisível, então "publico com três ligados e
+termino amanhã" volta a ser legítimo. O passo natural é rebaixá-lo a aviso.
+
+Não foi feito junto porque a lista ainda **não foi verificada no navegador** — o
+dono estava usando as portas. Tirar a rede de proteção no mesmo commit que
+adiciona a coisa não verificada seria trocar uma garantia por uma promessa. O
+bloqueio custa uma conveniência; o buraco que ele tapa custa um tour quebrado.

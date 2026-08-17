@@ -33,10 +33,16 @@
   <div class="tw-step2">
     <div class="tw-step2__stage">
       <div class="tw-viewer">
+        <!--
+          `roomNav` desligado: a lista de ambientes do viewer é para quem VÊ o
+          tour. Aqui quem troca de ambiente é o trilho, logo abaixo da foto, e
+          duas respostas para a mesma pergunta na mesma tela é uma a mais.
+        -->
         <app-panoramic-viewer
           #viewer
           [panoramas]="viewerPanoramas()"
           [editMode]="true"
+          [roomNav]="false"
           (hotspotPlaced)="onPlaced($event)" />
 
         <!--

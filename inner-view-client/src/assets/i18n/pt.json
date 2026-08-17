@@ -284,5 +284,8 @@
       "DISCARDED": "{{n}} ponto(s) sem destino não foram salvos.",
       "PUBLISH_ERROR": "Não foi possível publicar o tour. Tente de novo."
     }
+  },
+  "VIEWER": {
+    "ROOMS": "Ambientes"
   }
 }

@@ -284,5 +284,8 @@
       "DISCARDED": "{{n}} point(s) without a destination were not saved.",
       "PUBLISH_ERROR": "Could not publish the tour. Please try again."
     }
+  },
+  "VIEWER": {
+    "ROOMS": "Rooms"
   }
 }
