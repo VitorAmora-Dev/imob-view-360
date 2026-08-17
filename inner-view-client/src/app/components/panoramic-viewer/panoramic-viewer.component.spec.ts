@@ -325,6 +325,24 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
       expect(component.navAberta).toBeFalse();
     });
 
+    it('o pin do tour publicado escreve o nome do destino, não uma pílula vazia', () => {
+      // Estava `hotspot.label ?? ''`, e um ponto sem rótulo — que é o estado em
+      // que ele NASCE — desenhava uma pílula larga com um dot e texto nenhum.
+      // Um botão sem nome sobre a foto, no tour que o cliente recebe.
+      //
+      // Testa o método privado de propósito: ele é puro, e a alternativa seria
+      // ler pixels de uma textura de canvas para provar que há texto.
+      comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);
+
+      const derivado = component['rotuloDo']({ label: '', targetId: 'b' });
+      const proprio = component['rotuloDo']({ label: 'Porta', targetId: 'b' });
+      const orfao = component['rotuloDo']({ label: '', targetId: 'sumiu' });
+
+      expect(derivado).toBe('Cozinha');
+      expect(proprio).toBe('Porta');
+      expect(orfao).toBe('');
+    });
+
     it('deixar de ter segundo ambiente fecha a lista aberta', () => {
       // Senão ela ficaria pendurada sobre a foto, listando um ambiente só.
       comPanoramas([sala('a', 'Sala', 0), sala('b', 'Cozinha', 1)]);

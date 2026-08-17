@@ -128,6 +128,18 @@ export class TourDraftStore {
       : `TOUR_WIZARD.COMMON.HINT_${this.step()}`,
   );
 
+  /**
+   * Ambientes com imagem e sem nome.
+   *
+   * Segura a etapa 1. A cobrança é aqui, e não duas telas adiante, porque é
+   * aqui que a FOTO está — e a foto é a única coisa que diz como chamar o
+   * ambiente. Nomear na etapa 2, olhando uma lista de destinos, é nomear de
+   * memória.
+   */
+  readonly ambientesSemNome = computed(() =>
+    this.readyScenes().filter((s) => !s.room.trim()),
+  );
+
   /** Ambientes que o visitante não alcança, e de onde ele não sai. Ver `scene-graph`. */
   readonly ambientesIlhados = computed(() => grafo.ambientesIlhados(this.scenes()));
   readonly becosSemSaida = computed(() => grafo.becosSemSaida(this.scenes()));
@@ -150,6 +162,7 @@ export class TourDraftStore {
    */
   readonly canAdvance = computed(() => {
     if (!this.temImagem()) return false;
+    if (this.step() === 1) return this.ambientesSemNome().length === 0;
     if (this.step() === 2) return this.ambientesIlhados().length === 0;
     return true;
   });
@@ -193,6 +206,19 @@ export class TourDraftStore {
 
   goTo(step: WizardStep): void {
     if (!this.canReach(step)) return;
+    this.irPara(step);
+  }
+
+  /**
+   * Troca de etapa e apaga as marcas de erro.
+   *
+   * `showErrors` significa "esta pessoa já tentou e não deu" — e isso é sobre a
+   * etapa em que ela tentou. Carregá-lo para a seguinte faria a etapa 3 abrir
+   * com campos em vermelho antes de qualquer tentativa, que é exatamente o
+   * "repreender antes de haver erro" que ele existe para evitar.
+   */
+  private irPara(step: WizardStep): void {
+    this.showErrors.set(false);
     this.step.set(step);
   }
 
@@ -205,14 +231,18 @@ export class TourDraftStore {
     // O handler devolve cedo quando inválido, além do botão já vir desabilitado:
     // teclado e leitor de tela chegam aqui por caminhos que não passam pelo
     // estado visual do botão.
-    if (!this.canAdvance()) return;
-    this.step.set((current + 1) as WizardStep);
+    if (!this.canAdvance()) {
+      // Tentou e não deu: agora os campos podem se marcar. Antes disso, não.
+      this.showErrors.set(true);
+      return;
+    }
+    this.irPara((current + 1) as WizardStep);
   }
 
   back(): void {
     const current = this.step();
     if (current === 1) return;
-    this.step.set((current - 1) as WizardStep);
+    this.irPara((current - 1) as WizardStep);
   }
 
   // ---- cenas -------------------------------------------------------------
@@ -231,7 +261,7 @@ export class TourDraftStore {
       const rejection = rejectionFor(file);
       const scene: WizardScene = {
         id: crypto.randomUUID(),
-        room: defaultRoomName(file.name),
+        room: defaultRoomName(),
         fileName: file.name,
         fileSize: file.size,
         imageData: '',
@@ -642,8 +672,24 @@ function dataUrlBytes(dataUrl: string): number {
   return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 }
 
-function defaultRoomName(fileName: string): string {
-  return fileName.replace(/\.[^.]+$/, '').slice(0, ROOM_NAME_MAX);
+/**
+ * O ambiente nasce SEM nome, de propósito.
+ *
+ * Antes vinha o nome do arquivo sem a extensão, e o efeito era o contrário do
+ * pretendido: "IMG_2841" num campo de texto lê como "já preenchido", e ninguém
+ * sente que precisa mexer. O preço aparecia duas telas depois, na etapa 2, onde
+ * o seletor de destino oferecia "IMG_2841, IMG_2843, IMG_2847" — impossível
+ * saber qual é a cozinha.
+ *
+ * Campo vazio com placeholder pede para ser preenchido. E, junto com a regra
+ * que segura a etapa 1 enquanto houver ambiente sem nome, dá a garantia que se
+ * quereria de uma etapa dedicada a nomear — sem etapa nenhuma a mais.
+ *
+ * O `fileName` continua guardado na cena e segue servindo de reserva no
+ * publicar: nome vazio que escape por algum caminho vira o arquivo, e não vazio.
+ */
+function defaultRoomName(): string {
+  return '';
 }
 
 function readAsDataUrl(file: File): Promise<string> {

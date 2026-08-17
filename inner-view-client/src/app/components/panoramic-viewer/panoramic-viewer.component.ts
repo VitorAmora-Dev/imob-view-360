@@ -532,12 +532,31 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       const y = r * Math.cos(theta);
       const z = r * Math.sin(phi) * Math.sin(theta);
 
-      const sprite = this.createHotspotSprite(hotspot.label ?? '');
+      const sprite = this.createHotspotSprite(this.rotuloDo(hotspot));
       sprite.position.set(x, y, z);
       this.scene.add(sprite);
       this.hotspotSprites.push(sprite);
       this.hotspotTargetMap.set(sprite, hotspot.targetId);
     }
+  }
+
+  /**
+   * O que o pin escreve: o rótulo do ponto ou, na falta dele, o nome do
+   * ambiente para onde leva.
+   *
+   * Era `hotspot.label ?? ''`, e um ponto sem rótulo — que é o estado em que
+   * ele NASCE — desenhava uma pílula larga com um dot e nenhum texto. Um botão
+   * sem nome flutuando sobre a foto do imóvel, no tour que o cliente recebe.
+   *
+   * Deriva, não copia: o rótulo vazio quer dizer "use o nome do destino", então
+   * renomear o ambiente conserta os pins que apontam para ele. Guardar uma
+   * cópia no momento em que o destino é escolhido criaria duas versões do mesmo
+   * nome, e a desatualizada seria justamente a que o visitante lê.
+   */
+  private rotuloDo(hotspot: { label?: string; targetId: string }): string {
+    const proprio = hotspot.label?.trim();
+    if (proprio) return proprio;
+    return this.panoramas.find((p) => p.id === hotspot.targetId)?.roomName ?? '';
   }
 
   private clearHotspots() {

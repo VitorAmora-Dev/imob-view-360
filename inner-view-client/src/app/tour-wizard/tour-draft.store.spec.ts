@@ -132,6 +132,66 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  describe('a regra bloqueante da etapa 1', () => {
+    // Nomear é cobrado AQUI, junto da foto, porque a foto é a única coisa que
+    // diz como chamar o ambiente. Cobrar na etapa 2, olhando uma lista de
+    // destinos, seria nomear de memória.
+
+    it('não avança com ambiente sem nome', () => {
+      const store = storeWith(scene('a', { room: '' }));
+
+      expect(store.canAdvance()).toBe(false);
+      expect(store.ambientesSemNome().map((s) => s.id)).toEqual(['a']);
+    });
+
+    it('espaço em branco não conta como nome', () => {
+      const store = storeWith(scene('a', { room: '   ' }));
+
+      expect(store.canAdvance()).toBe(false);
+    });
+
+    it('avança quando todos têm nome', () => {
+      const store = storeWith(scene('a', { room: 'Sala' }), scene('b', { room: 'Cozinha' }));
+
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('não cobra nome de cena recusada — ela não vira ambiente', () => {
+      const store = storeWith(
+        scene('a', { room: 'Sala' }),
+        scene('b', { room: '', state: 'rejected', rejectedReason: 'type' }),
+      );
+
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('só marca os campos depois de a pessoa tentar avançar', () => {
+      // O card nasce sem nome de propósito: vermelho antes da tentativa é
+      // repreensão, não ajuda.
+      const store = storeWith(scene('a', { room: '' }));
+      expect(store.showErrors()).toBe(false);
+
+      store.next();
+
+      expect(store.showErrors()).toBe(true);
+      expect(store.step()).toBe(1);
+    });
+
+    it('trocar de etapa apaga as marcas de erro', () => {
+      // Senão a etapa 3 abriria com campos em vermelho antes de qualquer
+      // tentativa — o oposto do que `showErrors` existe para fazer.
+      const store = storeWith(scene('a', { room: '' }));
+      store.next();
+      expect(store.showErrors()).toBe(true);
+
+      store.renameScene('a', 'Sala');
+      store.next();
+
+      expect(store.step()).toBe(2);
+      expect(store.showErrors()).toBe(false);
+    });
+  });
+
   describe('a regra bloqueante da etapa 2', () => {
     // A etapa deixou de ser opcional, e o motivo é da tela do VISITANTE: o
     // `embed` é só o viewer, e o viewer não tem lista de ambientes nem menu —
@@ -293,7 +353,10 @@ describe('TourDraftStore (contrato)', () => {
 
       expect(store.scenes()[0].state).toBe('ready');
       expect(store.scenes()[0].warning).toBeUndefined();
-      expect(store.canAdvance()).toBe(true);
+      // `temImagem` e não `canAdvance`: o assunto aqui é o arquivo ter sido
+      // aceito. Avançar da etapa 1 passou a exigir também o nome do ambiente,
+      // que é outra regra e tem os próprios testes.
+      expect(store.temImagem()).toBe(true);
     });
 
     it('AVISA sobre proporção fora de 2:1, mas aceita a imagem', async () => {
@@ -305,16 +368,22 @@ describe('TourDraftStore (contrato)', () => {
       // de câmera que corta alguns pixels — quem decide é o corretor.
       expect(store.scenes()[0].state).toBe('ready');
       expect(store.scenes()[0].warning).toBe('ratio');
-      expect(store.canAdvance()).toBe(true);
+      expect(store.temImagem()).toBe(true);
       expect(store.warnedScenes().length).toBe(1);
     });
 
-    it('usa o nome do arquivo sem extensão como nome do ambiente', async () => {
+    it('o ambiente nasce SEM nome, e não com o nome do arquivo', async () => {
+      // Vinha "Sala de estar" — o arquivo sem extensão. Parece inofensivo até a
+      // pessoa subir IMG_2841.jpg: o campo lê como já preenchido, ninguém mexe,
+      // e duas telas adiante o seletor de destino oferece "IMG_2841, IMG_2843,
+      // IMG_2847". Campo vazio pede para ser preenchido; campo com lixo, não.
       const store = newStore();
 
-      await store.addFiles([await fileFrom(PNG_2x1, 'Sala de estar.png', 'image/png')]);
+      await store.addFiles([await fileFrom(PNG_2x1, 'IMG_2841.png', 'image/png')]);
 
-      expect(store.scenes()[0].room).toBe('Sala de estar');
+      expect(store.scenes()[0].room).toBe('');
+      // O arquivo continua guardado: é a reserva do publicar.
+      expect(store.scenes()[0].fileName).toBe('IMG_2841.png');
     });
   });
 

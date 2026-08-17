@@ -490,7 +490,14 @@ export class HotspotOverlayComponent {
       const destino = hotspot.target ? nomes[hotspot.target] : null;
       return {
         hotspot,
-        rotulo: hotspot.label || index + 1,
+        // O rótulo DERIVA do destino quando ninguém escreveu nada.
+        //
+        // O nome natural de um ponto de navegação é para onde ele leva, e o
+        // número era só o que sobrava na falta de algo melhor. Derivar, e não
+        // copiar no momento da escolha: renomear o ambiente na etapa 1 atualiza
+        // os pins sozinho, em vez de deixar o nome velho pendurado num ponto
+        // que ninguém lembra de reeditar.
+        rotulo: hotspot.label.trim() || destino || index + 1,
         ariaLabel: destino
           ? this.translate.instant('TOUR_WIZARD.STEP2.PIN_NAV', { nome, destino })
           : this.translate.instant('TOUR_WIZARD.STEP2.PIN_ORPHAN', { nome }),

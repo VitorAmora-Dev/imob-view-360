@@ -11,13 +11,27 @@
   <label class="tw-visually-hidden" [attr.for]="'room-' + scene().id">
     {{ 'TOUR_WIZARD.STEP1.ROOM_PLACEHOLDER' | translate }}
   </label>
+  <!--
+    O campo se marca só depois de a pessoa tentar avançar (`showErrors`), nunca
+    ao nascer: um card recém-criado já vem sem nome, e vermelho antes de haver
+    erro é repreensão.
+  -->
   <input
     class="tw-scene__name"
     type="text"
+    [class.is-error]="semNome()"
     [id]="'room-' + scene().id"
     [value]="scene().room"
     [placeholder]="'TOUR_WIZARD.STEP1.ROOM_PLACEHOLDER' | translate"
+    [attr.aria-invalid]="semNome() ? 'true' : null"
+    [attr.aria-describedby]="semNome() ? 'room-erro-' + scene().id : null"
     (input)="onRename($event)" />
+
+  @if (semNome()) {
+    <p class="tw-scene__note is-error" [id]="'room-erro-' + scene().id">
+      {{ 'TOUR_WIZARD.STEP1.NAME_REQUIRED' | translate }}
+    </p>
+  }
 
   <p class="tw-scene__meta">
     @if (isCover()) {

@@ -58,6 +58,9 @@ export class WizardActionsComponent {
    */
   readonly motivoBloqueio = computed(() => {
     if (!this.store.temImagem()) return 'TOUR_WIZARD.COMMON.NEEDS_IMAGE';
+    if (this.store.step() === 1 && this.store.ambientesSemNome().length) {
+      return 'TOUR_WIZARD.STEP1.NEEDS_NAMES';
+    }
     if (this.store.step() === 2 && this.store.ambientesIlhados().length) {
       return 'TOUR_WIZARD.STEP2.NEEDS_LINKS';
     }

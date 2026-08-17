@@ -587,3 +587,69 @@ Não foi feito junto porque a lista ainda **não foi verificada no navegador** �
 dono estava usando as portas. Tirar a rede de proteção no mesmo commit que
 adiciona a coisa não verificada seria trocar uma garantia por uma promessa. O
 bloqueio custa uma conveniência; o buraco que ele tapa custa um tour quebrado.
+
+## 16. Nomes de ambiente: por que NÃO virou uma quarta etapa
+
+A proposta era uma etapa entre o upload e os hotspots, só para nomear ambientes
+— porque na etapa 2 o seletor de destino oferecia nomes inúteis. O diagnóstico
+estava certo; a causa era outra.
+
+O campo de nome **já existia** na etapa 1, em cada card, ao lado da miniatura.
+O defeito estava no valor padrão:
+
+    function defaultRoomName(fileName) {
+      return fileName.replace(/\.[^.]+$/, '');
+    }
+
+Nome de arquivo sem extensão. Sobe IMG_2841.jpg e o ambiente se chama
+"IMG_2841" — e duas telas depois o seletor de destino oferece "IMG_2841,
+IMG_2843, IMG_2847".
+
+**Por que não a etapa nova.** O campo já está no lugar certo: ao lado da FOTO,
+que é a única coisa que diz como chamar o ambiente. Uma etapa dedicada mostraria
+as mesmas fotos, noutro quadro, com o mesmo campo — pagando um portão inteiro de
+wizard por algo que já existe. Portão custa: mais um lugar para abandonar, mais
+um voltar/avançar, mais um segmento de progresso.
+
+O que estava quebrado eram outras duas coisas:
+
+1. **O padrão parecia preenchido.** "IMG_2841" num campo lê como resolvido.
+   Agora nasce vazio, com placeholder "Ex: Sala, Cozinha".
+2. **Ninguém era cobrado.** A etapa 1 agora trava enquanto houver ambiente com
+   imagem e sem nome, marcando os cards — e só DEPOIS da primeira tentativa,
+   porque o card nasce sem nome de propósito e vermelho antes de erro é
+   repreensão.
+
+Juntas dão a mesma garantia da quarta etapa, sem etapa nenhuma.
+
+**O que ficou de fora, consciente:** a captura guiada segue nomeando "Ambiente
+N". É nome que o produto escolheu — ordinal, estável, casando com o badge do
+card —, não artefato do sistema de arquivos vazando para o produto. E exigir
+formulário logo depois de um minuto girando com o celular é o pior momento
+possível para cobrar. Fica anotado que o seletor de destino de um tour capturado
+ainda mostra "Ambiente 1, Ambiente 2".
+
+**`showErrors` passou a zerar na troca de etapa.** Ele quer dizer "esta pessoa
+tentou e não deu", e isso é sobre a etapa em que ela tentou; carregá-lo adiante
+faria a etapa 3 abrir com campos em vermelho antes de qualquer tentativa.
+
+### O rótulo do pin agora deriva do destino
+
+A segunda metade da ideia, e ela tapa um defeito que estava no ar: o ponto nasce
+com `label` vazio, e o `createHotspotSprite` recebia `hotspot.label ?? ''`. Sem
+rótulo, o sprite desenhava **uma pílula larga com um dot e nenhum texto** — um
+botão sem nome flutuando sobre a foto, no tour que o cliente recebe.
+
+Rótulo vazio passou a significar "use o nome do ambiente de destino", resolvido
+na hora de desenhar, nos dois lugares que desenham pin (o overlay HTML do wizard
+e o sprite do viewer).
+
+**Deriva, não copia.** Gravar o nome no rótulo quando o destino é escolhido
+criaria duas versões da mesma verdade, e a desatualizada seria justamente a que
+o visitante lê: renomear "Cozinha" para "Cozinha gourmet" na etapa 1 deixaria os
+pins com o nome velho. Derivando, renomear conserta tudo sozinho.
+
+O campo de nome do ponto deixou de ser "dê um nome" e virou "escreva outro, se
+quiser" — e mostra como placeholder o nome herdado, que é o texto que o pin
+exibe. Sem isso, a diferença entre vazio e preenchido exigiria uma frase de
+ajuda.

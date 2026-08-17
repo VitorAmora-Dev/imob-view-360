@@ -14,7 +14,9 @@
     type="text"
     [id]="'hs-label-' + hotspot().id"
     [value]="hotspot().label"
-    [placeholder]="'TOUR_WIZARD.STEP2.LABEL_PLACEHOLDER' | translate"
+    [placeholder]="
+      rotuloHerdado() || ('TOUR_WIZARD.STEP2.LABEL_PLACEHOLDER' | translate)
+    "
     (input)="onLabel($event)" />
 
   <button

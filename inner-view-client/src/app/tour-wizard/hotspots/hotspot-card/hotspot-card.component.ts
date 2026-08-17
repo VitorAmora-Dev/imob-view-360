@@ -46,6 +46,21 @@ export class HotspotCardComponent {
    */
   readonly hasTargets = computed(() => this.targets().length > 0);
 
+  /**
+   * O nome que o pin já mostra sozinho — o do ambiente de destino.
+   *
+   * Vai como placeholder do campo, e isso não é enfeite: o campo deixou de ser
+   * "dê um nome ao ponto" e virou "escreva outro nome, se quiser". Mostrar ali
+   * o texto que o pin exibe agora é a única forma de a diferença entre vazio e
+   * preenchido ficar óbvia sem uma frase de ajuda.
+   */
+  readonly rotuloHerdado = computed(() => {
+    const alvo = this.hotspot().target;
+    if (!alvo) return '';
+    const destino = this.targets().find((s) => s.id === alvo);
+    return destino ? destino.room.trim() : '';
+  });
+
   onLabel(event: Event): void {
     this.editor.update(this.hotspot().id, {
       label: (event.target as HTMLInputElement).value,

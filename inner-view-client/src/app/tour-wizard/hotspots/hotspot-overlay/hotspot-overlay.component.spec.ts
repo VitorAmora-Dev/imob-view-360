@@ -23,6 +23,7 @@ import { HotspotOverlayComponent } from './hotspot-overlay.component';
       <app-hotspot-overlay
         [viewer]="viewer"
         [hotspots]="hotspots()"
+        [roomNames]="roomNames()"
         [draggingId]="draggingId()"
         (pinActivated)="ativados.push($event)"
         (pinDragStarted)="iniciados.push($event)"
@@ -33,6 +34,7 @@ import { HotspotOverlayComponent } from './hotspot-overlay.component';
 })
 class HostComponent {
   readonly hotspots = signal<WizardHotspot[]>([]);
+  readonly roomNames = signal<Record<string, string>>({});
   readonly draggingId = signal<string | null>(null);
   readonly ativados: string[] = [];
   readonly iniciados: string[] = [];
@@ -80,6 +82,36 @@ describe('HotspotOverlayComponent', () => {
       fixture.nativeElement.querySelectorAll('[data-hotspot-id]'),
     );
   }
+
+  it('o pin escreve o nome do destino quando ninguém deu nome a ele', async () => {
+    // O ponto nasce sem rótulo, e o número não diz nada a quem olha a foto. O
+    // nome natural de um ponto de navegação é para onde ele leva.
+    host.roomNames.set({ b: 'Cozinha' });
+    host.hotspots.set([{ id: 'a', u: 0.75, v: 0.5, label: '', target: 'b' }]);
+    fixture.detectChanges();
+    await frames();
+
+    expect(pins()[0].textContent!.trim()).toBe('Cozinha');
+  });
+
+  it('o rótulo escrito à mão vence o nome do destino', async () => {
+    host.roomNames.set({ b: 'Cozinha' });
+    host.hotspots.set([
+      { id: 'a', u: 0.75, v: 0.5, label: 'Porta dos fundos', target: 'b' },
+    ]);
+    fixture.detectChanges();
+    await frames();
+
+    expect(pins()[0].textContent!.trim()).toBe('Porta dos fundos');
+  });
+
+  it('sem destino e sem rótulo, sobra o número', async () => {
+    host.hotspots.set([hs('a', 0.75, 0.5)]);
+    fixture.detectChanges();
+    await frames();
+
+    expect(pins()[0].textContent!.trim()).toBe('1');
+  });
 
   it('cria um botão por hotspot', async () => {
     host.hotspots.set([hs('a', 0.75, 0.5), hs('b', 0.75, 0.6)]);

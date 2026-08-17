@@ -48,6 +48,20 @@ export class SceneCardComponent {
 
   readonly sizeLabel = computed(() => formatBytes(this.scene().fileSize));
 
+  /**
+   * Este ambiente está sem nome E a pessoa já tentou avançar.
+   *
+   * As duas condições juntas: o card nasce sem nome de propósito (ver
+   * `defaultRoomName`), então marcar de saída seria vermelho antes de erro.
+   * Só cenas com imagem são cobradas — uma recusada não vira ambiente do tour.
+   */
+  readonly semNome = computed(
+    () =>
+      this.store.showErrors() &&
+      this.scene().state === 'ready' &&
+      !this.scene().room.trim(),
+  );
+
   /** Sem `type` a recusa não tem explicação: o motivo é o que diz o que fazer. */
   readonly rejectionKey = computed(
     () =>
