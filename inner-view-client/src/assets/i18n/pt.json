@@ -218,6 +218,8 @@
       "UNREACHABLE": "Sem caminho até: {{ambientes}}. No tour publicado o visitante só troca de ambiente clicando num ponto — sem ligação, esses ambientes não aparecem para ele.",
       "DEAD_END": "Sem volta: {{ambientes}}. Quem entrar não tem como sair de lá.",
       "NEEDS_LINKS": "Ligue todos os ambientes antes de seguir",
+      "PICK_TARGET": "Levar para qual ambiente?",
+      "PICK_LATER": "Escolher depois",
       "COUNT": "ponto(s)",
       "EMPTY": "Envie uma foto 360° na etapa anterior para marcar pontos.",
       "HINT": "Clique para adicionar um ponto · arraste para girar",

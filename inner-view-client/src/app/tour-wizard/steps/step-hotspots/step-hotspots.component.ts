@@ -99,7 +99,25 @@ export class StepHotspotsComponent {
    * `positionY` com o eixo vertical invertido). É o mesmo par que o
    * `WizardHotspot` guarda em `u`/`v` — não há conversão aqui.
    */
+  /** Destinos possíveis, com o nome já resolvido, para o seletor do overlay. */
+  readonly destinos = computed(() =>
+    this.editor.targetOptions().map((s) => ({
+      id: s.id,
+      room: s.room.trim() || s.fileName,
+    })),
+  );
+
   onPlaced(event: { positionX: number; positionY: number }): void {
+    // Com o seletor aberto, tocar na foto FECHA em vez de criar outro ponto.
+    //
+    // Sem isto não haveria como dispensá-lo tocando fora: o toque cairia no
+    // canvas, criaria um segundo ponto e abriria um segundo seletor. Quem quer
+    // sair ganharia um ponto órfão a cada tentativa.
+    if (this.editor.picker()) {
+      this.editor.closePicker();
+      return;
+    }
+
     const id = this.editor.add(event.positionX, event.positionY);
 
     // Criar o ponto e ABRIR a edição dele, no mesmo gesto.
@@ -115,13 +133,15 @@ export class StepHotspotsComponent {
     // toque brigaria com isso. Ela deixou de ser (ver `canAdvance`), e um ponto
     // sem destino é descartado na publicação de qualquer forma.
     //
-    // No desktop não existe sheet: quem responde a este mesmo estado é o painel
-    // ao lado, levando o foco ao campo de nome do card novo.
+    // O que abre é o SELETOR DE DESTINO, não o editor inteiro. No instante da
+    // criação a única coisa obrigatória é o destino — o nome tem reserva e a
+    // exclusão mora no painel. O editor completo cobria metade da tela no
+    // mobile e, com o toque na metade de baixo da foto, cobria o próprio ponto
+    // que se acabou de criar.
     //
-    // Com um ambiente só, não abre: o editor não teria destino nenhum a
-    // oferecer, e só saberia dizer "precisa de um segundo ambiente" a cada
-    // clique na foto.
-    if (id && this.editor.targetOptions().length) this.editor.openEditor(id);
+    // Com um ambiente só, não abre: não haveria destino nenhum a oferecer, e o
+    // seletor só saberia aparecer vazio a cada clique na foto.
+    if (id && this.editor.targetOptions().length) this.editor.openPicker(id);
   }
 
   /**

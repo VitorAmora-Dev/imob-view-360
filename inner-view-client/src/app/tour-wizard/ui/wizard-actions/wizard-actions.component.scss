@@ -6,6 +6,10 @@
   z-index: 2;
   display: flex;
   align-items: center;
+  // Envolve para o motivo do bloqueio ocupar uma linha própria acima dos botões
+  // (ver `.tw-actions__motivo`), sem transformar a barra em coluna quando ele
+  // não existe — que é o caso comum.
+  flex-wrap: wrap;
   gap: 10px;
   padding: 14px 20px;
   border-top: 1px solid var(--tw-border-subtle);
@@ -55,4 +59,17 @@
 .tw-btn--bordered,
 .tw-btn--ghost {
   flex: 0 0 auto;
+}
+
+// Linha própria, acima dos botões. Vem primeiro no DOM de propósito: com
+// `flex-basis: 100%` ela já ocupa a primeira linha sem precisar de `order`, e
+// quem usa leitor de tela a encontra ANTES do botão que ela explica — que é a
+// ordem em que a informação é útil.
+.tw-actions__motivo {
+  flex: 0 0 100%;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tw-error-text);
+  text-wrap: pretty;
 }

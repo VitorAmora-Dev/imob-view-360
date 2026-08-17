@@ -187,23 +187,55 @@ describe('StepHotspotsComponent — clique no pin', () => {
     expect(editor.hotspots()[0].v).toBe(0.1);
   });
 
-  it('criar um ponto já abre a edição dele', () => {
+  it('criar um ponto já pergunta para onde ele leva', () => {
     // Antes eram dois cliques: um para criar, outro no pin para nomear. O
     // segundo não decidia nada e nada na tela contava que ele existia — dava
     // para criar cinco pontos e nunca descobrir como nomeá-los.
+    //
+    // E o que abre é o SELETOR, não o editor: no instante da criação a única
+    // coisa obrigatória é o destino.
     draft.scenes.set([scene('a'), scene('b')]);
     draft.selectedSceneId.set('a');
     monta();
 
     fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.4 });
 
-    const criado = editor.hotspots()[0];
-    expect(editor.sheet()).toEqual({ mode: 'editor', hotspotId: criado.id });
+    expect(editor.picker()).toBe(editor.hotspots()[0].id);
+    // O sheet NÃO abre: ele cobre metade da tela, e com o toque na metade de
+    // baixo da foto cobriria o próprio ponto recém-criado.
+    expect(editor.sheet()).toBeNull();
   });
 
-  it('não abre a edição quando não há segundo ambiente', () => {
-    // O editor só saberia dizer "precisa de um segundo ambiente", e diria isso
-    // a cada clique na foto.
+  it('escolher o destino grava e fecha o seletor', () => {
+    draft.scenes.set([scene('a'), scene('b')]);
+    draft.selectedSceneId.set('a');
+    monta();
+    fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.4 });
+    const criado = editor.hotspots()[0].id;
+
+    editor.pickTarget(criado, 'b');
+
+    expect(editor.hotspots()[0].target).toBe('b');
+    expect(editor.picker()).toBeNull();
+  });
+
+  it('com o seletor aberto, tocar na foto fecha em vez de criar outro ponto', () => {
+    // Sem isto não haveria como dispensá-lo tocando fora: o toque criaria um
+    // segundo ponto e um segundo seletor, e quem quisesse sair ganharia um
+    // ponto órfão a cada tentativa.
+    draft.scenes.set([scene('a'), scene('b')]);
+    draft.selectedSceneId.set('a');
+    monta();
+    fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.4 });
+
+    fixture.componentInstance.onPlaced({ positionX: 0.7, positionY: 0.6 });
+
+    expect(editor.hotspots().length).toBe(1);
+    expect(editor.picker()).toBeNull();
+  });
+
+  it('não pergunta nada quando não há segundo ambiente', () => {
+    // O seletor só saberia aparecer vazio, e apareceria a cada clique na foto.
     draft.scenes.set([scene('a')]);
     draft.selectedSceneId.set('a');
     monta();
@@ -211,7 +243,20 @@ describe('StepHotspotsComponent — clique no pin', () => {
     fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.4 });
 
     expect(editor.hotspots().length).toBe(1);
+    expect(editor.picker()).toBeNull();
     expect(editor.sheet()).toBeNull();
+  });
+
+  it('arrastar o ponto fecha o seletor — ele está grudado no pin', () => {
+    draft.scenes.set([scene('a'), scene('b')]);
+    draft.selectedSceneId.set('a');
+    monta();
+    fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.4 });
+    const criado = editor.hotspots()[0].id;
+
+    editor.startDrag(criado);
+
+    expect(editor.picker()).toBeNull();
   });
 
   it('não monta o viewer para cena recusada', () => {

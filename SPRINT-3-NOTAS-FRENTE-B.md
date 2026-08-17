@@ -481,3 +481,52 @@ Vale notar o que NÃO era: os breakpoints do CSS (`max-width: 767px` no
 `_tour-wizard-mixins.scss`) e do TypeScript (`TW_MOBILE_QUERY`) são idênticos,
 então não existe faixa de largura em que o painel some e o sheet não abre. Foi a
 primeira hipótese e ela estava errada.
+
+## 14. Seletor de destino no lugar do editor, e o motivo junto do botão
+
+Duas correções de UX vindas da mesma conversa.
+
+**O motivo do bloqueio agora fica colado no botão.** Ele existia em dois lugares
+— um banner no topo da etapa e o `title` do "Próximo" — e nenhum dos dois
+funciona no celular no instante em que se aperta: `title` é hover, e o banner
+está fora da tela quando se rolou até o rodapé. Botão apagado sem motivo visível
+é dos jeitos mais confiáveis de fazer alguém achar que travou.
+
+Os dois textos continuam, e não é repetição: no topo ficam os NOMES dos
+ambientes, que é onde se conserta; no rodapé fica por que não dá para seguir,
+que é o que se pergunta ao ver o botão. A frase vem primeiro no DOM para o
+leitor de tela achá-la antes do botão que ela explica.
+
+**Criar um ponto abre um seletor de destino, não o editor inteiro.** No instante
+da criação a única coisa obrigatória é o destino: o nome tem reserva (o número
+do ponto) e a exclusão mora no painel e na lista. O editor completo, num sheet
+de meia tela, cobria a foto — e, com o toque na metade de baixo, cobria o
+próprio ponto recém-criado. Nomear às cegas o ponto que não se está vendo.
+
+O seletor é ancorado no pin e posicionado pelo MESMO laço de frame dos pins,
+então acompanha a foto quando o corretor gira. Detalhes que custaram cuidado:
+
+- **A medida sai do DOM uma vez por abertura**, não por frame. `offsetWidth` é
+  leitura de layout, e ali ela cairia logo depois de o laço escrever `transform`
+  em todos os pins — reflow forçado 60 vezes por segundo, exatamente o padrão
+  que o §10 mediu na lixeira e decidiu não pagar.
+- **Não cabendo embaixo, vai para cima do pin.** Sem isso o ponto criado na
+  metade de baixo da foto reproduziria o defeito que o seletor veio corrigir.
+- **A lista tem teto e rola:** a foto tem ~270px de altura no celular, e oito
+  ambientes fariam o seletor passar da imagem inteira.
+- **Sai de cena junto com o pin.** Girar até o ponto sair de quadro deixava o
+  seletor parado no último lugar em que o pin esteve, ancorado em nada. Achado
+  relendo o laço, não testando.
+- **Tocar na foto com ele aberto FECHA em vez de criar outro ponto.** Sem isso
+  não haveria como dispensá-lo tocando fora: cada tentativa de sair renderia um
+  ponto órfão.
+
+Fica uma assimetria consciente: criar abre o seletor, tocar num pin órfão abre o
+editor. São momentos diferentes — na criação falta o destino; depois, pode ser
+que se queira renomear.
+
+**Não verificado no navegador.** O dono estava usando as portas 4200 e 3000 para
+testar quando isto ficou pronto, e tomá-las de volta atrapalharia o teste dele.
+Unitário cobre o estado (333 testes); o que falta ver é o posicional — âncora,
+clamp, transbordo em tela pequena —, que é justamente o que teste unitário não
+enxerga.

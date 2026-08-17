@@ -2,14 +2,17 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
   input,
   output,
+  viewChild,
 } from '@angular/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { WizardHotspot } from '../../tour-wizard.model';
 import {
@@ -71,6 +74,7 @@ interface Pressao {
 @Component({
   selector: 'app-hotspot-overlay',
   standalone: true,
+  imports: [TranslatePipe],
   template: `
     @for (pin of pins(); track pin.hotspot.id; let i = $index) {
       <button
@@ -95,6 +99,49 @@ interface Pressao {
         <span class="tw-pin__dot" aria-hidden="true"></span>
         <span class="tw-pin__label" aria-hidden="true">{{ pin.rotulo }}</span>
       </button>
+    }
+
+    <!--
+      O seletor de destino, ancorado no pin recém-criado.
+
+      Fica DEPOIS dos pins no DOM para desenhar por cima deles, e é posicionado
+      pelo mesmo laço de frame — assim ele acompanha a foto quando o corretor
+      gira em vez de descolar do ponto a que se refere.
+    -->
+    @if (picker()) {
+      <div
+        #seletor
+        class="tw-picker"
+        role="dialog"
+        [attr.aria-label]="'TOUR_WIZARD.STEP2.PICK_TARGET' | translate"
+        (keydown.escape)="pickerClosed.emit()">
+        <p class="tw-picker__titulo">
+          {{ 'TOUR_WIZARD.STEP2.PICK_TARGET' | translate }}
+        </p>
+
+        <ul class="tw-picker__lista">
+          @for (sala of rooms(); track sala.id) {
+            <li>
+              <button
+                type="button"
+                class="tw-picker__opcao"
+                (click)="escolher(sala.id)">
+                {{ sala.room }}
+              </button>
+            </li>
+          }
+        </ul>
+
+        <!--
+          Sair sem escolher é caminho de primeira classe, e não um X escondido
+          no canto: o ponto fica órfão, o painel já avisa que órfão não é salvo,
+          e insistir aqui transformaria "marcar um ponto" no formulário que este
+          seletor existe para não ser.
+        -->
+        <button type="button" class="tw-picker__depois" (click)="pickerClosed.emit()">
+          {{ 'TOUR_WIZARD.STEP2.PICK_LATER' | translate }}
+        </button>
+      </div>
     }
   `,
   styles: [
@@ -251,6 +298,94 @@ interface Pressao {
         animation: none;
       }
 
+      /* ---- Seletor de destino -------------------------------------------
+         Mesma identidade do pin — pílula escura, borda da marca — porque é a
+         continuação do mesmo gesto: o ponto que acabou de nascer perguntando
+         para onde leva. */
+      .tw-picker {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: auto;
+        /* Posição vem do laço de frame, como a dos pins. Nasce invisível pelo
+           mesmo motivo: antes do primeiro frame ele estaria no canto do canvas. */
+        visibility: hidden;
+        will-change: transform;
+
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 152px;
+        /* Nunca mais largo que a foto, mesmo com nome de ambiente comprido. */
+        max-width: min(232px, 88%);
+        padding: 10px;
+        border: 2px solid var(--tw-brand);
+        border-radius: 14px;
+        background: var(--tw-pin-bg-canvas);
+        backdrop-filter: blur(7px);
+        box-shadow: var(--tw-shadow-pin-drag);
+        color: #fff;
+      }
+
+      .tw-picker__titulo {
+        margin: 0 2px 2px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.3;
+        opacity: 0.85;
+      }
+
+      .tw-picker__lista {
+        /* A lista tem teto e rola: num celular a foto tem ~270px de altura, e um
+           tour de oito ambientes faria o seletor passar da imagem inteira. */
+        max-height: 156px;
+        overflow-y: auto;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .tw-picker__opcao,
+      .tw-picker__depois {
+        display: block;
+        width: 100%;
+        /* 44px é o piso de alvo da WCAG, e aqui vale duplo: escolhe-se isto com
+           o polegar, sobre uma foto, logo depois de outro toque. */
+        min-height: 44px;
+        padding: 0 12px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .tw-picker__opcao:hover {
+        background: rgba(255, 255, 255, 0.16);
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+
+      .tw-picker__depois {
+        border-color: transparent;
+        background: transparent;
+        font-weight: 500;
+        text-align: center;
+        opacity: 0.8;
+      }
+
+      .tw-picker__opcao:focus-visible,
+      .tw-picker__depois:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+      }
+
       /* B12. O tour-wizard.scss zera os tokens de transição, mas nem a animação
          do anel nem a transição escrita à mão acima passam por token — ficam
          aqui. O que some é o movimento: a cor do dot, o contorno e a sombra
@@ -307,8 +442,27 @@ export class HotspotOverlayComponent {
   /** O dedo soltou. Quem decide o que fazer com a soltura é a etapa. */
   readonly pinDragEnded = output<void>();
 
+  // ---- seletor de destino ------------------------------------------------
+
+  /** Id do ponto que está perguntando para onde leva, ou nada. */
+  readonly picker = input<string | null>(null);
+
+  /** Destinos possíveis, já sem o ambiente aberto. */
+  readonly rooms = input<{ id: string; room: string }[]>([]);
+
+  readonly targetPicked = output<{ hotspotId: string; targetId: string }>();
+  readonly pickerClosed = output<void>();
+
+  private readonly seletor = viewChild<ElementRef<HTMLElement>>('seletor');
+
+  escolher(targetId: string): void {
+    const hotspotId = this.picker();
+    if (hotspotId) this.targetPicked.emit({ hotspotId, targetId });
+  }
+
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly translate = inject(TranslateService);
+  private readonly injector = inject(Injector);
   private readonly semMovimento = prefersReducedMotion();
 
   /**
@@ -351,6 +505,23 @@ export class HotspotOverlayComponent {
 
       const stop = viewer.onFrame(() => this.reposition(viewer));
       onCleanup(stop);
+    });
+
+    // O seletor abre com o foco na primeira opção.
+    //
+    // Sem isto ele seria alcançável só por ponteiro: quem navega por teclado
+    // criaria um ponto, o seletor apareceria, e o Tab seguinte iria para o pin
+    // seguinte — passando por cima da única pergunta da tela. `afterNextRender`
+    // porque o elemento nasce no mesmo tick em que o estado muda; foi o que
+    // mordeu o foco do painel.
+    effect(() => {
+      if (!this.picker()) return;
+      afterNextRender(
+        () => this.seletor()?.nativeElement
+          .querySelector<HTMLButtonElement>('.tw-picker__opcao')
+          ?.focus(),
+        { injector: this.injector },
+      );
     });
 
     // Um timer de long-press vivo depois do componente morto dispararia um
@@ -577,10 +748,19 @@ export class HotspotOverlayComponent {
         size.height,
       );
 
+      const ehDoSeletor = hotspot.id === this.picker();
+
       if (!point || !isWithinCanvas(point, size.width, size.height)) {
         el.style.visibility = 'hidden';
+        // O seletor vai junto. Sem isto, girar a foto até o ponto sair de quadro
+        // deixaria o seletor parado no último lugar em que o pin esteve —
+        // visível, ancorado em nada, perguntando o destino de um ponto que já
+        // não está na tela.
+        if (ehDoSeletor) this.esconderSeletor();
         continue;
       }
+
+      if (ehDoSeletor) this.posicionarSeletor(point, size.width, size.height);
 
       el.style.visibility = 'visible';
       // translate3d primeiro, depois o -50% do próprio pin: leva o centro da
@@ -594,5 +774,57 @@ export class HotspotOverlayComponent {
       el.style.transform =
         `translate3d(${point.x}px, ${point.y}px, 0) translate(-50%, -50%)${escala}`;
     }
+  }
+
+  /** Medida do seletor, tirada UMA vez por abertura. Ver `posicionarSeletor`. */
+  private seletorMedido: string | null = null;
+  private seletorTamanho = { largura: 0, altura: 0 };
+
+  /**
+   * Põe o seletor logo abaixo do pin, sem deixá-lo sair da foto.
+   *
+   * A medida do elemento sai do DOM uma vez por abertura, e não a cada frame:
+   * ler `offsetWidth` é leitura de layout, e aqui ela cairia no meio de um laço
+   * que acabou de escrever `transform` em todos os pins — reflow forçado 60
+   * vezes por segundo, que é justo o padrão que a lixeira foi medida para não
+   * ter. O tamanho não muda enquanto o seletor está aberto: a lista de destinos
+   * é a mesma.
+   */
+  private posicionarSeletor(
+    ponto: { x: number; y: number },
+    largura: number,
+    altura: number,
+  ): void {
+    const el = this.seletor()?.nativeElement;
+    const alvo = this.picker();
+    if (!el || !alvo) return;
+
+    if (this.seletorMedido !== alvo) {
+      this.seletorMedido = alvo;
+      this.seletorTamanho = { largura: el.offsetWidth, altura: el.offsetHeight };
+    }
+
+    const { largura: w, altura: h } = this.seletorTamanho;
+    const folga = 8;
+    // 26px abaixo do centro do pin: o suficiente para a pílula não ser coberta
+    // pelo próprio seletor que ela abriu.
+    const y = ponto.y + 26;
+
+    el.style.transform =
+      `translate3d(${this.entre(ponto.x - w / 2, folga, largura - w - folga)}px, ` +
+      // Não cabendo embaixo, vai para cima do pin em vez de vazar para fora da
+      // foto — que é o caso do ponto criado na metade de baixo da imagem, o
+      // mesmo que fazia o sheet cobrir o ponto recém-criado.
+      `${y + h + folga > altura ? this.entre(ponto.y - 26 - h, folga, altura - h - folga) : y}px, 0)`;
+    el.style.visibility = 'visible';
+  }
+
+  private esconderSeletor(): void {
+    const el = this.seletor()?.nativeElement;
+    if (el) el.style.visibility = 'hidden';
+  }
+
+  private entre(valor: number, minimo: number, maximo: number): number {
+    return Math.min(Math.max(valor, minimo), Math.max(minimo, maximo));
   }
 }

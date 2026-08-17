@@ -56,6 +56,18 @@ export class HotspotEditorStore {
   readonly sheet = signal<SheetState>(null);
   readonly pinDrag = signal<PinDragState | null>(null);
 
+  /**
+   * Ponto recém-criado cujo destino está sendo escolhido — o id, ou nada.
+   *
+   * É o seletor compacto ancorado no pin, e não o editor inteiro. No instante
+   * da criação a única coisa OBRIGATÓRIA é o destino: o nome tem reserva (o
+   * número do ponto) e a exclusão vive no painel e na lista. Abrir um
+   * formulário completo ali cobria metade da tela no mobile — e, se o toque
+   * tivesse sido na metade de baixo da foto, cobria o próprio ponto que se
+   * acabou de criar. Nomear às cegas o ponto que você não está vendo.
+   */
+  readonly picker = signal<string | null>(null);
+
   // ---- derivados ---------------------------------------------------------
 
   readonly hotspots = computed<WizardHotspot[]>(
@@ -124,20 +136,45 @@ export class HotspotEditorStore {
     // andamento deste, sem explicação nenhuma.
     const aberto = this.sheet();
     if (aberto?.mode === 'editor' && aberto.hotspotId === id) this.closeSheet();
+    // Mesma regra para o seletor: ele fica ancorado no pin, e o pin acabou de
+    // sumir da foto.
+    if (this.picker() === id) this.picker.set(null);
   }
 
   // ---- sheet -------------------------------------------------------------
 
+  // Sheet e seletor são excludentes: os dois pedem a mesma decisão, e abertos
+  // juntos disputariam o mesmo toque. Quem abre um fecha o outro.
+
   openEditor(hotspotId: string): void {
+    this.picker.set(null);
     this.sheet.set({ mode: 'editor', hotspotId });
   }
 
   openList(): void {
+    this.picker.set(null);
     this.sheet.set({ mode: 'list' });
   }
 
   closeSheet(): void {
     this.sheet.set(null);
+  }
+
+  // ---- seletor de destino ------------------------------------------------
+
+  openPicker(hotspotId: string): void {
+    this.sheet.set(null);
+    this.picker.set(hotspotId);
+  }
+
+  closePicker(): void {
+    this.picker.set(null);
+  }
+
+  /** Escolheu o destino: grava e fecha. É o gesto inteiro numa chamada. */
+  pickTarget(hotspotId: string, target: string): void {
+    this.update(hotspotId, { target });
+    this.picker.set(null);
   }
 
   // ---- arraste (B9) ------------------------------------------------------
@@ -148,6 +185,9 @@ export class HotspotEditorStore {
    * em curso, para a lixeira (B10) e o estilo do pin saberem.
    */
   startDrag(hotspotId: string): void {
+    // O seletor está grudado num pin que agora vai andar pela tela. Ele
+    // reabre com um toque no ponto, e não vale a pena persegui-lo.
+    this.picker.set(null);
     this.pinDrag.set({ hotspotId, overTrash: false });
   }
 
