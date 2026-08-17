@@ -50,6 +50,10 @@
   // mesma cor do botão "Próximo" faria o erro parecer um convite.
   --tw-error-text: var(--ion-color-danger);
   --tw-error-soft: #fdf0ed;
+  // Par do --tw-brand-border, no tom de erro: borda de controle destrutivo em
+  // repouso e em hover. Tinta 200 do #c13515 — visível como "isto é vermelho"
+  // sem virar um bloco de cor ao lado de cada campo de nome.
+  --tw-error-border: #eec6bd;
 
   /* -- Bordas e superfícies ---------------------------------------------- */
   --tw-border: var(--app-hairline); //          handoff border/default #E6E7EB

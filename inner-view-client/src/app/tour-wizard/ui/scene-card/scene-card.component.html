@@ -59,10 +59,15 @@
   }
 </div>
 
+<!--
+  A mesma lixeira da etapa 2. Aqui o botão descarta uma foto que a pessoa acabou
+  de enviar ou de tirar — se as duas etapas usassem desenhos diferentes para
+  excluir, o segundo teria de ser aprendido de novo.
+-->
 <button
   type="button"
   class="tw-scene__remove"
   [attr.aria-label]="'TOUR_WIZARD.STEP1.REMOVE' | translate: { room: scene().room }"
   (click)="onRemove()">
-  <span aria-hidden="true">✕</span>
+  <app-tw-trash-icon />
 </button>

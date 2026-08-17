@@ -19,12 +19,18 @@
     "
     (input)="onLabel($event)" />
 
+  <!--
+    Lixeira e não "✕": este botão apaga o ponto, e o ✕ dentro de um bottom sheet
+    é o glifo de FECHAR — o mesmo desenho para "some com isto da tela" e para
+    "some com isto de vez, sem desfazer". A lixeira também é o símbolo que a
+    etapa já ensina no arrastar-para-excluir; uma operação, um desenho.
+  -->
   <button
     type="button"
     class="tw-hp__remove"
     [attr.aria-label]="'TOUR_WIZARD.STEP2.REMOVE' | translate: { n: index() + 1 }"
     (click)="remove()">
-    <span aria-hidden="true">✕</span>
+    <app-tw-trash-icon />
   </button>
 </div>
 

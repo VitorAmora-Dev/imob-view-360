@@ -2,6 +2,7 @@ import { Component, computed, inject, input } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
+import { TrashIconComponent } from '../trash-icon/trash-icon.component';
 
 /**
  * Card de um ambiente na etapa 1.
@@ -15,7 +16,7 @@ import { WizardScene } from '../../tour-wizard.model';
 @Component({
   selector: 'app-scene-card',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, TrashIconComponent],
   templateUrl: './scene-card.component.html',
   styleUrls: ['./scene-card.component.scss'],
 })

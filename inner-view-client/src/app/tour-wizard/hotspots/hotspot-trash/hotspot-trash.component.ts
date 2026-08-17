@@ -1,6 +1,7 @@
 import { Component, ElementRef, computed, inject } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
+import { TrashIconComponent } from '../../ui/trash-icon/trash-icon.component';
 
 /**
  * Alvo de exclusão do arraste (tarefa B10).
@@ -18,14 +19,14 @@ import { HotspotEditorStore } from '../../hotspot-editor.store';
  * entre "o retângulo que o teste usa" e "o retângulo que existe".
  *
  * `aria-hidden` de propósito: é um alvo de ponteiro e nada mais. Quem navega
- * por teclado ou leitor de tela exclui pelo ✕ do card, que tem rótulo e ordem
- * de foco. Anunciar aqui um alvo que essas pessoas não conseguem operar seria
- * anunciar um beco sem saída.
+ * por teclado ou leitor de tela exclui pelo botão de lixeira do card, que tem
+ * rótulo e ordem de foco. Anunciar aqui um alvo que essas pessoas não conseguem
+ * operar seria anunciar um beco sem saída.
  */
 @Component({
   selector: 'app-hotspot-trash',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, TrashIconComponent],
   host: { 'aria-hidden': 'true' },
   templateUrl: './hotspot-trash.component.html',
   styleUrls: ['./hotspot-trash.component.scss'],

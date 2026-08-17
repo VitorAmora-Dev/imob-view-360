@@ -82,6 +82,23 @@ describe('SceneCardComponent — capa e numeração', () => {
     expect(fixture.nativeElement.querySelector('.tw-badge')).toBeNull();
   });
 
+  /**
+   * O botão de excluir é ícone puro: se o desenho voltar a ser um glifo de
+   * texto, o `aria-label` continua lá e nada quebra — mas o teste morre aqui,
+   * que é onde a decisão está escrita.
+   */
+  it('exclui por lixeira, com nome acessível e sem glifo de texto', () => {
+    const alvo = scene('sala');
+    const fixture = monta(alvo, [alvo]);
+
+    const botao = fixture.nativeElement.querySelector('.tw-scene__remove');
+    // Sem dicionário carregado o pipe devolve a chave; o que importa aqui é que
+    // o botão TENHA nome acessível, já que ele não tem texto nenhum.
+    expect(botao.getAttribute('aria-label')).toBeTruthy();
+    expect(botao.querySelector('app-tw-trash-icon svg')).not.toBeNull();
+    expect(botao.textContent.trim()).toBe('');
+  });
+
   it('mostra o tamanho em unidade legível', () => {
     const fixture = monta(
       scene('a', { fileSize: 9_400_000 }),

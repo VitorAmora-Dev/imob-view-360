@@ -695,3 +695,57 @@ identidade ordinal não se perdeu. O que se perdeu foi um nome de mentira
 ocupando o campo. O contador segue existindo para o nome do ARQUIVO.
 
 Refazer NÃO apaga o nome: quem refaz está refazendo o mesmo cômodo.
+
+---
+
+## §18 — A lixeira: um desenho por operação
+
+Pedido do dono, olhando o sheet no iPhone: *"esse botão X poderia ser uma
+lixeira, e a cor podia ser vermelha, para ser mais claro"*. Está certo nas duas
+metades, por motivos diferentes.
+
+**O ✕ estava ambíguo por posição.** Dentro de um bottom sheet, ✕ é o glifo de
+FECHAR. O mesmo desenho servia para "tira isto da tela" e para "apaga isto de
+vez, sem desfazer", a 300px de distância um do outro. Pior: a própria etapa 2 já
+ensinava lixeira no arrastar-para-excluir. Duas figuras para uma operação, no
+mesmo lugar, na mesma sessão.
+
+**O vermelho é o de ERRO, não o da marca.** A regra já estava escrita no
+`tour-wizard.scss` para o texto de erro: a Rausch (#E8365D) é cor de ação
+primária — ela pinta o badge do número, a borda do campo em foco e o "Concluído"
+do sheet. Pintar o excluir dela deixaria, no mesmo card, o botão que apaga com a
+roupa do botão que confirma. Vale o `--ion-color-danger` (#c13515, 5,5:1 sobre
+branco).
+
+**Vermelho no ícone, não no fundo.** Um bloco vermelho sólido por card faria da
+exclusão a coisa mais chamativa da lista, e não há confirmação depois dela. O
+objetivo é que se LEIA à primeira vista, não que atraia o dedo. O hover então se
+anuncia pelo fundo (`--tw-error-soft`), porque a cor já foi gasta em repouso.
+
+**SVG e não o emoji 🗑.** Emoji ignora `color`: no iOS sai sempre no desenho do
+sistema. O botão vermelho teria um ícone cinza-azulado dentro, e a pílula escura
+da lixeira já tinha um ícone colorido sobre texto branco. `TrashIconComponent`
+usa `stroke="currentColor"` e não tem tamanho próprio — quem chama define a
+caixa, porque o botão é que sabe se está num dedo ou num mouse.
+
+Aplicado nos três lugares (card de ponto, card de ambiente, pílula do arraste).
+De carona, dois buracos que estavam ali: o botão da etapa 1 não tinha
+`:focus-visible` nenhum, e não tinha a extensão de alvo para 44px que o da etapa
+2 já tinha. Errar aquele botão apaga uma foto que a pessoa foi tirar no lugar.
+
+### O teste intermitente que apareceu no caminho
+
+Ao rodar a suíte, uma falha em ~1 de 3 execuções, em arquivo alheio:
+`HotspotPanelComponent — leva o foco ao card de um ponto que ACABOU de nascer`
+achava `<ion-modal>` em `document.activeElement`.
+
+Causa: `hotspot-sheet.component.spec.ts` apresenta `IonModal` de verdade e nunca
+desmontava as fixtures. A apresentação do Ionic é assíncrona — o teste acaba
+antes de ela concluir, o modal sobrevive ao teardown e continua prendendo o foco
+do DOCUMENTO, que é um só para a suíte. Só falhava quando o Karma sorteava essa
+ordem.
+
+Não é dano deste trabalho; o arquivo novo mudou a distribuição do sorteio e
+revelou. Corrigido na origem, com `afterEach` que destrói as fixtures e remove
+qualquer `ion-modal` restante. **Provado por mutação:** com a limpeza, 6 de 6
+execuções limpas; neutralizando só o corpo do `afterEach`, 2 falhas em 6.

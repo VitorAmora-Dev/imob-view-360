@@ -65,11 +65,30 @@ describe('HotspotSheetComponent', () => {
     return { id, u: 0.5, v: 0.5, label: '', target: null };
   }
 
+  const montados: ComponentFixture<HotspotSheetComponent>[] = [];
+
   function monta(): ComponentFixture<HotspotSheetComponent> {
     const fixture = TestBed.createComponent(HotspotSheetComponent);
+    montados.push(fixture);
     fixture.detectChanges();
     return fixture;
   }
+
+  /**
+   * Estes testes apresentam `IonModal` de verdade, e um modal apresentado prende
+   * o foco no DOCUMENTO — que é um só para a suíte inteira.
+   *
+   * A apresentação do Ionic é assíncrona: o teste termina antes de ela concluir,
+   * e o modal sobrevive ao teardown do TestBed com o foco em cima. O teste do
+   * painel que verifica o foco no card recém-criado então achava `<ion-modal>`
+   * em `document.activeElement` e falhava — só quando o Karma sorteava esta
+   * ordem, o que dava uma falha em cada três execuções e em arquivo alheio.
+   */
+  afterEach(() => {
+    while (montados.length) montados.pop()!.destroy();
+    document.querySelectorAll('ion-modal').forEach((modal) => modal.remove());
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
 
   beforeEach(() => {
     media = mediaFalsa(true);

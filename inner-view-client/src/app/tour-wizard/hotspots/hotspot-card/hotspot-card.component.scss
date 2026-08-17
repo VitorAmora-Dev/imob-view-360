@@ -56,6 +56,15 @@
   }
 }
 
+// Vermelho de ERRO (#c13515), não a Rausch da marca. É a mesma regra que o
+// tour-wizard.scss já escreve para o texto de erro: a Rausch é a cor de ação
+// primária — ela pinta o badge do número, a borda do campo em foco e o
+// "Concluído" do sheet. Pintar o excluir dela deixaria, no mesmo card, o botão
+// que apaga com a roupa do botão que confirma.
+//
+// Vermelho no ÍCONE, não no fundo. Uma caixa vermelha sólida por card faria da
+// exclusão a coisa mais chamativa da lista, e não há confirmação depois dela.
+// O que se quer é que se leia à primeira vista, não que atraia o dedo.
 .tw-hp__remove {
   position: relative;
   display: grid;
@@ -63,15 +72,23 @@
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border: 1px solid var(--tw-border);
+  border: 1px solid var(--tw-error-border);
   border-radius: var(--tw-radius-xs);
   background: var(--tw-surface);
-  color: var(--tw-text-muted);
+  color: var(--tw-error-text);
   cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
 
+  app-tw-trash-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  // A cor já é a de repouso, então o hover se anuncia pelo fundo: se mudasse a
+  // cor de novo não haveria para onde mudar.
   &:hover {
-    border-color: var(--tw-brand-border);
-    color: var(--tw-brand);
+    background: var(--tw-error-soft);
+    border-color: var(--tw-error-text);
   }
 
   &:focus-visible {
@@ -79,10 +96,21 @@
     outline-offset: 1px;
   }
 
-  // A caixa desenhada tem 32px porque um X de 44px ao lado do nome pesa demais
-  // no card. A área que o dedo acerta tem os 44px do piso da WCAG, esticada por
-  // fora sem mexer no layout — excluir por engano aqui apaga trabalho.
+  // A caixa desenhada tem 32px porque um botão de 44px ao lado do nome pesa
+  // demais no card. A área que o dedo acerta tem os 44px do piso da WCAG,
+  // esticada por fora sem mexer no layout — excluir por engano aqui apaga
+  // trabalho.
   @include tw.tw-mobile {
+    width: 40px;
+    height: 40px;
+
+    // O desenho cresce junto: o alvo maior é para o dedo, este é para o olho,
+    // e o pedido que originou isto era de quem precisa ENXERGAR o botão.
+    app-tw-trash-icon {
+      width: 21px;
+      height: 21px;
+    }
+
     &::after {
       content: '';
       position: absolute;

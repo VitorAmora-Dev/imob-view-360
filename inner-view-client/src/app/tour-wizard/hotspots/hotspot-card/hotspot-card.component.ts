@@ -2,6 +2,7 @@ import { Component, computed, inject, input } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { WizardHotspot } from '../../tour-wizard.model';
+import { TrashIconComponent } from '../../ui/trash-icon/trash-icon.component';
 
 /**
  * O card de um ponto: nome, destino e excluir.
@@ -21,7 +22,7 @@ import { WizardHotspot } from '../../tour-wizard.model';
 @Component({
   selector: 'app-hotspot-card',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, TrashIconComponent],
   // A classe fica no host para que quem lista os cards não precise de um
   // invólucro só para estilizá-los.
   host: { class: 'tw-hp__card' },
