@@ -65,20 +65,34 @@
   --brand-primary-contrast: #ffffff;
   --brand-primary-contrast-rgb: 255, 255, 255;
 
+  /* -- Accent teal: os 10% --------------------------------------------- */
+  // A regra mais fácil de errar da paleta inteira, então ela está nos NOMES e
+  // não só num comentário: existe UM foreground permitido sobre teal, e ele se
+  // chama -dark. Branco sobre o teal claro dá 2,49:1 e reprova.
+  --brand-accent: #14b8a6; //       preenchimento, ícone, borda. Nunca atrás de texto.
+  --brand-accent-rgb: 20, 184, 166;
+  --brand-accent-dark: #0f766e; //  5,47:1 sobre branco ✓ — texto, ícone, e fundo de botão com texto branco
+  --brand-accent-soft: #ccfbf1; //  fundo de tag/realce; o par dele é -dark (4,86:1 ✓)
+  --brand-accent-glow: #2dd4bf; //  só sobre o escuro do visualizador: 10,06:1 sobre --tour-bg
+
   // Sub-marca. Zero consumidores em template hoje, mas os slots do Ionic NÃO
   // podem ficar indefinidos: o CSS do Ionic 8 traz `var(--ion-color-secondary,
   // #3dc2ff)` com fallback embutido, então apagar a definição não desliga o
   // slot — faz um `color="secondary"` futuro renderizar o ciano do Ionic, fora
   // da paleta, em silêncio, e sem nenhum teste pegar.
-  --brand-secondary: #460479;
-  --brand-secondary-rgb: 70, 4, 121;
-  --brand-secondary-dark: #3e046a;
-  --brand-secondary-tint: #591d86;
+  //
+  // Redefinidos DENTRO da paleta, o que transforma `color="secondary"` na forma
+  // sancionada de pedir um controle teal ao Ionic — com contraste garantido,
+  // porque ele aponta para o -dark e não para o teal claro.
+  --brand-secondary: var(--brand-accent-dark); //  teal escuro, branco a 5,47:1 ✓
+  --brand-secondary-rgb: 15, 118, 110;
+  --brand-secondary-dark: #0d6861;
+  --brand-secondary-tint: #27847d;
 
-  --brand-tertiary: #92174d;
-  --brand-tertiary-rgb: 146, 23, 77;
-  --brand-tertiary-dark: #801444;
-  --brand-tertiary-tint: #9d2e5f;
+  --brand-tertiary: var(--brand-primary-dark); //  azul profundo, branco a 6,70:1 ✓
+  --brand-tertiary-rgb: 29, 78, 216;
+  --brand-tertiary-dark: #1944be;
+  --brand-tertiary-tint: #3460dc;
 
   /* == Neutros ============================================================ */
   --neutral-white: #ffffff;
