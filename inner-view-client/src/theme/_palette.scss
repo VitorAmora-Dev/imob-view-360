@@ -108,23 +108,33 @@
   //
   // Quem pinta texto usa SEMPRE o slot -text, mesmo quando ele é alias da base.
   // A forma uniforme é o que impede alguém "simplificar" removendo o slot.
-  --status-success: #2dd36f;
-  --status-success-rgb: 45, 211, 111;
-  --status-success-dark: #28ba62;
-  --status-success-tint: #42d77d;
+  // Base 3,30:1 sobre branco — serve de preenchimento de chip, não de texto.
+  --status-success: #16a34a;
+  --status-success-rgb: 22, 163, 74;
+  --status-success-dark: #138f41;
+  --status-success-tint: #2dac5c;
+  --status-success-text: #15803d; //    5,01:1 ✓
+  --status-success-soft: #dcfce7;
+  --status-success-border: #bbf7d0;
 
-  --status-warning: #ffc409; //         preenchimento APENAS (~2:1 em branco)
-  --status-warning-rgb: 255, 196, 9;
-  --status-warning-dark: #e0ac08;
-  --status-warning-tint: #ffca22;
-  --status-warning-text: #8a6100; //    âmbar escuro, ~5,5:1 ✓
-  --status-warning-soft: #fdf6e3;
+  // Base 2,15:1 sobre branco: PREENCHIMENTO APENAS. É o slot que mais engana,
+  // porque parece legível numa tela grande e some numa pequena, ao sol.
+  --status-warning: #f59e0b;
+  --status-warning-rgb: 245, 158, 11;
+  --status-warning-dark: #d78b0a;
+  --status-warning-tint: #f6a823;
+  --status-warning-text: #b45309; //    5,02:1 ✓
+  --status-warning-soft: #fef3c7;
+  --status-warning-border: #fde68a;
 
-  --status-error: #c13515; //           ~5,5:1 em branco: base e texto coincidem
-  --status-error-rgb: 193, 53, 21;
-  --status-error-dark: #b32505;
-  --status-error-tint: #c7492c;
+  // Base 4,83:1 sobre branco: aqui base e texto coincidem, e o slot -text
+  // existe assim mesmo. A forma uniforme é o que impede alguém removê-lo por
+  // "simplificação" e depois pintar texto com a base de outro status.
+  --status-error: #dc2626;
+  --status-error-rgb: 220, 38, 38;
+  --status-error-dark: #c12121;
+  --status-error-tint: #e03c3c;
   --status-error-text: var(--status-error);
-  --status-error-soft: #fdf0ed;
-  --status-error-border: #eec6bd; //    tinta 200 do erro
+  --status-error-soft: #fee2e2;
+  --status-error-border: #fecaca;
 }
