@@ -749,3 +749,30 @@ Não é dano deste trabalho; o arquivo novo mudou a distribuição do sorteio e
 revelou. Corrigido na origem, com `afterEach` que destrói as fixtures e remove
 qualquer `ion-modal` restante. **Provado por mutação:** com a limpeza, 6 de 6
 execuções limpas; neutralizando só o corpo do `afterEach`, 2 falhas em 6.
+
+---
+
+## §19 — O orçamento de CSS por componente
+
+O `ng build` passou a avisar: `capture-360.component.scss` estourou o orçamento
+de 6kB por folha de componente. Medido, é meu: **5050 → 6199 bytes** comprimidos,
+e o degrau é o bloco `.result-name` do §17.
+
+Primeiro tirei o que era duplicação de verdade — o campo e os chips são o mesmo
+material (vidro escuro sobre a foto) e repetiam `padding`, `backdrop-filter`,
+`color`, `font` e `font-weight`. Uma regra comum, 76 bytes a menos e menos
+repetição. Ficou faltando 153.
+
+Daqui para frente seria contorcer CSS que está trabalhando, então subi o AVISO de
+6kB para 8kB e deixei o ERRO onde estava, em 10kB. Três razões:
+
+- O 6kB é o **padrão do Angular CLI**, não uma decisão deste projeto.
+- Esta é a tela mais pesada de estilo do app por natureza: câmera em tela cheia,
+  com sobreposição de preview. A segunda maior (`app-header`) tem 9,3kB de fonte.
+- O orçamento existe para pegar inchaço **não intencional**. Este cresceu porque
+  um campo foi acrescentado de propósito, depois de discussão de UX.
+
+A alternativa que recusei: mover `.result-name` para o `tour-wizard.scss` global.
+Isso passaria no orçamento sem remover byte nenhum — só esconderia os bytes num
+arquivo onde estilo de captura não tem o que fazer. É burlar a métrica, não
+atendê-la.

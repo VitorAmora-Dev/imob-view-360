@@ -393,19 +393,26 @@ ion-button.on-dark {
   gap: 8px;
 }
 
+/* O campo e os chips são o mesmo material: vidro escuro sobre a foto. O que os
+   separa é só peso e forma, então o que é comum vive numa regra só — e o
+   orçamento de 6kB por folha de componente é apertado nesta tela. */
+.result-name__input,
+.result-name__chip {
+  padding: 0 14px;
+  backdrop-filter: blur(7px);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+}
+
 .result-name__input {
   width: 100%;
   /* Piso de alvo da WCAG — tocado em pé, segurando o telefone. */
   min-height: 48px;
-  padding: 0 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
   border-radius: 12px;
   background: rgba(11, 13, 18, 0.82);
-  backdrop-filter: blur(7px);
-  color: #fff;
-  font: inherit;
   font-size: 16px; /* menos que 16px faz o iOS dar zoom ao focar */
-  font-weight: 600;
 }
 
 .result-name__input::placeholder {
@@ -437,15 +444,10 @@ ion-button.on-dark {
 .result-name__chip {
   flex: 0 0 auto;
   min-height: 40px;
-  padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
   background: rgba(11, 13, 18, 0.72);
-  backdrop-filter: blur(7px);
-  color: #fff;
-  font: inherit;
   font-size: 14px;
-  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
