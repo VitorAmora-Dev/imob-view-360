@@ -1,97 +1,113 @@
-// Inner View theme — Airbnb design system (see DESIGN.md at repo root).
-// Single brand voltage: Rausch #ff385c. White canvas, ink text, one shadow tier.
+// L1 — CAMADA SEMÂNTICA. Dá papel aos primitivos de `_palette.scss`.
+//
+// Nada aqui é um hex de marca. Todo valor é `var()` de um primitivo de L0,
+// exceto as triplas `-rgb`, que o Ionic exige literais, e os shade/tint das
+// famílias neutras, que são degraus sem consumidor fora do próprio Ionic.
+//
+// O que muda quando a marca muda: `_palette.scss`. Este arquivo diz QUEM usa a
+// marca, não QUAL é a marca.
+@use './palette';
 
 :root {
   /* ---------------------------------------------------------------------- */
-  /* Brand palettes (--ion-color-*)                                          */
+  /* Famílias de cor do Ionic (--ion-color-*)                                */
   /* ---------------------------------------------------------------------- */
+  /* Trocar os 6 slots de uma família propaga sozinho para todo componente
+     Ionic daquela cor: `.ion-color-*` mapeia a tupla para os slots genéricos
+     que `ion-button`, `ion-fab-button` e afins leem. Os 26 `ion-button` do app
+     herdam `primary` por OMISSÃO do atributo `color`. */
 
-  /* Rausch — the single brand color (CTAs, FAB, saved heart, wordmark) */
-  --ion-color-primary: #ff385c;
+  --ion-color-primary: var(--brand-primary);
   --ion-color-primary-rgb: 255, 56, 92;
-  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast: var(--brand-primary-contrast);
   --ion-color-primary-contrast-rgb: 255, 255, 255;
-  --ion-color-primary-shade: #e00b41; /* press/active state per DESIGN.md */
-  --ion-color-primary-tint: #ff4c6c;
+  --ion-color-primary-shade: var(--brand-primary-dark);
+  --ion-color-primary-tint: var(--brand-primary-tint);
 
-  /* Luxe purple — sub-brand accent, rarely used */
-  --ion-color-secondary: #460479;
+  --ion-color-secondary: var(--brand-secondary);
   --ion-color-secondary-rgb: 70, 4, 121;
-  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast: var(--neutral-white);
   --ion-color-secondary-contrast-rgb: 255, 255, 255;
-  --ion-color-secondary-shade: #3e046a;
-  --ion-color-secondary-tint: #591d86;
+  --ion-color-secondary-shade: var(--brand-secondary-dark);
+  --ion-color-secondary-tint: var(--brand-secondary-tint);
 
-  /* Plus magenta — sub-brand accent, rarely used */
-  --ion-color-tertiary: #92174d;
+  --ion-color-tertiary: var(--brand-tertiary);
   --ion-color-tertiary-rgb: 146, 23, 77;
-  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast: var(--neutral-white);
   --ion-color-tertiary-contrast-rgb: 255, 255, 255;
-  --ion-color-tertiary-shade: #801444;
-  --ion-color-tertiary-tint: #9d2e5f;
+  --ion-color-tertiary-shade: var(--brand-tertiary-dark);
+  --ion-color-tertiary-tint: var(--brand-tertiary-tint);
 
-  --ion-color-success: #2dd36f;
+  --ion-color-success: var(--status-success);
   --ion-color-success-rgb: 45, 211, 111;
-  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast: var(--neutral-white);
   --ion-color-success-contrast-rgb: 255, 255, 255;
-  --ion-color-success-shade: #28ba62;
-  --ion-color-success-tint: #42d77d;
+  --ion-color-success-shade: var(--status-success-dark);
+  --ion-color-success-tint: var(--status-success-tint);
 
-  --ion-color-warning: #ffc409;
+  /* O ÚNICO contrast preto do arquivo, e é obrigatório: o âmbar cheio só
+     funciona com texto escuro em cima. Uma substituição em massa que o
+     transforme em branco produz um chip ilegível que nenhum teste pega. */
+  --ion-color-warning: var(--status-warning);
   --ion-color-warning-rgb: 255, 196, 9;
-  --ion-color-warning-contrast: #000000;
+  --ion-color-warning-contrast: var(--neutral-black);
   --ion-color-warning-contrast-rgb: 0, 0, 0;
-  --ion-color-warning-shade: #e0ac08;
-  --ion-color-warning-tint: #ffca22;
+  --ion-color-warning-shade: var(--status-warning-dark);
+  --ion-color-warning-tint: var(--status-warning-tint);
 
-  /* Error red — distinct from Rausch (form validation, destructive) */
-  --ion-color-danger: #c13515;
+  --ion-color-danger: var(--status-error);
   --ion-color-danger-rgb: 193, 53, 21;
-  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast: var(--neutral-white);
   --ion-color-danger-contrast-rgb: 255, 255, 255;
-  --ion-color-danger-shade: #b32505; /* error hover per DESIGN.md */
-  --ion-color-danger-tint: #c7492c;
+  --ion-color-danger-shade: var(--status-error-dark);
+  --ion-color-danger-tint: var(--status-error-tint);
 
-  /* Muted — secondary text */
-  --ion-color-medium: #6a6a6a;
+  --ion-color-medium: var(--neutral-muted);
   --ion-color-medium-rgb: 106, 106, 106;
-  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast: var(--neutral-white);
   --ion-color-medium-contrast-rgb: 255, 255, 255;
   --ion-color-medium-shade: #5d5d5d;
   --ion-color-medium-tint: #797979;
 
-  /* Surface soft */
-  --ion-color-light: #f7f7f7;
+  --ion-color-light: var(--neutral-surface-soft);
   --ion-color-light-rgb: 247, 247, 247;
-  --ion-color-light-contrast: #222222;
+  --ion-color-light-contrast: var(--neutral-ink);
   --ion-color-light-contrast-rgb: 34, 34, 34;
   --ion-color-light-shade: #d9d9d9;
   --ion-color-light-tint: #f8f8f8;
 
-  /* Ink */
-  --ion-color-dark: #222222;
+  --ion-color-dark: var(--neutral-ink);
   --ion-color-dark-rgb: 34, 34, 34;
-  --ion-color-dark-contrast: #ffffff;
+  --ion-color-dark-contrast: var(--neutral-white);
   --ion-color-dark-contrast-rgb: 255, 255, 255;
   --ion-color-dark-shade: #1e1e1e;
   --ion-color-dark-tint: #383838;
 
   /* ---------------------------------------------------------------------- */
-  /* Canvas & text                                                           */
+  /* Canvas e texto                                                          */
   /* ---------------------------------------------------------------------- */
 
-  --ion-background-color: #ffffff;
+  --ion-background-color: var(--neutral-white);
   --ion-background-color-rgb: 255, 255, 255;
-  --ion-text-color: #222222;
+  --ion-text-color: var(--neutral-ink);
   --ion-text-color-rgb: 34, 34, 34;
-  --ion-border-color: #dddddd;
+  --ion-border-color: var(--neutral-hairline);
 
   --ion-font-family: 'Airbnb Cereal VF', Circular, 'Inter Variable', Inter,
     -apple-system, system-ui, Roboto, 'Helvetica Neue', sans-serif;
 
-  /* Stepped colors — linear blend canvas #ffffff → ink #222222.
-     Ionic 8 reads --ion-background-color-step-* / --ion-text-color-step-*;
-     the legacy --ion-color-step-* family is kept for older internals. */
+  /* ---------------------------------------------------------------------- */
+  /* Escada de cinza — UMA escada, 19 degraus                                */
+  /* ---------------------------------------------------------------------- */
+  /* O Ionic lê três famílias de degraus, e elas são matematicamente a MESMA
+     escada: a legada é idêntica à de fundo, e a de texto é o inverso dela
+     (1000 menos N). Antes eram 57 hex escritos à mão, com a relação implícita
+     — ou seja, livre para divergir em silêncio numa edição futura. Agora são
+     19 valores e 38 alias, e a relação é impossível de quebrar.
+
+     Fórmula, por canal: ceil(255 - (N/1000) * (255 - canal do ink)).
+     Âncoras: fundo --neutral-white, tinta --neutral-ink. */
+
   --ion-background-color-step-50: #f4f4f4;
   --ion-background-color-step-100: #e9e9e9;
   --ion-background-color-step-150: #dedede;
@@ -112,60 +128,63 @@
   --ion-background-color-step-900: #393939;
   --ion-background-color-step-950: #2e2e2e;
 
-  --ion-text-color-step-50: #2e2e2e;
-  --ion-text-color-step-100: #393939;
-  --ion-text-color-step-150: #444444;
-  --ion-text-color-step-200: #4f4f4f;
-  --ion-text-color-step-250: #5a5a5a;
-  --ion-text-color-step-300: #656565;
-  --ion-text-color-step-350: #707070;
-  --ion-text-color-step-400: #7b7b7b;
-  --ion-text-color-step-450: #868686;
-  --ion-text-color-step-500: #919191;
-  --ion-text-color-step-550: #9c9c9c;
-  --ion-text-color-step-600: #a7a7a7;
-  --ion-text-color-step-650: #b2b2b2;
-  --ion-text-color-step-700: #bdbdbd;
-  --ion-text-color-step-750: #c8c8c8;
-  --ion-text-color-step-800: #d3d3d3;
-  --ion-text-color-step-850: #dedede;
-  --ion-text-color-step-900: #e9e9e9;
-  --ion-text-color-step-950: #f4f4f4;
+  /* A escada de texto é a de fundo lida de trás para frente. */
+  --ion-text-color-step-50: var(--ion-background-color-step-950);
+  --ion-text-color-step-100: var(--ion-background-color-step-900);
+  --ion-text-color-step-150: var(--ion-background-color-step-850);
+  --ion-text-color-step-200: var(--ion-background-color-step-800);
+  --ion-text-color-step-250: var(--ion-background-color-step-750);
+  --ion-text-color-step-300: var(--ion-background-color-step-700);
+  --ion-text-color-step-350: var(--ion-background-color-step-650);
+  --ion-text-color-step-400: var(--ion-background-color-step-600);
+  --ion-text-color-step-450: var(--ion-background-color-step-550);
+  --ion-text-color-step-500: var(--ion-background-color-step-500);
+  --ion-text-color-step-550: var(--ion-background-color-step-450);
+  --ion-text-color-step-600: var(--ion-background-color-step-400);
+  --ion-text-color-step-650: var(--ion-background-color-step-350);
+  --ion-text-color-step-700: var(--ion-background-color-step-300);
+  --ion-text-color-step-750: var(--ion-background-color-step-250);
+  --ion-text-color-step-800: var(--ion-background-color-step-200);
+  --ion-text-color-step-850: var(--ion-background-color-step-150);
+  --ion-text-color-step-900: var(--ion-background-color-step-100);
+  --ion-text-color-step-950: var(--ion-background-color-step-50);
 
-  --ion-color-step-50: #f4f4f4;
-  --ion-color-step-100: #e9e9e9;
-  --ion-color-step-150: #dedede;
-  --ion-color-step-200: #d3d3d3;
-  --ion-color-step-250: #c8c8c8;
-  --ion-color-step-300: #bdbdbd;
-  --ion-color-step-350: #b2b2b2;
-  --ion-color-step-400: #a7a7a7;
-  --ion-color-step-450: #9c9c9c;
-  --ion-color-step-500: #919191;
-  --ion-color-step-550: #868686;
-  --ion-color-step-600: #7b7b7b;
-  --ion-color-step-650: #707070;
-  --ion-color-step-700: #656565;
-  --ion-color-step-750: #5a5a5a;
-  --ion-color-step-800: #4f4f4f;
-  --ion-color-step-850: #444444;
-  --ion-color-step-900: #393939;
-  --ion-color-step-950: #2e2e2e;
+  /* Família legada, mantida para internals antigos do Ionic. */
+  --ion-color-step-50: var(--ion-background-color-step-50);
+  --ion-color-step-100: var(--ion-background-color-step-100);
+  --ion-color-step-150: var(--ion-background-color-step-150);
+  --ion-color-step-200: var(--ion-background-color-step-200);
+  --ion-color-step-250: var(--ion-background-color-step-250);
+  --ion-color-step-300: var(--ion-background-color-step-300);
+  --ion-color-step-350: var(--ion-background-color-step-350);
+  --ion-color-step-400: var(--ion-background-color-step-400);
+  --ion-color-step-450: var(--ion-background-color-step-450);
+  --ion-color-step-500: var(--ion-background-color-step-500);
+  --ion-color-step-550: var(--ion-background-color-step-550);
+  --ion-color-step-600: var(--ion-background-color-step-600);
+  --ion-color-step-650: var(--ion-background-color-step-650);
+  --ion-color-step-700: var(--ion-background-color-step-700);
+  --ion-color-step-750: var(--ion-background-color-step-750);
+  --ion-color-step-800: var(--ion-background-color-step-800);
+  --ion-color-step-850: var(--ion-background-color-step-850);
+  --ion-color-step-900: var(--ion-background-color-step-900);
+  --ion-color-step-950: var(--ion-background-color-step-950);
 
   /* ---------------------------------------------------------------------- */
-  /* App design tokens (Airbnb spec values for page/component SCSS)          */
+  /* Tokens do app, para o SCSS de página e componente                       */
   /* ---------------------------------------------------------------------- */
 
-  --app-ink: #222222;
-  --app-body: #3f3f3f;
-  --app-muted: #6a6a6a;
-  --app-muted-soft: #929292;
-  --app-hairline: #dddddd;
-  --app-hairline-soft: #ebebeb;
-  --app-border-strong: #c1c1c1;
-  --app-surface-soft: #f7f7f7;
-  --app-surface-strong: #f2f2f2;
-  --app-primary-disabled: #ffd1da;
+  --app-ink: var(--neutral-ink);
+  --app-body: var(--neutral-body);
+  --app-muted: var(--neutral-muted);
+  --app-muted-soft: var(--neutral-muted-soft);
+  --app-hairline: var(--neutral-hairline);
+  --app-hairline-soft: var(--neutral-hairline-soft);
+  --app-border-strong: var(--neutral-border-strong);
+  --app-surface-soft: var(--neutral-surface-soft);
+  --app-surface-strong: var(--neutral-surface-strong);
+  /* O único token --app-* acoplado à marca. */
+  --app-primary-disabled: var(--brand-primary-200);
 
   --app-radius-xs: 4px;
   --app-radius-sm: 8px;
@@ -173,17 +192,17 @@
   --app-radius-lg: 20px;
   --app-radius-xl: 32px;
 
-  /* The single shadow tier of the whole system (search bar, dropdowns,
-     elevated cards). First layer doubles as a 1px hairline ring. */
+  /* A única camada de sombra do sistema (barra de busca, dropdowns, cards
+     elevados). A primeira camada faz as vezes de anel hairline de 1px. */
   --app-shadow-tier: rgba(0, 0, 0, 0.02) 0 0 0 1px,
     rgba(0, 0, 0, 0.04) 0 2px 6px 0, rgba(0, 0, 0, 0.1) 0 4px 8px 0;
 
   /* ---------------------------------------------------------------------- */
-  /* Component-level defaults                                                */
+  /* Padrões de componente                                                   */
   /* ---------------------------------------------------------------------- */
 
-  --ion-toolbar-background: #ffffff;
-  --ion-toolbar-color: #222222;
-  --ion-item-background: #ffffff;
-  --ion-card-background: #ffffff;
+  --ion-toolbar-background: var(--neutral-white);
+  --ion-toolbar-color: var(--neutral-ink);
+  --ion-item-background: var(--neutral-white);
+  --ion-card-background: var(--neutral-white);
 }

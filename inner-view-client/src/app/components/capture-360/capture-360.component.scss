@@ -73,7 +73,7 @@
 
   &.target--locked::before {
     border-color: var(--ion-color-primary);
-    background: rgba(255, 56, 92, 0.25);
+    background: rgba(var(--ion-color-primary-rgb), 0.25);
   }
 }
 

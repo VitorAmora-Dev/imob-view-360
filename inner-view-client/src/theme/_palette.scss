@@ -1,0 +1,130 @@
+// L0 — PRIMITIVOS DE COR. A única fonte de verdade cromática do sistema.
+//
+// Arquitetura em quatro camadas:
+//
+//   L0  _palette.scss     --brand-*, --neutral-*, --status-*   (este arquivo)
+//   L1  variables.scss    --ion-color-*, --app-*               (semântico global)
+//   L2  tour-wizard.scss  --tw-*                               (domínio do wizard)
+//   L3  componentes       var(--tw-*), var(--app-*), var(--ion-*)
+//
+// REGRA: os primitivos daqui são consumidos SÓ por L1 e L2. Nenhum componente
+// escreve `var(--brand-primary)`. Componente pede a coisa pelo papel que ela tem
+// ("a superfície do card", "o texto de erro"), não pela cor que ela é hoje.
+//
+// Esta é a adaptação, para uma stack que já tem camada semântica, da regra do
+// ARP-VISION-DESIGN.md: "nunca escreva um hex direto num componente". O Ionic
+// EXIGE que `--ion-color-primary` exista e não aceita ser renomeado — então em
+// vez de escolher entre a nomenclatura do documento e a do Ionic, o Ionic passa
+// a ser ALIMENTADO por esta camada.
+//
+// POR QUE ESTE ARQUIVO EXISTE
+//
+// Havia duas vermelhas no sistema: a #ff385c do Ionic e a #E8365D do handoff do
+// wizard, esta sobrevivendo dentro de `--tw-trash-active`. Ninguém errou — não
+// existia um lugar único que dissesse qual é a cor da marca, então duas fontes
+// responderam. Um piso de primitivos é o que impede a terceira.
+//
+// NOMES: por PAPEL, não por matiz
+//
+// O ARP-VISION-DESIGN.md nomeia por cor (`brand-blue`, `brand-teal`). Aqui os
+// primitivos são `--brand-primary` / `--brand-accent`, porque um token chamado
+// "blue" vira mentira no dia em que a marca não for azul — que é exatamente o
+// dia de hoje, e é o motivo de este arquivo estar nascendo. A correspondência:
+//
+//   documento          aqui
+//   brand-blue      -> --brand-primary
+//   brand-blue-dark -> --brand-primary-dark
+//   brand-blue-soft -> --brand-primary-soft
+//   brand-teal      -> --brand-accent      (entra quando houver consumidor)
+//   text-strong     -> --neutral-ink
+//   text-secondary  -> --neutral-body
+//   text-muted      -> --neutral-muted
+//   border          -> --neutral-hairline
+//   bg-section      -> --neutral-surface-strong
+//   bg-base         -> --neutral-surface-soft
+//   status-*        -> --status-*
+//
+// PARES hex/rgb: `--ion-color-primary-rgb` exige a tripla literal, não aceita
+// `var()` de um hex. É o único ponto do sistema onde uma verdade fica escrita
+// duas vezes. `palette.contract.spec.ts` trava que as duas não divergiram.
+//
+// Nada de `color-mix()` aqui: `panoramic-viewer.component.ts` lê tokens por
+// `getComputedStyle` e passa direto para `ctx.fillStyle` do canvas, que não
+// entende a função — ele receberia a string literal. Todo valor deste arquivo é
+// hex, rgba, ou `var()` de um.
+
+:root {
+  /* == Marca ============================================================== */
+  --brand-primary: #ff385c;
+  --brand-primary-rgb: 255, 56, 92;
+  --brand-primary-dark: #e00b41; //  press/active
+  --brand-primary-tint: #ff4c6c;
+  --brand-primary-soft: #fff0f3; //  fundo de chip/badge de marca
+  --brand-primary-200: #ffd1da; //   CTA sólido desabilitado
+  --brand-primary-300: #ffc9d4; //   borda em hover
+  --brand-primary-contrast: #ffffff;
+  --brand-primary-contrast-rgb: 255, 255, 255;
+
+  // Sub-marca. Zero consumidores em template hoje, mas os slots do Ionic NÃO
+  // podem ficar indefinidos: o CSS do Ionic 8 traz `var(--ion-color-secondary,
+  // #3dc2ff)` com fallback embutido, então apagar a definição não desliga o
+  // slot — faz um `color="secondary"` futuro renderizar o ciano do Ionic, fora
+  // da paleta, em silêncio, e sem nenhum teste pegar.
+  --brand-secondary: #460479;
+  --brand-secondary-rgb: 70, 4, 121;
+  --brand-secondary-dark: #3e046a;
+  --brand-secondary-tint: #591d86;
+
+  --brand-tertiary: #92174d;
+  --brand-tertiary-rgb: 146, 23, 77;
+  --brand-tertiary-dark: #801444;
+  --brand-tertiary-tint: #9d2e5f;
+
+  /* == Neutros ============================================================ */
+  --neutral-white: #ffffff;
+  --neutral-white-rgb: 255, 255, 255;
+  --neutral-black: #000000; //          só como contraste de superfície clara
+  --neutral-black-rgb: 0, 0, 0;
+
+  --neutral-ink: #222222; //            texto principal, títulos
+  --neutral-ink-rgb: 34, 34, 34;
+  --neutral-body: #3f3f3f; //           corpo de texto
+  --neutral-muted: #6a6a6a; //          texto secundário
+  --neutral-muted-soft: #929292; //     texto terciário
+  --neutral-hairline: #dddddd; //       borda padrão
+  --neutral-hairline-soft: #ebebeb; //  divisória
+  --neutral-border-strong: #c1c1c1; //  borda enfática (dropzone tracejado)
+  --neutral-surface-soft: #f7f7f7; //   superfície suave / hover
+  --neutral-surface-strong: #f2f2f2; // trilho de progresso
+
+  /* == Status ============================================================= */
+  // TRÊS SLOTS por família, e a distinção não é enfeite: a cor cheia de um
+  // status quase nunca passa contraste como TEXTO. O âmbar do design system
+  // (#ffc409) rende ~2:1 sobre branco — um aviso ilegível não avisa. Então:
+  //
+  //   base    preenchimento, ícone, borda. Pode não servir para texto.
+  //   -text   a variante que PASSA em texto. Quem pinta letra usa esta.
+  //   -soft   fundo da faixa/bloco daquele status.
+  //
+  // Quem pinta texto usa SEMPRE o slot -text, mesmo quando ele é alias da base.
+  // A forma uniforme é o que impede alguém "simplificar" removendo o slot.
+  --status-success: #2dd36f;
+  --status-success-rgb: 45, 211, 111;
+  --status-success-dark: #28ba62;
+  --status-success-tint: #42d77d;
+
+  --status-warning: #ffc409; //         preenchimento APENAS (~2:1 em branco)
+  --status-warning-rgb: 255, 196, 9;
+  --status-warning-dark: #e0ac08;
+  --status-warning-tint: #ffca22;
+  --status-warning-text: #8a6100; //    âmbar escuro, ~5,5:1 ✓
+  --status-warning-soft: #fdf6e3;
+
+  --status-error: #c13515; //           ~5,5:1 em branco: base e texto coincidem
+  --status-error-rgb: 193, 53, 21;
+  --status-error-dark: #b32505;
+  --status-error-tint: #c7492c;
+  --status-error-text: var(--status-error);
+  --status-error-soft: #fdf0ed;
+  --status-error-border: #eec6bd; //    tinta 200 do erro
+}
