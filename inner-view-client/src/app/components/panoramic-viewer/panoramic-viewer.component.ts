@@ -131,7 +131,7 @@ const DRAG_SLOP_PX = 6;
       /* Piso de alvo da WCAG. Isto é tocado com o polegar, sobre uma foto. */
       min-height: 44px;
       padding: 0 14px;
-      border: 2px solid var(--tw-brand, #ff385c);
+      border: 2px solid var(--tw-brand, #2563eb);
       border-radius: 999px;
       /* Mesma pílula do pin: é a mesma linguagem de "toque aqui para ir". */
       background: var(--tw-pin-bg-canvas, rgba(11, 13, 18, 0.95));
@@ -151,7 +151,7 @@ const DRAG_SLOP_PX = 6;
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      background: var(--tw-brand, #ff385c);
+      background: var(--tw-brand, #2563eb);
     }
 
     .viewer-nav__nome {
@@ -195,7 +195,7 @@ const DRAG_SLOP_PX = 6;
        nunca só por cor — e o atributo aria-current conta a mesma coisa a quem
        não enxerga nenhuma das duas. */
     .viewer-nav__item.is-atual {
-      border-color: var(--tw-brand, #ff385c);
+      border-color: var(--tw-brand, #2563eb);
       font-weight: 700;
     }
 
@@ -603,7 +603,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     const raiz = getComputedStyle(document.documentElement);
     const token = (nome: string, padrao: string) =>
       raiz.getPropertyValue(nome).trim() || padrao;
-    const marca = token('--tw-brand', '#ff385c');
+    const marca = token('--tw-brand', '#2563eb');
 
     // Halo escuro por fora, antes de tudo. Uma borda vermelha sobre um teto
     // branco ou uma parede clara desaparece; o halo é o que dá silhueta sobre
@@ -621,11 +621,13 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
     // A borda é da marca, e é ela que faz o pin ser notado de longe.
     //
-    // A alternativa era pintar a PÍLULA inteira de vermelho. Medi as duas:
-    // branco sobre a Rausch #ff385c dá 3,5:1, abaixo do 4,5:1 que a WCAG pede
-    // para texto normal; branco sobre esta pílula dá ~17:1. Como o pedido é
-    // justamente enxergar melhor, o vermelho entra na silhueta e o texto fica
-    // onde se lê. Ver §11 das notas do sprint.
+    // A alternativa era pintar a PÍLULA inteira com a cor da marca. Continua
+    // recusada, mas o motivo mudou com a paleta: com a Rausch o argumento era
+    // de contraste (branco sobre #ff385c dava 3,5:1, abaixo do 4,5:1 da WCAG);
+    // com o azul #2563eb são 5,17:1 e esse argumento cai. O que não cai é o
+    // outro: atrás deste pin há uma FOTO que ninguém controla, e um bloco de
+    // cor chapada compete com ela em vez de se destacar dela. Branco sobre esta
+    // pílula escura dá ~17:1 em qualquer parede. Ver §11 das notas do sprint.
     ctx.beginPath();
     ctx.roundRect(10, 10, L - 20, A - 20, (A - 20) / 2);
     ctx.strokeStyle = marca;
@@ -653,9 +655,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // SEM isto o pin sai lavado, e foi o que apareceu no celular: o renderer
     // trabalha com `outputColorSpace = 'srgb'`, então uma textura que não se
     // declara sRGB é lida como se fosse linear e convertida de novo na saída.
-    // Medido: #ff385c chegava à tela como #ff81a2, um rosa claro, e a pílula
-    // #101218 como #474b56, um cinza médio. A foto já fazia isso certo desde
-    // sempre (`loadPanorama`); só o sprite ficou de fora.
+    // Medido à época, com a marca ainda em #ff385c: ela chegava à tela como
+    // #ff81a2, um rosa claro, e a pílula #101218 como #474b56, um cinza médio.
+    // A cor mudou, o mecanismo não. A foto já fazia isso certo desde sempre
+    // (`loadPanorama`); só o sprite ficou de fora.
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
 
