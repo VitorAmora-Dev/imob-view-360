@@ -1,0 +1,17 @@
+@if (dragging()) {
+  <div class="tw-trash" [class.is-active]="active()">
+    <!--
+      Era o emoji 🗑, que no iOS sai no desenho colorido do sistema e ignora o
+      `color: #fff` da pílula. Agora é o mesmo traço do botão dos cards: quem
+      arrasta e quem toca no botão veem a mesma lixeira.
+    -->
+    <app-tw-trash-icon class="tw-trash__icon" />
+    <span class="tw-trash__text">
+      @if (active()) {
+        {{ 'TOUR_WIZARD.STEP2.TRASH_RELEASE' | translate }}
+      } @else {
+        {{ 'TOUR_WIZARD.STEP2.TRASH_HINT' | translate }}
+      }
+    </span>
+  </div>
+}

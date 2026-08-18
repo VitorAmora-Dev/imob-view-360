@@ -1,0 +1,90 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: block;
+}
+
+// Duas colunas que empilham sozinhas: o formulário pede pelo menos 420px e o
+// resumo 270px, então abaixo de ~710px o wrap acontece sem media query.
+.tw-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.tw-info__form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
+.tw-info__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+app-tour-summary {
+  flex: 0 1 300px;
+  min-width: 270px;
+
+  // No mobile o resumo vai para o fim e ocupa a largura toda — espremido ao
+  // lado do formulário ele viraria uma coluna de 100px.
+  @include tw.tw-mobile {
+    flex: 1 1 100%;
+  }
+}
+
+/* -- Campo ----------------------------------------------------------------- */
+
+.tw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+
+  input,
+  select {
+    width: 100%;
+    padding: 13px 14px;
+    border: 1px solid var(--tw-border);
+    border-radius: 11px;
+    font: inherit;
+    font-size: 15px;
+    color: var(--tw-text-strong);
+    background: var(--tw-surface);
+
+    &:focus {
+      border-color: var(--tw-brand);
+      outline: 2px solid var(--tw-focus-ring);
+      outline-offset: 0;
+    }
+
+    // 16px é obrigatório no mobile: abaixo disso o iOS dá zoom sozinho ao
+    // focar o campo e o corretor perde o enquadramento da tela.
+    @include tw.tw-mobile {
+      font-size: 16px;
+    }
+  }
+}
+
+.tw-field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tw-text);
+}
+
+.tw-field.has-error {
+  input,
+  select {
+    border-color: var(--ion-color-danger);
+  }
+}
+
+.tw-field__error {
+  font-size: 12.5px;
+  color: var(--ion-color-danger);
+}

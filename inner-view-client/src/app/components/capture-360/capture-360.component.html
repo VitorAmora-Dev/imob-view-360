@@ -138,6 +138,59 @@
         <span class="count-chip">{{ 'CAPTURE.PREVIEW_TITLE' | translate }}</span>
         <span class="top-bar-spacer"></span>
       </div>
+      <!--
+        Nomear o ambiente AQUI, e não depois na lista de cards.
+
+        Nomear funciona onde está a evidência, e na captura a evidência é a
+        pessoa estar de pé dentro do cômodo — verdade neste instante e nunca
+        mais com a mesma força. Dez minutos depois são oito miniaturas de parede
+        branca e um esforço de memória para separar o quarto do escritório.
+
+        No preview e não num modal depois do "Usar": esta tela já é a
+        confirmação, com o panorama à vista. Um diálogo a mais custaria uma tela
+        e um fechamento pelo mesmo campo.
+
+        Sem foco automático de propósito: o teclado subiria cobrindo justamente
+        o panorama que a pessoa veio conferir, que é o propósito declarado da
+        tela.
+
+        E sem obrigar: a etapa 1 já segura quem não nomear. Aqui é oportunidade,
+        não cobrança — exigir formulário de quem acabou de girar um minuto com o
+        telefone na mão é o pior momento possível para cobrar.
+      -->
+      <div class="result-name">
+        <label class="tw-visually-hidden" for="captura-nome">
+          {{ 'CAPTURE.ROOM_LABEL' | translate }}
+        </label>
+        <input
+          id="captura-nome"
+          type="text"
+          class="result-name__input"
+          [value]="roomName()"
+          [placeholder]="'CAPTURE.ROOM_PLACEHOLDER' | translate"
+          (input)="onRoomName($event)" />
+
+        <!--
+          Sugestões em chip porque a fricção real é digitar em pé segurando o
+          telefone. Um toque resolve o caso comum, e o campo livre continua ali
+          para "Escritório do fundo".
+        -->
+        <ul class="result-name__chips">
+          @for (sugestao of roomSuggestions(); track sugestao) {
+            <li>
+              <button
+                type="button"
+                class="result-name__chip"
+                [class.is-active]="roomName() === sugestao"
+                [attr.aria-pressed]="roomName() === sugestao"
+                (click)="pickRoom(sugestao)">
+                {{ sugestao }}
+              </button>
+            </li>
+          }
+        </ul>
+      </div>
+
       <div class="result-actions">
         <ion-button fill="outline" class="on-dark" (click)="restart()">
           {{ 'CAPTURE.RETAKE' | translate }}

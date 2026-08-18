@@ -1,0 +1,187 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* -- Utilitários ----------------------------------------------------------- */
+
+.tw-only-desktop {
+  @include tw.tw-mobile {
+    display: none;
+  }
+}
+
+.tw-only-mobile {
+  @include tw.tw-desktop {
+    display: none;
+  }
+}
+
+/* -- Dropzone -------------------------------------------------------------- */
+
+.tw-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 46px 24px;
+  border: 2px dashed var(--tw-border-dashed);
+  border-radius: var(--tw-radius-lg);
+  background: var(--tw-surface);
+  text-align: center;
+  cursor: pointer;
+  transition: var(--tw-ease-drop);
+
+  @include tw.tw-mobile {
+    padding: 34px 18px;
+  }
+
+  &.is-over {
+    border-color: var(--tw-brand);
+    background: var(--tw-brand-soft);
+  }
+
+  // O input escondido continua focável: sem realce visível, quem navega por
+  // teclado não sabe onde está.
+  &:focus-within {
+    border-color: var(--tw-brand);
+    outline: 2px solid var(--tw-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.tw-drop__icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--tw-brand-soft);
+  color: var(--tw-brand);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.tw-drop__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--tw-text-strong);
+}
+
+.tw-drop__sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--tw-text-muted);
+}
+
+.tw-drop__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+
+  @include tw.tw-mobile {
+    width: 100%;
+  }
+}
+
+// Aparência vem de `tour-wizard.scss`; aqui só como eles se arrumam no dropzone.
+.tw-btn {
+  flex: 0 0 auto;
+
+  // Empilhados e em largura total no mobile: lado a lado eles ficariam
+  // estreitos demais para o polegar.
+  @include tw.tw-mobile {
+    flex: 1 1 100%;
+  }
+}
+
+.tw-drop__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: 5px 11px;
+    border-radius: var(--tw-radius-pill);
+    background: var(--tw-surface-muted);
+    font-size: 12px;
+    color: var(--tw-text-muted);
+  }
+}
+
+/* -- Caixa de dica --------------------------------------------------------- */
+
+.tw-tip {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--tw-radius-sm);
+  background: var(--tw-surface-muted);
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--tw-text-muted);
+  }
+}
+
+.tw-tip__icon {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: var(--tw-text-faint);
+}
+
+/* -- Lista de ambientes ---------------------------------------------------- */
+
+.tw-scenes__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tw-text-strong);
+  }
+}
+
+.tw-scenes__count {
+  font-size: 13px;
+  color: var(--tw-text-faint);
+}
+
+.tw-scenes__grid {
+  display: grid;
+  // `auto-fill` com piso de 240px: uma coluna no celular, tantas quantas
+  // couberem no desktop, sem breakpoint escrito à mão.
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  // Sem isso, o card que não quebra a linha de metadados fica mais baixo que
+  // os vizinhos e a fileira sai desalinhada. O <li> estica sozinho; quem
+  // precisa de ajuda é o card dentro dele.
+  > li {
+    display: flex;
+  }
+
+  app-scene-card {
+    flex: 1;
+  }
+}

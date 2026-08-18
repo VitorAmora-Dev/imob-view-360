@@ -1,0 +1,16 @@
+<header class="tw-hp__head">
+  <h3>{{ 'TOUR_WIZARD.STEP2.PANEL_TITLE' | translate }}</h3>
+  <span class="tw-hp__count">{{ hotspots().length }}</span>
+</header>
+
+@if (hotspots().length) {
+  <ul class="tw-hp__list" role="list">
+    @for (hotspot of hotspots(); track hotspot.id; let i = $index) {
+      <li>
+        <app-hotspot-card [hotspot]="hotspot" [index]="i" />
+      </li>
+    }
+  </ul>
+} @else {
+  <p class="tw-hp__empty">{{ 'TOUR_WIZARD.STEP2.PANEL_EMPTY' | translate }}</p>
+}

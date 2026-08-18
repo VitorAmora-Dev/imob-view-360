@@ -31,7 +31,20 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'tour/novo',
+    loadComponent: () => import('./tour-wizard/tour-wizard.page').then(m => m.TourWizardPage),
+    canActivate: [authGuard],
+  },
+  {
+    // A tela antiga segue de pé enquanto o wizard não fecha o fluxo inteiro —
+    // é a única referência viva de como o publicar funciona. Some no último PR
+    // do sprint, junto com este redirect.
     path: 'upload',
+    redirectTo: 'tour/novo',
+    pathMatch: 'full',
+  },
+  {
+    path: 'upload-legado',
     loadComponent: () => import('./upload-tour/upload-tour.page').then(m => m.UploadTourPage),
     canActivate: [authGuard],
   },

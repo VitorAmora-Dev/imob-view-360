@@ -378,3 +378,87 @@ ion-button.on-dark {
     min-width: 150px;
   }
 }
+
+/* Nome do ambiente, na tela de preview da captura.
+   Fica ACIMA das ações e abaixo do panorama: a pessoa vê o que está nomeando
+   enquanto nomeia, que é a razão inteira de o campo estar aqui e não na lista
+   de cards depois. */
+.result-name {
+  position: absolute;
+  bottom: calc(84px + var(--ion-safe-area-bottom, 0px));
+  left: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* O campo e os chips são o mesmo material: vidro escuro sobre a foto. O que os
+   separa é só peso e forma, então o que é comum vive numa regra só — e o
+   orçamento de 6kB por folha de componente é apertado nesta tela. */
+.result-name__input,
+.result-name__chip {
+  padding: 0 14px;
+  backdrop-filter: blur(7px);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+}
+
+.result-name__input {
+  width: 100%;
+  /* Piso de alvo da WCAG — tocado em pé, segurando o telefone. */
+  min-height: 48px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  background: rgba(11, 13, 18, 0.82);
+  font-size: 16px; /* menos que 16px faz o iOS dar zoom ao focar */
+}
+
+.result-name__input::placeholder {
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 500;
+}
+
+.result-name__input:focus-visible {
+  outline: none;
+  border-color: var(--ion-color-primary);
+}
+
+.result-name__chips {
+  /* Rola na horizontal: seis sugestões não cabem na largura de um celular, e
+     quebrar em duas linhas comeria a foto que a pessoa veio conferir. */
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 2px 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.result-name__chips::-webkit-scrollbar {
+  display: none;
+}
+
+.result-name__chip {
+  flex: 0 0 auto;
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(11, 13, 18, 0.72);
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* Escolhido: cor da marca E preenchimento, nunca só a cor. */
+.result-name__chip.is-active {
+  border-color: var(--ion-color-primary);
+  background: var(--ion-color-primary);
+}
+
+.result-name__chip:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}

@@ -1,0 +1,62 @@
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <app-header backHref="/home" [pageTitle]="'TOUR_WIZARD.COMMON.TITLE' | translate"></app-header>
+
+  <div class="tw-shell">
+    <app-wizard-stepper />
+
+    <div class="tw-body">
+      <!--
+        Tela de espera da montagem por IA. Não está no handoff porque o
+        protótipo trata o upload como instantâneo, mas o fluxo real leva cerca
+        de um minuto por ambiente — e o corretor não tem mais nada a fazer aqui
+        senão aguardar. Cobre tudo, inclusive o sucesso, para ninguém sair da
+        página no meio do envio das fotos originais.
+      -->
+      @if (store.montagem(); as etapa) {
+        <div class="tw-montagem" role="status" aria-live="polite">
+          <span class="tw-montagem__spinner" aria-hidden="true"></span>
+          <h2>{{ 'UPLOAD.MONTAGEM.TITULO' | translate }}</h2>
+          <p>
+            {{ (etapa === 'fotos' ? 'UPLOAD.MONTAGEM.ENVIANDO' : 'UPLOAD.MONTAGEM.PROCESSANDO') | translate }}
+          </p>
+          @if (store.montagemTotal() > 1) {
+            <span class="tw-montagem__contador">
+              {{ store.montagemProntos() }} / {{ store.montagemTotal() }}
+            </span>
+          }
+          <small>{{ 'UPLOAD.MONTAGEM.AVISO' | translate }}</small>
+        </div>
+      } @else if (store.published()) {
+        <app-tour-published />
+      } @else {
+        @switch (store.step()) {
+          @case (1) { <app-tour-step-images /> }
+          @case (2) { <app-tour-step-hotspots /> }
+          @case (3) { <app-tour-step-info /> }
+        }
+      }
+    </div>
+
+    <div class="tw-shell__foot">
+      <!--
+        Falha ao publicar mora aqui, e não dentro da tela de sucesso.
+        `published()` só vira true depois de o tour existir, então a tela de
+        sucesso nunca monta quando a publicação falha — o aviso ficava
+        inalcançável justamente no único caso em que ele tem o que dizer. Junto
+        da barra fixa, aparece na altura do botão que a pessoa acabou de apertar.
+      -->
+      @if (store.publishError(); as erro) {
+        <p class="tw-shell__error" role="alert">{{ erro | translate }}</p>
+      }
+
+      <!--
+        A barra some por completo no estado publicado: não há mais nada a
+        avançar, e as ações de lá (copiar link, criar outro) pertencem ao próprio
+        conteúdo.
+      -->
+      @if (!store.published() && !store.montagem()) {
+        <app-wizard-actions />
+      }
+    </div>
+  </div>
+</ion-content>

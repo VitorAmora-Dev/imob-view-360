@@ -4,11 +4,34 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { VirtualTour, Panorama } from '../models/virtual-tour.model';
 
+/**
+ * Um hotspot enviado junto do panorama que o origina.
+ *
+ * O destino vai como `targetTempId` porque, na hora do envio, nenhum panorama
+ * tem id ainda — todos nascem na mesma transação. O servidor monta um
+ * `Map<tempId, uuid>` enquanto cria os panoramas e só então amarra os hotspots.
+ */
+export interface HotspotUpload {
+  label?: string;
+  /** UV 0–1, o mesmo par que `PanoramicViewerComponent` emite. */
+  positionX: number;
+  positionY: number;
+  targetTempId: string;
+}
+
 export interface PanoramaUpload {
+  /**
+   * Identificador provisório, escolhido pelo cliente, usado pelos hotspots
+   * desta mesma requisição para apontar uns aos outros. Quando ausente,
+   * `createTour` gera um por índice.
+   */
+  tempId?: string;
   roomName: string;
   imageData: string;
   order?: number;
   initialPanorama?: boolean;
+  /** Criados junto com o panorama, numa transação só. */
+  hotspots?: HotspotUpload[];
   /** Present only for guided captures — see `CaptureGeometry`. */
   fittedVfovDeg?: number;
   bandTopDeg?: number;
@@ -131,26 +154,35 @@ export class VirtualTourService {
    * de lançar: o tour existe e é navegável desde o primeiro instante, com os
    * panoramas originais. Prender o corretor numa tela de espera indefinida seria
    * pior que abrir o tour com o que já está pronto.
+   *
+   * `sinal` encerra o laço quando quem pediu foi embora. Sem ele, sair da tela
+   * no meio da montagem — o botão voltar do navegador basta — deixava este laço
+   * girando por até dez minutos, chamando de volta um componente que já não
+   * existe e segurando na memória, pela closure, tudo o que ele carregava.
+   * A montagem em si não para: ela roda no servidor, e reabrir o tour mostra
+   * onde chegou.
    */
   async acompanharMontagem(
     tourId: string,
     aoAvancar: (a: AndamentoDaMontagem) => void,
-    intervaloMs = 3000,
-    limiteMs = 10 * 60 * 1000,
+    { intervaloMs = 3000, limiteMs = 10 * 60 * 1000, sinal }: OpcoesDeAcompanhamento = {},
   ): Promise<AndamentoDaMontagem | null> {
     const ate = Date.now() + limiteMs;
     let ultimo: AndamentoDaMontagem | null = null;
 
-    while (Date.now() < ate) {
+    while (Date.now() < ate && !sinal?.aborted) {
       try {
         ultimo = await firstValueFrom(this.andamentoDaMontagem(tourId));
+        // A resposta pode chegar depois da desistência: avisar aqui seria
+        // escrever num estado que já foi destruído.
+        if (sinal?.aborted) return ultimo;
         aoAvancar(ultimo);
         if (ultimo.terminado) return ultimo;
       } catch {
         // Falha de rede não encerra o acompanhamento: a montagem segue no
         // servidor, e a próxima tentativa reencontra o estado.
       }
-      await new Promise((r) => setTimeout(r, intervaloMs));
+      await espera(intervaloMs, sinal);
     }
 
     return ultimo;
@@ -201,6 +233,33 @@ export class VirtualTourService {
     if (/mobile|android|iphone/i.test(ua)) return 'mobile';
     return 'desktop';
   }
+}
+
+export interface OpcoesDeAcompanhamento {
+  intervaloMs?: number;
+  limiteMs?: number;
+  /** Encerra o laço quando quem pediu o acompanhamento foi embora. */
+  sinal?: AbortSignal;
+}
+
+/**
+ * Espera que também acorda quando o sinal aborta.
+ *
+ * Um `setTimeout` puro deixaria o laço dormindo o intervalo inteiro depois da
+ * desistência — pouco, mas é tempo em que o componente já morreu e o callback
+ * ainda pode disparar.
+ */
+function espera(ms: number, sinal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (sinal?.aborted) return resolve();
+    const fim = () => {
+      clearTimeout(id);
+      sinal?.removeEventListener('abort', fim);
+      resolve();
+    };
+    const id = setTimeout(fim, ms);
+    sinal?.addEventListener('abort', fim, { once: true });
+  });
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {

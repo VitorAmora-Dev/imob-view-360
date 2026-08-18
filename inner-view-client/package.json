@@ -9,7 +9,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "node tools/checa-crases.js && ng lint",
+    "check:crases": "node tools/checa-crases.js"
   },
   "private": true,
   "dependencies": {

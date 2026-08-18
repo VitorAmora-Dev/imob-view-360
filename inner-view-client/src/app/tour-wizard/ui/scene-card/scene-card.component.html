@@ -1,0 +1,73 @@
+<!--
+  Miniatura por background-image e não <img>: o `cover` recorta sem deformar, e
+  o placeholder do estado "lendo" é o mesmo elemento, só sem imagem.
+-->
+<span
+  class="tw-scene__thumb"
+  [style.background-image]="scene().imageData ? 'url(' + scene().imageData + ')' : null"
+  aria-hidden="true"></span>
+
+<div class="tw-scene__main">
+  <label class="tw-visually-hidden" [attr.for]="'room-' + scene().id">
+    {{ 'TOUR_WIZARD.STEP1.ROOM_PLACEHOLDER' | translate }}
+  </label>
+  <!--
+    O campo se marca só depois de a pessoa tentar avançar (`showErrors`), nunca
+    ao nascer: um card recém-criado já vem sem nome, e vermelho antes de haver
+    erro é repreensão.
+  -->
+  <input
+    class="tw-scene__name"
+    type="text"
+    [class.is-error]="semNome()"
+    [id]="'room-' + scene().id"
+    [value]="scene().room"
+    [placeholder]="'TOUR_WIZARD.STEP1.ROOM_PLACEHOLDER' | translate"
+    [attr.aria-invalid]="semNome() ? 'true' : null"
+    [attr.aria-describedby]="semNome() ? 'room-erro-' + scene().id : null"
+    (input)="onRename($event)" />
+
+  @if (semNome()) {
+    <p class="tw-scene__note is-error" [id]="'room-erro-' + scene().id">
+      {{ 'TOUR_WIZARD.STEP1.NAME_REQUIRED' | translate }}
+    </p>
+  }
+
+  <p class="tw-scene__meta">
+    @if (isCover()) {
+      <span class="tw-badge tw-badge--cover">{{ 'TOUR_WIZARD.STEP1.BADGE_COVER' | translate }}</span>
+    } @else if (roomNumber() > 0) {
+      <span class="tw-badge">
+        {{ 'TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: roomNumber() } }}
+      </span>
+    }
+    <span class="tw-scene__size">{{ sizeLabel() }}</span>
+  </p>
+
+  <!--
+    Recusa e ressalva ficam no card, não num toast: o toast some antes de a
+    pessoa entender qual das oito fotos deu problema.
+  -->
+  @if (scene().state === 'reading') {
+    <p class="tw-scene__note">{{ 'TOUR_WIZARD.STEP1.READING' | translate }}</p>
+  } @else if (scene().state === 'rejected') {
+    <p class="tw-scene__note is-error" role="alert">{{ rejectionKey() | translate }}</p>
+  } @else if (scene().warning === 'ratio') {
+    <p class="tw-scene__note is-warning">
+      {{ 'TOUR_WIZARD.STEP1.WARN_RATIO' | translate }}
+    </p>
+  }
+</div>
+
+<!--
+  A mesma lixeira da etapa 2. Aqui o botão descarta uma foto que a pessoa acabou
+  de enviar ou de tirar — se as duas etapas usassem desenhos diferentes para
+  excluir, o segundo teria de ser aprendido de novo.
+-->
+<button
+  type="button"
+  class="tw-scene__remove"
+  [attr.aria-label]="'TOUR_WIZARD.STEP1.REMOVE' | translate: { room: scene().room }"
+  (click)="onRemove()">
+  <app-tw-trash-icon />
+</button>

@@ -1,0 +1,75 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  // Envolve para o motivo do bloqueio ocupar uma linha própria acima dos botões
+  // (ver `.tw-actions__motivo`), sem transformar a barra em coluna quando ele
+  // não existe — que é o caso comum.
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--tw-border-subtle);
+  // Semitransparente com blur: o conteúdo que passa por baixo continua legível
+  // como contexto, sem competir com a ação.
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.tw-actions__spacer {
+  flex: 1;
+
+  // No mobile o spacer sai de cena: ele e o botão primário são ambos flex:1 e
+  // dividiam a sobra meio a meio, deixando "Próximo" com metade da largura que
+  // devia ter. Sem ele, o primário ocupa tudo o que resta — que é o alvo de
+  // polegar que o handoff pede.
+  @include tw.tw-mobile {
+    display: none;
+  }
+}
+
+// Aparência vem de `tour-wizard.scss`. Aqui fica só o que é desta barra.
+.tw-btn {
+  // Mais folga que o padrão: esta é a barra de ação principal, e o botão dela
+  // tem que ter presença maior que a de um botão dentro do conteúdo.
+  padding: 0 28px;
+
+  @include tw.tw-mobile {
+    padding: 0 22px;
+  }
+
+  &.is-hidden {
+    visibility: hidden;
+  }
+}
+
+// Ocupa a largura restante no mobile: é a ação primária da tela, e um botão
+// pequeno no canto de um alvo de polegar é convite a errar.
+.tw-btn--primary {
+  @include tw.tw-mobile {
+    flex: 1;
+  }
+}
+
+// "Voltar" e "Pular" são curtos e não devem ceder espaço: quem encolhe quando
+// a barra aperta é o primário, que tem a maior folga.
+.tw-btn--bordered,
+.tw-btn--ghost {
+  flex: 0 0 auto;
+}
+
+// Linha própria, acima dos botões. Vem primeiro no DOM de propósito: com
+// `flex-basis: 100%` ela já ocupa a primeira linha sem precisar de `order`, e
+// quem usa leitor de tela a encontra ANTES do botão que ela explica — que é a
+// ordem em que a informação é útil.
+.tw-actions__motivo {
+  flex: 0 0 100%;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tw-error-text);
+  text-wrap: pretty;
+}

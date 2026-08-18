@@ -38,7 +38,8 @@
             "styles": [
               "node_modules/@fontsource-variable/inter/index.css",
               "src/global.scss",
-              "src/theme/variables.scss"
+              "src/theme/variables.scss",
+              "src/theme/tour-wizard.scss"
             ],
             "scripts": [],
             "browser": "src/main.ts"
@@ -53,7 +54,7 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "6kb",
+                  "maximumWarning": "8kb",
                   "maximumError": "10kb"
                 }
               ],
@@ -119,7 +120,8 @@
             "styles": [
               "node_modules/@fontsource-variable/inter/index.css",
               "src/global.scss",
-              "src/theme/variables.scss"
+              "src/theme/variables.scss",
+              "src/theme/tour-wizard.scss"
             ],
             "scripts": []
           },

@@ -1,0 +1,119 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: block;
+  padding: 18px 20px 0;
+  background: var(--tw-surface);
+}
+
+/* -- Chips ----------------------------------------------------------------- */
+
+.tw-chips {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tw-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 0;
+  border-radius: var(--tw-radius-pill);
+  background: transparent;
+  cursor: pointer;
+
+  @include tw.tw-mobile {
+    padding: 6px;
+  }
+
+  &[data-state='current'] {
+    background: var(--tw-brand-soft);
+  }
+
+  // Bloqueado é focável de propósito (ver o comentário no componente), então
+  // precisa parecer inerte sem depender do atributo `disabled`.
+  &[data-state='blocked'] {
+    opacity: 0.45;
+    cursor: default;
+  }
+}
+
+.tw-chip__dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--tw-surface-track);
+  color: var(--tw-text-faint);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
+
+  [data-state='done'] &,
+  [data-state='current'] & {
+    background: var(--tw-brand);
+    color: #fff;
+  }
+}
+
+.tw-chip__label {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--tw-text-muted);
+  white-space: nowrap;
+
+  [data-state='current'] & {
+    font-weight: 700;
+    color: var(--tw-text-strong);
+  }
+
+  // Em 375px os três rótulos não cabem numa linha. Só o da etapa atual fica —
+  // os demais viram dots numerados, que bastam para localizar-se.
+  @include tw.tw-mobile {
+    display: none;
+
+    [data-state='current'] & {
+      display: inline;
+    }
+  }
+}
+
+/* -- Barra de progresso ---------------------------------------------------- */
+
+.tw-progress {
+  height: 4px;
+  margin-top: 14px;
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-surface-track);
+  overflow: hidden;
+}
+
+.tw-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tw-brand);
+  transition: var(--tw-ease-progress);
+}
+
+.tw-progress__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding-top: 8px;
+  font-size: 12.5px;
+  color: var(--tw-text-faint);
+
+  // A dica da direita cede primeiro: "Etapa 2 de 3" é a informação que não pode
+  // sumir, e num aparelho estreito as duas não cabem.
+  span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

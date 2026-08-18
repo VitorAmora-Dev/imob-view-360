@@ -1,0 +1,47 @@
+<h3>{{ 'TOUR_WIZARD.STEP3.SUMMARY_TITLE' | translate }}</h3>
+
+<!--
+  Sem capa, a mesma hachura do viewer vazio: um retângulo cinza liso pareceria
+  imagem carregando, e a hachura diz "não há nada aqui".
+-->
+<span
+  class="tw-sum__cover"
+  [class.is-empty]="!coverUrl()"
+  [style.background-image]="coverUrl() ? 'url(' + coverUrl() + ')' : null"
+  aria-hidden="true"></span>
+
+<dl class="tw-sum__rows">
+  <div>
+    <dt>{{ 'TOUR_WIZARD.STEP3.SUMMARY_ROOMS' | translate }}</dt>
+    <dd>{{ roomsKey() | translate: { n: store.readyScenes().length } }}</dd>
+  </div>
+  <div>
+    <dt>{{ 'TOUR_WIZARD.STEP3.SUMMARY_HOTSPOTS' | translate }}</dt>
+    <dd>{{ store.totalHotspots() }}</dd>
+  </div>
+  <div>
+    <dt>{{ 'TOUR_WIZARD.STEP3.SUMMARY_COVER' | translate }}</dt>
+    <dd class="tw-sum__cover-name">{{ coverName() ?? '—' }}</dd>
+  </div>
+</dl>
+
+<!--
+  A ressalva de proporção só aparecia no card da etapa 1, duas telas atrás, e
+  quem rolou por ela publicava um panorama distorcido sem nunca mais ouvir
+  falar do assunto. Aqui é o último momento em que dá para voltar e trocar a
+  foto — e é ressalva, não erro: não bloqueia nada.
+-->
+@if (store.warnedScenes().length; as n) {
+  <p class="tw-sum__warn">
+    {{ (n === 1 ? 'TOUR_WIZARD.STEP3.WARN_RATIO_ONE' : 'TOUR_WIZARD.STEP3.WARN_RATIO') | translate: { n } }}
+  </p>
+}
+
+<!--
+  Aviso, não trava: a conta do tamanho é estimada daqui, e barrar o botão por
+  ela impediria de publicar quem talvez coubesse. Serve para o corretor não
+  descobrir o problema só depois de um minuto de upload.
+-->
+@if (store.oversized()) {
+  <p class="tw-sum__warn">{{ 'TOUR_WIZARD.STEP3.WARN_SIZE' | translate }}</p>
+}

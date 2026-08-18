@@ -1,0 +1,95 @@
+<header class="tw-step-head">
+  <h2>{{ 'TOUR_WIZARD.STEP2.TITLE' | translate }}</h2>
+  <p>
+    {{
+      (draft.etapa2Opcional()
+        ? 'TOUR_WIZARD.STEP2.SUBTITLE_SOLO'
+        : 'TOUR_WIZARD.STEP2.SUBTITLE'
+      ) | translate
+    }}
+  </p>
+</header>
+
+<!--
+  Bloqueio e aviso ficam no TOPO, antes da foto, e não junto ao botão do rodapé.
+  Quem trava o "Próximo" precisa ler o motivo antes de tentar — descobrir a
+  regra ao esbarrar nela é o que faz uma validação parecer birra do sistema.
+
+  `role="alert"` no bloqueio e `role="status"` no aviso: um interrompe o leitor
+  de tela, o outro espera a vez. É a diferença entre "isto impede de seguir" e
+  "isto você deveria saber".
+-->
+@if (ilhados()) {
+  <p class="tw-step2__bloqueio" role="alert">
+    {{ 'TOUR_WIZARD.STEP2.UNREACHABLE' | translate: { ambientes: ilhados() } }}
+  </p>
+} @else if (becos()) {
+  <p class="tw-step2__aviso" role="status">
+    {{ 'TOUR_WIZARD.STEP2.DEAD_END' | translate: { ambientes: becos() } }}
+  </p>
+}
+
+@if (viewerPanoramas().length) {
+  <div class="tw-step2">
+    <div class="tw-step2__stage">
+      <div class="tw-viewer">
+        <!--
+          `roomNav` desligado: a lista de ambientes do viewer é para quem VÊ o
+          tour. Aqui quem troca de ambiente é o trilho, logo abaixo da foto, e
+          duas respostas para a mesma pergunta na mesma tela é uma a mais.
+        -->
+        <app-panoramic-viewer
+          #viewer
+          [panoramas]="viewerPanoramas()"
+          [editMode]="true"
+          [roomNav]="false"
+          (hotspotPlaced)="onPlaced($event)" />
+
+        <!--
+          ANTES do overlay no DOM: assim o pin em arraste passa por cima do
+          alvo, e não desaparece atrás dele bem no instante em que se precisa
+          ver o que está sendo largado.
+        -->
+        <app-hotspot-trash #trash />
+
+        <app-hotspot-overlay
+          [viewer]="viewer"
+          [hotspots]="editor.hotspots()"
+          [roomNames]="roomNames()"
+          [draggingId]="editor.pinDrag()?.hotspotId ?? null"
+          [picker]="editor.picker()"
+          [rooms]="destinos()"
+          (targetPicked)="editor.pickTarget($event.hotspotId, $event.targetId)"
+          (pickerClosed)="editor.closePicker()"
+          (pinActivated)="onPinActivated($event)"
+          (pinDragStarted)="editor.startDrag($event)"
+          (pinDragMoved)="onPinDragMoved($event)"
+          (pinDragEnded)="editor.endDrag()" />
+
+        <!--
+          A dica fica sobre a imagem porque é ali que a ação acontece, e some
+          assim que o primeiro ponto existe: instrução que não some vira ruído
+          permanente para quem já entendeu.
+        -->
+        @if (!editor.hotspots().length) {
+          <p class="tw-viewer__hint">{{ 'TOUR_WIZARD.STEP2.HINT' | translate }}</p>
+        }
+      </div>
+
+      <app-scene-rail />
+
+      <!-- Só no mobile: no desktop o painel ao lado já mostra a lista inteira. -->
+      <app-hotspot-summary-row class="tw-step2__row" />
+    </div>
+
+    <app-hotspot-panel class="tw-step2__panel" />
+  </div>
+
+  <!--
+    Sobreposição, não layout: fica fora da grade de propósito. Ele mesmo decide
+    que não existe no desktop — ver `isMobileViewport`.
+  -->
+  <app-hotspot-sheet />
+} @else {
+  <p class="tw-viewer__empty">{{ 'TOUR_WIZARD.STEP2.EMPTY' | translate }}</p>
+}

@@ -1,0 +1,58 @@
+<!--
+  O motivo de o botão estar apagado fica AQUI, colado nele, e não só num banner
+  no topo da etapa.
+
+  Antes só existiam o banner lá em cima e o `title` do botão. `title` é hover, e
+  no celular não há hover: quem rolava até o rodapé encontrava um botão apagado
+  e nenhuma explicação na tela — a única estava fora de vista. Botão desabilitado
+  sem motivo visível no instante em que se aperta é dos jeitos mais confiáveis de
+  fazer alguém achar que o sistema travou.
+
+  O banner do topo continua, e não é repetição: lá ficam os NOMES dos ambientes,
+  que é onde se conserta; aqui fica por que não dá para seguir, que é o que se
+  pergunta ao ver o botão.
+-->
+@if (motivoBloqueio()) {
+  <p class="tw-actions__motivo" role="status">{{ motivoBloqueio()! | translate }}</p>
+}
+
+<!--
+  `visibility` e não `@if`: na etapa 1 o espaço do "Voltar" é preservado para o
+  botão primário não pular de posição ao mudar de etapa. Um alvo que se move
+  entre telas é como se erra o clique.
+
+  `inert` acompanha: escondido por `visibility` o botão sairia da tela mas
+  seguiria focável por tabulação.
+-->
+<button
+  type="button"
+  class="tw-btn tw-btn--bordered"
+  [class.is-hidden]="store.step() === 1"
+  [attr.inert]="store.step() === 1 ? '' : null"
+  (click)="store.back()">
+  {{ 'TOUR_WIZARD.COMMON.BACK' | translate }}
+</button>
+
+<span class="tw-actions__spacer"></span>
+
+@if (showSkip()) {
+  <button type="button" class="tw-btn tw-btn--ghost" (click)="store.next()">
+    {{ 'TOUR_WIZARD.COMMON.SKIP' | translate }}
+  </button>
+}
+
+<!--
+  Desabilitado enquanto não houver imagem. O `title` explica o porquê no hover;
+  a mesma frase aparece como dica na barra de progresso, para quem nunca passa
+  o mouse. O handler do store também devolve cedo se inválido — teclado e leitor
+  de tela chegam lá por caminhos que não passam pelo estado visual do botão.
+-->
+<button
+  type="button"
+  class="tw-btn tw-btn--primary"
+  [disabled]="primaryDisabled()"
+  [attr.aria-disabled]="primaryDisabled() ? 'true' : null"
+  [attr.title]="motivoBloqueio() ? (motivoBloqueio()! | translate) : null"
+  (click)="store.next()">
+  {{ primaryLabelKey() | translate }}
+</button>

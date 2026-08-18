@@ -107,14 +107,17 @@ hotspots — sobe em **uma única chamada** no publicar. Não é uma escolha de
 conveniência: durante o wizard não existe `panoramaId` nenhum no servidor (os
 panoramas nascem no `createTour`), então não haveria nem o que atualizar.
 
-Consequência prática: **B11 não é um diff.** É mapear `WizardHotspot[]` para
-`hotspots[]` no payload, usando o `id` local da cena como `tempId`. Some a
-necessidade de `createHotspot`/`deleteHotspot` no fluxo de criação. A tarefa cai
-de 5 para 2 pontos.
+Consequência prática: **B11 saiu da Frente B.** Escrevendo o contrato ficou
+claro que os hotspots moram dentro de `WizardScene`, que é estado do
+`TourDraftStore` — ou seja, da Frente A. Mapear cenas para o payload não lê nada
+do `HotspotEditorStore`: é transformação pura sobre o estado da A, dentro do
+`publish()` da A. Virou `publish-payload.ts`, já pronto no commit-zero.
 
-A única alteração de cliente é expor o campo: `PanoramaUpload` (em
-`virtual-tour.service.ts`) não tem `hotspots`. Uma linha — e é da **Frente A**,
-que é a dona daquele arquivo.
+A Frente B fica sendo **só a experiência de edição** — sem nenhuma
+responsabilidade sobre persistência. Menos uma costura entre as duas frentes.
+
+A alteração de cliente que faltava também já entrou: `PanoramaUpload` (em
+`virtual-tour.service.ts`) ganhou `tempId` e `hotspots`.
 
 ### 2.3 Rascunho — CORTADO DO PRODUTO
 
@@ -191,24 +194,24 @@ PR para a integração, com os dois cientes.
 
 ```
 src/app/tour-wizard/
-  tour-wizard.page.ts|html|scss        A
+  tour-wizard.page.ts|html|scss        A   shell navegável
   tour-wizard.model.ts                 CONGELADO
-  tour-draft.store.ts                  A
+  tour-draft.store.ts                  A   + .spec.ts (12 testes de contrato)
+  publish-payload.ts                   A   conversão para o corpo do createTour
   hotspot-editor.store.ts              B
-  steps/step-images/                   A
-  steps/step-hotspots/                 B
-  steps/step-info/                     A
-  published/                           A
-  ui/wizard-stepper/                   A
-  ui/wizard-actions/                   A
-  ui/scene-card/                       A
-  hotspots/hotspot-overlay/            B
-  hotspots/hotspot-pin/                B
-  hotspots/hotspot-panel/              B
-  hotspots/hotspot-sheet/              B
-  hotspots/scene-rail/                 B
-src/theme/_tour-wizard.scss            CONGELADO
+  steps/step-images/                   A   stub
+  steps/step-hotspots/                 B   stub
+  steps/step-info/                     A   stub
+  published/                           A   stub
+  ui/                                  A   a criar (stepper, ações, card de cena)
+  hotspots/                            B   a criar (overlay, pin, painel, sheet, rail)
+src/theme/tour-wizard.scss             CONGELADO — tokens, entra no angular.json
+src/theme/_tour-wizard-mixins.scss     CONGELADO — breakpoints, via @use
 ```
+
+Os tokens ficam num arquivo e os mixins noutro de propósito: o de tokens tem um
+bloco `:root`, que sairia duplicado dentro do CSS encapsulado de cada componente
+que fizesse `@use` dele.
 
 ### 4.2 `tour-wizard.model.ts` — CONGELADO
 
@@ -344,7 +347,7 @@ principal e do fluxo de publicação.
 | A9 | Etapa 3 — form (nome, tipo, finalidade) + acordeão de endereço com `CepService`, incluindo estados de carregando e CEP não encontrado; `font-size: 16px` nos inputs mobile | 5 |
 | A10 | Etapa 3 — card "Resumo do tour" (capa, contagem de ambientes, `totalHotspots` do store) | 2 |
 | A11 | Estado de sucesso: ícone, textos, "Copiar link" com feedback e "Criar outro tour" (reset) | 3 |
-| A12 | Publicar: portar o fluxo de `upload-tour.page.ts` (createProperty → createTour → montarTour → acompanharMontagem), com erro inline por campo | 5 |
+| A12 | Publicar: portar o fluxo de `upload-tour.page.ts` (createProperty → createTour → montarTour → acompanharMontagem), com erro inline por campo. `toCreateTourPayload` já existe — falta ligá-lo e avisar sobre os pontos descartados | 5 |
 | A13 | Responsivo `<768px` + revogar objectURLs no destroy + varredura de a11y | 3 |
 |  | **Total** | **48** |
 
@@ -374,15 +377,16 @@ projeção 3D→tela e o gesto de arraste são o miolo.
 | B8 | Bottom sheet via `IonModal` com `breakpoints`, nos dois modos (editor e lista) | 5 |
 | B9 | Long-press 320 ms + arraste com Pointer Events, clamp 2–98% / 2–96%, supressão de clique, `preventDefault` no context menu, `Haptics.impact()` | 8 |
 | B10 | Alvo da lixeira: hit test (96px de altura, ±92px do eixo), dois estados visuais, soltar exclui | 3 |
-| B11 | `toPayload()`: mapear `WizardHotspot[]` → `hotspots[]` do `createTour` (`targetTempId` = id local da cena), descartando os sem destino e devolvendo a contagem para o aviso. Exposto ao `publish()` da Frente A | 2 |
+| B11 | ~~Mapear os hotspots para o payload~~ — **movida para a Frente A** (A12). Ver 2.2 | — |
 | B12 | A11y: lista de hotspots navegável por teclado como alternativa ao clique na imagem, `aria-label` descritivo nos pins, `prefers-reduced-motion` desligando `pulseRing` e as escalas | 3 |
-|  | **Total** | **47** |
+|  | **Total** | **45** |
 
 **DoD da frente B**
 - Criar, renomear, apontar destino, mover e excluir hotspot funciona em desktop e mobile.
 - Clicar num pin com destino **navega** e nunca abre editor.
 - Rolar a página com o dedo sobre um pin não dispara arraste (o `pointermove` cancela o timer).
-- Nenhuma chamada de rede durante a edição; tudo sobe no `createTour` do publicar.
+- Nenhuma chamada de rede na etapa 2 — nem durante a edição, nem no fim. Quem
+  publica é a Frente A.
 - Blocos `TOUR_WIZARD.STEP2` completos em `pt.json` e `en.json`.
 - `npm run lint` e `npm test` limpos.
 
@@ -395,7 +399,7 @@ A regra que substitui reunião de merge. Arquivo com dono não tem conflito.
 | Caminho | Dono |
 |---|---|
 | `tour-wizard.page.*`, `ui/**`, `steps/step-images/**`, `steps/step-info/**`, `published/**` | **A** |
-| `tour-draft.store.ts` | **A** |
+| `tour-draft.store.ts`, `publish-payload.ts` | **A** |
 | `steps/step-hotspots/**`, `hotspots/**` | **B** |
 | `hotspot-editor.store.ts` | **B** |
 | `tour-wizard.model.ts`, `_tour-wizard.scss` | **CONGELADO** — PR à integração |
@@ -406,10 +410,11 @@ A regra que substitui reunião de merge. Arquivo com dono não tem conflito.
 | `i18n/*.json` → demais blocos | **A** |
 | `upload-tour/**` | ninguém apaga até o último PR |
 
-Dois pontos de atrito previstos, ambos já desenhados fora:
+Dois pontos de atrito previstos, ambos desenhados fora:
 1. **O store** — resolvido por `patchScene` e por dois arquivos separados.
-2. **O `publish()`** — A escreve o fluxo, B entrega o diff de hotspots como um
-   método do seu próprio store, que A só chama. B não edita `publish()`.
+2. **O `publish()`** — deixou de ser costura: a conversão para o payload é
+   função pura sobre o estado da Frente A (`publish-payload.ts`) e a Frente B
+   não participa. Ver 2.2.
 
 ---
 

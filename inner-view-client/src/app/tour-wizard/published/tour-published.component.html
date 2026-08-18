@@ -1,0 +1,35 @@
+<span class="tw-pub__icon" aria-hidden="true">✓</span>
+
+<h2>{{ 'TOUR_WIZARD.SUCCESS.TITLE' | translate }}</h2>
+<p class="tw-pub__lead">{{ 'TOUR_WIZARD.SUCCESS.SUBTITLE' | translate }}</p>
+
+<!--
+  Pontos sem destino ficaram de fora do que subiu. Avisar depois do fato é o
+  menor dos males: bloquear a publicação por um ponto inerte seria pior, e não
+  avisar deixaria o corretor achando que salvou algo que não existe.
+-->
+@if (store.discardedHotspots() > 0) {
+  <p class="tw-pub__note">
+    {{ 'TOUR_WIZARD.SUCCESS.DISCARDED' | translate: { n: store.discardedHotspots() } }}
+  </p>
+}
+
+<!-- O link fica visível para quem não puder usar o botão — sem permissão de
+     área de transferência, selecionar à mão continua sendo um caminho. -->
+@if (shareUrl(); as url) {
+  <p class="tw-pub__link">{{ url }}</p>
+}
+
+<div class="tw-pub__actions">
+  <button type="button" class="tw-btn tw-btn--primary" (click)="copyLink()">
+    {{ (copied() ? 'TOUR_WIZARD.SUCCESS.COPIED' : 'TOUR_WIZARD.SUCCESS.COPY_LINK') | translate }}
+  </button>
+
+  <button type="button" class="tw-btn tw-btn--bordered" (click)="openTour()">
+    {{ 'TOUR_WIZARD.SUCCESS.OPEN_TOUR' | translate }}
+  </button>
+
+  <button type="button" class="tw-btn tw-btn--bordered" (click)="store.reset()">
+    {{ 'TOUR_WIZARD.SUCCESS.CREATE_ANOTHER' | translate }}
+  </button>
+</div>

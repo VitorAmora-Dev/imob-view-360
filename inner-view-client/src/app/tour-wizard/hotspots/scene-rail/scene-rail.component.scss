@@ -1,0 +1,96 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: block;
+}
+
+.tw-rail {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+
+  // Rola na horizontal em vez de quebrar linha: o rail fica logo abaixo do
+  // viewer, e uma segunda fileira empurraria a barra de ação para fora da
+  // dobra com seis ou sete ambientes.
+  overflow-x: auto;
+  // `padding` de 2px acima é o respiro para a borda do selecionado não ser
+  // cortada pelo próprio overflow.
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+
+  > li {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+}
+
+.tw-rail__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  // Alvo confortável: o rail é a navegação da etapa, e no mobile é tocado com
+  // o polegar entre uma marcação e outra.
+  min-height: var(--tw-tap-action);
+  padding: 6px 14px 6px 6px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-surface);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+
+  &:hover {
+    background: var(--tw-surface-hover);
+  }
+
+  // O selecionado é marcado por borda, não por preenchimento: a miniatura já
+  // é colorida, e um fundo forte competiria com ela.
+  &.is-selected {
+    border-color: var(--tw-brand);
+    box-shadow: inset 0 0 0 1px var(--tw-brand);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tw-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+.tw-rail__thumb {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 34px;
+  border-radius: 9px;
+  background-color: var(--tw-surface-track);
+  background-size: cover;
+  background-position: center;
+}
+
+.tw-rail__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.tw-rail__name {
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tw-text-strong);
+}
+
+.tw-rail__count {
+  font-size: 11.5px;
+  color: var(--tw-text-muted);
+  white-space: nowrap;
+
+  &.is-empty {
+    color: var(--tw-text-faint);
+  }
+}

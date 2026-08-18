@@ -1,8 +1,8 @@
-import { Component, ElementRef, NgZone, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { IonButton, IonIcon, IonSpinner, ModalController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { cameraOutline, closeOutline, refreshOutline } from 'ionicons/icons';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../panoramic-viewer/panoramic-viewer.component';
@@ -77,6 +77,42 @@ export class Capture360Component implements OnDestroy {
   @ViewChild('dwellCircle') dwellCircle?: ElementRef<SVGCircleElement>;
 
   readonly state = signal<CaptureState>('intro');
+  private readonly translate = inject(TranslateService);
+
+  /**
+   * Nome do ambiente, escrito na tela de preview. Ver o comentário do template.
+   *
+   * NÃO é zerado no "Refazer": quem refaz está refazendo o MESMO cômodo, e
+   * apagar o nome que a pessoa acabou de escolher seria cobrá-lo de novo por um
+   * gesto que não mudou de assunto.
+   */
+  readonly roomName = signal('');
+
+  /**
+   * Sugestões de ambiente, para o toque resolver o caso comum.
+   *
+   * Vêm de UMA chave separada por vírgula, e não de uma chave por sugestão, de
+   * propósito: assim o tradutor troca o conjunto inteiro pelo que faz sentido no
+   * idioma dele — a lista de cômodos de uma casa não é a mesma em toda parte —
+   * sem precisar de código novo para cada item.
+   */
+  readonly roomSuggestions = computed(() =>
+    this.translate
+      .instant('CAPTURE.ROOM_SUGGESTIONS')
+      .split(',')
+      .map((s: string) => s.trim())
+      .filter(Boolean),
+  );
+
+  onRoomName(event: Event): void {
+    this.roomName.set((event.target as HTMLInputElement).value);
+  }
+
+  /** Tocar de novo no chip aceso limpa o campo — é o desfazer óbvio. */
+  pickRoom(nome: string): void {
+    this.roomName.update((atual) => (atual === nome ? '' : nome));
+  }
+
   readonly capturedCount = signal(0);
   readonly totalCount = signal(0);
   readonly hintKey = signal('CAPTURE.ALIGN_HINT');
@@ -152,7 +188,10 @@ export class Capture360Component implements OnDestroy {
       blob: shot.frame.blob,
       quaternion: shot.quaternion,
     }));
-    this.modalCtrl.dismiss({ imageData, frames, geometry: this.geometry }, 'confirm');
+    this.modalCtrl.dismiss(
+      { imageData, frames, geometry: this.geometry, room: this.roomName().trim() },
+      'confirm',
+    );
   }
 
   /**

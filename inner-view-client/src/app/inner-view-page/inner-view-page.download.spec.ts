@@ -1,7 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import {
+  ActionSheetController,
+  AlertController,
+  ModalController,
+  ToastController,
+} from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { InnerViewPagePage } from './inner-view-page.page';
 import { PropertyService } from '../services/property.service';
@@ -39,8 +44,14 @@ describe('InnerViewPagePage — download do panorama', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'x' } } } },
         { provide: PropertyService, useValue: {} },
         { provide: VirtualTourService, useValue: {} },
+        // Os QUATRO controllers que a página injeta precisam de dublê. O spec
+        // dispensa o `provideIonicAngular()` de propósito, para ficar isolado do
+        // viewer e da rota — mas isso significa que nada mais os fornece, e
+        // faltar um derruba a construção do componente antes de o teste começar.
         { provide: AlertController, useValue: {} },
         { provide: ToastController, useValue: { create: toastCreate } },
+        { provide: ModalController, useValue: {} },
+        { provide: ActionSheetController, useValue: {} },
         provideTranslateService(),
       ],
     });
