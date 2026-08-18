@@ -76,9 +76,13 @@
   font-weight: 650;
 }
 
+// "Capa" é ESTADO, não ação: marca um fato sobre esta cena, não algo a fazer.
+// Por isso accent e não marca — a mesma regra das etapas concluídas do stepper.
+// Deixa o --tw-brand-soft livre para o que é ação (chip da etapa atual, ícone
+// do dropzone), que é onde ele continua.
 .tw-badge--cover {
-  background: var(--tw-brand-soft);
-  color: var(--tw-brand);
+  background: var(--tw-accent-soft);
+  color: var(--tw-accent);
 }
 
 .tw-scene__size {

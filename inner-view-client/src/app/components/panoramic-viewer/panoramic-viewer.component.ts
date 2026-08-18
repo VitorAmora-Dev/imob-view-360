@@ -131,7 +131,7 @@ const DRAG_SLOP_PX = 6;
       /* Piso de alvo da WCAG. Isto é tocado com o polegar, sobre uma foto. */
       min-height: 44px;
       padding: 0 14px;
-      border: 2px solid var(--tw-brand, #2563eb);
+      border: 2px solid var(--tw-pin-accent, #2dd4bf);
       border-radius: 999px;
       /* Mesma pílula do pin: é a mesma linguagem de "toque aqui para ir". */
       background: var(--tw-pin-bg-canvas, rgba(11, 13, 18, 0.95));
@@ -151,7 +151,7 @@ const DRAG_SLOP_PX = 6;
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      background: var(--tw-brand, #2563eb);
+      background: var(--tw-pin-accent, #2dd4bf);
     }
 
     .viewer-nav__nome {
@@ -191,11 +191,11 @@ const DRAG_SLOP_PX = 6;
       border-color: rgba(255, 255, 255, 0.45);
     }
 
-    /* O ambiente em que se está: marcado por cor da marca E por peso do texto,
+    /* O ambiente em que se está: marcado pelo accent E pelo peso do texto,
        nunca só por cor — e o atributo aria-current conta a mesma coisa a quem
        não enxerga nenhuma das duas. */
     .viewer-nav__item.is-atual {
-      border-color: var(--tw-brand, #2563eb);
+      border-color: var(--tw-pin-accent, #2dd4bf);
       font-weight: 700;
     }
 
@@ -619,7 +619,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     ctx.fill();
     ctx.restore();
 
-    // A borda é da marca, e é ela que faz o pin ser notado de longe.
+    // A borda é o accent, e é ela que faz o pin ser notado de longe.
     //
     // A alternativa era pintar a PÍLULA inteira com a cor da marca. Continua
     // recusada, mas o motivo mudou com a paleta: com a Rausch o argumento era
@@ -634,7 +634,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     ctx.lineWidth = 5;
     ctx.stroke();
 
-    // O dot, maior que antes: é a única mancha cheia da cor da marca.
+    // O dot, maior que antes: é a única mancha cheia do accent.
     ctx.beginPath();
     ctx.arc(52, A / 2, 13, 0, Math.PI * 2);
     ctx.fillStyle = marca;

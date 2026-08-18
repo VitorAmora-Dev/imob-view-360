@@ -188,12 +188,12 @@ interface Pressao {
         height: 34px;
         max-width: 168px;
         padding: 0 13px 0 11px;
-        /* A borda é da marca, e não um branco a 18%, para o pin ser notado
+        /* A borda é o accent, e não um branco a 18%, para o pin ser notado
            sobre foto qualquer — o mesmo motivo e a mesma cor do sprite do
            inner-view, que é este pin visto pelo visitante. 2px aqui equivalem
            aos 5px de lá: a pílula do sprite tem 76px de altura lógica contra os
            34px desta, e o que se mantém é a proporção, não o número. */
-        border: 2px solid var(--tw-brand);
+        border: 2px solid var(--tw-pin-accent);
         border-radius: var(--tw-radius-pill);
         background: var(--tw-pin-bg);
         /* A pílula fica sobre uma foto qualquer: sem o blur, um trecho de céu
@@ -244,7 +244,7 @@ interface Pressao {
         width: 9px;
         height: 9px;
         border-radius: 50%;
-        background: var(--tw-brand);
+        background: var(--tw-pin-accent);
       }
 
       /* O anel de pulso. Nasce em opacity 0 e quem o acende é a animação — daí
@@ -255,7 +255,7 @@ interface Pressao {
         position: absolute;
         inset: -1px;
         border-radius: 50%;
-        background: var(--tw-brand);
+        background: var(--tw-pin-accent);
         opacity: 0;
         animation: tw-pulse-ring 2.4s ease-out infinite;
       }
@@ -299,7 +299,7 @@ interface Pressao {
       }
 
       /* ---- Seletor de destino -------------------------------------------
-         Mesma identidade do pin — pílula escura, borda da marca — porque é a
+         Mesma identidade do pin — pílula escura, borda no accent — porque é a
          continuação do mesmo gesto: o ponto que acabou de nascer perguntando
          para onde leva. */
       .tw-picker {
@@ -319,7 +319,7 @@ interface Pressao {
         /* Nunca mais largo que a foto, mesmo com nome de ambiente comprido. */
         max-width: min(232px, 88%);
         padding: 10px;
-        border: 2px solid var(--tw-brand);
+        border: 2px solid var(--tw-pin-accent);
         border-radius: 14px;
         background: var(--tw-pin-bg-canvas);
         backdrop-filter: blur(7px);

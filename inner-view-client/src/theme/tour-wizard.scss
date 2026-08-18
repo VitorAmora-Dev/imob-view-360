@@ -27,6 +27,19 @@
   //                                             dropzone, badge "Capa"
   --tw-brand-border: var(--brand-primary-300); // borda em hover destrutivo
 
+  /* -- Accent: os 10% ---------------------------------------------------- */
+  // Azul é "o que eu posso fazer"; teal é "o que já está feito". Por isso o
+  // accent vive no progresso — etapa concluída, barra, badge "Capa" — e nunca
+  // no botão primário, no orb da home, em link, em foco ou em ação destrutiva.
+  //
+  // Cada token é amarrado à SUPERFÍCIE em que passa contraste, e o teal claro
+  // (#14b8a6) não ganha token nenhum aqui: sobre as superfícies claras deste
+  // app ele nunca passa. Sobre --tw-surface-track ele daria 2,27:1.
+  --tw-accent: var(--brand-accent-dark); //  sobre superfície CLARA (5,00:1 na
+  //                                         barra, 4,86:1 sobre o soft)
+  --tw-accent-soft: var(--brand-accent-soft); // fundo pálido do par acima
+  --tw-pin-accent: var(--brand-accent-glow); //  sobre a pílula ESCURA do pin
+
   /* -- Texto ------------------------------------------------------------- */
   --tw-text-strong: var(--app-ink); //        handoff text/900  #16181D
   --tw-text: var(--app-body); //              handoff text/700  #3A3D45
@@ -68,11 +81,13 @@
   --tw-scrim: rgba(12, 14, 18, 0.45); //   scrim do bottom sheet
   --tw-pin-bg: rgba(16, 18, 24, 0.78); //  pílula do hotspot
   --tw-hint-bg: rgba(14, 16, 20, 0.72); // balão de dica e lixeira
-  // Estas duas SÃO a marca com alpha. Eram rgba escritos à mão, e cada uma
-  // vinha de uma vermelha diferente — a lixeira do handoff (#E8365D), o anel
-  // de foco da Rausch do projeto (#ff385c). Agora as duas saem do mesmo
-  // primitivo, e é por isso que ele carrega o par `-rgb`.
-  --tw-trash-active: rgba(var(--brand-primary-rgb), 0.94); // pin sobre a lixeira
+  // A lixeira é ERRO, não marca. Ela era rosa quando a marca era rosa, e lia
+  // como "perigo" por acidente: azul não lê. É a mesma regra do botão de
+  // excluir do card, que já usa o vermelho de erro e não a marca.
+  --tw-trash-active: rgba(var(--status-error-rgb), 0.94); // pin sobre a lixeira
+  // O anel de foco SIM é a marca. Era rgba escrito à mão a partir de uma
+  // vermelha diferente da da lixeira; agora sai do primitivo, e é por isso que
+  // ele carrega o par `-rgb`.
   --tw-focus-ring: rgba(var(--brand-primary-rgb), 0.2); //   anel de foco, 2px
 
   /* -- O mesmo pin, desenhado em canvas ---------------------------------- */
