@@ -136,8 +136,9 @@
   //   -text   a variante que PASSA em texto. Quem pinta letra usa esta.
   //   -soft   fundo da faixa/bloco daquele status.
   //
-  // Quem pinta texto usa SEMPRE o slot -text, mesmo quando ele é alias da base.
-  // A forma uniforme é o que impede alguém "simplificar" removendo o slot.
+  // Quem pinta texto usa SEMPRE o slot -text. A forma uniforme é o que impede
+  // alguém "simplificar" removendo o slot — e as três famílias precisam MESMO
+  // dele: nenhuma das três bases passa 4,5:1 sobre o próprio fundo -soft.
   // Base 3,30:1 sobre branco — serve de preenchimento de chip, não de texto.
   --status-success: #16a34a;
   --status-success-rgb: 22, 163, 74;
@@ -164,7 +165,10 @@
   --status-error-rgb: 220, 38, 38;
   --status-error-dark: #c12121;
   --status-error-tint: #e03c3c;
-  --status-error-text: var(--status-error);
+  // NAO e alias da base, e o teste de contrato foi quem mostrou por que: a base
+  // sobre o proprio fundo de erro da 3,95:1. Este red-700 da 5,30:1 sobre o
+  // soft e 6,47:1 sobre branco.
+  --status-error-text: #b91c1c;
   --status-error-soft: #fee2e2;
   --status-error-border: #fecaca;
 }
