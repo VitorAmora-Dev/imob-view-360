@@ -624,7 +624,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // A alternativa era pintar a PÍLULA inteira com o accent. Continua
     // recusada, mas o motivo mudou com a paleta: com a Rausch o argumento era
     // de contraste (branco sobre #ff385c dava 3,5:1, abaixo do 4,5:1 da WCAG);
-    // com o azul #2563eb são 5,17:1 e esse argumento cai. O que não cai é o
+    // com o azul ARP VISION #0454ed são 6,01:1 e esse argumento cai. O que não cai é o
     // outro: atrás deste pin há uma FOTO que ninguém controla, e um bloco de
     // cor chapada compete com ela em vez de se destacar dela. Branco sobre esta
     // pílula escura dá ~17:1 em qualquer parede. Ver §11 das notas do sprint.

@@ -6,7 +6,7 @@
  * aparelho de alguém — que é o pior lugar para descobrir.
  *
  * O que ele trava são RELAÇÕES, nunca valores. Um teste que afirmasse
- * `--brand-primary === '#2563eb'` engessaria a cor sem proteger nada, e faria
+ * `--brand-primary === '#0454ed'` engessaria a cor sem proteger nada, e faria
  * a próxima troca de paleta ser uma caçada a expectativas quebradas. Os quatro
  * contratos abaixo continuam valendo qualquer que seja a paleta.
  *

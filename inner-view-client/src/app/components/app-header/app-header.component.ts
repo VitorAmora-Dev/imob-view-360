@@ -8,6 +8,7 @@ import {
   globeOutline, personCircleOutline, logOutOutline, checkmarkOutline, arrowBackOutline,
 } from 'ionicons/icons';
 import { TranslatePipe } from '@ngx-translate/core';
+import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
 import { MenuToggleIconComponent } from '../menu-toggle-icon/menu-toggle-icon.component';
 import { AuthService } from '../../services/auth.service';
 import { LanguageService } from '../../services/language.service';
@@ -34,15 +35,15 @@ export interface HeaderNavLink {
   imports: [
     RouterLink, RouterLinkActive, TranslatePipe,
     IonIcon, IonPopover, IonList, IonItem, IonLabel,
-    MenuToggleIconComponent,
+    BrandLogoComponent, MenuToggleIconComponent,
   ],
   templateUrl: './app-header.component.html',
   styleUrls: ['./app-header.component.scss'],
 })
 export class AppHeaderComponent implements OnDestroy {
-  /** Shows a back arrow on the left of the wordmark. */
+  /** Shows a back arrow on the left of the brand signature. */
   @Input() backHref: string | null = null;
-  /** Optional page title rendered next to the wordmark on internal screens. */
+  /** Optional page title rendered next to the brand signature on internal screens. */
   @Input() pageTitle: string | null = null;
   /** Renders the compact variant used over the immersive 360 viewer. */
   @Input() variant: 'default' | 'overlay' = 'default';

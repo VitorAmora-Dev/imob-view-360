@@ -200,7 +200,7 @@ export class InnerViewPagePage implements OnInit {
   }
 
   get pageTitle(): string {
-    return this.currentPanorama?.roomName ?? this.property?.title ?? 'Inner View';
+    return this.currentPanorama?.roomName ?? this.property?.title ?? 'ARP VISION';
   }
 
   openFilePicker() {
