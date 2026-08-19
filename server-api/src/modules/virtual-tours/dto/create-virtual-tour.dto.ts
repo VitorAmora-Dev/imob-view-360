@@ -33,7 +33,12 @@ export const PanoramaInputSchema = z.object({
 
 export const CreateVirtualTourSchema = z.object({
   propertyId: z.string().uuid(),
-  panoramas: z.array(PanoramaInputSchema).default([]),
+  // Teto de cômodos por tour. O único limite que existia era o corpo de 50 MB,
+  // o que fazia o número de panorâmicas depender do tamanho das fotos: 50 tours
+  // minúsculos passavam, 2 grandes não. Cada uma aqui vira um `create` dentro
+  // de uma transação que segura conexão do pool, então o custo cresce com a
+  // contagem e não só com os bytes.
+  panoramas: z.array(PanoramaInputSchema).max(40).default([]),
 });
 
 export type CreateVirtualTourDto = z.infer<typeof CreateVirtualTourSchema>;
