@@ -111,6 +111,22 @@
   --neutral-surface-soft: #f8fafc; //   superfície suave / hover
   --neutral-surface-strong: #f1f5f9; // trilho de progresso
 
+  /* == Tema imersivo: SÓ dentro do visualizador 360 ======================= */
+  // O documento restringe estes ao visualizador, e a restrição é a parte
+  // importante: um dashboard escuro quebraria a sensação de "claro e fácil" que
+  // a marca busca fora do tour. Não existe dark mode neste app.
+  //
+  // Aqui eles NÃO viram um segundo tema com nomes próprios que os componentes
+  // consomem. Eles alimentam o fundo das páginas imersivas e a família de
+  // pílulas escuras que flutuam sobre a foto.
+  --tour-bg: #0b1220;
+  --tour-bg-rgb: 11, 18, 32;
+  --tour-surface: #1e293b; //  cartão/painel sobre o fundo escuro
+  --tour-text: #e2e8f0; //     15,19:1 sobre --tour-bg ✓
+  // O accent sobre o escuro é o --brand-accent-glow (#2dd4bf, 10,06:1 aqui).
+  // Ele mora na família accent e não nesta porque é o MESMO acento do pin do
+  // wizard, que vive sobre foto e não sobre esta superfície.
+
   /* == Status ============================================================= */
   // TRÊS SLOTS por família, e a distinção não é enfeite: a cor cheia de um
   // status quase nunca passa contraste como TEXTO. O âmbar do design system

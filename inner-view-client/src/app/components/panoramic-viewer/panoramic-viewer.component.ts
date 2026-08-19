@@ -97,13 +97,13 @@ const DRAG_SLOP_PX = 6;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #000;
+      background: var(--tour-bg, #0b1220);
     }
 
     ion-spinner {
       width: 48px;
       height: 48px;
-      color: #fff;
+      color: var(--tour-text, #e2e8f0);
     }
 
     /* ---- A planta na parede -------------------------------------------- */

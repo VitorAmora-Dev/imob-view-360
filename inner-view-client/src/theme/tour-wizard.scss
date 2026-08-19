@@ -77,10 +77,18 @@
   --tw-surface-hover: var(--app-surface-soft); //     surface/hover    #F7F7F9
 
   /* -- Sobreposições ----------------------------------------------------- */
-  // As três primeiras são escuros neutros e não têm relação com a marca.
-  --tw-scrim: rgba(12, 14, 18, 0.45); //   scrim do bottom sheet
-  --tw-pin-bg: rgba(16, 18, 24, 0.78); //  pílula do hotspot
-  --tw-hint-bg: rgba(14, 16, 20, 0.72); // balão de dica e lixeira
+  // As três primeiras são escuros e não têm relação com a marca. Antes cada uma
+  // tinha um quase-preto próprio, escrito à mão e ligeiramente diferente das
+  // outras (12,14,18 / 16,18,24 / 14,16,20). Agora saem todas do --tour-bg,
+  // cada uma com a SUA opacidade, que é o que de fato as distingue.
+  //
+  // A troca não mexe em legibilidade: o quase-preto antigo e o --tour-bg têm
+  // luminância praticamente igual (0,00609 contra 0,00608), então o branco por
+  // cima segue nos mesmos ~18:1. O que muda é o matiz, que passa a ser frio
+  // como o resto da paleta.
+  --tw-scrim: rgba(var(--tour-bg-rgb), 0.45); //   scrim do bottom sheet
+  --tw-pin-bg: rgba(var(--tour-bg-rgb), 0.78); //  pílula do hotspot
+  --tw-hint-bg: rgba(var(--tour-bg-rgb), 0.72); // balão de dica e lixeira
   // A lixeira é ERRO, não marca. Ela era rosa quando a marca era rosa, e lia
   // como "perigo" por acidente: azul não lê. É a mesma regra do botão de
   // excluir do card, que já usa o vermelho de erro e não a marca.
@@ -100,7 +108,7 @@
   //
   // Mesma identidade, paga em opacidade em vez de desfoque. É a única
   // divergência consciente entre os dois pins.
-  --tw-pin-bg-canvas: rgba(11, 13, 18, 0.95);
+  --tw-pin-bg-canvas: rgba(var(--tour-bg-rgb), 0.95);
   // Halo escuro POR FORA da pílula. A borda da marca some contra um teto claro
   // ou uma parede clara; o halo é o que garante silhueta sobre foto qualquer.
   --tw-pin-halo-canvas: rgba(0, 0, 0, 0.55);
