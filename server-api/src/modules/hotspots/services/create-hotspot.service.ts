@@ -18,6 +18,9 @@ export class CreateHotspotService {
 
     const target = await this.prisma.panorama.findFirst({
       where: { id: hotspotData.targetId, virtualTourId: panorama.virtualTourId },
+      // Só a existência importa aqui — o `select` da consulta de cima já estava
+      // certo, e esta ficou para trás puxando as duas colunas base64.
+      select: { id: true },
     });
     if (!target) throw new BadRequestException('Target panorama does not belong to the same tour');
 

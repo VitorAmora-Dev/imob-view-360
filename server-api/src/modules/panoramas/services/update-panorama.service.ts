@@ -32,6 +32,7 @@ export class UpdatePanoramaService {
   async execute(id: string, dto: UpdatePanoramaDto, currentUser: JwtPayload) {
     const panorama = await this.prisma.panorama.findFirst({
       where: { id, virtualTour: { property: { agencyId: currentUser.agencyId } } },
+      select: { id: true },
     });
     if (!panorama) throw new NotFoundException('Panorama not found');
 
