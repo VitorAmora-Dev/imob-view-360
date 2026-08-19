@@ -1,5 +1,5 @@
 {
-  "name": "inner-view-client",
+  "name": "arp-vision-client",
   "integrations": {
     "capacitor": {}
   },

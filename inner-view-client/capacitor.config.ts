@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'io.ionic.starter',
-  appName: 'inner-view-client',
+  appName: 'ARP VISION',
   webDir: 'www'
 };
 

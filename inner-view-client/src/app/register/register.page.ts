@@ -5,6 +5,7 @@ import {
   IonContent, IonInput, IonButton, IonToast, IonSpinner
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
+import { BrandLogoComponent } from '../components/brand-logo/brand-logo.component';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -14,7 +15,7 @@ import { AuthService } from '../services/auth.service';
   imports: [
     FormsModule, RouterLink,
     IonContent, IonInput, IonButton, IonToast, IonSpinner,
-    AppHeaderComponent,
+    AppHeaderComponent, BrandLogoComponent,
   ],
 })
 export class RegisterPage {

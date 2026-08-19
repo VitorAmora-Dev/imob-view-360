@@ -388,20 +388,31 @@ ion-badge {
   margin-inline: auto;
 }
 
-/* Brand wordmark — the one place besides CTAs where Rausch appears */
-.brand-wordmark {
-  color: var(--ion-color-primary);
-}
-
-ion-title.brand-wordmark {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.44px;
-}
-
 .brand-tagline {
   color: var(--app-muted);
   margin-top: 4px;
+}
+
+/* Shared authentication introduction: the header carries the full signature,
+   while the symbol gives the form a quiet, recognisable brand anchor. */
+.auth-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 32px 0 40px;
+  text-align: center;
+
+  app-brand-logo {
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    margin: 0;
+  }
+
+  .brand-tagline {
+    margin-bottom: 0;
+  }
 }
 
 /* Set while the header's mobile menu is open. The real scroll container is

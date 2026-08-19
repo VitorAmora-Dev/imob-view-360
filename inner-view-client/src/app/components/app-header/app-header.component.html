@@ -10,7 +10,17 @@
           <ion-icon name="arrow-back-outline"></ion-icon>
         </button>
       }
-      <a class="wordmark" routerLink="/home" (click)="closeMenu()">Inner View</a>
+      <a
+        class="brand-link"
+        routerLink="/home"
+        aria-label="ARP VISION — início"
+        (click)="closeMenu()">
+        <app-brand-logo
+          kind="horizontal"
+          [tone]="variant === 'overlay' ? 'white' : 'blue'"
+          [decorative]="true">
+        </app-brand-logo>
+      </a>
       @if (pageTitle) {
         <span class="page-title">{{ pageTitle }}</span>
       }

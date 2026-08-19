@@ -1,0 +1,11 @@
+<img
+  class="brand-logo"
+  [class.brand-logo--horizontal]="kind === 'horizontal'"
+  [class.brand-logo--symbol]="kind === 'symbol'"
+  [class.brand-logo--white-symbol]="kind === 'symbol' && tone === 'white'"
+  [src]="src"
+  [attr.width]="intrinsicWidth"
+  [attr.height]="intrinsicHeight"
+  [attr.alt]="decorative ? '' : accessibleLabel"
+  [attr.aria-hidden]="decorative ? 'true' : null"
+  draggable="false">

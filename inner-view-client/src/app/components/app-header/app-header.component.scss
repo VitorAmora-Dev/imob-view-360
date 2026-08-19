@@ -1,5 +1,5 @@
 // Sticky header ported from the React/Tailwind reference onto the Airbnb
-// design tokens: white canvas, ink text, Rausch wordmark, single shadow tier,
+// design tokens: white canvas, ink text, ARP VISION signature, single shadow tier,
 // pill/soft radii. Collapses to a floating bar on desktop scroll and to a
 // full-screen sheet on mobile.
 
@@ -84,13 +84,13 @@
     font-size: 18px;
   }
 
-  // O círculo fica com 32px — é o que cabe ao lado do wordmark — mas o ALVO
+  // O círculo fica com 32px — é o que cabe ao lado da assinatura — mas o ALVO
   // cresce para os 44px de piso, por um pseudo-elemento que não ocupa espaço no
   // arranjo. Voltar é a ação mais usada de um cabeçalho interno; errá-la por
   // 6px num celular é rotina, e o preço é sair da tela sem querer.
   //
   // A sobra é de 6px por lado, e o `gap` do `.header-lead` é 12px: o alvo não
-  // chega ao wordmark, então não rouba o clique dele.
+  // chega à assinatura, então não rouba o clique dela.
   &::after {
     content: '';
     position: absolute;
@@ -102,14 +102,17 @@
   }
 }
 
-.wordmark {
+.brand-link {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.44px;
-  line-height: 1.18;
-  color: var(--ion-color-primary);
+  border-radius: var(--app-radius-sm);
   text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 3px;
+  }
 }
 
 .page-title {
@@ -124,7 +127,7 @@
   text-overflow: ellipsis;
 }
 
-// Page-injected actions sit between the wordmark and the nav cluster,
+// Page-injected actions sit between the brand signature and the nav cluster,
 // pushed to the right so they stay adjacent to the nav on wide screens.
 .header-slot {
   display: flex;
@@ -305,8 +308,14 @@
   background: transparent;
   border-bottom-color: transparent;
 
-  .wordmark {
-    color: #ffffff;
+  .brand-link {
+    padding: 4px 8px;
+    background: rgba(var(--tour-bg-rgb), 0.65);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.32);
+
+    &:focus-visible {
+      outline-color: #ffffff;
+    }
   }
 
   .page-title {
