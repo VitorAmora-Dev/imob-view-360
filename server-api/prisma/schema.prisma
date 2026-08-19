@@ -187,6 +187,18 @@ model Panorama {
   treatmentMeta    Json? // dadosTratamento
   treatedAt        DateTime? // tratadoEm
 
+  /// Versão da linha, e é isso que o cache de imagem usa como identidade.
+  ///
+  /// A imagem de um panorama passou a ser servida por URL própria, com ETag e
+  /// `Cache-Control` — e um cache sem forma de saber que a foto mudou serviria
+  /// a antiga para sempre. `@updatedAt` cobre os dois casos que trocam pixel:
+  /// a IA gravando `treatedImageData` e o corretor refotografando a sala.
+  ///
+  /// Renomear o cômodo também mexe aqui, invalidando um cache que continuava
+  /// válido. Errar para o lado de baixar de novo é barato; errar para o outro
+  /// mostra a foto errada sem nada denunciando.
+  updatedAt DateTime @default(now()) @updatedAt // atualizadoEm
+
   virtualTour   VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade) // tourVirtual
   virtualTourId String
 
