@@ -175,7 +175,7 @@ export class Capture360Component implements OnDestroy {
   }
 
   usePanorama(): void {
-    const imageData = this.previewPanoramas()[0]?.imageData;
+    const imageData = this.previewPanoramas()[0]?.imageUrl;
     if (!imageData) {
       this.modalCtrl.dismiss(null, 'cancel');
       return;
@@ -506,7 +506,8 @@ export class Capture360Component implements OnDestroy {
       this.previewPanoramas.set([{
         id: 'capture-preview',
         roomName: '',
-        imageData: result.imageData,
+        // Prévia local da captura: a foto ainda está só no navegador.
+        imageUrl: result.imageData,
         order: 0,
         initialPanorama: true,
         originHotspots: [],

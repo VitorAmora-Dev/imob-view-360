@@ -56,6 +56,12 @@ export class CreateVirtualTourService {
             bandBottomDeg: p.bandBottomDeg,
             virtualTourId: tourCriado.id,
           },
+          // Sem isto o Prisma faz um RETURNING de todas as colunas, e a única
+          // que interessa é o id: a base64 de 7 a 27 MB que acabou de subir
+          // atravessava a conexão de volta, uma vez por cômodo, para ser
+          // descartada. O laço continua serial porque o id de cada panorama é o
+          // que o `tempIdMap` precisa para ligar os hotspots depois.
+          select: { id: true },
         });
         tempIdMap.set(p.tempId, panorama.id);
 
@@ -69,25 +75,29 @@ export class CreateVirtualTourService {
         }
       }
 
-      for (const p of dto.panoramas) {
-        if (!p.hotspots.length) continue;
+      // Um `createMany` no lugar de um `create` por hotspot. Diferente das
+      // panorâmicas, nenhum id volta a ser usado aqui — era ida e volta ao
+      // banco por ligação, dentro da transação, para gravar quatro números.
+      const hotspots = dto.panoramas.flatMap((p) => {
         const originId = tempIdMap.get(p.tempId)!;
-        for (const h of p.hotspots) {
+        return p.hotspots.map((h) => {
           const targetId = tempIdMap.get(h.targetTempId);
           if (!targetId)
             throw new BadRequestException(
               `targetTempId "${h.targetTempId}" not found in panoramas list`,
             );
-          await tx.hotspot.create({
-            data: {
-              label: h.label,
-              positionX: h.positionX,
-              positionY: h.positionY,
-              originId,
-              targetId,
-            },
-          });
-        }
+          return {
+            label: h.label,
+            positionX: h.positionX,
+            positionY: h.positionY,
+            originId,
+            targetId,
+          };
+        });
+      });
+
+      if (hotspots.length) {
+        await tx.hotspot.createMany({ data: hotspots });
       }
 
       return tx.virtualTour.findUnique({

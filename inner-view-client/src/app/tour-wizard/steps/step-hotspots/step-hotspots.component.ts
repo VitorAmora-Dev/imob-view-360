@@ -74,7 +74,9 @@ export class StepHotspotsComponent {
         {
           id: scene.id,
           roomName: scene.room,
-          imageData: scene.imageData,
+          // A foto ainda não subiu: o que existe é o data-URI que o navegador
+          // leu do arquivo. `urlDaImagem` reconhece `data:` e devolve como está.
+          imageUrl: scene.imageData,
           order: scene.order,
           initialPanorama: true,
           originHotspots: [],
@@ -88,7 +90,7 @@ export class StepHotspotsComponent {
         a.every(
           (p, i) =>
             p.id === b[i].id &&
-            p.imageData === b[i].imageData &&
+            p.imageUrl === b[i].imageUrl &&
             p.order === b[i].order,
         ),
     },

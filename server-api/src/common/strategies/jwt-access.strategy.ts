@@ -25,7 +25,13 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') 
   }
 
   async validate(payload: JwtPayload) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    // Roda em TODA requisição autenticada, e o único uso do resultado é o `if`
+    // abaixo. Sem `select` isto trazia a linha inteira do usuário, hash de
+    // senha incluído, em cada chamada da API.
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true },
+    });
     if (!user) throw new UnauthorizedException();
     return payload;
   }

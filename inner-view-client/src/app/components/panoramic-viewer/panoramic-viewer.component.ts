@@ -4,6 +4,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Panorama } from '../../models/virtual-tour.model';
+import { urlDaImagem } from '../../models/panorama-image.util';
 
 /**
  * Deslocamento, em px, acima do qual o gesto conta como arrasto e não clique.
@@ -420,13 +421,16 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
   private loadPanorama(panorama: Panorama) {
     this.loading = true;
-    const dataUri = panorama.imageData.startsWith('data:')
-      ? panorama.imageData
-      : `data:image/jpeg;base64,${panorama.imageData}`;
+    // A foto vem por URL, não mais embutida no JSON do tour. Para o
+    // `TextureLoader` dá no mesmo — ele aceita endereço e data-URI pela mesma
+    // porta —, mas para quem abre o tour muda tudo: o primeiro cômodo aparece
+    // sem esperar os outros, e trocar de sala pela segunda vez vem do cache do
+    // navegador em vez de outro download.
+    const endereco = urlDaImagem(panorama);
 
     const loader = new THREE.TextureLoader();
     loader.load(
-      dataUri,
+      endereco,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         // An equirect wraps the sphere very unevenly: near the poles a row of

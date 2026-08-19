@@ -22,6 +22,7 @@ export class UpdateHotspotService {
     if (dto.targetId) {
       const target = await this.prisma.panorama.findFirst({
         where: { id: dto.targetId, virtualTourId: hotspot.origin.virtualTourId },
+        select: { id: true },
       });
       if (!target) throw new BadRequestException('Target panorama does not belong to the same tour');
     }

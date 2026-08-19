@@ -69,7 +69,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([agencyId])
+  /// Mesmo caso de Property: `GET /users` filtra por agência e ordena por nome.
+  @@index([agencyId, name])
 }
 
 model Session {
@@ -121,7 +122,12 @@ model Property {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([agencyId])
+  /// `GET /properties` filtra sempre por agência e ordena por `createdAt desc`.
+  /// Com índice só em `agencyId`, o Postgres achava as linhas da agência e
+  /// ordenava todas elas a cada página. O composto substitui o simples: um
+  /// índice `(a, b)` atende tudo o que `(a)` atendia, então manter os dois seria
+  /// pagar escrita em dobro pela mesma leitura.
+  @@index([agencyId, createdAt])
   @@index([agentId])
   @@index([type, purpose, status])
 }
@@ -187,6 +193,18 @@ model Panorama {
   treatmentMeta    Json? // dadosTratamento
   treatedAt        DateTime? // tratadoEm
 
+  /// Versão da linha, e é isso que o cache de imagem usa como identidade.
+  ///
+  /// A imagem de um panorama passou a ser servida por URL própria, com ETag e
+  /// `Cache-Control` — e um cache sem forma de saber que a foto mudou serviria
+  /// a antiga para sempre. `@updatedAt` cobre os dois casos que trocam pixel:
+  /// a IA gravando `treatedImageData` e o corretor refotografando a sala.
+  ///
+  /// Renomear o cômodo também mexe aqui, invalidando um cache que continuava
+  /// válido. Errar para o lado de baixar de novo é barato; errar para o outro
+  /// mostra a foto errada sem nada denunciando.
+  updatedAt DateTime @default(now()) @updatedAt // atualizadoEm
+
   virtualTour   VirtualTour @relation(fields: [virtualTourId], references: [id], onDelete: Cascade) // tourVirtual
   virtualTourId String
 
@@ -195,7 +213,13 @@ model Panorama {
   measurements   Measurement[] // medidas
   captureFrames  CaptureFrame[] // fotosOriginais
 
-  @@index([virtualTourId])
+  /// Toda leitura de panorama é "os deste tour, na ordem" — quatro lugares
+  /// fazem exatamente isso. O composto substitui o simples em `virtualTourId`.
+  @@index([virtualTourId, order])
+  /// O worker de IA varre por situação a cada boot (`updateMany` devolvendo
+  /// PROCESSING para PENDING) e o CLI `--pendentes` faz o mesmo. Sem índice,
+  /// os dois eram varredura completa de uma tabela com 196 MB em TOAST.
+  @@index([treatmentStatus])
 }
 
 /// Foto individual da captura 360°, guardada como veio da câmera.
