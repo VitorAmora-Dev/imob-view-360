@@ -26,11 +26,14 @@ h3 {
 
   // Mesma hachura do viewer sem imagem, para os dois estados vazios do wizard
   // se lerem como a mesma coisa.
+  // Hachura de "sem imagem". Os dois tons eram cinzas quentes escritos à mão;
+  // agora saem dos tokens de superfície, senão a listra ficaria morna dentro de
+  // um card já frio — que é o defeito clássico de uma migração para slate.
   &.is-empty {
     background-image: repeating-linear-gradient(
       135deg,
-      #f1f2f4 0 10px,
-      #e9eaee 10px 20px
+      var(--tw-surface-track) 0 10px,
+      var(--tw-border-subtle) 10px 20px
     );
   }
 }

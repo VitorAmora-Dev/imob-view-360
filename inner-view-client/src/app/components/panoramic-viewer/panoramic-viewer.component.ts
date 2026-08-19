@@ -573,7 +573,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    * O pin que o visitante vê, com a MESMA identidade do pin do wizard.
    *
    * Era uma pílula branca com seta preta, enquanto o corretor marca os pontos
-   * numa etapa cujo pin é escuro com dot na cor da marca — duas linguagens para
+   * numa etapa cujo pin é escuro com dot no accent — duas linguagens para
    * a mesma coisa, e quem monta o tour não reconhecia o que tinha publicado.
    *
    * As cores saem dos tokens `--tw-pin-bg` e `--tw-brand` lidos do documento, e
@@ -603,7 +603,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     const raiz = getComputedStyle(document.documentElement);
     const token = (nome: string, padrao: string) =>
       raiz.getPropertyValue(nome).trim() || padrao;
-    const marca = token('--tw-brand', '#2563eb');
+    const acento = token('--tw-pin-accent', '#2dd4bf');
 
     // Halo escuro por fora, antes de tudo. Uma borda vermelha sobre um teto
     // branco ou uma parede clara desaparece; o halo é o que dá silhueta sobre
@@ -621,7 +621,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
     // A borda é o accent, e é ela que faz o pin ser notado de longe.
     //
-    // A alternativa era pintar a PÍLULA inteira com a cor da marca. Continua
+    // A alternativa era pintar a PÍLULA inteira com o accent. Continua
     // recusada, mas o motivo mudou com a paleta: com a Rausch o argumento era
     // de contraste (branco sobre #ff385c dava 3,5:1, abaixo do 4,5:1 da WCAG);
     // com o azul #2563eb são 5,17:1 e esse argumento cai. O que não cai é o
@@ -630,14 +630,14 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // pílula escura dá ~17:1 em qualquer parede. Ver §11 das notas do sprint.
     ctx.beginPath();
     ctx.roundRect(10, 10, L - 20, A - 20, (A - 20) / 2);
-    ctx.strokeStyle = marca;
+    ctx.strokeStyle = acento;
     ctx.lineWidth = 5;
     ctx.stroke();
 
     // O dot, maior que antes: é a única mancha cheia do accent.
     ctx.beginPath();
     ctx.arc(52, A / 2, 13, 0, Math.PI * 2);
-    ctx.fillStyle = marca;
+    ctx.fillStyle = acento;
     ctx.fill();
 
     if (label) {
