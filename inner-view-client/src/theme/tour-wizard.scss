@@ -1,30 +1,47 @@
-// Tokens do wizard de criação de tour (SPRINT-3-TOUR-WIZARD.md, §4.1).
+// L2 — tokens do wizard de criação de tour (SPRINT-3-TOUR-WIZARD.md, §4.1).
 //
-// CONGELADO: depois do commit-zero, mudança aqui só por PR para
-// `feature/tour-wizard`, com as duas frentes cientes. As duas consomem estes
-// tokens; trocar um valor aqui mexe na tela do outro.
+// Camada de DOMÍNIO: dá nomes do vocabulário do wizard ("a pílula do pin", "o
+// anel de foco", "o fundo de aviso") a coisas que já existem em L1. Quase tudo
+// aqui é alias; o que não é, é composição com opacidade.
 //
-// O handoff de design traz uma paleta própria (brand #E8365D, text/900 #16181D,
-// etc). Quase toda ela já tem equivalente no design system do projeto — e o
-// próprio handoff manda adaptar quando existe. Cada linha abaixo declara de
-// onde veio: `-> --app-*` é reúso, `NOVO` é o que o wizard de fato acrescenta.
+// A regra que vale para este arquivo: cada linha ou é `var()` de L1/L0, ou é um
+// `rgba()` montado a partir de um par `-rgb` de L0. Nenhum hex de cor nasce
+// aqui. O arquivo já teve dois — o fundo de chip e a borda de hover — e foi por
+// eles que o sistema passou a ter duas vermelhas ao mesmo tempo.
 //
 // Nada de hex solto nos componentes: se faltar um token, ele nasce aqui.
 //
 // Carregado uma vez, pela lista `styles` do angular.json — mesma convenção do
 // `variables.scss`. Os mixins ficam em `_tour-wizard-mixins.scss`, que os
 // componentes consomem por `@use`.
+//
+// (O aviso de CONGELADO saiu: ele existia enquanto duas frentes editavam este
+// arquivo em paralelo, no sprint 3. As duas mergearam no PR #5.)
 
 :root {
   /* -- Marca ------------------------------------------------------------- */
-  --tw-brand: var(--ion-color-primary); //         handoff brand/500  #E8365D
-  --tw-brand-hover: var(--ion-color-primary-shade); //    brand/600  #C31E45
-  --tw-brand-disabled: var(--app-primary-disabled); //  brand/disab. #F7C7D2
-  --tw-brand-soft: #fff0f3; // NOVO — handoff brand/100 #FDE7EC, reancorado na
-  //                           Rausch do projeto. Fundo do chip da etapa ativa,
-  //                           do ícone do dropzone, do badge "Capa".
-  --tw-brand-border: #ffc9d4; // NOVO — handoff brand/200, borda em hover
-  //                             destrutivo.
+  // Todos derivam do mesmo primitivo. Antes os dois últimos eram hex escritos
+  // à mão a partir do handoff, e foi assim que o sistema passou a ter DUAS
+  // vermelhas — ver o cabeçalho do `_palette.scss`.
+  --tw-brand: var(--ion-color-primary);
+  --tw-brand-hover: var(--ion-color-primary-shade);
+  --tw-brand-disabled: var(--app-primary-disabled);
+  --tw-brand-soft: var(--brand-primary-soft); // chip da etapa ativa, ícone do
+  //                                             dropzone, badge "Capa"
+  --tw-brand-border: var(--brand-primary-300); // borda em hover destrutivo
+
+  /* -- Accent: os 10% ---------------------------------------------------- */
+  // Azul é "o que eu posso fazer"; teal é "o que já está feito". Por isso o
+  // accent vive no progresso — etapa concluída, barra, badge "Capa" — e nunca
+  // no botão primário, no orb da home, em link, em foco ou em ação destrutiva.
+  //
+  // Cada token é amarrado à SUPERFÍCIE em que passa contraste, e o teal claro
+  // (#14b8a6) não ganha token nenhum aqui: sobre as superfícies claras deste
+  // app ele nunca passa. Sobre --tw-surface-track ele daria 2,27:1.
+  --tw-accent: var(--brand-accent-dark); //  sobre superfície CLARA (5,00:1 na
+  //                                         barra, 4,86:1 sobre o soft)
+  --tw-accent-soft: var(--brand-accent-soft); // fundo pálido do par acima
+  --tw-pin-accent: var(--brand-accent-glow); //  sobre a pílula ESCURA do pin
 
   /* -- Texto ------------------------------------------------------------- */
   --tw-text-strong: var(--app-ink); //        handoff text/900  #16181D
@@ -34,43 +51,57 @@
   --tw-text-ghost: var(--app-border-strong); // handoff text/200 #C9CCD2
 
   /* -- Aviso ------------------------------------------------------------- */
-  // NOVO. O amarelo de aviso do design system (--ion-color-warning #ffc409, e
-  // mesmo o shade #e0ac08) rende ~2:1 sobre branco: serve para preencher um
-  // ícone ou uma faixa, não para texto. Um aviso ilegível não avisa. Este âmbar
-  // escuro passa AA (~5.5:1) mantendo a leitura de "atenção", distinta do
-  // vermelho de erro.
-  --tw-warn-text: #8a6100;
-  --tw-warn-soft: #fdf6e3;
+  // O amarelo cheio do design system rende ~2:1 sobre branco: serve para
+  // preencher um ícone ou uma faixa, não para texto. Um aviso ilegível não
+  // avisa. Por isso o slot `-text` existe em L0 e é ele que vem aqui.
+  --tw-warn-text: var(--status-warning-text);
+  --tw-warn-soft: var(--status-warning-soft);
+  // Par do --tw-error-border, no tom de atenção: borda do pin sem destino.
+  --tw-warn-border: var(--status-warning-border);
 
   /* -- Erro -------------------------------------------------------------- */
-  // NOVO. Aviso e erro precisam ser distinguíveis por COR e não só por texto:
-  // o âmbar acima diz "olha isto", este vermelho diz "isto impede de seguir".
-  // Reúsa o danger do design system (#c13515, ~5,5:1 sobre branco, passa AA) em
-  // vez da Rausch da marca, que é cor de ação primária — pintar um bloqueio da
+  // Aviso e erro precisam ser distinguíveis por COR e não só por texto: o
+  // âmbar acima diz "olha isto", este vermelho diz "isto impede de seguir".
+  // Erro é o status de erro e NUNCA a cor da marca — pintar um bloqueio da
   // mesma cor do botão "Próximo" faria o erro parecer um convite.
-  --tw-error-text: var(--ion-color-danger);
-  --tw-error-soft: #fdf0ed;
+  --tw-error-text: var(--status-error-text);
+  --tw-error-soft: var(--status-error-soft);
   // Par do --tw-brand-border, no tom de erro: borda de controle destrutivo em
-  // repouso e em hover. Tinta 200 do #c13515 — visível como "isto é vermelho"
-  // sem virar um bloco de cor ao lado de cada campo de nome.
-  --tw-error-border: #eec6bd;
+  // repouso e em hover. Visível como "isto é vermelho" sem virar um bloco de
+  // cor ao lado de cada campo de nome.
+  --tw-error-border: var(--status-error-border);
 
   /* -- Bordas e superfícies ---------------------------------------------- */
   --tw-border: var(--app-hairline); //          handoff border/default #E6E7EB
   --tw-border-subtle: var(--app-hairline-soft); //     border/subtle    #ECEDF0
   --tw-border-dashed: var(--app-border-strong); //     border/dashed    #DADCE1
-  --tw-surface: #ffffff; //                           surface/card
-  --tw-surface-body: #fcfcfd; // NOVO — fundo da área de conteúdo do wizard
+  --tw-surface: var(--neutral-white); //              surface/card
+  --tw-surface-body: #fcfdfe; // NOVO — fundo da área de conteúdo do wizard
   --tw-surface-muted: var(--app-surface-soft); //     surface/muted    #F4F5F7
   --tw-surface-track: var(--app-surface-strong); //   surface/track    #EDEEF1
   --tw-surface-hover: var(--app-surface-soft); //     surface/hover    #F7F7F9
 
-  /* -- Sobreposições (valores do handoff; não há equivalente no projeto) -- */
-  --tw-scrim: rgba(12, 14, 18, 0.45); //         scrim do bottom sheet
-  --tw-pin-bg: rgba(16, 18, 24, 0.78); //        pílula do hotspot
-  --tw-hint-bg: rgba(14, 16, 20, 0.72); //       balão de dica e lixeira
-  --tw-trash-active: rgba(232, 54, 93, 0.94); // lixeira com pin sobre ela
-  --tw-focus-ring: rgba(255, 56, 92, 0.2); //    anel de foco, 2px
+  /* -- Sobreposições ----------------------------------------------------- */
+  // As três primeiras são escuros e não têm relação com a marca. Antes cada uma
+  // tinha um quase-preto próprio, escrito à mão e ligeiramente diferente das
+  // outras (12,14,18 / 16,18,24 / 14,16,20). Agora saem todas do --tour-bg,
+  // cada uma com a SUA opacidade, que é o que de fato as distingue.
+  //
+  // A troca não mexe em legibilidade: o quase-preto antigo e o --tour-bg têm
+  // luminância praticamente igual (0,00609 contra 0,00608), então o branco por
+  // cima segue nos mesmos ~18:1. O que muda é o matiz, que passa a ser frio
+  // como o resto da paleta.
+  --tw-scrim: rgba(var(--tour-bg-rgb), 0.45); //   scrim do bottom sheet
+  --tw-pin-bg: rgba(var(--tour-bg-rgb), 0.78); //  pílula do hotspot
+  --tw-hint-bg: rgba(var(--tour-bg-rgb), 0.72); // balão de dica e lixeira
+  // A lixeira é ERRO, não marca. Ela era rosa quando a marca era rosa, e lia
+  // como "perigo" por acidente: azul não lê. É a mesma regra do botão de
+  // excluir do card, que já usa o vermelho de erro e não a marca.
+  --tw-trash-active: rgba(var(--status-error-rgb), 0.94); // pin sobre a lixeira
+  // O anel de foco SIM é a marca. Era rgba escrito à mão a partir de uma
+  // vermelha diferente da da lixeira; agora sai do primitivo, e é por isso que
+  // ele carrega o par `-rgb`.
+  --tw-focus-ring: rgba(var(--brand-primary-rgb), 0.2); //   anel de foco, 2px
 
   /* -- O mesmo pin, desenhado em canvas ---------------------------------- */
   // O pin do inner-view é sprite do three.js, não elemento: não existe
@@ -82,7 +113,7 @@
   //
   // Mesma identidade, paga em opacidade em vez de desfoque. É a única
   // divergência consciente entre os dois pins.
-  --tw-pin-bg-canvas: rgba(11, 13, 18, 0.95);
+  --tw-pin-bg-canvas: rgba(var(--tour-bg-rgb), 0.95);
   // Halo escuro POR FORA da pílula. A borda da marca some contra um teto claro
   // ou uma parede clara; o halo é o que garante silhueta sobre foto qualquer.
   --tw-pin-halo-canvas: rgba(0, 0, 0, 0.55);

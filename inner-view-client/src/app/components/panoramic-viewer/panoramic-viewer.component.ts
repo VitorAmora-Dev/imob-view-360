@@ -97,13 +97,13 @@ const DRAG_SLOP_PX = 6;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #000;
+      background: var(--tour-bg, #0b1220);
     }
 
     ion-spinner {
       width: 48px;
       height: 48px;
-      color: #fff;
+      color: var(--tour-text, #e2e8f0);
     }
 
     /* ---- A planta na parede -------------------------------------------- */
@@ -131,10 +131,10 @@ const DRAG_SLOP_PX = 6;
       /* Piso de alvo da WCAG. Isto é tocado com o polegar, sobre uma foto. */
       min-height: 44px;
       padding: 0 14px;
-      border: 2px solid var(--tw-brand, #ff385c);
+      border: 2px solid var(--tw-pin-accent, #2dd4bf);
       border-radius: 999px;
       /* Mesma pílula do pin: é a mesma linguagem de "toque aqui para ir". */
-      background: var(--tw-pin-bg-canvas, rgba(11, 13, 18, 0.95));
+      background: var(--tw-pin-bg-canvas, rgba(11, 18, 32, 0.95));
       backdrop-filter: blur(7px);
       box-shadow: var(--tw-shadow-pin, 0 3px 12px rgba(0, 0, 0, 0.3));
       color: #fff;
@@ -151,7 +151,7 @@ const DRAG_SLOP_PX = 6;
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      background: var(--tw-brand, #ff385c);
+      background: var(--tw-pin-accent, #2dd4bf);
     }
 
     .viewer-nav__nome {
@@ -191,11 +191,11 @@ const DRAG_SLOP_PX = 6;
       border-color: rgba(255, 255, 255, 0.45);
     }
 
-    /* O ambiente em que se está: marcado por cor da marca E por peso do texto,
+    /* O ambiente em que se está: marcado pelo accent E pelo peso do texto,
        nunca só por cor — e o atributo aria-current conta a mesma coisa a quem
        não enxerga nenhuma das duas. */
     .viewer-nav__item.is-atual {
-      border-color: var(--tw-brand, #ff385c);
+      border-color: var(--tw-pin-accent, #2dd4bf);
       font-weight: 700;
     }
 
@@ -573,7 +573,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    * O pin que o visitante vê, com a MESMA identidade do pin do wizard.
    *
    * Era uma pílula branca com seta preta, enquanto o corretor marca os pontos
-   * numa etapa cujo pin é escuro com dot na cor da marca — duas linguagens para
+   * numa etapa cujo pin é escuro com dot no accent — duas linguagens para
    * a mesma coisa, e quem monta o tour não reconhecia o que tinha publicado.
    *
    * As cores saem dos tokens `--tw-pin-bg` e `--tw-brand` lidos do documento, e
@@ -603,7 +603,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     const raiz = getComputedStyle(document.documentElement);
     const token = (nome: string, padrao: string) =>
       raiz.getPropertyValue(nome).trim() || padrao;
-    const marca = token('--tw-brand', '#ff385c');
+    const acento = token('--tw-pin-accent', '#2dd4bf');
 
     // Halo escuro por fora, antes de tudo. Uma borda vermelha sobre um teto
     // branco ou uma parede clara desaparece; o halo é o que dá silhueta sobre
@@ -615,27 +615,29 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     ctx.shadowOffsetY = 3;
     ctx.beginPath();
     ctx.roundRect(10, 10, L - 20, A - 20, (A - 20) / 2);
-    ctx.fillStyle = token('--tw-pin-bg-canvas', 'rgba(11, 13, 18, 0.95)');
+    ctx.fillStyle = token('--tw-pin-bg-canvas', 'rgba(11, 18, 32, 0.95)');
     ctx.fill();
     ctx.restore();
 
-    // A borda é da marca, e é ela que faz o pin ser notado de longe.
+    // A borda é o accent, e é ela que faz o pin ser notado de longe.
     //
-    // A alternativa era pintar a PÍLULA inteira de vermelho. Medi as duas:
-    // branco sobre a Rausch #ff385c dá 3,5:1, abaixo do 4,5:1 que a WCAG pede
-    // para texto normal; branco sobre esta pílula dá ~17:1. Como o pedido é
-    // justamente enxergar melhor, o vermelho entra na silhueta e o texto fica
-    // onde se lê. Ver §11 das notas do sprint.
+    // A alternativa era pintar a PÍLULA inteira com o accent. Continua
+    // recusada, mas o motivo mudou com a paleta: com a Rausch o argumento era
+    // de contraste (branco sobre #ff385c dava 3,5:1, abaixo do 4,5:1 da WCAG);
+    // com o azul #2563eb são 5,17:1 e esse argumento cai. O que não cai é o
+    // outro: atrás deste pin há uma FOTO que ninguém controla, e um bloco de
+    // cor chapada compete com ela em vez de se destacar dela. Branco sobre esta
+    // pílula escura dá ~17:1 em qualquer parede. Ver §11 das notas do sprint.
     ctx.beginPath();
     ctx.roundRect(10, 10, L - 20, A - 20, (A - 20) / 2);
-    ctx.strokeStyle = marca;
+    ctx.strokeStyle = acento;
     ctx.lineWidth = 5;
     ctx.stroke();
 
-    // O dot, maior que antes: é a única mancha cheia da cor da marca.
+    // O dot, maior que antes: é a única mancha cheia do accent.
     ctx.beginPath();
     ctx.arc(52, A / 2, 13, 0, Math.PI * 2);
-    ctx.fillStyle = marca;
+    ctx.fillStyle = acento;
     ctx.fill();
 
     if (label) {
@@ -653,9 +655,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // SEM isto o pin sai lavado, e foi o que apareceu no celular: o renderer
     // trabalha com `outputColorSpace = 'srgb'`, então uma textura que não se
     // declara sRGB é lida como se fosse linear e convertida de novo na saída.
-    // Medido: #ff385c chegava à tela como #ff81a2, um rosa claro, e a pílula
-    // #101218 como #474b56, um cinza médio. A foto já fazia isso certo desde
-    // sempre (`loadPanorama`); só o sprite ficou de fora.
+    // Medido à época, com a marca ainda em #ff385c: ela chegava à tela como
+    // #ff81a2, um rosa claro, e a pílula #101218 como #474b56, um cinza médio.
+    // A cor mudou, o mecanismo não. A foto já fazia isso certo desde sempre
+    // (`loadPanorama`); só o sprite ficou de fora.
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
 

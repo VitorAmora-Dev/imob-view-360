@@ -74,7 +74,8 @@ ion-toolbar {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Buttons — 48px, 8px radius, weight 500; press #e00b41; disabled #ffd1da     */
+/* Buttons — 48px, 8px radius, weight 500. Press e disabled saem dos tokens    */
+/* (--ion-color-primary-shade e --app-primary-disabled), não de hex daqui.     */
 /* -------------------------------------------------------------------------- */
 
 ion-button {
@@ -93,10 +94,11 @@ ion-button {
   }
 }
 
-/* Solid primary CTA disabled state: pale Rausch tint, no opacity fade */
+/* CTA primário sólido, desabilitado: tinta pálida da marca, sem esmaecer por
+   opacity — o fade deixaria o texto branco ilegível em vez de "desligado". */
 ion-button.button-disabled:not([fill="outline"]):not([fill="clear"]) {
   --background: var(--app-primary-disabled);
-  --color: #ffffff;
+  --color: var(--neutral-white);
   opacity: 1;
 }
 

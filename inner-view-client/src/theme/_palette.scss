@@ -1,0 +1,174 @@
+// L0 — PRIMITIVOS DE COR. A única fonte de verdade cromática do sistema.
+//
+// Arquitetura em quatro camadas:
+//
+//   L0  _palette.scss     --brand-*, --neutral-*, --status-*   (este arquivo)
+//   L1  variables.scss    --ion-color-*, --app-*               (semântico global)
+//   L2  tour-wizard.scss  --tw-*                               (domínio do wizard)
+//   L3  componentes       var(--tw-*), var(--app-*), var(--ion-*)
+//
+// REGRA: os primitivos daqui são consumidos SÓ por L1 e L2. Nenhum componente
+// escreve `var(--brand-primary)`. Componente pede a coisa pelo papel que ela tem
+// ("a superfície do card", "o texto de erro"), não pela cor que ela é hoje.
+//
+// Esta é a adaptação, para uma stack que já tem camada semântica, da regra do
+// ARP-VISION-DESIGN.md: "nunca escreva um hex direto num componente". O Ionic
+// EXIGE que `--ion-color-primary` exista e não aceita ser renomeado — então em
+// vez de escolher entre a nomenclatura do documento e a do Ionic, o Ionic passa
+// a ser ALIMENTADO por esta camada.
+//
+// POR QUE ESTE ARQUIVO EXISTE
+//
+// Havia duas vermelhas no sistema: a #ff385c do Ionic e a #E8365D do handoff do
+// wizard, esta sobrevivendo dentro de `--tw-trash-active`. Ninguém errou — não
+// existia um lugar único que dissesse qual é a cor da marca, então duas fontes
+// responderam. Um piso de primitivos é o que impede a terceira.
+//
+// NOMES: por PAPEL, não por matiz
+//
+// O ARP-VISION-DESIGN.md nomeia por cor (`brand-blue`, `brand-teal`). Aqui os
+// primitivos são `--brand-primary` / `--brand-accent`, porque um token chamado
+// "blue" vira mentira no dia em que a marca não for azul — que é exatamente o
+// dia de hoje, e é o motivo de este arquivo estar nascendo. A correspondência:
+//
+//   documento          aqui
+//   brand-blue      -> --brand-primary
+//   brand-blue-dark -> --brand-primary-dark
+//   brand-blue-soft -> --brand-primary-soft
+//   brand-teal      -> --brand-accent      (entra quando houver consumidor)
+//   text-strong     -> --neutral-ink
+//   text-secondary  -> --neutral-body
+//   text-muted      -> --neutral-muted
+//   border          -> --neutral-hairline
+//   bg-section      -> --neutral-surface-strong
+//   bg-base         -> --neutral-surface-soft
+//   status-*        -> --status-*
+//
+// PARES hex/rgb: `--ion-color-primary-rgb` exige a tripla literal, não aceita
+// `var()` de um hex. É o único ponto do sistema onde uma verdade fica escrita
+// duas vezes. `palette.contract.spec.ts` trava que as duas não divergiram.
+//
+// Nada de `color-mix()` aqui: `panoramic-viewer.component.ts` lê tokens por
+// `getComputedStyle` e passa direto para `ctx.fillStyle` do canvas, que não
+// entende a função — ele receberia a string literal. Todo valor deste arquivo é
+// hex, rgba, ou `var()` de um.
+
+:root {
+  /* == Marca ============================================================== */
+  --brand-primary: #2563eb;
+  --brand-primary-rgb: 37, 99, 235;
+  --brand-primary-dark: #1d4ed8; //  press/active
+  --brand-primary-tint: #3b73ed;
+  --brand-primary-soft: #dbeafe; //  fundo de chip/badge de marca
+  --brand-primary-200: #bfdbfe; //   CTA sólido desabilitado
+  --brand-primary-300: #93c5fd; //   borda em hover
+  --brand-primary-contrast: #ffffff;
+  --brand-primary-contrast-rgb: 255, 255, 255;
+
+  /* -- Accent teal: os 10% --------------------------------------------- */
+  // A regra mais fácil de errar da paleta inteira, então ela está nos NOMES e
+  // não só num comentário: existe UM foreground permitido sobre teal, e ele se
+  // chama -dark. Branco sobre o teal claro dá 2,49:1 e reprova.
+  --brand-accent: #14b8a6; //       preenchimento, ícone, borda. Nunca atrás de texto.
+  --brand-accent-rgb: 20, 184, 166;
+  --brand-accent-dark: #0f766e; //  5,47:1 sobre branco ✓ — texto, ícone, e fundo de botão com texto branco
+  --brand-accent-soft: #ccfbf1; //  fundo de tag/realce; o par dele é -dark (4,86:1 ✓)
+  --brand-accent-glow: #2dd4bf; //  só sobre o escuro do visualizador: 10,06:1 sobre --tour-bg
+
+  // Sub-marca. Zero consumidores em template hoje, mas os slots do Ionic NÃO
+  // podem ficar indefinidos: o CSS do Ionic 8 traz `var(--ion-color-secondary,
+  // #3dc2ff)` com fallback embutido, então apagar a definição não desliga o
+  // slot — faz um `color="secondary"` futuro renderizar o ciano do Ionic, fora
+  // da paleta, em silêncio, e sem nenhum teste pegar.
+  //
+  // Redefinidos DENTRO da paleta, o que transforma `color="secondary"` na forma
+  // sancionada de pedir um controle teal ao Ionic — com contraste garantido,
+  // porque ele aponta para o -dark e não para o teal claro.
+  --brand-secondary: var(--brand-accent-dark); //  teal escuro, branco a 5,47:1 ✓
+  --brand-secondary-rgb: 15, 118, 110;
+  --brand-secondary-dark: #0d6861;
+  --brand-secondary-tint: #27847d;
+
+  --brand-tertiary: var(--brand-primary-dark); //  azul profundo, branco a 6,70:1 ✓
+  --brand-tertiary-rgb: 29, 78, 216;
+  --brand-tertiary-dark: #1944be;
+  --brand-tertiary-tint: #3460dc;
+
+  /* == Neutros ============================================================ */
+  --neutral-white: #ffffff;
+  --neutral-white-rgb: 255, 255, 255;
+  --neutral-black: #000000; //          só como contraste de superfície clara
+  --neutral-black-rgb: 0, 0, 0;
+
+  --neutral-ink: #0f172a; //            texto principal, títulos
+  --neutral-ink-rgb: 15, 23, 42;
+  --neutral-body: #334155; //           corpo de texto
+  --neutral-muted: #64748b; //          texto secundário
+  --neutral-muted-soft: #94a3b8; //     texto terciário
+  --neutral-hairline: #cbd5e1; //       borda padrão
+  --neutral-hairline-soft: #e2e8f0; //  divisória
+  --neutral-border-strong: #b7c3d2; //  borda enfática (dropzone tracejado)
+  --neutral-surface-soft: #f8fafc; //   superfície suave / hover
+  --neutral-surface-strong: #f1f5f9; // trilho de progresso
+
+  /* == Tema imersivo: SÓ dentro do visualizador 360 ======================= */
+  // O documento restringe estes ao visualizador, e a restrição é a parte
+  // importante: um dashboard escuro quebraria a sensação de "claro e fácil" que
+  // a marca busca fora do tour. Não existe dark mode neste app.
+  //
+  // Aqui eles NÃO viram um segundo tema com nomes próprios que os componentes
+  // consomem. Eles alimentam o fundo das páginas imersivas e a família de
+  // pílulas escuras que flutuam sobre a foto.
+  --tour-bg: #0b1220;
+  --tour-bg-rgb: 11, 18, 32;
+  --tour-surface: #1e293b; //  cartão/painel sobre o fundo escuro
+  --tour-text: #e2e8f0; //     15,19:1 sobre --tour-bg ✓
+  // O accent sobre o escuro é o --brand-accent-glow (#2dd4bf, 10,06:1 aqui).
+  // Ele mora na família accent e não nesta porque é o MESMO acento do pin do
+  // wizard, que vive sobre foto e não sobre esta superfície.
+
+  /* == Status ============================================================= */
+  // TRÊS SLOTS por família, e a distinção não é enfeite: a cor cheia de um
+  // status quase nunca passa contraste como TEXTO. O âmbar do design system
+  // (#ffc409) rende ~2:1 sobre branco — um aviso ilegível não avisa. Então:
+  //
+  //   base    preenchimento, ícone, borda. Pode não servir para texto.
+  //   -text   a variante que PASSA em texto. Quem pinta letra usa esta.
+  //   -soft   fundo da faixa/bloco daquele status.
+  //
+  // Quem pinta texto usa SEMPRE o slot -text. A forma uniforme é o que impede
+  // alguém "simplificar" removendo o slot — e as três famílias precisam MESMO
+  // dele: nenhuma das três bases passa 4,5:1 sobre o próprio fundo -soft.
+  // Base 3,30:1 sobre branco — serve de preenchimento de chip, não de texto.
+  --status-success: #16a34a;
+  --status-success-rgb: 22, 163, 74;
+  --status-success-dark: #138f41;
+  --status-success-tint: #2dac5c;
+  --status-success-text: #15803d; //    5,01:1 ✓
+  --status-success-soft: #dcfce7;
+  --status-success-border: #bbf7d0;
+
+  // Base 2,15:1 sobre branco: PREENCHIMENTO APENAS. É o slot que mais engana,
+  // porque parece legível numa tela grande e some numa pequena, ao sol.
+  --status-warning: #f59e0b;
+  --status-warning-rgb: 245, 158, 11;
+  --status-warning-dark: #d78b0a;
+  --status-warning-tint: #f6a823;
+  --status-warning-text: #b45309; //    5,02:1 ✓
+  --status-warning-soft: #fef3c7;
+  --status-warning-border: #fde68a;
+
+  // Base 4,83:1 sobre branco: aqui base e texto coincidem, e o slot -text
+  // existe assim mesmo. A forma uniforme é o que impede alguém removê-lo por
+  // "simplificação" e depois pintar texto com a base de outro status.
+  --status-error: #dc2626;
+  --status-error-rgb: 220, 38, 38;
+  --status-error-dark: #c12121;
+  --status-error-tint: #e03c3c;
+  // NAO e alias da base, e o teste de contrato foi quem mostrou por que: a base
+  // sobre o proprio fundo de erro da 3,95:1. Este red-700 da 5,30:1 sobre o
+  // soft e 6,47:1 sobre branco.
+  --status-error-text: #b91c1c;
+  --status-error-soft: #fee2e2;
+  --status-error-border: #fecaca;
+}

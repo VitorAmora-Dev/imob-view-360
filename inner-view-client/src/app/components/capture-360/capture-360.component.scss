@@ -73,7 +73,7 @@
 
   &.target--locked::before {
     border-color: var(--ion-color-primary);
-    background: rgba(255, 56, 92, 0.25);
+    background: rgba(var(--ion-color-primary-rgb), 0.25);
   }
 }
 
@@ -173,7 +173,7 @@
 .hint-pill {
   padding: 8px 18px;
   border-radius: 9999px;
-  background: rgba(34, 34, 34, 0.72);
+  background: rgba(var(--ion-text-color-rgb), 0.72);
   color: #fff;
   font-size: 14px;
   backdrop-filter: blur(8px);
@@ -186,7 +186,7 @@
   gap: 4px;
   padding: 4px;
   border-radius: 9999px;
-  background: rgba(34, 34, 34, 0.6);
+  background: rgba(var(--ion-text-color-rgb), 0.6);
   backdrop-filter: blur(8px);
 }
 
@@ -285,7 +285,7 @@
   max-width: min(420px, 90vw);
   padding: 8px 16px;
   border-radius: var(--app-radius-md);
-  background: rgba(193, 53, 21, 0.92);
+  background: rgba(var(--ion-color-danger-rgb), 0.92);
   color: #fff;
   font-size: 13px;
   line-height: 1.4;
@@ -411,7 +411,7 @@ ion-button.on-dark {
   min-height: 48px;
   border: 2px solid rgba(255, 255, 255, 0.35);
   border-radius: 12px;
-  background: rgba(11, 13, 18, 0.82);
+  background: rgba(var(--tour-bg-rgb), 0.82);
   font-size: 16px; /* menos que 16px faz o iOS dar zoom ao focar */
 }
 
@@ -446,7 +446,7 @@ ion-button.on-dark {
   min-height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
-  background: rgba(11, 13, 18, 0.72);
+  background: rgba(var(--tour-bg-rgb), 0.72);
   font-size: 14px;
   white-space: nowrap;
   cursor: pointer;

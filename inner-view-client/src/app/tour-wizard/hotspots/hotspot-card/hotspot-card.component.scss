@@ -56,10 +56,10 @@
   }
 }
 
-// Vermelho de ERRO (#c13515), não a Rausch da marca. É a mesma regra que o
-// tour-wizard.scss já escreve para o texto de erro: a Rausch é a cor de ação
-// primária — ela pinta o badge do número, a borda do campo em foco e o
-// "Concluído" do sheet. Pintar o excluir dela deixaria, no mesmo card, o botão
+// Vermelho de ERRO, não a cor da marca. É a mesma regra que o `_palette.scss`
+// escreve para o texto de erro: a marca é a cor de ação primária — ela pinta o
+// badge do número, a borda do campo em foco e o "Concluído" do sheet. Pintar o
+// excluir dela deixaria, no mesmo card, o botão
 // que apaga com a roupa do botão que confirma.
 //
 // Vermelho no ÍCONE, não no fundo. Uma caixa vermelha sólida por card faria da

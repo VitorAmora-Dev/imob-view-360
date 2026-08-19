@@ -1,6 +1,14 @@
-// Immersive viewer surface — intentional exception to the white canvas.
+// Superfície imersiva do visualizador — a exceção intencional ao canvas branco.
+//
+// O escuro aqui é o --tour-bg da paleta e não preto puro: preto absoluto contra
+// a foto cria uma borda dura, e o azul-quase-preto pertence à mesma família fria
+// do resto do sistema. A diferença de luminância é desprezível (o branco por
+// cima segue em ~18:1), então isto é matiz, não legibilidade.
+//
+// O tema imersivo para nesta página e no inner-view. Ele NÃO é um dark mode: o
+// wizard, os formulários e a home continuam claros.
 ion-content {
-  --background: #000;
+  --background: var(--tour-bg);
 }
 
 app-panoramic-viewer {
@@ -14,12 +22,12 @@ app-panoramic-viewer {
   align-items: center;
   justify-content: center;
   height: 100%;
-  background: #000;
-  color: #fff;
+  background: var(--tour-bg);
+  color: var(--tour-text);
 
   ion-spinner {
     width: 48px;
     height: 48px;
-    color: #fff;
+    color: var(--tour-text);
   }
 }

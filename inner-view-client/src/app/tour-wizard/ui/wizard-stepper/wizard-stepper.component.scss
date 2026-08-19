@@ -54,10 +54,21 @@
   font-weight: 700;
   line-height: 1;
 
-  [data-state='done'] &,
+  // Onde estou: a marca, cheia. É o estado que deve dominar a barra.
   [data-state='current'] & {
     background: var(--tw-brand);
     color: #fff;
+  }
+
+  // O que já passou: accent. Antes era idêntico ao atual, e a única diferença
+  // entre "estou aqui" e "já fiz" era o glifo do check — pequeno demais para
+  // carregar sozinho essa distinção num relance.
+  //
+  // Par soft + accent, nunca branco sobre teal: o teal claro dá 2,49:1 com
+  // branco. Assim são 4,86:1.
+  [data-state='done'] & {
+    background: var(--tw-accent-soft);
+    color: var(--tw-accent);
   }
 }
 
@@ -96,7 +107,10 @@
 .tw-progress__fill {
   height: 100%;
   border-radius: inherit;
-  background: var(--tw-brand);
+  // Progresso é "o que já está feito": accent, não marca. O teal ESCURO, não o
+  // claro — sobre o trilho o claro daria 2,27:1, abaixo do piso de 3:1 para
+  // elemento gráfico, e a barra existe justamente para ser lida de relance.
+  background: var(--tw-accent);
   transition: var(--tw-ease-progress);
 }
 
