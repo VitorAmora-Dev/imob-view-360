@@ -3,7 +3,7 @@
 > Documento de handoff. Entregue este arquivo a um assistente de código (ou dev) ao implementar a identidade visual do Arp Vision. Ele contém os tokens, o código pronto e as **regras de uso** — siga as regras, não só as cores.
 
 **Stack alvo:** React + Vite + Tailwind CSS.
-**Instrução ao implementador:** use os tokens nomeados abaixo em vez de valores hex soltos no código. Nunca escreva `#2563EB` diretamente num componente — use `var(--brand-blue)` ou `bg-brand-blue`. Isso mantém a marca consistente e fácil de ajustar.
+**Instrução ao implementador:** use os tokens nomeados abaixo em vez de valores hex soltos no código. Nunca escreva `#0454ED` diretamente num componente — use `var(--brand-blue)` ou `bg-brand-blue`. Isso mantém a marca consistente e fácil de ajustar.
 
 ---
 
@@ -12,9 +12,9 @@
 ### Cores da marca
 | Token | Hex | Papel |
 |---|---|---|
-| `brand-blue-dark` | `#1D4ED8` | Hover/pressed do azul; texto azul sobre fundo claro |
-| `brand-blue` | `#2563EB` | **Cor principal.** Identidade, logo, links, destaques de fundo |
-| `brand-blue-soft` | `#DBEAFE` | Fundo suave azul: badges, seções destacadas, estados selecionados |
+| `brand-blue-dark` | `#0347CC` | Hover/pressed do azul; texto azul sobre fundo claro |
+| `brand-blue` | `#0454ED` | **Cor principal.** Identidade, logo, links, destaques de fundo |
+| `brand-blue-soft` | `#E6EEFF` | Fundo suave azul: badges, seções destacadas, estados selecionados |
 | `brand-teal-dark` | `#0F766E` | Teal para texto/ícone sobre branco; botão teal com texto branco |
 | `brand-teal` | `#14B8A6` | **Accent.** Ações, ícones ativos, detalhes que devem chamar atenção |
 | `brand-teal-soft` | `#CCFBF1` | Fundo suave teal: tags, realces leves |
@@ -55,9 +55,9 @@ Cole em `:root` no CSS global (ex.: `index.css`):
 ```css
 :root {
   /* Marca */
-  --brand-blue-dark: #1D4ED8;
-  --brand-blue: #2563EB;
-  --brand-blue-soft: #DBEAFE;
+  --brand-blue-dark: #0347CC;
+  --brand-blue: #0454ED;
+  --brand-blue-soft: #E6EEFF;
   --brand-teal-dark: #0F766E;
   --brand-teal: #14B8A6;
   --brand-teal-soft: #CCFBF1;
@@ -93,7 +93,7 @@ export default {
     extend: {
       colors: {
         brand: {
-          blue:      { DEFAULT: '#2563EB', dark: '#1D4ED8', soft: '#DBEAFE' },
+          blue:      { DEFAULT: '#0454ED', dark: '#0347CC', soft: '#E6EEFF' },
           teal:      { DEFAULT: '#14B8A6', dark: '#0F766E', soft: '#CCFBF1' },
         },
         ink: {
@@ -156,7 +156,7 @@ Como usar teal corretamente:
 - O `brand-teal` (`#14B8A6`) puro fica ótimo como: preenchimento de área grande, fundo de ícone, barra, realce — não como texto pequeno.
 
 Outras verificações:
-- `brand-blue` (`#2563EB`) com texto branco: OK para botões (texto grande/bold). Para texto pequeno sobre branco, prefira `brand-blue-dark`.
+- `brand-blue` (`#0454ED`) com texto branco: 6,01:1, aprovado pela WCAG AA. Para estados pressionados, use `brand-blue-dark`.
 - Cores de status: use sempre acompanhadas de ícone ou texto, nunca só a cor (usuários daltônicos não distinguem verde/vermelho isolados).
 
 ---
@@ -255,7 +255,7 @@ existe `prefers-color-scheme` no projeto.
 `src/theme/palette.contract.spec.ts` (43 testes) verifica **relações, nunca
 valores**: pares hex/rgb coerentes, contraste por tabela declarada, a forma dos
 três slots de status, e nenhuma cadeia `var()` quebrada. Um teste que afirmasse
-`--brand-primary === '#2563EB'` engessaria a cor sem proteger nada.
+`--brand-primary === '#0454ED'` engessaria a cor sem proteger nada.
 
 ### Achado em aberto
 

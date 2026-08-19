@@ -55,13 +55,13 @@
 
 :root {
   /* == Marca ============================================================== */
-  --brand-primary: #2563eb;
-  --brand-primary-rgb: 37, 99, 235;
-  --brand-primary-dark: #1d4ed8; //  press/active
-  --brand-primary-tint: #3b73ed;
-  --brand-primary-soft: #dbeafe; //  fundo de chip/badge de marca
-  --brand-primary-200: #bfdbfe; //   CTA sólido desabilitado
-  --brand-primary-300: #93c5fd; //   borda em hover
+  --brand-primary: #0454ed;
+  --brand-primary-rgb: 4, 84, 237;
+  --brand-primary-dark: #0347cc; //  press/active
+  --brand-primary-tint: #1d65ef;
+  --brand-primary-soft: #e6eeff; //  fundo de chip/badge de marca
+  --brand-primary-200: #c6d8ff; //   CTA sólido desabilitado
+  --brand-primary-300: #9fbcff; //   borda em hover
   --brand-primary-contrast: #ffffff;
   --brand-primary-contrast-rgb: 255, 255, 255;
 
@@ -89,10 +89,10 @@
   --brand-secondary-dark: #0d6861;
   --brand-secondary-tint: #27847d;
 
-  --brand-tertiary: var(--brand-primary-dark); //  azul profundo, branco a 6,70:1 ✓
-  --brand-tertiary-rgb: 29, 78, 216;
-  --brand-tertiary-dark: #1944be;
-  --brand-tertiary-tint: #3460dc;
+  --brand-tertiary: var(--brand-primary-dark); //  azul profundo, branco a 7,56:1 ✓
+  --brand-tertiary-rgb: 3, 71, 204;
+  --brand-tertiary-dark: #033eb4;
+  --brand-tertiary-tint: #1c59d1;
 
   /* == Neutros ============================================================ */
   --neutral-white: #ffffff;
