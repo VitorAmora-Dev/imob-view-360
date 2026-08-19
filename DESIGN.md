@@ -326,6 +326,19 @@ components:
     typography: "{typography.caption-sm}"
 ---
 
+> **SUPERSEDIDO EM 18/08/2026 — no que diz respeito a COR.**
+>
+> Este documento é a análise do design system da Airbnb que serviu de base ao
+> visual anterior do produto. Tipografia, espaçamento, raios, a camada única de
+> sombra e os padrões de componente descritos aqui **continuam valendo**.
+> A PALETA não: foi substituída pela identidade Arp Vision.
+>
+> - Especificação nova: [ARP-VISION-DESIGN.md](ARP-VISION-DESIGN.md)
+> - Fonte de verdade no código: `inner-view-client/src/theme/_palette.scss`
+>
+> Todo hex de cor abaixo — inclusive a Rausch `#ff385c` do frontmatter — é
+> registro histórico. Não copie nenhum deles para código novo.
+
 ## Overview
 
 Airbnb is the canonical example of a generous, photography-led consumer marketplace. The base canvas is **pure white** (`{colors.canvas}` — #ffffff) with deep near-black ink (`{colors.ink}` — #222222) for headlines and body, and a single voltage of **Rausch** (`{colors.primary}` — #ff385c) carrying every primary CTA, the search-button orb, the heart save state, and inline brand links. There is no secondary brand color in mainline marketing — the **Luxe purple** (`{colors.luxe}` — #460479) and **Plus magenta** (`{colors.plus}` — #92174d) tokens are sub-brand accents that only appear inside Airbnb Luxe / Plus contexts.

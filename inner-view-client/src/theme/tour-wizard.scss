@@ -1,19 +1,22 @@
-// Tokens do wizard de criação de tour (SPRINT-3-TOUR-WIZARD.md, §4.1).
+// L2 — tokens do wizard de criação de tour (SPRINT-3-TOUR-WIZARD.md, §4.1).
 //
-// CONGELADO: depois do commit-zero, mudança aqui só por PR para
-// `feature/tour-wizard`, com as duas frentes cientes. As duas consomem estes
-// tokens; trocar um valor aqui mexe na tela do outro.
+// Camada de DOMÍNIO: dá nomes do vocabulário do wizard ("a pílula do pin", "o
+// anel de foco", "o fundo de aviso") a coisas que já existem em L1. Quase tudo
+// aqui é alias; o que não é, é composição com opacidade.
 //
-// O handoff de design traz uma paleta própria (brand #E8365D, text/900 #16181D,
-// etc). Quase toda ela já tem equivalente no design system do projeto — e o
-// próprio handoff manda adaptar quando existe. Cada linha abaixo declara de
-// onde veio: `-> --app-*` é reúso, `NOVO` é o que o wizard de fato acrescenta.
+// A regra que vale para este arquivo: cada linha ou é `var()` de L1/L0, ou é um
+// `rgba()` montado a partir de um par `-rgb` de L0. Nenhum hex de cor nasce
+// aqui. O arquivo já teve dois — o fundo de chip e a borda de hover — e foi por
+// eles que o sistema passou a ter duas vermelhas ao mesmo tempo.
 //
 // Nada de hex solto nos componentes: se faltar um token, ele nasce aqui.
 //
 // Carregado uma vez, pela lista `styles` do angular.json — mesma convenção do
 // `variables.scss`. Os mixins ficam em `_tour-wizard-mixins.scss`, que os
 // componentes consomem por `@use`.
+//
+// (O aviso de CONGELADO saiu: ele existia enquanto duas frentes editavam este
+// arquivo em paralelo, no sprint 3. As duas mergearam no PR #5.)
 
 :root {
   /* -- Marca ------------------------------------------------------------- */
