@@ -134,7 +134,7 @@ const DRAG_SLOP_PX = 6;
       border: 2px solid var(--tw-pin-accent, #2dd4bf);
       border-radius: 999px;
       /* Mesma pílula do pin: é a mesma linguagem de "toque aqui para ir". */
-      background: var(--tw-pin-bg-canvas, rgba(11, 13, 18, 0.95));
+      background: var(--tw-pin-bg-canvas, rgba(11, 18, 32, 0.95));
       backdrop-filter: blur(7px);
       box-shadow: var(--tw-shadow-pin, 0 3px 12px rgba(0, 0, 0, 0.3));
       color: #fff;
@@ -615,7 +615,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     ctx.shadowOffsetY = 3;
     ctx.beginPath();
     ctx.roundRect(10, 10, L - 20, A - 20, (A - 20) / 2);
-    ctx.fillStyle = token('--tw-pin-bg-canvas', 'rgba(11, 13, 18, 0.95)');
+    ctx.fillStyle = token('--tw-pin-bg-canvas', 'rgba(11, 18, 32, 0.95)');
     ctx.fill();
     ctx.restore();
 

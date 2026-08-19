@@ -56,6 +56,8 @@
   // avisa. Por isso o slot `-text` existe em L0 e é ele que vem aqui.
   --tw-warn-text: var(--status-warning-text);
   --tw-warn-soft: var(--status-warning-soft);
+  // Par do --tw-error-border, no tom de atenção: borda do pin sem destino.
+  --tw-warn-border: var(--status-warning-border);
 
   /* -- Erro -------------------------------------------------------------- */
   // Aviso e erro precisam ser distinguíveis por COR e não só por texto: o

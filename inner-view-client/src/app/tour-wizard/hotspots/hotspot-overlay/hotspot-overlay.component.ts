@@ -274,7 +274,7 @@ interface Pressao {
          visitante vai ver — e é justamente o que este ponto ainda não cumpre.
          Pulsar aqui seria ensaiar uma promessa falsa. */
       .tw-pin.is-orphan {
-        border-color: rgba(253, 246, 227, 0.5);
+        border-color: var(--tw-warn-border);
       }
 
       .tw-pin.is-orphan .tw-pin__dot {
