@@ -3,11 +3,15 @@ import sharp from 'sharp';
 import { GetThumbnailService } from '../src/modules/virtual-tours/services/get-thumbnail.service';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { limparCacheDeMiniatura } from '../src/modules/panoramas/panorama-miniatura';
+import { PanoramaImageReader } from '../src/modules/panoramas/panorama-image.reader';
 import { seedTwoTenants, TenantFixture, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
 
 const asPrismaService = prisma as unknown as PrismaService;
-const miniatura = new GetThumbnailService(asPrismaService);
+const miniatura = new GetThumbnailService(
+  asPrismaService,
+  new PanoramaImageReader(asPrismaService),
+);
 
 /**
  * JPEG de verdade: o serviço decodifica e redimensiona com sharp, então uma

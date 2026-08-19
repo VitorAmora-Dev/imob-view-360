@@ -8,6 +8,9 @@ import { UpdatePanoramaService } from './services/update-panorama.service';
 import { DeletePanoramaService } from './services/delete-panorama.service';
 import { UploadCaptureFrameService } from './services/upload-capture-frame.service';
 import { TreatPanoramaService } from './services/treat-panorama.service';
+import { GetPanoramaImageController } from './controllers/get-panorama-image.controller';
+import { GetPanoramaImageService } from './services/get-panorama-image.service';
+import { PanoramaImageReader } from './panorama-image.reader';
 
 @Module({
   controllers: [
@@ -15,6 +18,7 @@ import { TreatPanoramaService } from './services/treat-panorama.service';
     UpdatePanoramaController,
     DeletePanoramaController,
     UploadCaptureFrameController,
+    GetPanoramaImageController,
   ],
   providers: [
     CreatePanoramaService,
@@ -22,7 +26,12 @@ import { TreatPanoramaService } from './services/treat-panorama.service';
     DeletePanoramaService,
     UploadCaptureFrameService,
     TreatPanoramaService,
+    GetPanoramaImageService,
+    PanoramaImageReader,
   ],
-  exports: [TreatPanoramaService],
+  // O `PanoramaImageReader` sai daqui porque a capa do tour, que mora em
+  // virtual-tours, lê imagem pela mesma regra — e duas cópias da regra
+  // divergiriam em silêncio.
+  exports: [TreatPanoramaService, PanoramaImageReader],
 })
 export class PanoramasModule {}

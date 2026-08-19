@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
-import { base64Puro } from '../../panoramas/panorama-image';
+import { PanoramaImageReader } from '../../panoramas/panorama-image.reader';
 import {
   LARGURA_MINIATURA,
   chaveDeCache,
@@ -17,7 +17,10 @@ export interface RespostaMiniatura {
 
 @Injectable()
 export class GetThumbnailService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly leitor: PanoramaImageReader,
+  ) {}
 
   async execute(
     virtualTourId: string,
@@ -40,47 +43,16 @@ export class GetThumbnailService {
     const corpo = await reduzirComCache(
       chaveDeCache(capa.id, capa.updatedAt, LARGURA_MINIATURA),
       LARGURA_MINIATURA,
-      () => this.carregarOriginal(capa.id, capa.treatmentStatus === 'DONE'),
+      async () => {
+        const original = await this.leitor.carregar(
+          capa.id,
+          capa.treatmentStatus === 'DONE',
+        );
+        if (!original) throw new NotFoundException('No thumbnail available');
+        return original;
+      },
     );
 
     return { etag, corpo };
-  }
-
-  /**
-   * Lê UMA das duas colunas de imagem, não as duas.
-   *
-   * `imagemServivel` prefere a tratada quando ela existe, e `treatmentStatus`
-   * anda junto de `treatedImageData` nos dois lugares que a escrevem
-   * (`treat-panorama.service.ts` ao concluir, `update-panorama.service.ts` ao
-   * refotografar). Aqui isso vira um palpite sobre qual coluna pedir — e o
-   * fallback existe porque um palpite errado não pode virar tela sem capa.
-   */
-  private async carregarOriginal(
-    panoramaId: string,
-    tratada: boolean,
-  ): Promise<Buffer> {
-    // O `??` faz o trabalho: com o palpite certo, a segunda consulta nunca roda.
-    const imagem =
-      (tratada ? await this.tratada(panoramaId) : null) ??
-      (await this.original(panoramaId));
-    if (!imagem) throw new NotFoundException('No thumbnail available');
-
-    return Buffer.from(base64Puro(imagem), 'base64');
-  }
-
-  private async tratada(id: string): Promise<string | null> {
-    const linha = await this.prisma.panorama.findUnique({
-      where: { id },
-      select: { treatedImageData: true },
-    });
-    return linha?.treatedImageData ?? null;
-  }
-
-  private async original(id: string): Promise<string | null> {
-    const linha = await this.prisma.panorama.findUnique({
-      where: { id },
-      select: { imageData: true },
-    });
-    return linha?.imageData ?? null;
   }
 }
