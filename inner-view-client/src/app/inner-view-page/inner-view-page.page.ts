@@ -22,7 +22,8 @@ import {
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
 import { captureSupported } from '../components/capture-360/capture-support';
-import { dataUriToBlob, panoramaFilename, toPanoramaDataUri } from './panorama-download.util';
+import { panoramaFilename } from './panorama-download.util';
+import { urlDaImagem } from '../models/panorama-image.util';
 
 @Component({
   selector: 'app-inner-view-page',
@@ -113,11 +114,20 @@ export class InnerViewPagePage implements OnInit {
     this.currentPanorama = panorama;
   }
 
-  /** Baixa o panorama que está sendo visto como JPEG (só no cliente). */
-  onDownloadPanorama() {
+  /**
+   * Baixa o panorama que está sendo visto como JPEG.
+   *
+   * A foto não vem mais dentro do JSON do tour, então o download busca o mesmo
+   * endereço que o visualizador já usou — e por isso, na prática, vem do cache
+   * do navegador em vez de baixar de novo.
+   */
+  async onDownloadPanorama() {
     if (!this.currentPanorama) return;
     try {
-      const blob = dataUriToBlob(toPanoramaDataUri(this.currentPanorama.imageData));
+      const resposta = await fetch(urlDaImagem(this.currentPanorama));
+      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+
+      const blob = await resposta.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

@@ -231,7 +231,7 @@ export class UploadTourPage {
     this.previewPanoramas = this.panoramas.map((p, i) => ({
       id: `preview-${i}`,
       roomName: p.roomName,
-      imageData: p.imageData,
+      imageUrl: p.imageData,
       order: i,
       initialPanorama: i === 0,
       originHotspots: [],

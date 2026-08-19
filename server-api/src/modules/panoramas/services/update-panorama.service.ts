@@ -8,11 +8,15 @@ import { UpdatePanoramaDto } from '../dto/update-panorama.dto';
  * O tratamento é derivado de `imageData`: quando a foto muda, o que a IA montou
  * a partir da anterior deixa de descrever este cômodo.
  *
- * Sem isso o bug era silencioso e permanente — `imagemServivel` prefere a coluna
- * tratada, então refotografar a sala continuaria mostrando o render do cômodo
- * antigo, para sempre, sem nada na interface denunciando. Voltar a PENDING é o
- * bastante: o novo panorama é servido na hora, e o `--pendentes` do CLI o
- * reencontra para montar de novo.
+ * Sem isso o bug era silencioso e permanente — o `PanoramaImageReader` prefere a
+ * coluna tratada, então refotografar a sala continuaria mostrando o render do
+ * cômodo antigo, para sempre, sem nada na interface denunciando. Voltar a
+ * PENDING é o bastante: o novo panorama é servido na hora, e o `--pendentes` do
+ * CLI o reencontra para montar de novo.
+ *
+ * O `treatmentStatus` daqui é também o discriminador que o leitor usa para
+ * saber qual coluna pedir ao banco — mexer num sem o outro faz o tour servir a
+ * imagem errada.
  */
 const SEM_TRATAMENTO = {
   treatedImageData: null,

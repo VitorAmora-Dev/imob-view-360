@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
-import { comImagemServivel } from '../../panoramas/panorama-image';
+import { urlDaImagem } from '../../panoramas/panorama-image';
 
 @Injectable()
 export class FindVirtualTourService {
@@ -13,13 +13,30 @@ export class FindVirtualTourService {
     const tour = await this.prisma.virtualTour.findFirst({
       where: { id, status: 'PUBLISHED' },
       select: {
-        id: true, status: true, propertyId: true, createdAt: true, updatedAt: true,
+        id: true,
+        status: true,
+        propertyId: true,
+        createdAt: true,
+        updatedAt: true,
         panoramas: {
+          // Nenhuma coluna de imagem. Esta consulta trazia `imageData` E
+          // `treatedImageData` de cada cômodo para descartar uma delas em JS —
+          // era ela que fazia o tour mais pesado sair com 58,4 MB de JSON, e o
+          // log de query lenta a pegava em 1,25s. Agora ela não toca em TOAST.
           select: {
-            id: true, roomName: true, imageData: true, treatedImageData: true,
-            order: true, initialPanorama: true,
+            id: true,
+            roomName: true,
+            updatedAt: true,
+            order: true,
+            initialPanorama: true,
             originHotspots: {
-              select: { id: true, label: true, positionX: true, positionY: true, targetId: true },
+              select: {
+                id: true,
+                label: true,
+                positionX: true,
+                positionY: true,
+                targetId: true,
+              },
             },
             measurements: {
               select: { id: true, description: true, value: true, unit: true },
@@ -31,9 +48,12 @@ export class FindVirtualTourService {
     });
     if (!tour) throw new NotFoundException('Virtual tour not found');
 
-    // O tour público recebe a melhor imagem disponível de cada cômodo, sem saber
-    // que houve tratamento — quem ainda não passou pela IA continua servindo o
-    // original.
-    return { ...tour, panoramas: tour.panoramas.map(comImagemServivel) };
+    return {
+      ...tour,
+      panoramas: tour.panoramas.map(({ updatedAt, ...panorama }) => ({
+        ...panorama,
+        imageUrl: urlDaImagem(panorama.id, updatedAt),
+      })),
+    };
   }
 }

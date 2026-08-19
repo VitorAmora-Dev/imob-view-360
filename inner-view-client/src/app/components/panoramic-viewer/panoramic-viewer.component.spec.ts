@@ -153,7 +153,7 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
       return {
         id: 'p1',
         roomName: 'Sala',
-        imageData: '',
+        imageUrl: '',
         order: 0,
         initialPanorama: true,
         measurements: [],
@@ -222,7 +222,7 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
       return {
         id,
         roomName,
-        imageData: '',
+        imageUrl: '',
         order,
         initialPanorama: order === 0,
         measurements: [],

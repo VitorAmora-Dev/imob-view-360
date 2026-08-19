@@ -25,7 +25,7 @@ describe('InnerViewPagePage — download do panorama', () => {
   const panorama: Panorama = {
     id: 'p1',
     roomName: 'Sala',
-    imageData: 'data:image/jpeg;base64,SGk=', // "Hi"
+    imageUrl: '/panoramas/p1/image?v=1',
     order: 0,
     initialPanorama: true,
     originHotspots: [],
@@ -60,15 +60,15 @@ describe('InnerViewPagePage — download do panorama', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
-  it('não faz nada quando não há panorama atual', () => {
+  it('não faz nada quando não há panorama atual', async () => {
     const c = makeComponent();
     const create = spyOn(document, 'createElement').and.callThrough();
-    c.onDownloadPanorama();
+    await c.onDownloadPanorama();
     expect(create).not.toHaveBeenCalled();
     expect(toastCreate).not.toHaveBeenCalled();
   });
 
-  it('dispara o download com "imóvel - ambiente.jpg" e um blob URL', () => {
+  it('busca a imagem pela URL do panorama e dispara o download', async () => {
     const c = makeComponent();
     c.property = { title: 'Casa Azul' } as unknown as Property;
     c.currentPanorama = panorama;
@@ -78,11 +78,16 @@ describe('InnerViewPagePage — download do panorama', () => {
     spyOn(document, 'createElement').and.returnValue(anchor);
     const createObjectUrl = spyOn(URL, 'createObjectURL').and.returnValue('blob:fake');
     const revoke = spyOn(URL, 'revokeObjectURL');
+    const buscar = spyOn(window, 'fetch').and.resolveTo(
+      new Response(new Blob([new Uint8Array([1, 2])], { type: 'image/jpeg' }), { status: 200 }),
+    );
 
-    c.onDownloadPanorama();
+    await c.onDownloadPanorama();
 
+    // O endereço pedido é o do panorama, e não um data-URI: é isso que faz o
+    // download reaproveitar o que o visualizador já baixou.
+    expect(buscar.calls.mostRecent().args[0] as string).toContain('/panoramas/p1/image');
     expect(createObjectUrl).toHaveBeenCalled();
-    // o Blob decodificado tem os 2 bytes de "Hi"
     expect((createObjectUrl.calls.mostRecent().args[0] as Blob).size).toBe(2);
     expect(anchor.download).toBe('Casa Azul - Sala.jpg');
     expect(click).toHaveBeenCalled();
@@ -90,12 +95,13 @@ describe('InnerViewPagePage — download do panorama', () => {
     expect(toastCreate).toHaveBeenCalled(); // toast de sucesso
   });
 
-  it('mostra toast de erro quando a imagem é inválida', () => {
+  it('mostra toast de erro quando o servidor recusa a imagem', async () => {
     const c = makeComponent();
     c.property = { title: 'Casa' } as unknown as Property;
-    c.currentPanorama = { ...panorama, imageData: 'data:image/jpeg;base64,@@@nao-base64' };
+    c.currentPanorama = panorama;
+    spyOn(window, 'fetch').and.resolveTo(new Response('', { status: 404 }));
 
-    c.onDownloadPanorama();
+    await c.onDownloadPanorama();
 
     expect(toastCreate).toHaveBeenCalled(); // caiu no catch → toast de erro
   });
