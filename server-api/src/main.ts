@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import compression from 'compression';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -23,6 +24,15 @@ async function bootstrap() {
     bodyParser: false,
   });
   const env: ConfigService<Env, true> = app.get(ConfigService);
+
+  // Compressão antes dos parsers de corpo porque ela age na SAÍDA: registrar
+  // depois funcionaria igual, mas fica mais fácil de ler junto do resto do
+  // pipeline de resposta.
+  //
+  // O `compression` decide por `Content-Type`, e `image/jpeg` não está na lista
+  // de compressíveis — então a rota de imagem não paga CPU para reembalar bytes
+  // que já saem comprimidos. Quem ganha é o JSON.
+  app.use(compression());
 
   app.use(bodyLimitMiddleware());
   app.use(urlencodedMiddleware());
