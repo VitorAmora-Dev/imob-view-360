@@ -493,7 +493,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableZoom = true;
     this.controls.enablePan = false;
-    this.controls.rotateSpeed = 0.5;
+    this.controls.rotateSpeed = -0.5;
 
     // UVs are interpolated linearly across each face, so coarse segments bend
     // straight lines — 60×40 spans 6° per segment, enough to visibly curve a
