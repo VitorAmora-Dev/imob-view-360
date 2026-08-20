@@ -1,0 +1,31 @@
+.filters-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filters-sheet__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--app-ink);
+}
+
+.filters-sheet__done {
+  min-height: 44px;
+  padding-inline: 16px;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}

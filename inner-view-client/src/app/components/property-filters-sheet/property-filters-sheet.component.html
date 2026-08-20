@@ -1,0 +1,32 @@
+<!--
+  `breakpoints` e `initialBreakpoint` vem ANTES de `isOpen`: o Ionic le a altura
+  inicial no momento de apresentar, e a ordem das ligacoes e' a ordem em que o
+  Angular as escreve.
+-->
+<ion-modal
+  class="filters-sheet"
+  [breakpoints]="breakpoints"
+  [initialBreakpoint]="initialBreakpoint"
+  [isOpen]="isOpen()"
+  (didPresent)="nomearDialogo($event)"
+  (didDismiss)="close()">
+  <ng-template>
+    <ion-content class="ion-padding">
+      <header class="filters-sheet__head">
+        <h2 class="filters-sheet__title">{{ 'HOME.FILTERS.SHEET_TITLE' | translate }}</h2>
+
+        <!--
+          Fechar explicito alem do arrasto: o handle e' descoberto por quem ja
+          conhece o gesto.
+        -->
+        <button type="button" class="filters-sheet__done" (click)="close()">
+          {{ 'HOME.FILTERS.SHEET_DONE' | translate }}
+        </button>
+      </header>
+
+      <app-property-filters-form
+        [filters]="filters()"
+        (filtersChange)="aoMudar($event)" />
+    </ion-content>
+  </ng-template>
+</ion-modal>
