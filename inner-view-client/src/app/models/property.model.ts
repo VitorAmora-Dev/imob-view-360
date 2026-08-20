@@ -1,3 +1,23 @@
+/**
+ * Valores que a API aceita nos enums de imóvel.
+ *
+ * Moram aqui, e não no modelo do wizard, porque são vocabulário do domínio: o
+ * wizard escolhe um deles ao cadastrar, e a home filtra por eles. A tradução
+ * dos rótulos vive no i18n, sob `UPLOAD.TYPE.*` e `UPLOAD.PURPOSE.*`.
+ */
+export const PROPERTY_TYPES = [
+  'HOUSE',
+  'APARTMENT',
+  'LAND',
+  'COMMERCIAL',
+  'RURAL',
+  'OFFICE',
+] as const;
+export type PropertyType = (typeof PROPERTY_TYPES)[number];
+
+export const PROPERTY_PURPOSES = ['SALE', 'RENT', 'SALE_OR_RENT'] as const;
+export type PropertyPurpose = (typeof PROPERTY_PURPOSES)[number];
+
 export interface Property {
   id: string;
   code: string;
@@ -41,4 +61,6 @@ export interface ListPropertiesParams {
   purpose?: string;
   city?: string;
   state?: string;
+  /** Bairro, cidade ou estado — o servidor casa qualquer um dos três. */
+  location?: string;
 }
