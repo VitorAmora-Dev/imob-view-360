@@ -1,0 +1,45 @@
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter-chips__chip,
+.filter-chips__clear {
+  // 44px de alvo mesmo com o chip parecendo menor: o padding vertical entra
+  // para chegar ao piso do AGENTS.md sem engordar o desenho.
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding-inline: 14px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 9999px;
+  background: var(--app-surface-soft);
+  color: var(--app-ink);
+  font-size: 14px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--app-surface-strong);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+
+  ion-icon {
+    font-size: 16px;
+    color: var(--app-muted);
+  }
+}
+
+.filter-chips__clear {
+  background: transparent;
+  color: var(--app-body);
+  font-weight: 600;
+}
