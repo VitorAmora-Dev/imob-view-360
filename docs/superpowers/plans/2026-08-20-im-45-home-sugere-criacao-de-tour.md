@@ -580,7 +580,6 @@ import { HomeNoTourBannerComponent } from './home-no-tour-banner.component';
 
 describe('HomeNoTourBannerComponent', () => {
   let fixture: ComponentFixture<HomeNoTourBannerComponent>;
-  let component: HomeNoTourBannerComponent;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -589,11 +588,12 @@ describe('HomeNoTourBannerComponent', () => {
     }).compileComponents();
 
     fixture = TestBed.createComponent(HomeNoTourBannerComponent);
-    component = fixture.componentInstance;
   });
 
+  // `setInput` e nao atribuicao: signal input e' somente leitura de fora. E' o
+  // mesmo idioma de `scene-card.component.spec.ts:38`.
   function textoCom(count: number) {
-    component.count = count;
+    fixture.componentRef.setInput('count', count);
     fixture.detectChanges();
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
@@ -625,7 +625,7 @@ Esperado: FALHA — `Cannot find module './home-no-tour-banner.component'`.
 Criar `home-no-tour-banner.component.ts`:
 
 ```ts
-import { Component, Input, computed, signal } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { informationCircleOutline } from 'ionicons/icons';
@@ -648,25 +648,27 @@ import { TranslatePipe } from '@ngx-translate/core';
   imports: [IonIcon, TranslatePipe],
 })
 export class HomeNoTourBannerComponent {
-  private readonly total = signal(0);
-
-  @Input({ required: true })
-  set count(value: number) {
-    this.total.set(value);
-  }
-  get count(): number {
-    return this.total();
-  }
+  /**
+   * `input.required` e não `@Input` com setter: derivar `computed` de um input
+   * é exatamente o que o signal input resolve, e é o que `scene-card` e
+   * `hotspot-card` já fazem neste repositório. A ponte setter → signal privado
+   * escreve à mão o que a API já entrega.
+   *
+   * Quem decide SE a faixa aparece é a HomePage. Com `count` 0 este componente
+   * renderiza a chave plural — correto nos dois idiomas —, mas não é papel dele
+   * se esconder.
+   */
+  readonly count = input.required<number>();
 
   /**
    * O projeto resolve plural por sufixo `_ONE` escolhido no TypeScript — mesma
    * convenção de `SCENES_COUNT_ONE` e `WARN_RATIO_ONE`.
    */
   readonly messageKey = computed(() =>
-    this.total() === 1 ? 'HOME.NO_TOUR_BANNER_ONE' : 'HOME.NO_TOUR_BANNER',
+    this.count() === 1 ? 'HOME.NO_TOUR_BANNER_ONE' : 'HOME.NO_TOUR_BANNER',
   );
 
-  readonly messageParams = computed(() => ({ n: this.total() }));
+  readonly messageParams = computed(() => ({ n: this.count() }));
 
   constructor() {
     addIcons({ informationCircleOutline });
