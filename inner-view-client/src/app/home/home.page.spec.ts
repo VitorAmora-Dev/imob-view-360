@@ -1,7 +1,12 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import {
+  HttpTestingController,
+  TestRequest,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import { provideTranslateService } from '@ngx-translate/core';
 
 import { HomePage } from './home.page';
@@ -24,197 +29,259 @@ function imovel(id: string, overrides: Partial<Property> = {}): Property {
 }
 
 describe('HomePage', () => {
-  let fixture: ComponentFixture<HomePage>;
+  let harness: RouterTestingHarness;
   let component: HomePage;
   let http: HttpTestingController;
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [HomePage],
+    TestBed.configureTestingModule({
       providers: [
-        provideRouter([]),
+        // Rota de verdade, e nao um ActivatedRoute falso: o assunto destes
+        // testes e' justamente a URL mandando nos criterios.
+        provideRouter([
+          { path: 'home', component: HomePage },
+          // O `RouterTestingHarness.create()` navega para `/` antes de
+          // qualquer teste; sem uma rota que case, ele rejeita com NG04002.
+          { path: '', children: [] },
+        ]),
         provideHttpClient(),
         provideHttpClientTesting(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
       ],
-    }).compileComponents();
+    });
 
-    fixture = TestBed.createComponent(HomePage);
-    component = fixture.componentInstance;
     http = TestBed.inject(HttpTestingController);
+    harness = await RouterTestingHarness.create();
   });
 
-  afterEach(() => http.verify());
+  // `ignoreCancelled` porque o `switchMap` cancela a requisicao anterior de
+  // proposito — e' contrato, nao vazamento.
+  afterEach(() => http.verify({ ignoreCancelled: true }));
 
-  /** Responde a chamada pendente de /properties com os imoveis dados. */
-  function responder(data: Property[]) {
-    fixture.detectChanges(); // dispara o ngOnInit
-    const req = http.expectOne(r => r.url.endsWith('/properties'));
+  /** Abre a home na URL dada e devolve a requisicao pendente. */
+  async function abrir(url = '/home'): Promise<TestRequest> {
+    component = await harness.navigateByUrl(url, HomePage);
+    harness.detectChanges();
+    return http.expectOne((r) => r.url.endsWith('/properties'));
+  }
+
+  /** Navega para outra URL da mesma rota e devolve a requisicao pendente. */
+  async function refiltrar(url: string): Promise<TestRequest> {
+    await harness.navigateByUrl(url);
+    harness.detectChanges();
+    return http.expectOne((r) => r.url.endsWith('/properties'));
+  }
+
+  function responder(req: TestRequest, data: Property[]): void {
     req.flush({ data, total: data.length, page: 1, limit: 100, pages: 1 });
-    fixture.detectChanges();
+    harness.detectChanges();
   }
 
-  function falhar() {
-    fixture.detectChanges();
-    const req = http.expectOne(r => r.url.endsWith('/properties'));
-    req.flush({ statusCode: 500, message: 'boom' }, { status: 500, statusText: 'Server Error' });
-    fixture.detectChanges();
+  function falhar(req: TestRequest): void {
+    req.flush(
+      { statusCode: 500, message: 'boom' },
+      { status: 500, statusText: 'Server Error' },
+    );
+    harness.detectChanges();
   }
 
-  function texto() {
-    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  function el(): HTMLElement {
+    return harness.fixture.nativeElement as HTMLElement;
   }
 
-  it('should create', () => {
-    responder([]);
-    expect(component).toBeTruthy();
-  });
+  function texto(): string {
+    return el().textContent ?? '';
+  }
 
-  // Os dois testes que a propria feature poderia introduzir errados.
-  it('nao sugere criar tour enquanto carrega', () => {
-    fixture.detectChanges(); // ngOnInit dispara, resposta ainda nao veio
+  function moldura() {
+    return {
+      busca: el().querySelector('ion-searchbar') !== null,
+      filtros: el().querySelector('app-property-filters-bar') !== null,
+      fab: el().querySelector('ion-fab') !== null,
+    };
+  }
+
+  it('a primeira carga ocupa a tela', async () => {
+    const req = await abrir();
     expect(component.view()).toBe('loading');
-    expect(texto()).not.toContain('HOME.EMPTY_TITLE');
     expect(texto()).toContain('HOME.LOADING');
-
-    const req = http.expectOne(r => r.url.endsWith('/properties'));
-    req.flush({ data: [], total: 0, page: 1, limit: 100, pages: 1 });
+    responder(req, []);
   });
 
-  it('nao sugere criar tour quando a chamada falha', () => {
-    falhar();
+  it('falha mostra erro, nao onboarding', async () => {
+    falhar(await abrir());
     expect(component.view()).toBe('error');
-    expect(texto()).not.toContain('HOME.EMPTY_TITLE');
     expect(texto()).toContain('HOME.ERROR_TEXT');
+    expect(texto()).not.toContain('HOME.EMPTY_TITLE');
   });
 
-  it('conta sem imoveis mostra o onboarding', () => {
-    responder([]);
+  it('conta sem imoveis mostra o onboarding', async () => {
+    responder(await abrir(), []);
     expect(component.view()).toBe('empty');
     expect(texto()).toContain('HOME.EMPTY_TITLE');
   });
 
-  // A precedencia. Conta vazia COM busca ativa satisfaz as duas condicoes.
-  it('conta vazia com busca ativa mostra onboarding, nao "sem resultado"', () => {
-    responder([]);
-    component.query.set('qualquer coisa');
-    fixture.detectChanges();
-    expect(component.view()).toBe('empty');
-    expect(texto()).not.toContain('HOME.NO_RESULTS');
+  // Com o servidor filtrando, conta vazia e busca sem resultado chegam iguais:
+  // zero imoveis. O que separa as duas e' ter havido criterio.
+  it('zero resultados com filtro e "sem resultado", nao onboarding', async () => {
+    responder(await abrir('/home?type=LAND'), []);
+    expect(component.view()).toBe('no-results');
+    expect(texto()).toContain('HOME.FILTERS.NO_RESULTS_FILTERS');
+    expect(texto()).toContain('HOME.FILTERS.CLEAR');
+    expect(texto()).not.toContain('HOME.EMPTY_TITLE');
   });
 
-  it('busca sem resultado, com acervo, mostra "sem resultado"', () => {
-    responder([imovel('1')]);
-    component.query.set('zzzz-nao-existe');
-    fixture.detectChanges();
+  it('zero resultados so com texto usa a mensagem com o termo', async () => {
+    responder(await abrir('/home?q=zzz'), []);
     expect(component.view()).toBe('no-results');
     expect(texto()).toContain('HOME.NO_RESULTS');
+    expect(texto()).not.toContain('HOME.FILTERS.NO_RESULTS_FILTERS');
   });
 
-  it('nenhum imovel com tour mostra a faixa', () => {
-    responder([imovel('1'), imovel('2')]);
+  it('os criterios da URL viram parametros da requisicao', async () => {
+    const req = await abrir('/home?type=APARTMENT&purpose=RENT&location=Centro&q=cobertura');
+
+    expect(req.request.params.get('type')).toBe('APARTMENT');
+    expect(req.request.params.get('purpose')).toBe('RENT');
+    expect(req.request.params.get('location')).toBe('Centro');
+    // `q` na URL vira `search` na API.
+    expect(req.request.params.get('search')).toBe('cobertura');
+
+    responder(req, [imovel('1')]);
+  });
+
+  // Um link colado com valor fora do enum faria a API devolver 400, e a home
+  // mostraria erro de servidor por causa de um erro de digitacao.
+  it('valor invalido na URL nao chega na API', async () => {
+    const req = await abrir('/home?type=CASTELO');
+    expect(req.request.params.get('type')).toBeNull();
+    responder(req, [imovel('1')]);
+  });
+
+  it('mudar filtro dispara uma requisicao, e uma so', async () => {
+    responder(await abrir(), [imovel('1')]);
+    const req = await refiltrar('/home?type=HOUSE');
+    expect(req.request.params.get('type')).toBe('HOUSE');
+    responder(req, [imovel('1')]);
+  });
+
+  // A moldura sobrevive a refiltragem — senao mexer num filtro faria a barra
+  // sumir, e digitar na busca destruiria o campo em foco no meio da digitacao.
+  it('a moldura fica de pe enquanto refiltra', async () => {
+    responder(await abrir(), [imovel('1')]);
+    expect(moldura()).toEqual({ busca: true, filtros: true, fab: true });
+
+    const req = await refiltrar('/home?type=HOUSE');
+
     expect(component.view()).toBe('list');
-    expect(component.mostrarFaixa()).toBeTrue();
+    expect(component.refiltrando()).toBeTrue();
+    expect(moldura()).toEqual({ busca: true, filtros: true, fab: true });
+    expect(el().querySelector('ion-progress-bar')).not.toBeNull();
+
+    responder(req, [imovel('1')]);
+    expect(component.refiltrando()).toBeFalse();
+    expect(el().querySelector('ion-progress-bar')).toBeNull();
   });
 
-  it('um imovel com tour DRAFT ja conta como "tem tour"', () => {
-    responder([imovel('1', { virtualTour: { id: 't1', status: 'DRAFT' } }), imovel('2')]);
+  it('busca, filtros e FAB somem em carregando e em erro', async () => {
+    const req = await abrir();
+    expect(component.view()).toBe('loading');
+    expect(moldura()).toEqual({ busca: false, filtros: false, fab: false });
+
+    falhar(req);
+
+    expect(component.view()).toBe('error');
+    expect(moldura()).toEqual({ busca: false, filtros: false, fab: false });
+  });
+
+  // A faixa fala do acervo. Com o servidor filtrando, `properties()` e' a
+  // pagina filtrada, e a mesma frase passaria a falar do resultado da busca.
+  it('a faixa de "sem tour" some com criterio ativo', async () => {
+    responder(await abrir(), [imovel('1'), imovel('2')]);
+    expect(component.mostrarFaixa()).toBeTrue();
+
+    responder(await refiltrar('/home?type=HOUSE'), [imovel('1'), imovel('2')]);
+    expect(component.view()).toBe('list');
     expect(component.mostrarFaixa()).toBeFalse();
   });
 
-  // A faixa le `properties`, nao `filtered` — senao apareceria e sumiria
-  // conforme a pessoa digita.
-  it('a faixa nao some ao digitar na busca', () => {
-    responder([imovel('1'), imovel('2')]);
-    component.query.set('Imovel 1');
-    fixture.detectChanges();
-    expect(component.view()).toBe('list');
-    expect(component.mostrarFaixa()).toBeTrue();
+  it('a faixa tambem some so com texto de busca', async () => {
+    responder(await abrir('/home?q=imovel'), [imovel('1'), imovel('2')]);
+    expect(component.mostrarFaixa()).toBeFalse();
   });
 
-  function moldura() {
-    const el = fixture.nativeElement as HTMLElement;
-    return {
-      busca: el.querySelector('ion-searchbar') !== null,
-      fab: el.querySelector('ion-fab') !== null,
-    };
-  }
-
-  // A mutacao que passava antes destes testes: soltar o FAB no estado de erro,
-  // oferecendo "adicionar" sobre uma tela que diz que a chamada falhou. As
-  // duas condicoes eram escritas em polaridades opostas e ninguem cobria
-  // carregando nem erro.
-  it('busca e FAB somem em carregando e em erro', () => {
-    fixture.detectChanges(); // carregando
-    expect(component.view()).toBe('loading');
-    expect(moldura()).toEqual({ busca: false, fab: false });
-
-    const req = http.expectOne(r => r.url.endsWith('/properties'));
-    req.flush({ statusCode: 500, message: 'boom' }, { status: 500, statusText: 'Server Error' });
-    fixture.detectChanges(); // erro
-
-    expect(component.view()).toBe('error');
-    expect(moldura()).toEqual({ busca: false, fab: false });
+  it('um imovel com tour ja derruba a faixa', async () => {
+    responder(await abrir(), [
+      imovel('1', { virtualTour: { id: 't1', status: 'DRAFT' } }),
+      imovel('2'),
+    ]);
+    expect(component.mostrarFaixa()).toBeFalse();
   });
 
-  it('busca e FAB aparecem juntos em lista e em "sem resultado"', () => {
-    responder([imovel('1')]);
-    expect(moldura()).toEqual({ busca: true, fab: true });
-
-    component.query.set('zzzz-nao-existe');
-    fixture.detectChanges();
-
-    expect(component.view()).toBe('no-results');
-    expect(moldura()).toEqual({ busca: true, fab: true });
+  it('a busca mostra o texto que veio da URL', async () => {
+    responder(await abrir('/home?q=cobertura'), [imovel('1')]);
+    const busca = el().querySelector('ion-searchbar') as HTMLIonSearchbarElement;
+    expect(busca.value).toBe('cobertura');
   });
 
-  // O campo de busca e' destruido no estado de carregando e nao tem `[value]`:
-  // sem esta limpeza, voltar com `query` preenchido mostraria "nenhum resultado
-  // para zzzz" sobre uma caixa visivelmente vazia.
-  it('recarregar limpa a busca', () => {
-    responder([imovel('1')]);
-    component.query.set('zzzz-nao-existe');
-    fixture.detectChanges();
-    expect(component.view()).toBe('no-results');
+  // "Limpar filtros" limpa filtros. O texto tem caixa propria, visivel.
+  it('limpar filtros mantem o texto da busca', async () => {
+    responder(await abrir('/home?type=LAND&q=abc'), [imovel('1')]);
+
+    component.limpar();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const url = TestBed.inject(Router).url;
+    expect(url).not.toContain('type=');
+    expect(url).toContain('q=abc');
+
+    responder(http.expectOne((r) => r.url.endsWith('/properties')), [imovel('1')]);
+  });
+
+  it('remover um chip tira so aquele filtro da URL', async () => {
+    responder(await abrir('/home?type=LAND&purpose=SALE'), [imovel('1')]);
+
+    component.removerChip('type');
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+
+    const url = TestBed.inject(Router).url;
+    expect(url).not.toContain('type=');
+    expect(url).toContain('purpose=SALE');
+
+    responder(http.expectOne((r) => r.url.endsWith('/properties')), [imovel('1')]);
+  });
+
+  it('tentar de novo refaz a chamada com os mesmos criterios', async () => {
+    falhar(await abrir('/home?type=HOUSE'));
 
     component.carregar();
-    expect(component.query()).toBe('');
+    harness.detectChanges();
 
-    const req = http.expectOne(r => r.url.endsWith('/properties'));
-    req.flush({ data: [imovel('1')], total: 1, page: 1, limit: 100, pages: 1 });
-    fixture.detectChanges();
-
+    const req = http.expectOne((r) => r.url.endsWith('/properties'));
+    expect(req.request.params.get('type')).toBe('HOUSE');
+    responder(req, [imovel('1')]);
     expect(component.view()).toBe('list');
   });
 
-  it('busca oculta em empty e visivel em no-results', () => {
-    responder([]);
-    expect(fixture.nativeElement.querySelector('ion-searchbar')).toBeNull();
+  // O que o `switchMap` compra: sem ele, a resposta lenta do criterio antigo
+  // chega por ultimo e sobrescreve a tela com o resultado errado.
+  it('resposta de criterio antigo nao sobrescreve a nova', async () => {
+    responder(await abrir(), [imovel('1')]);
 
-    component.properties.set([imovel('1')]);
-    component.query.set('zzzz');
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('ion-searchbar')).not.toBeNull();
-  });
+    await harness.navigateByUrl('/home?type=HOUSE');
+    harness.detectChanges();
+    await harness.navigateByUrl('/home?type=APARTMENT');
+    harness.detectChanges();
 
-  it('FAB oculto em empty', () => {
-    responder([]);
-    expect(fixture.nativeElement.querySelector('ion-fab')).toBeNull();
+    const pendentes = http.match((r) => r.url.endsWith('/properties'));
+    expect(pendentes.length).toBe(2);
+    expect(pendentes[0].cancelled).toBeTrue();
 
-    component.properties.set([imovel('1')]);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('ion-fab')).not.toBeNull();
-  });
+    pendentes[1].flush({ data: [imovel('9')], total: 1, page: 1, limit: 100, pages: 1 });
+    harness.detectChanges();
 
-  it('tentar de novo refaz a chamada', () => {
-    falhar();
-    component.carregar();
-    expect(component.view()).toBe('loading');
-
-    const req = http.expectOne(r => r.url.endsWith('/properties'));
-    req.flush({ data: [imovel('1')], total: 1, page: 1, limit: 100, pages: 1 });
-    fixture.detectChanges();
-
-    expect(component.view()).toBe('list');
+    expect(component.properties().map((p) => p.id)).toEqual(['9']);
   });
 });

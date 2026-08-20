@@ -1,35 +1,42 @@
 /** Situação da requisição que alimenta a home. */
 export type HomeStatus = 'loading' | 'error' | 'ready';
 
-/** Qual bloco a home renderiza. Os estados 4 e 5 da spec são ambos `list`. */
+/** Qual bloco a home renderiza. */
 export type HomeView = 'loading' | 'error' | 'empty' | 'no-results' | 'list';
 
 /**
- * Invariante: `filtered <= total`, sempre — `filtered` e' o resultado de
- * filtrar a mesma lista que `total` conta. Trocar os dois de lugar na chamada
- * nao e' erro de TypeScript e nao e' cosmetico: quem tem imoveis e busca sem
- * resultado passaria a ver o onboarding de conta vazia.
+ * Com a filtragem no servidor, "conta vazia" e "busca sem resultado" chegam
+ * exatamente iguais: uma resposta com zero imóveis. O que as separa é ter
+ * havido critério — e é por isso que `comCriterios` inclui o texto da busca, e
+ * não só os filtros.
  */
 export interface HomeViewInput {
   readonly status: HomeStatus;
-  /** Quantos imóveis a conta tem, ignorando a busca. */
-  readonly total: number;
-  /** Quantos sobraram depois do filtro da busca. */
-  readonly filtered: number;
+  /** Já houve ao menos uma resposta bem-sucedida nesta visita. */
+  readonly jaCarregou: boolean;
+  /** A última resposta veio sem nenhum imóvel. */
+  readonly vazio: boolean;
+  /** Há texto de busca ou algum filtro ativo. */
+  readonly comCriterios: boolean;
 }
 
 /**
- * A ordem aqui É o contrato, porque duas condições podem valer ao mesmo tempo.
+ * A ordem aqui É o contrato, porque mais de uma condição pode valer ao mesmo
+ * tempo.
  *
- * O caso que decide a ordem: conta sem nenhum imóvel com texto na busca
- * satisfaz `total === 0` e `filtered === 0` juntos. Ganha `empty` — quem não
- * tem imóvel algum precisa do onboarding, não de "nenhum resultado para xyz",
- * que sugeriria que existe acervo e o termo é que não casou.
+ * O `jaCarregou` na primeira linha é o que faz refiltrar não voltar ao
+ * placeholder de tela cheia: a busca e a barra de filtros só existem nas views
+ * `list` e `no-results`, então uma refiltragem que virasse `loading`
+ * destruiria o campo que a pessoa está usando.
  */
-export function resolveHomeView({ status, total, filtered }: HomeViewInput): HomeView {
-  if (status === 'loading') return 'loading';
+export function resolveHomeView({
+  status,
+  jaCarregou,
+  vazio,
+  comCriterios,
+}: HomeViewInput): HomeView {
+  if (status === 'loading' && !jaCarregou) return 'loading';
   if (status === 'error') return 'error';
-  if (total === 0) return 'empty';
-  if (filtered === 0) return 'no-results';
-  return 'list';
+  if (!vazio) return 'list';
+  return comCriterios ? 'no-results' : 'empty';
 }
