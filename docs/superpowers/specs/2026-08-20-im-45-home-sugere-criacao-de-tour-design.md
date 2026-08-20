@@ -96,12 +96,22 @@ foto, e a faixa apenas informa.
 `onCardClick()` já leva a `/inner-view-page/:id`. Um botão que apenas navegue
 iria exatamente para onde o clique no card já vai — seria rótulo, não ação.
 
-O botão navega com `state: { property, action: 'add-tour' }`, e o
-`inner-view-page` abre o seletor de arquivo / captura ao chegar.
+O botão registra a intenção num serviço em memória e navega; o
+`inner-view-page` a consome ao chegar e abre o seletor de arquivo / captura.
 
-Router state, e não query param, por duas razões: o `onCardClick` já usa
-`state: { property }`, então é o mesmo mecanismo; e um refresh não deve reabrir o
-seletor — com query param, reabriria.
+**Uma versão anterior desta decisão levava a intenção no router state**, com a
+justificativa de que assim ela não sobreviveria a um refresh — ao contrário de
+um query param. **Medido em navegador, sobrevivia.** O navegador preserva
+`history.state` através do reload, e o `navigateToSyncWithBrowser()` do Angular
+copia `history.state` de volta para `extras.state` a cada bootstrap. O seletor
+reabria em todo refresh seguinte daquela entrada de histórico, e o mesmo caminho
+vale para a volta pelo botão do navegador.
+
+O serviço em memória entrega a semântica que a decisão sempre quis: a intenção
+pertence àquela navegação e a nenhuma outra, e morre no reload **por
+construção** — não por alguém lembrar de limpá-la. O consumo é único e confere o
+alvo, para que uma navegação abortada por um guard não deixe a intenção
+pendurada e ela dispare na próxima página que perguntar.
 
 ### 6. Qualquer `virtualTour` conta como "tem tour" — DECIDIDO
 
@@ -358,6 +368,11 @@ Registrado para não virar discussão no meio do caminho.
 - **O estado 6 depende de a busca ser client-side.** Hoje `onSearch` filtra em
   memória sobre os 100 carregados. Se a busca virar server-side, o estado 6 passa
   a depender da resposta e a distinção com o estado 3 muda de lugar.
-- **`action: 'add-tour'` é acoplamento fraco entre duas telas.** Uma string em
-  router state não é verificada por tipo. Mitigação: exportar a constante do lado
-  do `inner-view-page`, que é quem a consome, e importá-la no card.
+- **`action: 'add-tour'` é acoplamento fraco entre duas telas.** Uma string
+  passada por um serviço não é verificada por tipo. Mitigação: a constante
+  `ADD_TOUR_INTENT` mora em `models/navigation-intent.ts` e é importada pelos
+  dois lados, então ao menos não há duas grafias possíveis.
+- **O serviço guarda estado de navegação fora do router.** É deliberado — foi a
+  única forma de a intenção morrer no reload —, mas significa que quem depurar
+  "por que o seletor abriu" tem um lugar a mais para olhar. O teste pelo
+  `ngOnInit` existe para que essa ligação não volte a ficar sem cobertura.
