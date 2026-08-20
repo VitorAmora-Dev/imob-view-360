@@ -1,0 +1,31 @@
+<div class="home-placeholder">
+  @if (spinner) {
+    <ion-spinner name="crescent" class="home-placeholder__spinner"></ion-spinner>
+  } @else if (icon) {
+    <div class="home-placeholder__icon">
+      <ion-icon [name]="icon" aria-hidden="true"></ion-icon>
+    </div>
+  }
+
+  @if (heading) {
+    <h2 class="home-placeholder__title">{{ heading | translate }}</h2>
+  }
+
+  <!--
+    O live region fica no parágrafo, e não no bloco inteiro. `role="status"`
+    implica `aria-atomic="true"`: envolvendo o título e o botão, qualquer
+    mudança relê tudo — e no estado `no-results` o texto carrega o termo
+    buscado, que muda a cada tecla. É também o padrão que o projeto já segue
+    em `wizard-actions`, `address-accordion` e `step-hotspots`, todos com
+    `role="status"` num `<p>` nu.
+  -->
+  <p class="home-placeholder__text" role="status" aria-live="polite">
+    {{ text | translate: textParams }}
+  </p>
+
+  @if (actionLabel) {
+    <button type="button" class="home-placeholder__action" (click)="action.emit()">
+      {{ actionLabel | translate }}
+    </button>
+  }
+</div>

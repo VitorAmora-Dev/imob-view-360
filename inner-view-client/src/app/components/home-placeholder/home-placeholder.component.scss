@@ -1,0 +1,70 @@
+.home-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 20px;
+  text-align: center;
+}
+
+.home-placeholder__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 9999px;
+  background: var(--app-surface-soft);
+
+  ion-icon {
+    font-size: 28px;
+    color: var(--app-muted);
+  }
+}
+
+.home-placeholder__spinner {
+  width: 28px;
+  height: 28px;
+  color: var(--app-muted);
+}
+
+.home-placeholder__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--app-ink);
+}
+
+.home-placeholder__text {
+  margin: 0;
+  max-width: 44ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--app-muted);
+  text-wrap: pretty;
+}
+
+.home-placeholder__action {
+  // 48px de altura: acima do piso de 44px que o AGENTS.md exige.
+  min-height: 48px;
+  margin-top: 4px;
+  padding-inline: 22px;
+  border: none;
+  border-radius: var(--app-radius-sm);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ion-color-primary-shade);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
