@@ -1,12 +1,14 @@
 /**
- * Intenção carregada no router state entre a home e a página do imóvel.
+ * Nome da intenção que a home passa à página do imóvel: "abri esta página já
+ * querendo enviar a primeira imagem".
  *
- * Router state, e não query param, por duas razões: `onCardClick` já usa
- * `state: { property }`, então é o mesmo mecanismo; e um refresh não deve
- * reabrir o seletor de arquivo — com query param, reabriria.
+ * **Quem transporta é o `NavigationIntentService`, não o router state.** Uma
+ * versão anterior levava isto em `router.navigate(..., { state })`, com a
+ * justificativa de que um refresh não reabriria o seletor de arquivo. Medido em
+ * navegador de verdade, reabria — e em todo refresh seguinte. O motivo está
+ * escrito no serviço.
  *
- * Mora em `models/` porque é consumida por um componente e por uma página;
- * exportá-la da página faria um componente depender de uma página, invertendo
- * a direção que o resto do código respeita.
+ * A constante mora aqui, e não no serviço, porque é o vocabulário compartilhado
+ * entre os dois lados da navegação; o serviço é o mecanismo.
  */
 export const ADD_TOUR_INTENT = 'add-tour';

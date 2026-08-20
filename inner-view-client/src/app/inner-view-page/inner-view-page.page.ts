@@ -25,6 +25,7 @@ import { captureSupported } from '../components/capture-360/capture-support';
 import { panoramaFilename } from './panorama-download.util';
 import { urlDaImagem } from '../models/panorama-image.util';
 import { ADD_TOUR_INTENT } from '../models/navigation-intent';
+import { NavigationIntentService } from '../services/navigation-intent.service';
 
 @Component({
   selector: 'app-inner-view-page',
@@ -52,6 +53,7 @@ export class InnerViewPagePage implements OnInit {
   editingHotspots = false;
 
   private router = inject(Router);
+  private intents = inject(NavigationIntentService);
   private route = inject(ActivatedRoute);
   private propertyService = inject(PropertyService);
   private virtualTourService = inject(VirtualTourService);
@@ -110,11 +112,11 @@ export class InnerViewPagePage implements OnInit {
       });
     }
 
-    // `nav` é nulo quando a página é aberta por URL direta ou recarregada; aí o
-    // `history.state` é a única fonte, e ele não terá `action` — que é
-    // exatamente o comportamento desejado, porque refresh não deve reabrir o
-    // seletor de arquivo.
-    this.aplicarIntencao(nav?.extras.state?.['action'] ?? history.state?.['action']);
+    // Do serviço, e não de `nav.extras.state`: o Angular re-hidrata
+    // `history.state` dentro de `extras.state` a cada bootstrap, então a
+    // intenção sobreviveria ao refresh e reabriria o seletor para sempre.
+    // Medido em navegador. Ver NavigationIntentService.
+    this.aplicarIntencao(this.intents.consume(id));
   }
 
   onPanoramaChange(panorama: Panorama) {

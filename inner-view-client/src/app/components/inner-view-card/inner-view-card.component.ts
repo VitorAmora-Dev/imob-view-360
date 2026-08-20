@@ -7,6 +7,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Property } from '../../models/property.model';
 import { environment } from '../../../environments/environment';
 import { ADD_TOUR_INTENT } from '../../models/navigation-intent';
+import { NavigationIntentService } from '../../services/navigation-intent.service';
 
 @Component({
   selector: 'app-inner-view-card',
@@ -26,6 +27,7 @@ export class InnerViewCardComponent {
   favorited = false;
 
   private router = inject(Router);
+  private intents = inject(NavigationIntentService);
   private toastController = inject(ToastController);
   private translate = inject(TranslateService);
 
@@ -53,8 +55,9 @@ export class InnerViewCardComponent {
    * quem apertou "Criar tour" quer o seletor de imagem aberto na chegada.
    */
   private navigateToProperty(action?: string) {
+    if (action) this.intents.register(this.item.id, action);
     this.router.navigate(['/inner-view-page', this.item.id], {
-      state: action ? { property: this.item, action } : { property: this.item },
+      state: { property: this.item },
     });
   }
 

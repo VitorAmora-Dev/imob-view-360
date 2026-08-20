@@ -7,6 +7,7 @@ import { provideTranslateService } from '@ngx-translate/core';
 import { InnerViewCardComponent } from './inner-view-card.component';
 import { Property } from '../../models/property.model';
 import { ADD_TOUR_INTENT } from '../../models/navigation-intent';
+import { NavigationIntentService } from '../../services/navigation-intent.service';
 
 function imovel(overrides: Partial<Property> = {}): Property {
   return {
@@ -28,6 +29,7 @@ describe('InnerViewCardComponent', () => {
   let fixture: ComponentFixture<InnerViewCardComponent>;
   let component: InnerViewCardComponent;
   let router: Router;
+  let intents: NavigationIntentService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -43,6 +45,7 @@ describe('InnerViewCardComponent', () => {
     fixture = TestBed.createComponent(InnerViewCardComponent);
     component = fixture.componentInstance;
     router = TestBed.inject(Router);
+    intents = TestBed.inject(NavigationIntentService);
   });
 
   function render(item: Property) {
@@ -79,15 +82,20 @@ describe('InnerViewCardComponent', () => {
     expect(botao.getAttribute('aria-label')).toContain('HOME.CARD_CREATE_TOUR_LABEL');
   });
 
-  it('navega com a intencao de criar tour', () => {
-    const spy = spyOn(router, 'navigate');
+  // A intencao vai pelo servico, e NAO no router state: o Angular re-hidrata
+  // history.state em extras.state a cada bootstrap, entao pelo router state ela
+  // sobreviveria ao refresh e reabriria o seletor para sempre.
+  it('registra a intencao no servico, nao no router state', () => {
+    const navegou = spyOn(router, 'navigate');
+    const registrou = spyOn(intents, 'register');
     const el = render(imovel({ id: 'p9' }));
 
     (el.querySelector('.create-tour-btn') as HTMLButtonElement).click();
 
-    expect(spy).toHaveBeenCalledWith(
+    expect(registrou).toHaveBeenCalledWith('p9', ADD_TOUR_INTENT);
+    expect(navegou).toHaveBeenCalledWith(
       ['/inner-view-page', 'p9'],
-      { state: { property: component.item, action: ADD_TOUR_INTENT } },
+      { state: { property: component.item } },
     );
   });
 
@@ -95,12 +103,14 @@ describe('InnerViewCardComponent', () => {
   // "uniformiza" os dois — o que parece limpeza — e a Task 7 para de abrir o
   // seletor, sem nada falhar.
   it('o clique no card NAO leva a intencao', () => {
-    const spy = spyOn(router, 'navigate');
+    const navegou = spyOn(router, 'navigate');
+    const registrou = spyOn(intents, 'register');
     const el = render(imovel({ id: 'p9' }));
 
     el.querySelector('ion-card')!.dispatchEvent(new Event('click'));
 
-    expect(spy).toHaveBeenCalledWith(
+    expect(registrou).not.toHaveBeenCalled();
+    expect(navegou).toHaveBeenCalledWith(
       ['/inner-view-page', 'p9'],
       { state: { property: component.item } },
     );
