@@ -161,3 +161,27 @@ ion-button.meta-action {
     --color: var(--app-ink);
   }
 }
+
+.create-tour-btn {
+  // 44px e' o piso do AGENTS.md. O heart-btn e o meta-action deste card ficam
+  // abaixo disso; o botao novo nao repete o problema.
+  min-height: 44px;
+  padding-inline: 14px;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--ion-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--app-surface-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}

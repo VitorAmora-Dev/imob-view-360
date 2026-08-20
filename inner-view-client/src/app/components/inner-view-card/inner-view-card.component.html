@@ -42,6 +42,15 @@
       @if (priceLabel) {
         <p class="meta-price">{{ priceLabel }}</p>
       }
+      @if (!item.virtualTour) {
+        <button
+          type="button"
+          class="create-tour-btn"
+          [attr.aria-label]="'HOME.CARD_CREATE_TOUR_LABEL' | translate: { title: item.title }"
+          (click)="onCreateTour($event)">
+          {{ 'HOME.CARD_CREATE_TOUR' | translate }}
+        </button>
+      }
       <div class="meta-actions">
         <ion-button
           fill="clear"
