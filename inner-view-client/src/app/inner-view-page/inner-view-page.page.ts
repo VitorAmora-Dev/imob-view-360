@@ -24,6 +24,7 @@ import { Capture360Component } from '../components/capture-360/capture-360.compo
 import { captureSupported } from '../components/capture-360/capture-support';
 import { panoramaFilename } from './panorama-download.util';
 import { urlDaImagem } from '../models/panorama-image.util';
+import { ADD_TOUR_INTENT } from '../models/navigation-intent';
 
 @Component({
   selector: 'app-inner-view-page',
@@ -108,6 +109,12 @@ export class InnerViewPagePage implements OnInit {
         }
       });
     }
+
+    // `nav` é nulo quando a página é aberta por URL direta ou recarregada; aí o
+    // `history.state` é a única fonte, e ele não terá `action` — que é
+    // exatamente o comportamento desejado, porque refresh não deve reabrir o
+    // seletor de arquivo.
+    this.aplicarIntencao(nav?.extras.state?.['action'] ?? history.state?.['action']);
   }
 
   onPanoramaChange(panorama: Panorama) {
@@ -215,6 +222,21 @@ export class InnerViewPagePage implements OnInit {
 
   openFilePicker() {
     this.fileInput.nativeElement.click();
+  }
+
+  /**
+   * A home manda quem clicou em "Criar tour" para cá já querendo enviar a
+   * primeira imagem. Sem isto a página abriria e ficaria parada, esperando um
+   * segundo clique que nada na tela pede.
+   *
+   * Público e separado do ngOnInit para ser testável sem simular navegação.
+   */
+  aplicarIntencao(action: unknown): void {
+    if (action !== ADD_TOUR_INTENT) return;
+    // Fire-and-forget de propósito: abrir o seletor é efeito de interface, e
+    // nada no ngOnInit depende do que a pessoa vai escolher. O `void` é para o
+    // eslint não acusar promessa solta.
+    void this.addImage();
   }
 
   async addImage() {
