@@ -48,7 +48,16 @@ export function montarWhere(
     agencyId,
     status,
     ...(type && { type }),
-    ...(purpose && { purpose }),
+    // "Venda ou Aluguel" é as duas coisas: filtrar por aluguel precisa
+    // trazê-lo, ou o resultado esconde imóveis que estão, sim, para alugar. O
+    // caminho inverso não vale — quem escolhe "Venda ou Aluguel" pergunta pela
+    // marcação, e não pelo conjunto inteiro.
+    ...(purpose && {
+      purpose:
+        purpose === 'SALE_OR_RENT'
+          ? 'SALE_OR_RENT'
+          : { in: [purpose, 'SALE_OR_RENT'] },
+    }),
     ...((priceMin !== undefined || priceMax !== undefined) && {
       price: {
         ...(priceMin !== undefined && { gte: priceMin }),
