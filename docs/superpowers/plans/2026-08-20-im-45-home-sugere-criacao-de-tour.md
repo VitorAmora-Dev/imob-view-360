@@ -101,14 +101,11 @@ describe('resolveHomeView', () => {
     expect(resolveHomeView({ status: 'error', total: 5, filtered: 5 })).toBe('error');
   });
 
+  // Esta e' a asserção que trava a precedencia. Como `filtered <= total`
+  // sempre, `total === 0` arrasta `filtered === 0` junto — entao conta vazia
+  // COM busca ativa cai exatamente aqui, e o que decide que ela vê onboarding
+  // em vez de "nenhum resultado" e' esta checagem vir ANTES da de `filtered`.
   it('conta sem imovel algum e onboarding', () => {
-    expect(resolveHomeView({ status: 'ready', total: 0, filtered: 0 })).toBe('empty');
-  });
-
-  // A regra mais facil de inverter sem perceber. Conta vazia COM busca ativa
-  // satisfaz as duas condicoes; quem nao tem imovel precisa do onboarding, e
-  // nao de "nenhum resultado", que sugeriria existir acervo.
-  it('conta vazia com busca ativa mostra onboarding, nao "sem resultado"', () => {
     expect(resolveHomeView({ status: 'ready', total: 0, filtered: 0 })).toBe('empty');
   });
 
@@ -143,12 +140,18 @@ export type HomeStatus = 'loading' | 'error' | 'ready';
 /** Qual bloco a home renderiza. Os estados 4 e 5 da spec são ambos `list`. */
 export type HomeView = 'loading' | 'error' | 'empty' | 'no-results' | 'list';
 
+/**
+ * Invariante: `filtered <= total`, sempre — `filtered` e' o resultado de
+ * filtrar a mesma lista que `total` conta. Trocar os dois de lugar na chamada
+ * nao e' erro de TypeScript e nao e' cosmetico: quem tem imoveis e busca sem
+ * resultado passaria a ver o onboarding de conta vazia.
+ */
 export interface HomeViewInput {
-  status: HomeStatus;
+  readonly status: HomeStatus;
   /** Quantos imóveis a conta tem, ignorando a busca. */
-  total: number;
+  readonly total: number;
   /** Quantos sobraram depois do filtro da busca. */
-  filtered: number;
+  readonly filtered: number;
 }
 
 /**
@@ -175,7 +178,7 @@ cd inner-view-client
 npx ng test --include=src/app/home/home-view.spec.ts --watch=false --browsers=ChromeHeadless
 ```
 
-Esperado: `TOTAL: 6 SUCCESS`, exit 0.
+Esperado: `TOTAL: 5 SUCCESS`, exit 0.
 
 - [ ] **Step 5: Commit**
 
@@ -304,16 +307,41 @@ describe('HomePlaceholderComponent', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  it('anuncia a troca de estado para leitor de tela', () => {
+  // O live region e' o PARAGRAFO, nao o bloco. `role="status"` implica
+  // `aria-atomic`, entao envolver titulo e botao faria qualquer mudanca reler
+  // tudo — e o texto de `no-results` carrega o termo buscado, que muda a cada
+  // tecla. Este teste existe para impedir que alguem "suba" o role de volta.
+  it('anuncia so o texto, e nao o bloco inteiro', () => {
     const el = render({ text: 'HOME.LOADING' });
-    const host = el.querySelector('.home-placeholder')!;
-    expect(host.getAttribute('role')).toBe('status');
-    expect(host.getAttribute('aria-live')).toBe('polite');
+
+    const paragrafo = el.querySelector('.home-placeholder__text')!;
+    expect(paragrafo.getAttribute('role')).toBe('status');
+    expect(paragrafo.getAttribute('aria-live')).toBe('polite');
+
+    const bloco = el.querySelector('.home-placeholder')!;
+    expect(bloco.getAttribute('role')).toBeNull();
+    expect(bloco.getAttribute('aria-live')).toBeNull();
   });
 
   it('nao renderiza acao quando nao ha rotulo', () => {
     const el = render({ text: 'HOME.LOADING' });
     expect(el.querySelector('.home-placeholder__action')).toBeNull();
+  });
+
+  // As duas configuracoes visuais que a Task 8 usa de verdade — sem estes, um
+  // defeito no `@if (spinner) ... @else if (icon)` passaria limpo.
+  it('mostra spinner no estado de carregando', () => {
+    const el = render({ spinner: true, text: 'HOME.LOADING' });
+    expect(el.querySelector('ion-spinner')).not.toBeNull();
+    expect(el.querySelector('.home-placeholder__icon')).toBeNull();
+  });
+
+  it('mostra icone quando nao ha spinner', () => {
+    const el = render({ icon: 'alert-circle-outline', text: 'HOME.ERROR_TEXT' });
+    const icone = el.querySelector('.home-placeholder__icon ion-icon')!;
+    expect(icone).not.toBeNull();
+    expect(icone.getAttribute('aria-hidden')).toBe('true');
+    expect(el.querySelector('ion-spinner')).toBeNull();
   });
 
   it('renderiza a acao e emite ao clicar', () => {
@@ -332,12 +360,15 @@ describe('HomePlaceholderComponent', () => {
     const semTitulo = render({ text: 'HOME.LOADING' });
     expect(semTitulo.querySelector('.home-placeholder__title')).toBeNull();
 
-    const comTitulo = render({ title: 'HOME.EMPTY_TITLE', text: 'HOME.EMPTY_TEXT' });
+    const comTitulo = render({ heading: 'HOME.EMPTY_TITLE', text: 'HOME.EMPTY_TEXT' });
     expect(comTitulo.querySelector('.home-placeholder__title')!.textContent)
       .toContain('HOME.EMPTY_TITLE');
   });
 });
 ```
+
+> **Esperado agora: `TOTAL: 6 SUCCESS`** — os 4 originais mais os dois de
+> configuração visual.
 
 - [ ] **Step 2: Rodar o teste e ver falhar**
 
@@ -376,8 +407,16 @@ export class HomePlaceholderComponent {
   @Input() icon?: string;
   /** Mostra o spinner no lugar do ícone. */
   @Input() spinner = false;
-  @Input() title?: string;
-  @Input() text = '';
+  /**
+   * Chama-se `heading`, e não `title`, de propósito: `title` é atributo global
+   * do HTML, e um chamador que escrevesse `title="HOME.EMPTY_TITLE"` sem
+   * colchetes — a forma idiomática para valor literal — deixaria a chave crua
+   * como atributo no host, e o navegador mostraria um tooltip nativo escrito
+   * "HOME.EMPTY_TITLE".
+   */
+  @Input() heading?: string;
+  /** Obrigatório: os quatro estados têm texto, e um `<p>` mudo não é estado. */
+  @Input({ required: true }) text!: string;
   /** Parâmetros de interpolação do `text` (ex.: `{ query: 'sala' }`). */
   @Input() textParams: Record<string, unknown> = {};
   /** Sem rótulo, nenhuma ação é renderizada. */
@@ -390,7 +429,7 @@ export class HomePlaceholderComponent {
 Criar `home-placeholder.component.html`:
 
 ```html
-<div class="home-placeholder" role="status" aria-live="polite">
+<div class="home-placeholder">
   @if (spinner) {
     <ion-spinner name="crescent" class="home-placeholder__spinner"></ion-spinner>
   } @else if (icon) {
@@ -399,11 +438,21 @@ Criar `home-placeholder.component.html`:
     </div>
   }
 
-  @if (title) {
-    <h2 class="home-placeholder__title">{{ title | translate }}</h2>
+  @if (heading) {
+    <h2 class="home-placeholder__title">{{ heading | translate }}</h2>
   }
 
-  <p class="home-placeholder__text">{{ text | translate: textParams }}</p>
+  <!--
+    O live region fica no parágrafo, e não no bloco inteiro. `role="status"`
+    implica `aria-atomic="true"`: envolvendo o título e o botão, qualquer
+    mudança relê tudo — e no estado `no-results` o texto carrega o termo
+    buscado, que muda a cada tecla. É também o padrão que o projeto já segue
+    em `wizard-actions`, `address-accordion` e `step-hotspots`, todos com
+    `role="status"` num `<p>` nu.
+  -->
+  <p class="home-placeholder__text" role="status" aria-live="polite">
+    {{ text | translate: textParams }}
+  </p>
 
   @if (actionLabel) {
     <button type="button" class="home-placeholder__action" (click)="action.emit()">
@@ -495,7 +544,7 @@ cd inner-view-client
 npx ng test --include=src/app/components/home-placeholder/home-placeholder.component.spec.ts --watch=false --browsers=ChromeHeadless
 ```
 
-Esperado: `TOTAL: 4 SUCCESS`, exit 0.
+Esperado: `TOTAL: 6 SUCCESS`, exit 0.
 
 - [ ] **Step 5: Commit**
 
@@ -1428,7 +1477,7 @@ Substituir todo o conteúdo por:
     @case ('empty') {
       <app-home-placeholder
         icon="images-outline"
-        title="HOME.EMPTY_TITLE"
+        heading="HOME.EMPTY_TITLE"
         text="HOME.EMPTY_TEXT"
         actionLabel="HOME.EMPTY_CTA"
         (action)="irParaNovoTour()" />
