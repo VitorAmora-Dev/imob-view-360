@@ -22,59 +22,72 @@ const PROPERTY_SELECT = {
   virtualTour: { select: { id: true, status: true } },
 } as const;
 
+/**
+ * Monta o filtro da listagem.
+ *
+ * Fora do `execute()` porque tem ramos que interagem entre si, e essa
+ * interação é invisível quando ela está embutida no meio da consulta.
+ */
+export function montarWhere(
+  query: ListPropertiesDto,
+  agencyId: string,
+): Prisma.PropertyWhereInput {
+  const {
+    type,
+    purpose,
+    status,
+    city,
+    state,
+    district,
+    priceMin,
+    priceMax,
+    search,
+  } = query;
+
+  return {
+    agencyId,
+    status,
+    ...(type && { type }),
+    ...(purpose && { purpose }),
+    ...((priceMin !== undefined || priceMax !== undefined) && {
+      price: {
+        ...(priceMin !== undefined && { gte: priceMin }),
+        ...(priceMax !== undefined && { lte: priceMax }),
+      },
+    }),
+    ...((city || state || district) && {
+      address: {
+        ...(city && { city: { contains: city, mode: 'insensitive' } }),
+        ...(state && { state }),
+        ...(district && {
+          district: { contains: district, mode: 'insensitive' },
+        }),
+      },
+    }),
+    ...(search && {
+      OR: [
+        { code: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { address: { street: { contains: search, mode: 'insensitive' } } },
+        { address: { district: { contains: search, mode: 'insensitive' } } },
+        { address: { city: { contains: search, mode: 'insensitive' } } },
+        { address: { state: { contains: search, mode: 'insensitive' } } },
+        { address: { zipCode: { contains: search, mode: 'insensitive' } } },
+      ],
+    }),
+  };
+}
+
 @Injectable()
 export class ListPropertiesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute(query: ListPropertiesDto, currentUser: JwtPayload) {
-    const {
-      page,
-      limit,
-      type,
-      purpose,
-      status,
-      city,
-      state,
-      district,
-      priceMin,
-      priceMax,
-      search,
-    } = query;
+    const { page, limit } = query;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.PropertyWhereInput = {
-      agencyId: currentUser.agencyId,
-      status,
-      ...(type && { type }),
-      ...(purpose && { purpose }),
-      ...((priceMin !== undefined || priceMax !== undefined) && {
-        price: {
-          ...(priceMin !== undefined && { gte: priceMin }),
-          ...(priceMax !== undefined && { lte: priceMax }),
-        },
-      }),
-      ...((city || state || district) && {
-        address: {
-          ...(city && { city: { contains: city, mode: 'insensitive' } }),
-          ...(state && { state }),
-          ...(district && {
-            district: { contains: district, mode: 'insensitive' },
-          }),
-        },
-      }),
-      ...(search && {
-        OR: [
-          { code: { contains: search, mode: 'insensitive' } },
-          { title: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-          { address: { street: { contains: search, mode: 'insensitive' } } },
-          { address: { district: { contains: search, mode: 'insensitive' } } },
-          { address: { city: { contains: search, mode: 'insensitive' } } },
-          { address: { state: { contains: search, mode: 'insensitive' } } },
-          { address: { zipCode: { contains: search, mode: 'insensitive' } } },
-        ],
-      }),
-    };
+    const where = montarWhere(query, currentUser.agencyId);
 
     // O desempate por `id` é o que torna a paginação confiável. `createdAt` não
     // é único — dois imóveis cadastrados no mesmo instante (importação em lote,
