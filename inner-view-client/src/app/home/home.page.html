@@ -1,20 +1,55 @@
 <ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
   <app-header></app-header>
 
-  <div class="search-band">
-    <ion-searchbar
-      class="home-search has-search-orb"
-      [placeholder]="'HOME.SEARCH_PLACEHOLDER' | translate"
-      (ionInput)="onSearch($event)"
-      animated="true">
-    </ion-searchbar>
-  </div>
+  @if (mostrarMoldura()) {
+    <div class="search-band">
+      <ion-searchbar
+        class="home-search has-search-orb"
+        [placeholder]="'HOME.SEARCH_PLACEHOLDER' | translate"
+        (ionInput)="onSearch($event)"
+        animated="true">
+      </ion-searchbar>
+    </div>
+  }
 
-  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-    <ion-fab-button routerLink="/upload">
-      <ion-icon name="add"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
+  @switch (view()) {
+    @case ('loading') {
+      <app-home-placeholder [spinner]="true" text="HOME.LOADING" />
+    }
+    @case ('error') {
+      <app-home-placeholder
+        icon="alert-circle-outline"
+        text="HOME.ERROR_TEXT"
+        actionLabel="HOME.ERROR_RETRY"
+        (action)="carregar()" />
+    }
+    @case ('empty') {
+      <app-home-placeholder
+        icon="images-outline"
+        heading="HOME.EMPTY_TITLE"
+        text="HOME.EMPTY_TEXT"
+        actionLabel="HOME.EMPTY_CTA"
+        (action)="irParaNovoTour()" />
+    }
+    @case ('no-results') {
+      <app-home-placeholder
+        icon="search-outline"
+        text="HOME.NO_RESULTS"
+        [textParams]="{ query: query() }" />
+    }
+    @case ('list') {
+      @if (mostrarFaixa()) {
+        <app-home-no-tour-banner [count]="totalSemTour()" />
+      }
+      <app-inner-view-list [items]="filtered()"></app-inner-view-list>
+    }
+  }
 
-  <app-inner-view-list [items]="filteredItems"></app-inner-view-list>
+  @if (mostrarMoldura()) {
+    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button routerLink="/tour/novo">
+        <ion-icon name="add"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+  }
 </ion-content>

@@ -1,0 +1,25 @@
+.no-tour-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 1280px;
+  margin: 12px auto 0;
+  padding: 12px 14px;
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft);
+
+  ion-icon {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    font-size: 18px;
+    color: var(--app-muted);
+  }
+}
+
+.no-tour-banner__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--app-body);
+  text-wrap: pretty;
+}
