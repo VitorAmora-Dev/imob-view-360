@@ -350,11 +350,12 @@ cada filtragem — sem ela, quem usa leitor de tela não recebe nada ao mexer nu
 
 ## i18n
 
-Novas chaves sob `HOME.FILTERS.*`, em `pt.json` e `en.json`: rótulo e
-`aria-label` de cada controle, opção "Todos", `TOGGLE` ("Filtros"),
-`TOGGLE_COUNT` ("Filtros ({{n}})"), `CLEAR`, `REMOVE_CHIP` ("Remover filtro
-{{label}}"), `SHEET_TITLE`, `SHEET_APPLY`, `RESULT_COUNT` /
-`RESULT_COUNT_ONE`, `NO_RESULTS_FILTERS`.
+Novas chaves sob `HOME.FILTERS.*`, em `pt.json` e `en.json`: rótulo de cada
+controle, `ALL_TYPES` e `ALL_PURPOSES` — duas chaves, e não um "Todos" só, por
+causa do gênero em português —, `TOGGLE` ("Filtros"), `TOGGLE_COUNT` ("Filtros
+({{n}})"), `CLEAR`, `ACTIVE_TITLE`, `REMOVE_CHIP` ("Remover filtro {{label}}"),
+`SHEET_TITLE`, `SHEET_DONE` ("Ver resultados" — o botão que só fecha, §11),
+`RESULT_COUNT` / `RESULT_COUNT_ONE`, `NO_RESULTS_FILTERS`.
 
 Os valores reusam `UPLOAD.TYPE.*` e `UPLOAD.PURPOSE.*`, que já existem
 traduzidos. Nenhuma string literal em template — as chaves de plural usam o
