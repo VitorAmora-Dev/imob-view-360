@@ -1,6 +1,17 @@
 {
   "HOME": {
-    "SEARCH_PLACEHOLDER": "Search places..."
+    "SEARCH_PLACEHOLDER": "Search places...",
+    "LOADING": "Loading your properties...",
+    "ERROR_TEXT": "We could not load your properties.",
+    "ERROR_RETRY": "Try again",
+    "EMPTY_TITLE": "Start with your first tour",
+    "EMPTY_TEXT": "A 360° tour shows the property from the inside and is what clients open first. It takes a few minutes.",
+    "EMPTY_CTA": "Create my first tour",
+    "NO_TOUR_BANNER": "{{n}} properties do not have 360° images yet.",
+    "NO_TOUR_BANNER_ONE": "1 property does not have 360° images yet.",
+    "CARD_CREATE_TOUR": "Create tour",
+    "CARD_CREATE_TOUR_LABEL": "Create tour for {{title}}",
+    "NO_RESULTS": "No property found for \"{{query}}\"."
   },
   "NAV": {
     "HOME": "Home",
