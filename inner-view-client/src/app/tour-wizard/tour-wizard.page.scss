@@ -82,39 +82,3 @@
     padding: 12px 16px;
   }
 }
-
-/* -- Espera da montagem ---------------------------------------------------- */
-
-.tw-montagem {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 48px 16px;
-  text-align: center;
-
-  h2 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--tw-text-strong);
-  }
-
-  p {
-    margin: 0;
-    font-size: 15px;
-    color: var(--tw-text-muted);
-  }
-
-  small {
-    max-width: 44ch;
-    font-size: 12.5px;
-    color: var(--tw-text-faint);
-  }
-}
-
-.tw-montagem__contador {
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--tw-text-strong);
-}

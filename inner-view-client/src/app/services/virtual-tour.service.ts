@@ -64,6 +64,15 @@ export interface CaptureFrameUpload {
   quaternion: { x: number; y: number; z: number; w: number };
 }
 
+/** Como o servidor chama os estados do tratamento de um panorama. */
+export type TreatmentStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'SKIPPED';
+
+/** Situação de um cômodo dentro da montagem, na ordem em que aparece no tour. */
+export interface AndamentoDoPanorama {
+  id: string;
+  status: TreatmentStatus;
+}
+
 /** Andamento da montagem por IA de um tour inteiro. */
 export interface AndamentoDaMontagem {
   total: number;
@@ -71,6 +80,11 @@ export interface AndamentoDaMontagem {
   falhas: number;
   dispensados: number;
   terminado: boolean;
+  /**
+   * Situação cômodo a cômodo. Os contadores acima dizem quanto falta; o wizard
+   * precisa saber QUAL ficou pronto, para trocar aquela imagem na tela.
+   */
+  panoramas: AndamentoDoPanorama[];
 }
 
 const SESSION_ID_KEY = 'visitorSessionId';
@@ -83,9 +97,20 @@ export class VirtualTourService {
     return this.http.get<VirtualTour>(`${environment.apiUrl}/virtual-tours/${id}`);
   }
 
-  createTour(propertyId: string, panoramas: PanoramaUpload[]): Observable<VirtualTour> {
+  /**
+   * Cria o tour. `status` é explícito e sem default de propósito: o servidor
+   * agora faz o tour nascer `DRAFT`, e quem sobe as panorâmicas todas de uma
+   * vez precisa dizer que já quer o tour à vista. Um default aqui devolveria o
+   * problema que o `PUBLISHED` fixo do servidor causava — só que mais escondido.
+   */
+  createTour(
+    propertyId: string,
+    panoramas: PanoramaUpload[],
+    status: 'DRAFT' | 'PUBLISHED',
+  ): Observable<VirtualTour> {
     return this.http.post<VirtualTour>(`${environment.apiUrl}/virtual-tours`, {
       propertyId,
+      status,
       panoramas: panoramas.map((p, i) => ({ tempId: `p${i}`, ...p })),
     });
   }
@@ -114,7 +139,7 @@ export class VirtualTourService {
         await firstValueFrom(
           this.http.post(`${environment.apiUrl}/panoramas/${panoramaId}/frames`, {
             index: frame.index,
-            imageData: await blobToDataUrl(frame.blob),
+            imageData: await frameParaDataUrl(frame.blob),
             quaternion: frame.quaternion,
           }),
         );
@@ -186,6 +211,59 @@ export class VirtualTourService {
     }
 
     return ultimo;
+  }
+
+  /**
+   * Publica o tour que estava em rascunho. É o passo final do wizard: até aqui
+   * o tour existe, tem as fotos e já passou pela IA, mas nenhuma rota pública o
+   * enxerga.
+   */
+  publicarTour(id: string): Observable<VirtualTour> {
+    return this.http.patch<VirtualTour>(`${environment.apiUrl}/virtual-tours/${id}`, {
+      status: 'PUBLISHED',
+    });
+  }
+
+  /**
+   * Ajusta o que pode ter mudado depois de o panorama já estar no servidor —
+   * nome do cômodo, ordem, qual é a capa.
+   *
+   * NUNCA mande `imageData` por aqui: o servidor entende foto nova como
+   * refotografia e zera o tratamento por IA junto (`update-panorama.service`),
+   * jogando fora uma montagem já paga.
+   */
+  atualizarPanorama(
+    id: string,
+    patch: { roomName?: string; order?: number; initialPanorama?: boolean },
+  ): Observable<Panorama> {
+    return this.http.patch<Panorama>(`${environment.apiUrl}/panoramas/${id}`, patch);
+  }
+
+  /**
+   * Endereço da imagem de um panorama para quem está editando o tour.
+   *
+   * Diferente de `imageUrl`, que só funciona depois de publicado: durante a
+   * captura o tour está em rascunho e a rota pública responde 404. `treated`
+   * cai na original enquanto a montagem não terminou.
+   */
+  urlDoPreview(panoramaId: string, variante: 'treated' | 'original', versao?: string): string {
+    const v = versao ? `&v=${encodeURIComponent(versao)}` : '';
+    return `${environment.apiUrl}/panoramas/${panoramaId}/preview?variant=${variante}${v}`;
+  }
+
+  /**
+   * Baixa a imagem do preview como blob.
+   *
+   * Tem que passar pelo `HttpClient`: a rota é autenticada, e o `TextureLoader`
+   * do three.js carrega por conta própria, sem interceptor e sem cabeçalho —
+   * entregar a URL direto a ele devolve 401 e o visualizador fica preto. Quem
+   * chama transforma o blob em `URL.createObjectURL` e é responsável por
+   * revogá-lo.
+   */
+  baixarPreview(panoramaId: string, variante: 'treated' | 'original'): Observable<Blob> {
+    return this.http.get(this.urlDoPreview(panoramaId, variante), {
+      responseType: 'blob',
+    });
   }
 
   deleteTour(id: string): Observable<void> {
@@ -260,6 +338,55 @@ function espera(ms: number, sinal?: AbortSignal): Promise<void> {
     const id = setTimeout(fim, ms);
     sinal?.addEventListener('abort', fim, { once: true });
   });
+}
+
+/**
+ * Largura com que a foto original sobe.
+ *
+ * O servidor reduz toda referência para 768 px antes de mandar ao modelo
+ * (`treat-panorama.service.ts`), e o tratamento é o único consumidor destas
+ * fotos. Subir os 2048 px que a câmera entrega é mandar ~4x os bytes para eles
+ * serem jogados fora do outro lado — e esses bytes viajam pelo 4G de dentro de
+ * um imóvel, uma requisição por foto, de 9 a 15 por cômodo.
+ *
+ * 1024 e não 768 exatos: o servidor pode querer subir esse número sem que cada
+ * captura já enviada vire referência borrada, e a folga custa pouco.
+ *
+ * NÃO reduza na captura. O `stitcher` usa estes mesmos frames em resolução
+ * cheia para montar a equirretangular de 5120×2560; cortá-los lá degradaria o
+ * panorama que o corretor vê.
+ */
+const LARGURA_DA_REFERENCIA = 1024;
+
+/**
+ * Reduz o frame antes de virar base64. Falhar aqui cai para a foto inteira: o
+ * upload pesado é muito melhor que o panorama dispensado por falta de
+ * referência.
+ */
+async function frameParaDataUrl(blob: Blob): Promise<string> {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    try {
+      if (bitmap.width <= LARGURA_DA_REFERENCIA) return await blobToDataUrl(blob);
+
+      const escala = LARGURA_DA_REFERENCIA / bitmap.width;
+      const canvas = document.createElement('canvas');
+      canvas.width = LARGURA_DA_REFERENCIA;
+      canvas.height = Math.round(bitmap.height * escala);
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return await blobToDataUrl(blob);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      // 0.82 e não os 0.9 da captura: aqui a foto é referência de conteúdo para
+      // o modelo, não o que alguém vai olhar.
+      return canvas.toDataURL('image/jpeg', 0.82);
+    } finally {
+      bitmap.close();
+    }
+  } catch {
+    return blobToDataUrl(blob);
+  }
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {

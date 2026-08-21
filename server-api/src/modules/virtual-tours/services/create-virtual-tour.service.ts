@@ -39,7 +39,7 @@ export class CreateVirtualTourService {
     // do Prisma é 5s, curto demais para 4-6 panorâmicas em base64.
     const tour = await this.prisma.$transaction(async (tx) => {
       const tourCriado = await tx.virtualTour.create({
-        data: { propertyId: dto.propertyId, status: 'PUBLISHED' },
+        data: { propertyId: dto.propertyId, status: dto.status },
       });
 
       const tempIdMap = new Map<string, string>();

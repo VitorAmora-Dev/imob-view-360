@@ -545,6 +545,173 @@ describe('TourDraftStore (contrato)', () => {
    * passaram: o caminho feliz foi conferido contra a API real, o infeliz nunca
    * foi exercitado.
    */
+  /**
+   * A montagem por IA passou a rodar DURANTE a captura, não depois do publicar.
+   *
+   * O ganho inteiro depende de duas coisas que só um teste segura: a confirmação
+   * da captura não pode esperar a rede, e o disparo tem que vir depois de as
+   * fotos originais subirem. Invertida, a ordem faz o servidor dispensar o
+   * panorama na hora e ainda prender o id na guarda de idempotência, o que
+   * transforma a chamada seguinte num no-op silencioso.
+   */
+  describe('montagem por IA durante a captura', () => {
+    interface Dublês {
+      tours: VirtualTourService;
+      property: PropertyService;
+      chamadas: string[];
+    }
+
+    function comRede(): Dublês {
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      const chamadas: string[] = [];
+
+      spyOn(property, 'createProperty').and.callFake(() => {
+        chamadas.push('createProperty');
+        return of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>;
+      });
+      spyOn(tours, 'createTour').and.callFake(() => {
+        chamadas.push('createTour');
+        return of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >;
+      });
+      spyOn(tours, 'addPanorama').and.callFake(() => {
+        chamadas.push('addPanorama');
+        return of({ id: 'pan-0' } as unknown) as ReturnType<
+          VirtualTourService['addPanorama']
+        >;
+      });
+      spyOn(tours, 'uploadCaptureFrames').and.callFake(async () => {
+        chamadas.push('uploadCaptureFrames');
+        return { uploaded: 8, total: 8 };
+      });
+      spyOn(tours, 'montarTour').and.callFake(() => {
+        chamadas.push('montarTour');
+        return of({ total: 1 } as unknown) as ReturnType<
+          VirtualTourService['montarTour']
+        >;
+      });
+      spyOn(tours, 'acompanharMontagem').and.resolveTo(undefined as never);
+
+      return { tours, property, chamadas };
+    }
+
+    function capturar(store: TourDraftStore, id = 'a'): void {
+      store.addCapturedScene({
+        room: `Ambiente ${id}`,
+        fileName: `${id}.jpg`,
+        imageData: `data:image/jpeg;base64,${id}`,
+        frames: [{ index: 0 }] as unknown as WizardScene['frames'],
+      } as never);
+    }
+
+    it('mostra o ambiente na lista SEM esperar a rede', () => {
+      const store = newStore();
+      comRede();
+
+      capturar(store);
+
+      // Síncrono: nenhum `await` entre a confirmação e a cena na tela. É o que
+      // separa esta versão da bloqueante, em que o corretor esperava ~60s de pé
+      // dentro do cômodo antes de poder ir para o próximo.
+      expect(store.scenes()).toHaveSize(1);
+      expect(store.scenes()[0].state).toBe('ready');
+    });
+
+    it('sobe as fotos ANTES de pedir a montagem', async () => {
+      const store = newStore();
+      const { chamadas } = comRede();
+
+      capturar(store);
+      await store.filaDeEnvioParaTeste;
+
+      expect(chamadas).toEqual([
+        'createProperty',
+        'createTour',
+        'addPanorama',
+        'uploadCaptureFrames',
+        'montarTour',
+      ]);
+    });
+
+    it('cria um rascunho só, para quantos cômodos forem', async () => {
+      const store = newStore();
+      const { chamadas } = comRede();
+
+      capturar(store, 'a');
+      capturar(store, 'b');
+      capturar(store, 'c');
+      await store.filaDeEnvioParaTeste;
+
+      expect(chamadas.filter((c) => c === 'createProperty')).toHaveSize(1);
+      expect(chamadas.filter((c) => c === 'createTour')).toHaveSize(1);
+      expect(chamadas.filter((c) => c === 'addPanorama')).toHaveSize(3);
+    });
+
+    it('não dispara a montagem para cena vinda de arquivo', async () => {
+      const store = newStore();
+      const { chamadas } = comRede();
+
+      // Sem `frames` não há verdade de campo, e o servidor dispensaria o
+      // panorama. Gastar a ida à rede para receber um SKIPPED deixaria o card
+      // dizendo "melhorando" por nada.
+      await store.addFiles([new File(['x'], 'sala.jpg', { type: 'image/jpeg' })]);
+
+      await store.filaDeEnvioParaTeste;
+      expect(chamadas).toEqual([]);
+    });
+
+    it('marca a cena como falha sem derrubar o wizard', async () => {
+      const store = newStore();
+      const { tours } = comRede();
+      (tours.addPanorama as jasmine.Spy).and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+
+      capturar(store);
+      await store.filaDeEnvioParaTeste;
+
+      expect(store.scenes()[0].aiState).toBe('failed');
+      // A cena continua publicável: falhar aqui degrada a qualidade do tour,
+      // nunca o derruba.
+      expect(store.scenes()[0].state).toBe('ready');
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('dispensa em vez de montar quando quase nenhuma foto subiu', async () => {
+      const store = newStore();
+      const { tours, chamadas } = comRede();
+      (tours.uploadCaptureFrames as jasmine.Spy).and.resolveTo({
+        uploaded: 2,
+        total: 8,
+      });
+
+      capturar(store);
+      await store.filaDeEnvioParaTeste;
+
+      // O servidor exige quatro referências; abaixo disso ele dispensaria.
+      expect(chamadas).not.toContain('montarTour');
+      expect(store.scenes()[0].aiState).toBe('skipped');
+    });
+
+    it('apaga no servidor o ambiente que o corretor removeu', async () => {
+      const store = newStore();
+      const { tours } = comRede();
+      const apagar = spyOn(tours, 'deletePanorama').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+
+      capturar(store);
+      await store.filaDeEnvioParaTeste;
+      store.removeScene(store.scenes()[0].id);
+
+      // Sem isto o cômodo saía só da tela e reaparecia no tour publicado —
+      // com a foto e a montagem que o corretor acabou de descartar.
+      expect(apagar).toHaveBeenCalledWith('pan-0');
+    });
+  });
+
   describe('falha ao publicar', () => {
     /** Deixa o formulário válido para o publicar chegar até a rede. */
     function pronto(store: TourDraftStore): void {
@@ -578,21 +745,39 @@ describe('TourDraftStore (contrato)', () => {
       pronto(store);
       const property = TestBed.inject(PropertyService);
       const tours = TestBed.inject(VirtualTourService);
-      // Só o `id` interessa ao publicar; o resto do Property não é lido.
+      // Só o `id` interessa; o resto do Property não é lido no publicar.
       const create = spyOn(property, 'createProperty').and.returnValue(
         of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
       );
-      // O imóvel entra, o tour falha: é o buraco por onde a duplicata nascia.
-      const createTour = spyOn(tours, 'createTour').and.returnValue(
-        throwError(() => new Error('413')),
+      spyOn(tours, 'createTour').and.returnValue(
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      spyOn(tours, 'addPanorama').and.returnValue(
+        of({ id: 'pan-0' } as unknown) as ReturnType<VirtualTourService['addPanorama']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      // O rascunho sobe inteiro e a publicação falha no último passo: é o
+      // buraco por onde a duplicata nascia quando o imóvel era criado aqui.
+      const publicar = spyOn(tours, 'publicarTour').and.returnValue(
+        throwError(() => new Error('rede caiu')),
       );
 
       await store.publish();
-      expect(store.publishedPropertyId()).toBe('imovel-1');
+      expect(store.published()).toBe(false);
+      // O rascunho sobreviveu à falha: é ele que o retry reaproveita.
+      expect(store.rascunhoPropertyId()).toBe('imovel-1');
+      expect(store.rascunhoTourId()).toBe('tour-1');
 
-      createTour.and.returnValue(
-        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
-          VirtualTourService['createTour']
+      publicar.and.returnValue(
+        of({ id: 'tour-1' } as unknown) as ReturnType<
+          VirtualTourService['publicarTour']
         >,
       );
       await store.publish();
@@ -600,6 +785,140 @@ describe('TourDraftStore (contrato)', () => {
       expect(create).toHaveBeenCalledTimes(1);
       expect(store.published()).toBe(true);
       expect(store.publishedTourId()).toBe('tour-1');
+    });
+
+    /**
+     * A duplicata que o teste de retry acima NÃO pegava.
+     *
+     * `createHotspot` insere uma linha por chamada. Os passos depois dele —
+     * dados do imóvel e publicar — podem falhar, e aí o botão volta a ficar
+     * clicável; o segundo clique publicava o tour com cada ponto de passagem
+     * em dobro. O caso acima passava mesmo assim porque só conferia
+     * `createProperty`, que é idempotente por outro motivo.
+     */
+    it('não duplica os pontos de passagem quando a tentativa se repete', async () => {
+      const store = storeWith(
+        scene('a', { hotspots: [{ id: 'h1', u: 0.5, v: 0.5, label: '', target: 'b' }] }),
+        scene('b'),
+      );
+      pronto(store);
+      const property = TestBed.inject(PropertyService);
+      const tours = TestBed.inject(VirtualTourService);
+
+      spyOn(property, 'createProperty').and.returnValue(
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      spyOn(tours, 'createTour').and.returnValue(
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      let n = 0;
+      spyOn(tours, 'addPanorama').and.callFake(
+        () =>
+          of({ id: `pan-${n++}` } as unknown) as ReturnType<
+            VirtualTourService['addPanorama']
+          >,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      let criados = 0;
+      const criar = spyOn(tours, 'createHotspot').and.callFake(
+        () =>
+          of({ id: `hot-${criados++}` } as unknown) as ReturnType<
+            VirtualTourService['createHotspot']
+          >,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      // Falha DEPOIS dos hotspots já terem entrado: é a janela exata do bug.
+      const atualizar = spyOn(property, 'updateProperty').and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+      spyOn(tours, 'publicarTour').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['publicarTour']>,
+      );
+
+      await store.publish();
+      expect(store.published()).toBe(false);
+      expect(criar).toHaveBeenCalledTimes(1);
+
+      atualizar.and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      await store.publish();
+
+      expect(store.published()).toBe(true);
+      // O da primeira tentativa foi apagado antes de recriar...
+      expect(apagar).toHaveBeenCalledWith('hot-0');
+      // ...então o tour publicado tem UM ponto, não dois.
+      expect(criar).toHaveBeenCalledTimes(2);
+      expect(apagar).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * O corretor apagou um ponto entre a falha e o retry.
+     *
+     * É por isto que o conserto apaga e recria, em vez de pular o que já
+     * existe: pulando, o ponto removido na tela continuaria no tour publicado.
+     */
+    it('não republica o ponto que o corretor apagou depois da falha', async () => {
+      const store = storeWith(
+        scene('a', { hotspots: [{ id: 'h1', u: 0.5, v: 0.5, label: '', target: 'b' }] }),
+        scene('b'),
+      );
+      pronto(store);
+      const property = TestBed.inject(PropertyService);
+      const tours = TestBed.inject(VirtualTourService);
+
+      spyOn(property, 'createProperty').and.returnValue(
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      spyOn(tours, 'createTour').and.returnValue(
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      let n = 0;
+      spyOn(tours, 'addPanorama').and.callFake(
+        () =>
+          of({ id: `pan-${n++}` } as unknown) as ReturnType<
+            VirtualTourService['addPanorama']
+          >,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      const criar = spyOn(tours, 'createHotspot').and.returnValue(
+        of({ id: 'hot-0' } as unknown) as ReturnType<
+          VirtualTourService['createHotspot']
+        >,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      const atualizar = spyOn(property, 'updateProperty').and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+      spyOn(tours, 'publicarTour').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['publicarTour']>,
+      );
+
+      await store.publish();
+      expect(criar).toHaveBeenCalledTimes(1);
+
+      // Voltou à etapa 2 e removeu o ponto antes de tentar de novo.
+      store.patchScene('a', (sc) => ({ ...sc, hotspots: [] }));
+      atualizar.and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      await store.publish();
+
+      expect(apagar).toHaveBeenCalledWith('hot-0');
+      // Nenhuma criação nova: o tour publicado sai sem ponto nenhum.
+      expect(criar).toHaveBeenCalledTimes(1);
     });
 
     it('acusa erro dentro do bloco de endereço, que é colapsável', async () => {
@@ -621,51 +940,81 @@ describe('TourDraftStore (contrato)', () => {
      *
      * Dois ambientes com o MESMO nome mandavam as fotos originais das duas
      * cenas para o primeiro panorama: a segunda ficava sem nenhuma, e a
-     * montagem por IA a dispensava por falta de verdade de campo. Nome com
-     * espaço no fim errava sozinho, porque o payload manda `trim()` e a busca
-     * comparava sem.
+     * montagem por IA a dispensava por falta de verdade de campo.
+     *
+     * O casamento por nome — e depois por ordem — deixou de existir: cada cena
+     * guarda o id do próprio panorama desde que ele é criado, durante a
+     * captura. O caso continua aqui porque o que ele protege é o mesmo, e
+     * porque nome repetido é o cenário em que qualquer volta a casar por
+     * conteúdo reapareceria.
      */
-    it('manda as fotos de cada cena para o panorama da MESMA ordem', async () => {
-      const frames = (i: number) =>
-        [{ index: i }] as unknown as WizardScene['frames'];
-      const store = storeWith(
-        scene('a', { room: 'Ambiente 2 ', frames: frames(0) }),
-        scene('b', { room: 'Ambiente 2', frames: frames(1) }),
-      );
-      pronto(store);
+    it('manda as fotos de cada cena para o SEU panorama, com nomes repetidos', async () => {
+      const store = newStore();
+      const tours = TestBed.inject(VirtualTourService);
 
       spyOn(TestBed.inject(PropertyService), 'createProperty').and.returnValue(
         of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
       );
-      const tours = TestBed.inject(VirtualTourService);
       spyOn(tours, 'createTour').and.returnValue(
-        of({
-          id: 'tour-1',
-          panoramas: [
-            { id: 'pan-0', roomName: 'Ambiente 2', order: 0 },
-            { id: 'pan-1', roomName: 'Ambiente 2', order: 1 },
-          ],
-        } as unknown) as ReturnType<VirtualTourService['createTour']>,
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      let n = 0;
+      spyOn(tours, 'addPanorama').and.callFake(
+        () =>
+          of({ id: `pan-${n++}` } as unknown) as ReturnType<
+            VirtualTourService['addPanorama']
+          >,
       );
       const upload = spyOn(tours, 'uploadCaptureFrames').and.resolveTo({
-        uploaded: 1,
-      } as never);
+        uploaded: 8,
+        total: 8,
+      });
       spyOn(tours, 'montarTour').and.returnValue(
-        of({ total: 2 }) as ReturnType<VirtualTourService['montarTour']>,
+        of({ total: 2 } as unknown) as ReturnType<VirtualTourService['montarTour']>,
       );
       spyOn(tours, 'acompanharMontagem').and.resolveTo(undefined as never);
-      // Se voltasse a existir, seria o round-trip que baixa tudo de novo.
-      const refetch = spyOn(tours, 'findTour');
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(tours, 'publicarTour').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['publicarTour']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
 
+      const frames = (i: number) =>
+        [{ index: i }] as unknown as WizardScene['frames'];
+      store.addCapturedScene({
+        room: 'Ambiente 2 ',
+        fileName: 'a.jpg',
+        imageData: 'data:image/jpeg;base64,a',
+        frames: frames(0),
+      } as never);
+      store.addCapturedScene({
+        room: 'Ambiente 2',
+        fileName: 'b.jpg',
+        imageData: 'data:image/jpeg;base64,b',
+        frames: frames(1),
+      } as never);
+
+      // `publish` espera a fila de envio drenar, que é o que dá o ponto de
+      // sincronia deste teste — e é a garantia de que um clique logo depois da
+      // última captura não publica o tour sem o último cômodo.
+      pronto(store);
       await store.publish();
 
-      expect(upload.calls.allArgs().map((a) => a[0])).toEqual([
+      expect(upload.calls.allArgs().map((a) => a[0])).toEqual(['pan-0', 'pan-1']);
+      expect(upload.calls.argsFor(0)[1]).toBe(store.scenes()[0].frames!);
+      expect(upload.calls.argsFor(1)[1]).toBe(store.scenes()[1].frames!);
+      // E cada cena ficou com o id do seu, que é o que torna o casamento
+      // desnecessário daqui para a frente.
+      expect(store.scenes().map((s) => s.serverPanoramaId)).toEqual([
         'pan-0',
         'pan-1',
       ]);
-      expect(upload.calls.argsFor(0)[1]).toBe(store.scenes()[0].frames!);
-      expect(upload.calls.argsFor(1)[1]).toBe(store.scenes()[1].frames!);
-      expect(refetch).not.toHaveBeenCalled();
     });
 
     it('não acusa endereço quando o erro está fora dele', async () => {

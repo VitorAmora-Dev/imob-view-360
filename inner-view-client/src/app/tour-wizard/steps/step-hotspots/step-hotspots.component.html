@@ -41,9 +41,25 @@
         <app-panoramic-viewer
           #viewer
           [panoramas]="viewerPanoramas()"
+          [revealUrl]="revealUrl()"
           [editMode]="true"
           [roomNav]="false"
           (hotspotPlaced)="onPlaced($event)" />
+
+        <!--
+          Estado da montagem por IA sobre a foto. `pointer-events: none` no
+          CSS: qualquer coisa sólida aqui engoliria o clique que cria hotspot,
+          porque este elemento fica sobre a mesma área do canvas.
+        -->
+        @if (melhorandoAgora()) {
+          <p class="tw-viewer__ia" role="status">
+            {{ 'TOUR_WIZARD.STEP2.MELHORANDO' | translate }}
+          </p>
+        } @else if (temComparacao() && !vendoOriginal()) {
+          <p class="tw-viewer__ia is-pronto" role="status">
+            {{ 'TOUR_WIZARD.STEP2.MELHORADO' | translate }}
+          </p>
+        }
 
         <!--
           ANTES do overlay no DOM: assim o pin em arraste passa por cima do
@@ -75,6 +91,25 @@
           <p class="tw-viewer__hint">{{ 'TOUR_WIZARD.STEP2.HINT' | translate }}</p>
         }
       </div>
+
+      <!--
+        Comparar fica FORA do visualizador, não sobre ele: dentro, o botão
+        disputaria a área em que se toca para criar um ponto, e o template do
+        viewer é proibido de ganhar coisa que aloque a cada quadro.
+
+        Só aparece quando existem as duas imagens — antes disso não há o que
+        comparar, e um botão morto sugeriria que algo deixou de funcionar.
+      -->
+      @if (temComparacao()) {
+        <button type="button" class="tw-viewer__comparar" (click)="alternarOriginal()">
+          {{
+            (vendoOriginal()
+              ? 'TOUR_WIZARD.STEP2.VER_MELHORADA'
+              : 'TOUR_WIZARD.STEP2.VER_ORIGINAL'
+            ) | translate
+          }}
+        </button>
+      }
 
       <app-scene-rail />
 

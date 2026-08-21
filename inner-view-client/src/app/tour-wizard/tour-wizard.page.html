@@ -6,27 +6,15 @@
 
     <div class="tw-body">
       <!--
-        Tela de espera da montagem por IA. Não está no handoff porque o
-        protótipo trata o upload como instantâneo, mas o fluxo real leva cerca
-        de um minuto por ambiente — e o corretor não tem mais nada a fazer aqui
-        senão aguardar. Cobre tudo, inclusive o sucesso, para ninguém sair da
-        página no meio do envio das fotos originais.
+        Não existe mais tela de espera da montagem por IA aqui.
+        Ela cobria o wizard inteiro por cerca de um minuto por ambiente, no
+        instante em que o corretor apertava "criar tour". Agora a montagem
+        dispara na confirmação de cada captura e roda enquanto ele fotografa os
+        outros cômodos, então no publicar não sobra o que esperar — e o que
+        ainda estiver em curso termina no servidor, sem ninguém olhando.
+        O andamento cômodo a cômodo aparece no card da etapa 1.
       -->
-      @if (store.montagem(); as etapa) {
-        <div class="tw-montagem" role="status" aria-live="polite">
-          <app-owl-loader />
-          <h2>{{ 'UPLOAD.MONTAGEM.TITULO' | translate }}</h2>
-          <p>
-            {{ (etapa === 'fotos' ? 'UPLOAD.MONTAGEM.ENVIANDO' : 'UPLOAD.MONTAGEM.PROCESSANDO') | translate }}
-          </p>
-          @if (store.montagemTotal() > 1) {
-            <span class="tw-montagem__contador">
-              {{ store.montagemProntos() }} / {{ store.montagemTotal() }}
-            </span>
-          }
-          <small>{{ 'UPLOAD.MONTAGEM.AVISO' | translate }}</small>
-        </div>
-      } @else if (store.published()) {
+      @if (store.published()) {
         <app-tour-published />
       } @else {
         @switch (store.step()) {
@@ -54,7 +42,7 @@
         avançar, e as ações de lá (copiar link, criar outro) pertencem ao próprio
         conteúdo.
       -->
-      @if (!store.published() && !store.montagem()) {
+      @if (!store.published()) {
         <app-wizard-actions />
       }
     </div>

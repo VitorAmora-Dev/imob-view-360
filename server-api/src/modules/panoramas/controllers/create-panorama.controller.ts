@@ -9,6 +9,8 @@ import {
   CreatePanoramaSchema,
 } from '../dto/create-panorama.dto';
 import { CreatePanoramaService } from '../services/create-panorama.service';
+import { Throttle } from '@nestjs/throttler';
+import { CAPTURE_FRAME_THROTTLE } from '../../../config/throttle.config';
 
 @ApiTags('Panoramas')
 @Controller('panoramas')
@@ -16,6 +18,7 @@ export class CreatePanoramaController {
   constructor(private readonly service: CreatePanoramaService) {}
 
   @Post()
+  @Throttle(CAPTURE_FRAME_THROTTLE)
   @UseGuards(JwtAccessGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Adiciona panorama ao tour (com medidas)' })

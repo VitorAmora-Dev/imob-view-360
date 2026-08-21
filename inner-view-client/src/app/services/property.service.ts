@@ -21,6 +21,9 @@ export interface CreatePropertyPayload {
   };
 }
 
+/** Tudo opcional: o PATCH leva só o que mudou. `code` não é editável. */
+export type UpdatePropertyPayload = Partial<Omit<CreatePropertyPayload, 'code'>>;
+
 @Injectable({ providedIn: 'root' })
 export class PropertyService {
   private http = inject(HttpClient);
@@ -45,6 +48,17 @@ export class PropertyService {
 
   createProperty(dto: CreatePropertyPayload): Observable<Property> {
     return this.http.post<Property>(`${environment.apiUrl}/properties`, dto);
+  }
+
+  /**
+   * Grava os dados que só existem no fim do wizard.
+   *
+   * O imóvel passa a nascer como marcador na primeira captura, para que o tour
+   * exista e a montagem por IA possa rodar durante a captura. Título, tipo,
+   * finalidade e endereço chegam na última etapa e vêm por aqui.
+   */
+  updateProperty(id: string, dto: UpdatePropertyPayload): Observable<Property> {
+    return this.http.patch<Property>(`${environment.apiUrl}/properties/${id}`, dto);
   }
 
   deleteProperty(id: string): Observable<void> {

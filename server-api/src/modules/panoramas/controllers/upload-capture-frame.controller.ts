@@ -1,4 +1,11 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { JwtAccessGuard } from '../../../common/guards/jwt-access.guard';
@@ -9,6 +16,8 @@ import {
   UploadCaptureFrameSchema,
 } from '../dto/upload-capture-frame.dto';
 import { UploadCaptureFrameService } from '../services/upload-capture-frame.service';
+import { Throttle } from '@nestjs/throttler';
+import { CAPTURE_FRAME_THROTTLE } from '../../../config/throttle.config';
 
 @ApiTags('Panoramas')
 @Controller('panoramas')
@@ -20,12 +29,14 @@ export class UploadCaptureFrameController {
    * num corpo só, e uma queda de rede levaria junto tudo o que já subiu.
    */
   @Post(':id/frames')
+  @Throttle(CAPTURE_FRAME_THROTTLE)
   @UseGuards(JwtAccessGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Guarda uma foto original da captura 360°' })
   upload(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(UploadCaptureFrameSchema)) dto: UploadCaptureFrameDto,
+    @Body(new ZodValidationPipe(UploadCaptureFrameSchema))
+    dto: UploadCaptureFrameDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.service.execute(id, dto, user);

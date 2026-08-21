@@ -225,6 +225,22 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    * única navegação que o dono tinha, sem nada no lugar.
    */
   @Input() roomNav = true;
+
+  /**
+   * Imagem que deve SUBSTITUIR a que está à vista, com uma dissolvência.
+   *
+   * É como a etapa 2 do wizard revela o resultado da montagem por IA: o cômodo
+   * já está na tela, costurado, e a versão tratada chega segundos depois. Trocar
+   * a textura direto — que é o que uma mudança de `panoramas` faz — daria um
+   * salto seco com spinner no meio, e o corretor não veria o que mudou.
+   *
+   * Um `blob:` ou `data:`, não o endereço da API: a rota de preview é
+   * autenticada e o `TextureLoader` carrega sem interceptor.
+   *
+   * `null` desfaz nada — o que já foi revelado continua onde está.
+   */
+  @Input() revealUrl: string | null = null;
+
   @Output() panoramaChange = new EventEmitter<Panorama>();
   @Output() hotspotPlaced = new EventEmitter<{ positionX: number; positionY: number }>();
 
@@ -340,6 +356,24 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   private initTimeout: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
 
+  // ---- dissolvência da revelação ------------------------------------------
+  //
+  // Uma segunda esfera, de raio menor, com material transparente. Vista do
+  // centro ela fica NA FRENTE da primeira, então subir a opacidade de 0 a 1
+  // dissolve a imagem nova por cima da antiga.
+  //
+  // Escolhida em vez de um `ShaderMaterial` com dois samplers: o shader faria
+  // varredura direcional além da dissolvência, mas trocaria o
+  // `MeshBasicMaterial` que o resto deste arquivo assume em três lugares. Uma
+  // esfera a mais custa 120×80 triângulos e nenhuma suposição.
+  private revealMesh!: THREE.Mesh;
+  private revelacaoInicio: number | null = null;
+  /** Qual URL já foi revelada, para não repetir a dissolvência a cada render. */
+  private urlRevelada: string | null = null;
+
+  /** Duração da dissolvência. Longo o bastante para o olho seguir a mudança. */
+  private static readonly DURACAO_REVELACAO_MS = 900;
+
   ngAfterViewInit() {
     this.initTimeout = setTimeout(() => {
       this.initTimeout = null;
@@ -356,6 +390,9 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       if (this.panoramas.length > 0) {
         this.loadInitialPanorama();
       }
+    }
+    if (changes['revealUrl'] && this.initialized) {
+      this.revelar();
     }
     if (changes['editMode'] && this.initialized) {
       this.renderer.domElement.style.cursor = this.editMode ? 'crosshair' : 'grab';
@@ -392,6 +429,13 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     material?.map?.dispose();
     material?.dispose();
     this.sphereMesh?.geometry.dispose();
+    // A esfera da revelação tem os mesmos três recursos, e o browser só mantém
+    // ~16 contextos WebGL vivos — deixá-la de fora dobraria o vazamento que o
+    // bloco acima existe para não ter.
+    const materialReveal = this.revealMesh?.material as THREE.MeshBasicMaterial | undefined;
+    materialReveal?.map?.dispose();
+    materialReveal?.dispose();
+    this.revealMesh?.geometry.dispose();
     this.controls?.dispose();
     // `dispose()` solta os recursos mas não o contexto WebGL em si, e o browser
     // só mantém ~16 vivos. A etapa 2 monta e desmonta este componente a cada
@@ -421,6 +465,9 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
   private loadPanorama(panorama: Panorama) {
     this.loading = true;
+    // Trocar de cômodo invalida qualquer revelação em curso: ela dissolveria a
+    // imagem tratada de uma sala por cima da foto de outra.
+    this.cancelarRevelacao();
     // A foto vem por URL, não mais embutida no JSON do tour. Para o
     // `TextureLoader` dá no mesmo — ele aceita endereço e data-URI pela mesma
     // porta —, mas para quem abre o tour muda tudo: o primeiro cômodo aparece
@@ -506,6 +553,19 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     geometry.scale(-1, 1, 1);
     this.sphereMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
     this.scene.add(this.sphereMesh);
+
+    // Raio 499 contra 500: de dentro, a menor está mais perto da câmera e
+    // desenha por cima. `depthWrite: false` para ela não gravar profundidade
+    // enquanto está meio transparente, o que deixaria buracos na de trás.
+    const geometriaReveal = new THREE.SphereGeometry(499, 120, 80);
+    geometriaReveal.scale(-1, 1, 1);
+    this.revealMesh = new THREE.Mesh(
+      geometriaReveal,
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    );
+    this.revealMesh.visible = false;
+    this.revealMesh.renderOrder = 1;
+    this.scene.add(this.revealMesh);
 
     this.renderer.domElement.addEventListener('click', this.onCanvasClick);
     this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
@@ -756,10 +816,112 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.renderer.setSize(container.clientWidth, container.clientHeight);
   };
 
+  /**
+   * Carrega a imagem nova na esfera de cima e começa a dissolvência.
+   *
+   * Falhar aqui não faz nada visível de propósito: a imagem que está na tela
+   * continua correta e utilizável, e um erro no meio da captura por causa de
+   * um refinamento seria pior que o refinamento não acontecer.
+   */
+  private revelar(): void {
+    const url = this.revealUrl;
+    if (!url || url === this.urlRevelada) return;
+
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      url,
+      (texture) => {
+        // Chegou depois de o input já ter mudado de novo, ou depois de uma
+        // troca de cômodo: a textura recém-carregada não serve mais.
+        if (this.revealUrl !== url) {
+          texture.dispose();
+          return;
+        }
+
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+
+        const material = this.revealMesh.material as THREE.MeshBasicMaterial;
+        material.map?.dispose();
+        material.map = texture;
+        material.opacity = 0;
+        material.needsUpdate = true;
+        this.revealMesh.visible = true;
+        this.urlRevelada = url;
+
+        // Quem pediu menos movimento recebe a imagem nova, sem a travessia.
+        if (prefereMenosMovimento()) {
+          this.concluirRevelacao();
+          return;
+        }
+        this.revelacaoInicio = performance.now();
+      },
+      undefined,
+      () => undefined,
+    );
+  }
+
+  /** Passa a imagem revelada para a esfera de baixo e recolhe a de cima. */
+  private concluirRevelacao(): void {
+    const deCima = this.revealMesh.material as THREE.MeshBasicMaterial;
+    const deBaixo = this.sphereMesh.material as THREE.MeshBasicMaterial;
+    const texture = deCima.map;
+
+    if (texture) {
+      // A textura MUDA DE DONO aqui. A antiga da esfera de baixo é solta; a de
+      // cima perde a referência sem `dispose()`, senão a imagem que acabou de
+      // aparecer some junto.
+      deBaixo.map?.dispose();
+      deBaixo.map = texture;
+      deBaixo.needsUpdate = true;
+      deCima.map = null;
+    }
+
+    deCima.opacity = 0;
+    this.revealMesh.visible = false;
+    this.revelacaoInicio = null;
+  }
+
+  /** Descarta uma revelação em curso ou já carregada, soltando a textura. */
+  private cancelarRevelacao(): void {
+    const material = this.revealMesh?.material as THREE.MeshBasicMaterial | undefined;
+    if (material) {
+      material.map?.dispose();
+      material.map = null;
+      material.opacity = 0;
+    }
+    if (this.revealMesh) this.revealMesh.visible = false;
+    this.revelacaoInicio = null;
+    this.urlRevelada = null;
+  }
+
   private animate() {
     this.animationFrameId = requestAnimationFrame(() => this.animate());
+
+    if (this.revelacaoInicio !== null) {
+      const decorrido = performance.now() - this.revelacaoInicio;
+      const t = Math.min(1, decorrido / PanoramicViewerComponent.DURACAO_REVELACAO_MS);
+      // `t*t*(3-2t)`: começa e termina devagar. Uma rampa linear faz a imagem
+      // nova "aparecer" de repente no primeiro quadro em que passa a ser
+      // percebida, e é justamente a transição que se quer que seja vista.
+      (this.revealMesh.material as THREE.MeshBasicMaterial).opacity =
+        t * t * (3 - 2 * t);
+      if (t >= 1) this.concluirRevelacao();
+    }
+
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     for (const callback of this.frameCallbacks) callback();
   }
+}
+
+/**
+ * Duplicado de `tour-wizard/hotspots/media.ts` de propósito: este componente é
+ * usado fora do wizard (inner-view, embed) e não pode depender de um módulo de
+ * lá. São três linhas.
+ */
+function prefereMenosMovimento(): boolean {
+  return typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }

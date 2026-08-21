@@ -52,3 +52,22 @@ export const RECORD_VIEW_THROTTLE = { default: { ttl: MINUTE, limit: 10 } };
  * corta poluição de analytics.
  */
 export const RECORD_SHARE_THROTTLE = { default: { ttl: MINUTE, limit: 5 } };
+
+/**
+ * POST /panoramas/:id/frames e POST /panoramas — o caminho da captura guiada.
+ *
+ * Sobe uma foto por requisição, de propósito: um lote com a captura inteira
+ * passaria de 10 MB num corpo só, e uma queda de rede levaria junto tudo o que
+ * já subiu. O preço disso é volume de requisições — de 9 a 15 por cômodo, mais
+ * uma de panorama e o polling da montagem.
+ *
+ * O teto global de 100/min cobria isso enquanto o envio acontecia todo no
+ * publicar, uma vez por tour. Com a montagem por IA disparando cômodo a cômodo
+ * durante a captura, um corretor rápido num tour de seis ambientes passa dos
+ * 100 — e o 429 cairia justamente sobre as fotos originais, que são a
+ * referência sem a qual o panorama é dispensado em vez de tratado.
+ *
+ * 300/min é ~4x a captura de um cômodo grande e continua um teto: quem estoura
+ * isso não está fotografando um imóvel.
+ */
+export const CAPTURE_FRAME_THROTTLE = { default: { ttl: MINUTE, limit: 300 } };

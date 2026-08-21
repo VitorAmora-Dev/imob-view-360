@@ -33,6 +33,18 @@ export const PanoramaInputSchema = z.object({
 
 export const CreateVirtualTourSchema = z.object({
   propertyId: z.string().uuid(),
+  /**
+   * Em que estado o tour nasce. O default é `DRAFT`, que é o mesmo do banco.
+   *
+   * O serviço gravava `PUBLISHED` fixo, e isso impedia o wizard de existir no
+   * servidor durante a captura: um tour incompleto ficava visível na listagem e
+   * as rotas públicas o serviam pela metade. Quem cria já pronto — a tela
+   * legada, que sobe as panorâmicas todas de uma vez — pede `PUBLISHED` aqui.
+   *
+   * `ARCHIVED` fica de fora de propósito: arquivar é uma transição, não um
+   * ponto de partida, e existe em `PATCH /virtual-tours/:id`.
+   */
+  status: z.enum(['DRAFT', 'PUBLISHED']).default('DRAFT'),
   // Teto de cômodos por tour. O único limite que existia era o corpo de 50 MB,
   // o que fazia o número de panorâmicas depender do tamanho das fotos: 50 tours
   // minúsculos passavam, 2 grandes não. Cada uma aqui vira um `create` dentro
