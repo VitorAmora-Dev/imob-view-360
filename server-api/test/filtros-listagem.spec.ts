@@ -108,4 +108,128 @@ describe('filtros da listagem de imóveis', () => {
       expect(codigos(resultado)).toEqual(['ALUGA', 'AMBOS']);
     });
   });
+
+  describe('localização', () => {
+    beforeEach(async () => {
+      await criarImovel(tenants.a, 'MOINHOS', {
+        address: {
+          street: 'Rua Padre Chagas',
+          district: 'Moinhos de Vento',
+          city: 'Porto Alegre',
+          state: 'RS',
+        },
+      });
+      await criarImovel(tenants.a, 'PINHEIROS', {
+        address: {
+          street: 'Rua dos Pinheiros',
+          district: 'Pinheiros',
+          city: 'São Paulo',
+          state: 'SP',
+        },
+      });
+    });
+
+    it('casa por bairro', async () => {
+      const resultado = await listar.execute(
+        { ...CONSULTA, location: 'Moinhos' },
+        tenants.a.admin,
+      );
+
+      expect(codigos(resultado)).toEqual(['MOINHOS']);
+    });
+
+    it('casa por cidade, sem diferenciar maiúscula', async () => {
+      const resultado = await listar.execute(
+        { ...CONSULTA, location: 'são paulo' },
+        tenants.a.admin,
+      );
+
+      expect(codigos(resultado)).toEqual(['PINHEIROS']);
+    });
+
+    it('casa por estado', async () => {
+      const resultado = await listar.execute(
+        { ...CONSULTA, location: 'SP' },
+        tenants.a.admin,
+      );
+
+      expect(codigos(resultado)).toEqual(['PINHEIROS']);
+    });
+
+    // O motivo de `location` existir. Os três campos de endereço da API aninham
+    // dentro do MESMO objeto `address`, então combinam com E: mandar cidade,
+    // bairro e estado com "Centro" pede um imóvel em que os três sejam
+    // "Centro". Não havia como perguntar "em algum lugar chamado Centro".
+    it('é um OU entre bairro, cidade e estado', async () => {
+      const resultado = await listar.execute(
+        { ...CONSULTA, location: 'Porto Alegre' },
+        tenants.a.admin,
+      );
+
+      expect(codigos(resultado)).toEqual(['COD-alfa', 'MOINHOS']);
+    });
+
+    it('não atravessa a fronteira da agência', async () => {
+      await criarImovel(tenants.b, 'ALHEIO', {
+        address: {
+          street: 'Rua B',
+          district: 'Moinhos de Vento',
+          city: 'Porto Alegre',
+          state: 'RS',
+        },
+      });
+
+      const resultado = await listar.execute(
+        { ...CONSULTA, location: 'Moinhos' },
+        tenants.a.admin,
+      );
+
+      expect(codigos(resultado)).toEqual(['MOINHOS']);
+    });
+  });
+
+  // Este é o teste que justifica o `AND`. `search` e `location` são dois OU
+  // independentes; espalhados no mesmo objeto, o segundo sobrescreve o primeiro
+  // — sem erro de tipo, sem aviso, e o filtro que sumiu só aparece contando
+  // resultado.
+  describe('localização junto com busca por texto', () => {
+    beforeEach(async () => {
+      await criarImovel(tenants.a, 'CASA-CENTRO', {
+        title: 'Casa ampla',
+        address: {
+          street: 'Rua X',
+          district: 'Centro',
+          city: 'Curitiba',
+          state: 'PR',
+        },
+      });
+      await criarImovel(tenants.a, 'LOJA-CENTRO', {
+        title: 'Loja pequena',
+        address: {
+          street: 'Rua Y',
+          district: 'Centro',
+          city: 'Curitiba',
+          state: 'PR',
+        },
+      });
+      await criarImovel(tenants.a, 'CASA-LONGE', {
+        title: 'Casa ampla',
+        address: {
+          street: 'Rua Z',
+          district: 'Bela Vista',
+          city: 'Curitiba',
+          state: 'PR',
+        },
+      });
+    });
+
+    it('os dois filtros valem ao mesmo tempo', async () => {
+      const resultado = await listar.execute(
+        { ...CONSULTA, location: 'Centro', search: 'Casa ampla' },
+        tenants.a.admin,
+      );
+
+      expect(codigos(resultado)).toEqual(['CASA-CENTRO']);
+    });
+  });
 });

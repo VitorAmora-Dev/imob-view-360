@@ -39,10 +39,45 @@ export function montarWhere(
     city,
     state,
     district,
+    location,
     priceMin,
     priceMax,
     search,
   } = query;
+
+  // Dois OU independentes. Espalhados os dois no mesmo objeto, a segunda chave
+  // `OR` apaga a primeira em silêncio — é JavaScript fazendo o que promete, e
+  // nenhum tipo reclama. Sob `AND`, cada um continua sendo um OU e os dois
+  // precisam valer.
+  const grupos: Prisma.PropertyWhereInput[] = [];
+
+  if (search) {
+    grupos.push({
+      OR: [
+        { code: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { address: { street: { contains: search, mode: 'insensitive' } } },
+        { address: { district: { contains: search, mode: 'insensitive' } } },
+        { address: { city: { contains: search, mode: 'insensitive' } } },
+        { address: { state: { contains: search, mode: 'insensitive' } } },
+        { address: { zipCode: { contains: search, mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  // Os três campos de endereço da API aninham dentro do MESMO objeto
+  // `address`, então combinam com E. Não havia como perguntar "em algum lugar
+  // chamado Centro" — é o que este parâmetro resolve.
+  if (location) {
+    grupos.push({
+      OR: [
+        { address: { city: { contains: location, mode: 'insensitive' } } },
+        { address: { district: { contains: location, mode: 'insensitive' } } },
+        { address: { state: { contains: location, mode: 'insensitive' } } },
+      ],
+    });
+  }
 
   return {
     agencyId,
@@ -73,18 +108,7 @@ export function montarWhere(
         }),
       },
     }),
-    ...(search && {
-      OR: [
-        { code: { contains: search, mode: 'insensitive' } },
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { address: { street: { contains: search, mode: 'insensitive' } } },
-        { address: { district: { contains: search, mode: 'insensitive' } } },
-        { address: { city: { contains: search, mode: 'insensitive' } } },
-        { address: { state: { contains: search, mode: 'insensitive' } } },
-        { address: { zipCode: { contains: search, mode: 'insensitive' } } },
-      ],
-    }),
+    ...(grupos.length > 0 && { AND: grupos }),
   };
 }
 
