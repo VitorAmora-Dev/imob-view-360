@@ -113,28 +113,6 @@
   }
 }
 
-.tw-montagem__spinner {
-  width: 34px;
-  height: 34px;
-  border: 3px solid var(--tw-surface-track);
-  border-top-color: var(--tw-brand);
-  border-radius: 50%;
-  animation: tw-spin 0.9s linear infinite;
-
-  // Quem pediu menos movimento não deve levar um anel girando na cara por um
-  // minuto. O texto e o contador já dizem que há algo em curso.
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-    border-top-color: var(--tw-border);
-  }
-}
-
-@keyframes tw-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .tw-montagem__contador {
   font-size: 13px;
   font-weight: 650;

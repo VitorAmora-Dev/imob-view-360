@@ -14,7 +14,7 @@
       -->
       @if (store.montagem(); as etapa) {
         <div class="tw-montagem" role="status" aria-live="polite">
-          <span class="tw-montagem__spinner" aria-hidden="true"></span>
+          <app-owl-loader />
           <h2>{{ 'UPLOAD.MONTAGEM.TITULO' | translate }}</h2>
           <p>
             {{ (etapa === 'fotos' ? 'UPLOAD.MONTAGEM.ENVIANDO' : 'UPLOAD.MONTAGEM.PROCESSANDO') | translate }}
