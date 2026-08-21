@@ -11,7 +11,25 @@
     "NO_TOUR_BANNER_ONE": "1 property does not have 360° images yet.",
     "CARD_CREATE_TOUR": "Create tour",
     "CARD_CREATE_TOUR_LABEL": "Create tour for {{title}}",
-    "NO_RESULTS": "No property found for \"{{query}}\"."
+    "NO_RESULTS": "No property found for \"{{query}}\".",
+    "FILTERS": {
+      "TOGGLE": "Filters",
+      "TOGGLE_COUNT": "Filters ({{n}})",
+      "TYPE_LABEL": "Type",
+      "PURPOSE_LABEL": "Purpose",
+      "LOCATION_LABEL": "Location",
+      "LOCATION_PLACEHOLDER": "City, district or state",
+      "ALL_TYPES": "All types",
+      "ALL_PURPOSES": "All purposes",
+      "CLEAR": "Clear filters",
+      "ACTIVE_TITLE": "Active filters",
+      "REMOVE_CHIP": "Remove filter {{label}}",
+      "SHEET_TITLE": "Filter properties",
+      "SHEET_DONE": "See results",
+      "RESULT_COUNT": "{{n}} properties found.",
+      "RESULT_COUNT_ONE": "1 property found.",
+      "NO_RESULTS_FILTERS": "No property matches the selected filters."
+    }
   },
   "NAV": {
     "HOME": "Home",

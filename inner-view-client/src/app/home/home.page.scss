@@ -9,3 +9,28 @@ ion-searchbar.home-search {
   max-width: 660px;
   margin-inline: auto;
 }
+
+.filters-band {
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 4px;
+}
+
+.home-refiltrando {
+  margin-top: 8px;
+}
+
+// A contagem existe para o leitor de tela; na tela ela seria ruído sobre uma
+// lista que a pessoa está vendo.
+.home-anuncio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

@@ -35,6 +35,7 @@ export class PropertyService {
     if (params.purpose) httpParams = httpParams.set('purpose', params.purpose);
     if (params.city) httpParams = httpParams.set('city', params.city);
     if (params.state) httpParams = httpParams.set('state', params.state);
+    if (params.location) httpParams = httpParams.set('location', params.location);
     return this.http.get<PaginatedProperties>(`${environment.apiUrl}/properties`, { params: httpParams });
   }
 

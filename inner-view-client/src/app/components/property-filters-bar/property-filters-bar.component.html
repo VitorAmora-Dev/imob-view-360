@@ -1,0 +1,21 @@
+<div class="filters-bar">
+  @if (mobile()) {
+    <button
+      type="button"
+      data-filtros-toggle
+      class="filters-bar__toggle"
+      (click)="abrirSheet()">
+      {{ rotuloKey() | translate: rotuloParams() }}
+    </button>
+
+    <app-property-filters-sheet
+      [filters]="filters()"
+      [isOpen]="sheetAberto()"
+      (filtersChange)="aoMudar($event)"
+      (closed)="fecharSheet()" />
+  } @else {
+    <app-property-filters-form
+      [filters]="filters()"
+      (filtersChange)="aoMudar($event)" />
+  }
+</div>

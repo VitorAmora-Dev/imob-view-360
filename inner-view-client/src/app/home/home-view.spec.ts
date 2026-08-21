@@ -1,31 +1,48 @@
 import { resolveHomeView } from './home-view';
 
+const PRONTO = {
+  status: 'ready' as const,
+  jaCarregou: true,
+  vazio: false,
+  comCriterios: false,
+};
+
 describe('resolveHomeView', () => {
-  it('carregando vence tudo', () => {
-    expect(resolveHomeView({ status: 'loading', total: 0, filtered: 0 })).toBe('loading');
-    expect(resolveHomeView({ status: 'loading', total: 5, filtered: 5 })).toBe('loading');
+  it('a primeira carga e carregando', () => {
+    expect(resolveHomeView({ ...PRONTO, status: 'loading', jaCarregou: false }))
+      .toBe('loading');
+  });
+
+  // Refiltrar NAO volta para o placeholder de tela cheia. A busca e a barra de
+  // filtros vivem dentro da moldura, que so aparece em `list` e `no-results`:
+  // se refiltrar virasse `loading`, mexer num filtro faria a barra sumir, e
+  // digitar na busca destruiria o campo em foco no meio da digitacao.
+  it('refiltrar mantem a view anterior', () => {
+    expect(resolveHomeView({ ...PRONTO, status: 'loading' })).toBe('list');
+    expect(resolveHomeView({ ...PRONTO, status: 'loading', vazio: true, comCriterios: true }))
+      .toBe('no-results');
   });
 
   it('erro vence o conteudo', () => {
-    expect(resolveHomeView({ status: 'error', total: 0, filtered: 0 })).toBe('error');
-    expect(resolveHomeView({ status: 'error', total: 5, filtered: 5 })).toBe('error');
+    expect(resolveHomeView({ ...PRONTO, status: 'error' })).toBe('error');
+    expect(resolveHomeView({ ...PRONTO, status: 'error', vazio: true })).toBe('error');
   });
 
-  // Esta e' a asserção que trava a precedencia. Como `filtered <= total`
-  // sempre, `total === 0` arrasta `filtered === 0` junto — entao conta vazia
-  // COM busca ativa cai exatamente aqui, e o que decide que ela vê onboarding
-  // em vez de "nenhum resultado" e' esta checagem vir ANTES da de `filtered`.
-  // Inverter as duas quebra este teste, que e' o ponto dele.
-  it('conta sem imovel algum e onboarding', () => {
-    expect(resolveHomeView({ status: 'ready', total: 0, filtered: 0 })).toBe('empty');
+  // Esta e' a asserção que trava a precedencia. Com o servidor filtrando, uma
+  // resposta vazia pode ser conta zerada OU busca que nao casou — o que separa
+  // as duas e' ter havido criterio. Quem tem trinta imoveis e digita "zzz"
+  // precisa de "nenhum resultado", nao do onboarding de conta zerada.
+  it('vazio sem criterio e onboarding', () => {
+    expect(resolveHomeView({ ...PRONTO, vazio: true })).toBe('empty');
   });
 
-  it('busca que nao casou nada, com acervo, e "sem resultado"', () => {
-    expect(resolveHomeView({ status: 'ready', total: 5, filtered: 0 })).toBe('no-results');
+  it('vazio com criterio e "sem resultado"', () => {
+    expect(resolveHomeView({ ...PRONTO, vazio: true, comCriterios: true }))
+      .toBe('no-results');
   });
 
-  it('com itens filtrados e lista', () => {
-    expect(resolveHomeView({ status: 'ready', total: 5, filtered: 5 })).toBe('list');
-    expect(resolveHomeView({ status: 'ready', total: 5, filtered: 1 })).toBe('list');
+  it('com itens e lista, com ou sem criterio', () => {
+    expect(resolveHomeView(PRONTO)).toBe('list');
+    expect(resolveHomeView({ ...PRONTO, comCriterios: true })).toBe('list');
   });
 });

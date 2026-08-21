@@ -10,6 +10,9 @@ export const ListPropertiesSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   district: z.string().optional(),
+  // Uma caixa só para "onde": casa com bairro, cidade OU estado. Os três campos
+  // acima continuam existindo — são API pública e podem ter consumidor.
+  location: z.string().optional(),
   priceMin: z.coerce.number().positive().optional(),
   priceMax: z.coerce.number().positive().optional(),
   search: z.string().optional(),

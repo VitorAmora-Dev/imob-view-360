@@ -11,7 +11,25 @@
     "NO_TOUR_BANNER_ONE": "1 imóvel ainda não possui imagens 360°.",
     "CARD_CREATE_TOUR": "Criar tour",
     "CARD_CREATE_TOUR_LABEL": "Criar tour para {{title}}",
-    "NO_RESULTS": "Nenhum imóvel encontrado para \"{{query}}\"."
+    "NO_RESULTS": "Nenhum imóvel encontrado para \"{{query}}\".",
+    "FILTERS": {
+      "TOGGLE": "Filtros",
+      "TOGGLE_COUNT": "Filtros ({{n}})",
+      "TYPE_LABEL": "Tipo",
+      "PURPOSE_LABEL": "Finalidade",
+      "LOCATION_LABEL": "Localização",
+      "LOCATION_PLACEHOLDER": "Cidade, bairro ou estado",
+      "ALL_TYPES": "Todos os tipos",
+      "ALL_PURPOSES": "Todas as finalidades",
+      "CLEAR": "Limpar filtros",
+      "ACTIVE_TITLE": "Filtros ativos",
+      "REMOVE_CHIP": "Remover filtro {{label}}",
+      "SHEET_TITLE": "Filtrar imóveis",
+      "SHEET_DONE": "Ver resultados",
+      "RESULT_COUNT": "{{n}} imóveis encontrados.",
+      "RESULT_COUNT_ONE": "1 imóvel encontrado.",
+      "NO_RESULTS_FILTERS": "Nenhum imóvel corresponde aos filtros selecionados."
+    }
   },
   "NAV": {
     "HOME": "Início",

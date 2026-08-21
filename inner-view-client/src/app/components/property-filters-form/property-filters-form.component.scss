@@ -1,0 +1,67 @@
+.filters-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.filters-form__field {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.filters-form__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-muted);
+}
+
+.filters-form__field select {
+  // 44px é o piso de touch target exigido pelo AGENTS.md.
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-ink);
+  font-size: 15px;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.filters-form__field ion-input {
+  --padding-start: 12px;
+  --padding-end: 12px;
+
+  min-height: 44px;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-radius-sm);
+  font-size: 15px;
+}
+
+.filters-form__clear {
+  min-height: 44px;
+  padding-inline: 16px;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--app-surface-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}

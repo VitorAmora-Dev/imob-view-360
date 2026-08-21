@@ -1,0 +1,28 @@
+.filters-bar {
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-top: 12px;
+}
+
+.filters-bar__toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 18px;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--app-ink);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--app-surface-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}

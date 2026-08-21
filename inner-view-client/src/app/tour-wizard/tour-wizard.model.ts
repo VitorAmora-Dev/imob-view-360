@@ -2,6 +2,7 @@ import {
   CaptureFrameUpload,
   CaptureGeometry,
 } from '../services/virtual-tour.service';
+import type { PropertyPurpose, PropertyType } from '../models/property.model';
 
 /**
  * Modelo do rascunho em memória do wizard de criação de tour.
@@ -88,25 +89,20 @@ export interface WizardScene {
 }
 
 /**
- * Valores que a API aceita — são os mesmos que a tela antiga já mandava.
+ * Valores que a API aceita — reexportados de `models/property.model.ts`.
  *
- * O handoff lista quatro tipos em português ("Apartamento, Casa, Sala
- * comercial, Terreno") e três finalidades ("venda, locacao, ambos"). Aqueles
- * eram rótulos de protótipo. Quem manda é o backend; a tradução dos rótulos
- * vive no i18n, sob `UPLOAD.TYPE.*` e `UPLOAD.PURPOSE.*`, que já existem.
+ * Eles moravam aqui, mas são vocabulário do domínio, e não do wizard: o wizard
+ * escolhe um deles ao cadastrar, a home filtra por eles. Duas listas que
+ * precisam concordar é defeito esperando um sétimo tipo de imóvel entrar num
+ * lugar só.
+ *
+ * O reexport preserva a superfície pública deste arquivo byte a byte — todo
+ * import que já existia continua valendo —, que é o que o CONGELADO do topo
+ * protege. A tradução dos rótulos segue no i18n, sob `UPLOAD.TYPE.*` e
+ * `UPLOAD.PURPOSE.*`.
  */
-export const PROPERTY_TYPES = [
-  'HOUSE',
-  'APARTMENT',
-  'LAND',
-  'COMMERCIAL',
-  'RURAL',
-  'OFFICE',
-] as const;
-export type PropertyType = (typeof PROPERTY_TYPES)[number];
-
-export const PROPERTY_PURPOSES = ['SALE', 'RENT', 'SALE_OR_RENT'] as const;
-export type PropertyPurpose = (typeof PROPERTY_PURPOSES)[number];
+export { PROPERTY_TYPES, PROPERTY_PURPOSES } from '../models/property.model';
+export type { PropertyType, PropertyPurpose } from '../models/property.model';
 
 /** Endereço é opcional inteiro — ou vem completo, ou não vem. */
 export interface AddressDraft {
