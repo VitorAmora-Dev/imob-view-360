@@ -1,0 +1,11 @@
+:host {
+  display: block;
+  flex: 0 0 auto;
+  width: min(280px, 70vw, 34vh);
+  aspect-ratio: 0.82;
+}
+
+.owl-loader__viewport {
+  width: 100%;
+  height: 100%;
+}

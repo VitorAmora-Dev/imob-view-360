@@ -2,6 +2,7 @@ import { Component, ViewChild, inject } from '@angular/core';
 import { IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
+import { OwlLoaderComponent } from '../components/owl-loader/owl-loader.component';
 import { TourPublishedComponent } from './published/tour-published.component';
 import { StepHotspotsComponent } from './steps/step-hotspots/step-hotspots.component';
 import { StepImagesComponent } from './steps/step-images/step-images.component';
@@ -33,6 +34,7 @@ import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.compo
     IonContent,
     TranslatePipe,
     AppHeaderComponent,
+    OwlLoaderComponent,
     WizardStepperComponent,
     WizardActionsComponent,
     StepImagesComponent,
