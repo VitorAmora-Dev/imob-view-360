@@ -277,7 +277,9 @@ export class UploadTourPage {
               order: i,
               initialPanorama: i === 0,
               ...(p.geometry ?? {}),
-            }))
+            })),
+            // Tela legada: sobe tudo de uma vez e termina publicado.
+            'PUBLISHED'
           )
         );
 

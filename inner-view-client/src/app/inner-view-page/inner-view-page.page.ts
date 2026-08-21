@@ -312,9 +312,15 @@ export class InnerViewPagePage implements OnInit {
         tourId = this.tour.id;
         panoramaId = added.id;
       } else {
-        const created = await firstValueFrom(this.virtualTourService.createTour(this.property.id, [
-          { roomName, imageData, order: 0, initialPanorama: true, ...(geometry ?? {}) },
-        ]));
+        const created = await firstValueFrom(
+          this.virtualTourService.createTour(
+            this.property.id,
+            [{ roomName, imageData, order: 0, initialPanorama: true, ...(geometry ?? {}) }],
+            // A foto já está aqui e o tour existe para ser visto agora; não há
+            // etapa seguinte que fosse publicá-lo depois.
+            'PUBLISHED',
+          ),
+        );
         tourId = created.id;
         panoramaId = created.panoramas[0].id;
         this.property.virtualTour = { id: created.id, status: created.status };

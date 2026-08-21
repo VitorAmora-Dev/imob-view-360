@@ -3,6 +3,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
+import { of } from 'rxjs';
+import { VirtualTourService } from '../../../services/virtual-tour.service';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardHotspot, WizardScene } from '../../tour-wizard.model';
@@ -267,5 +269,186 @@ describe('StepHotspotsComponent — clique no pin', () => {
     monta();
 
     expect(fixture.componentInstance.viewerPanoramas()).toEqual([]);
+  });
+});
+
+/**
+ * O antes e depois da montagem por IA (C3).
+ *
+ * A etapa 2 é onde o corretor vê o que a IA fez: o cômodo já está na tela,
+ * costurado, e a versão tratada chega segundos depois e dissolve por cima. É o
+ * único momento do produto em que o trabalho que justifica o preço fica
+ * visível — antes disso ele acontecia depois do publicar, atrás de um spinner,
+ * e morria numa linha de log.
+ */
+describe('StepHotspotsComponent — revelação da imagem tratada', () => {
+  let draft: TourDraftStore;
+  let fixture: ComponentFixture<StepHotspotsComponent>;
+  let editor: HotspotEditorStore;
+
+  function scene(id: string, over: Partial<WizardScene> = {}): WizardScene {
+    return {
+      id,
+      room: id,
+      fileName: `${id}.jpg`,
+      fileSize: 1024,
+      imageData: `data:image/jpeg;base64,${id}`,
+      order: 0,
+      hotspots: [],
+      state: 'ready',
+      ...over,
+    };
+  }
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        TourDraftStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideIonicAngular(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+      ],
+    });
+    draft = TestBed.inject(TourDraftStore);
+    // O download vira `URL.createObjectURL`, que num teste não tem quem revogue.
+    spyOn(TestBed.inject(VirtualTourService), 'baixarPreview').and.returnValue(
+      of(new Blob(['tratada'], { type: 'image/jpeg' })),
+    );
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:tratada');
+    spyOn(URL, 'revokeObjectURL');
+  });
+
+  function monta(): void {
+    fixture = TestBed.createComponent(StepHotspotsComponent);
+    fixture.detectChanges();
+    editor = fixture.debugElement.injector.get(HotspotEditorStore);
+  }
+
+  /**
+   * Devolve o contexto WebGL na hora, em vez de esperar o TestBed.
+   *
+   * Cada caso aqui monta o visualizador de verdade, e ele agora carrega duas
+   * esferas — a da foto e a da dissolvência. O navegador mantém ~16 contextos
+   * vivos, o mesmo limite que o `ngOnDestroy` do viewer existe para respeitar.
+   * Sem destruir explicitamente, estes seis casos somavam-se ao resto da suíte
+   * e derrubavam, de vez em quando, quem tentasse criar um contexto depois —
+   * apareceu como o spec do owl-loader falhando em uma execução a cada cinco,
+   * num arquivo que não tem nada a ver com este.
+   */
+  afterEach(() => {
+    fixture?.destroy();
+  });
+
+  /**
+   * Deixa o `effect` que baixa a tratada rodar.
+   *
+   * `setTimeout` e não `whenStable()`: o viewer mantém um `requestAnimationFrame`
+   * dentro da zona do Angular, então a zona nunca fica estável e `whenStable()`
+   * pendura o teste até o timeout do Jasmine. É o mesmo motivo do `frames()` do
+   * spec do overlay.
+   */
+  async function assenta(): Promise<void> {
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    fixture.detectChanges();
+  }
+
+  it('não revela nada enquanto a montagem não terminou', async () => {
+    draft.scenes.set([scene('a', { aiState: 'processing', serverPanoramaId: 'pan-0' })]);
+    draft.selectedSceneId.set('a');
+    monta();
+    await assenta();
+
+    expect(fixture.componentInstance.revealUrl()).toBeNull();
+    expect(fixture.componentInstance.melhorandoAgora()).toBe(true);
+    // Nada a comparar ainda — um botão morto sugeriria que algo quebrou.
+    expect(fixture.componentInstance.temComparacao()).toBe(false);
+  });
+
+  it('revela a tratada quando o ambiente à vista fica pronto', async () => {
+    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.selectedSceneId.set('a');
+    monta();
+    await assenta();
+
+    expect(fixture.componentInstance.revealUrl()).toBe('blob:tratada');
+    expect(fixture.componentInstance.temComparacao()).toBe(true);
+  });
+
+  /**
+   * A trava que impede a troca no meio de um gesto.
+   *
+   * Trocar a imagem debaixo do dedo de quem está posicionando um ponto é
+   * desorientador, e o seletor de destino é medido uma vez na abertura —
+   * recarregar por baixo dele o deixa fora do lugar. `pinDrag` é o sinal
+   * canônico de arraste, e mora no editor porque a lixeira precisa do mesmo
+   * dado.
+   */
+  it('adia a revelação enquanto um pin está sendo arrastado', async () => {
+    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.selectedSceneId.set('a');
+    monta();
+    await assenta();
+
+    editor.startDrag('h1');
+    await assenta();
+    expect(fixture.componentInstance.revealUrl()).toBeNull();
+
+    editor.endDrag();
+    await assenta();
+    expect(fixture.componentInstance.revealUrl()).toBe('blob:tratada');
+  });
+
+  it('adia a revelação enquanto o seletor de destino está aberto', async () => {
+    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.selectedSceneId.set('a');
+    monta();
+    await assenta();
+
+    editor.picker.set('h1');
+    await assenta();
+    expect(fixture.componentInstance.revealUrl()).toBeNull();
+  });
+
+  /**
+   * Voltar à original é outra revelação, não o desfazer da primeira.
+   *
+   * Terminada a dissolvência, a tratada passa a ser a imagem da esfera
+   * principal. Devolver `null` aqui deixaria a tratada na tela com o botão
+   * dizendo o contrário.
+   */
+  it('dissolve de volta para a foto de câmera ao pedir o original', async () => {
+    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.selectedSceneId.set('a');
+    monta();
+    await assenta();
+
+    fixture.componentInstance.alternarOriginal();
+    await assenta();
+    expect(fixture.componentInstance.revealUrl()).toBe('data:image/jpeg;base64,a');
+
+    fixture.componentInstance.alternarOriginal();
+    await assenta();
+    expect(fixture.componentInstance.revealUrl()).toBe('blob:tratada');
+  });
+
+  it('solta o blob ao trocar para um ambiente sem tratamento', async () => {
+    draft.scenes.set([
+      scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' }),
+      scene('b', { aiState: 'processing', serverPanoramaId: 'pan-1' }),
+    ]);
+    draft.selectedSceneId.set('a');
+    monta();
+    await assenta();
+    expect(fixture.componentInstance.revealUrl()).toBe('blob:tratada');
+
+    draft.selectScene('b');
+    await assenta();
+
+    // Sem revogar, cada ida e volta entre ambientes deixa alguns MB presos
+    // até a aba fechar.
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:tratada');
+    expect(fixture.componentInstance.revealUrl()).toBeNull();
   });
 });

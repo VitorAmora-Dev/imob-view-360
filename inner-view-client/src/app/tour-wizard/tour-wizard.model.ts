@@ -50,6 +50,27 @@ export interface WizardHotspot {
 export type WizardSceneState = 'reading' | 'ready' | 'rejected';
 
 /**
+ * Onde a cena está na montagem por IA, que roda em segundo plano enquanto o
+ * corretor fotografa os outros cômodos.
+ *
+ * Eixo separado de `WizardSceneState`: a cena fica `ready` — utilizável,
+ * publicável, com foto à vista — durante todo o tratamento. As duas coisas
+ * caminham juntas de propósito, porque falhar aqui degrada a qualidade do tour
+ * e nunca o derruba.
+ *
+ * `idle` é o estado de quem nunca vai ser tratado: foto vinda de arquivo, sem
+ * as fotos originais que servem de referência ao modelo. Diferente de
+ * `skipped`, que é o servidor dizendo que olhou e dispensou.
+ */
+export type WizardSceneAiState =
+  | 'idle'
+  | 'uploading'
+  | 'processing'
+  | 'done'
+  | 'failed'
+  | 'skipped';
+
+/**
  * Por que o arquivo foi RECUSADO. Só o que é impossível de aproveitar: um PDF
  * não vira panorama, e 40 MB o servidor não aceita.
  */
@@ -86,6 +107,26 @@ export interface WizardScene {
   rejectedReason?: WizardSceneRejection;
   /** Ressalva que não impede o uso da cena. Ver `WizardSceneWarning`. */
   warning?: WizardSceneWarning;
+
+  /**
+   * Id do panorama no servidor.
+   *
+   * Existe desde a confirmação da captura, não do publicar: o rascunho sobe
+   * cômodo a cômodo para que a montagem por IA possa começar enquanto o
+   * corretor ainda está no imóvel. Ausente enquanto o envio não terminou, e em
+   * cena vinda de arquivo enquanto o publicar não roda.
+   */
+  serverPanoramaId?: string;
+  /** Ver `WizardSceneAiState`. Ausente equivale a `idle`. */
+  aiState?: WizardSceneAiState;
+  /**
+   * Endereço da imagem tratada no servidor, quando ela existe.
+   *
+   * É o que a etapa 2 troca no visualizador para revelar o antes e depois. Fica
+   * separado de `imageData` porque o original continua servindo o card e o
+   * botão de comparar — o tratamento nunca sobrescreve o que foi fotografado.
+   */
+  treatedImageUrl?: string;
 }
 
 /**
