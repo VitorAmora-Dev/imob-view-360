@@ -35,12 +35,21 @@ export const LARGURA_MAXIMA = 2048;
 const MAX_ENTRADAS = 64;
 const cache = new Map<string, Buffer>();
 
+/**
+ * `variante` separa a imagem tratada da original no cache. Sem ela, as duas
+ * pedidas na mesma largura colidem numa chave só, e o wizard — que alterna
+ * entre as duas para mostrar o antes e depois — recebe a que chegou primeiro
+ * nas duas vezes. Opcional para não mover as chaves de quem só tem uma imagem
+ * por panorama, que é o caso da rota pública.
+ */
 export function chaveDeCache(
   panoramaId: string,
   updatedAt: Date,
   largura: number,
+  variante?: string,
 ): string {
-  return `${panoramaId}:${updatedAt.getTime()}:${largura}`;
+  const sufixo = variante ? `:${variante}` : '';
+  return `${panoramaId}:${updatedAt.getTime()}:${largura}${sufixo}`;
 }
 
 function doCache(chave: string): Buffer | undefined {
@@ -111,13 +120,19 @@ export async function reduzirComCache(
  *
  * `updatedAt` é o que muda quando a IA retrata a panorâmica ou o corretor
  * refotografa a sala — é ele que invalida o cache do navegador.
+ *
+ * `variante` entra pelo mesmo motivo que entra na chave de cache: original e
+ * tratada compartilham id, `updatedAt` e largura, e sem distinguir as duas o
+ * 304 responderia "você já tem essa" para a imagem errada.
  */
 export function etagDe(
   panoramaId: string,
   updatedAt: Date,
   largura: number,
+  variante?: string,
 ): string {
-  return `W/"${panoramaId}-${updatedAt.getTime()}-${largura}"`;
+  const sufixo = variante ? `-${variante}` : '';
+  return `W/"${panoramaId}-${updatedAt.getTime()}-${largura}${sufixo}"`;
 }
 
 /**

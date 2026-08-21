@@ -9,7 +9,9 @@ import { DeletePanoramaService } from './services/delete-panorama.service';
 import { UploadCaptureFrameService } from './services/upload-capture-frame.service';
 import { TreatPanoramaService } from './services/treat-panorama.service';
 import { GetPanoramaImageController } from './controllers/get-panorama-image.controller';
+import { GetPanoramaPreviewController } from './controllers/get-panorama-preview.controller';
 import { GetPanoramaImageService } from './services/get-panorama-image.service';
+import { GetPanoramaPreviewService } from './services/get-panorama-preview.service';
 import { PanoramaImageReader } from './panorama-image.reader';
 
 @Module({
@@ -19,6 +21,7 @@ import { PanoramaImageReader } from './panorama-image.reader';
     DeletePanoramaController,
     UploadCaptureFrameController,
     GetPanoramaImageController,
+    GetPanoramaPreviewController,
   ],
   providers: [
     CreatePanoramaService,
@@ -27,6 +30,7 @@ import { PanoramaImageReader } from './panorama-image.reader';
     UploadCaptureFrameService,
     TreatPanoramaService,
     GetPanoramaImageService,
+    GetPanoramaPreviewService,
     PanoramaImageReader,
   ],
   // O `PanoramaImageReader` sai daqui porque a capa do tour, que mora em

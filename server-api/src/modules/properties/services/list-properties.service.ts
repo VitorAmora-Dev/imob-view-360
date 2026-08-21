@@ -82,6 +82,16 @@ export function montarWhere(
   return {
     agencyId,
     status,
+    // Imóvel de rascunho fica fora da listagem. O wizard de captura cria o
+    // imóvel e o tour na primeira foto, para que a montagem por IA possa rodar
+    // enquanto o corretor fotografa os outros cômodos — antes disso o imóvel
+    // não tem título nem endereço, e apareceria no lugar mais visível do
+    // sistema como uma linha vazia que ninguém sabe apagar.
+    //
+    // `NOT` sobre `is` e não `isNot`: imóvel sem tour nenhum é a maioria do
+    // cadastro e precisa continuar aparecendo. `isNot` sobre relação opcional
+    // não é o complemento de `is` quando o lado direito é nulo.
+    NOT: { virtualTour: { is: { status: 'DRAFT' } } },
     ...(type && { type }),
     // "Venda ou Aluguel" é as duas coisas: filtrar por aluguel precisa
     // trazê-lo, ou o resultado esconde imóveis que estão, sim, para alugar. O

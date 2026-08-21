@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
+import { TreatmentStatus } from 'generated/prisma/client';
 import { TreatPanoramaService } from '../../panoramas/services/treat-panorama.service';
 
 /**
@@ -13,12 +14,28 @@ import { TreatPanoramaService } from '../../panoramas/services/treat-panorama.se
  * um número para mostrar na tela de montagem enquanto o corretor espera.
  */
 
+/** Situação de um panorama dentro da montagem, na ordem em que ele aparece no tour. */
+export interface AndamentoDoPanorama {
+  id: string;
+  status: TreatmentStatus;
+}
+
 export interface AndamentoDaMontagem {
   total: number;
   prontos: number;
   falhas: number;
   dispensados: number;
   terminado: boolean;
+  /**
+   * Situação cômodo a cômodo.
+   *
+   * Os contadores acima respondem "quanto falta", que era tudo de que a tela de
+   * espera antiga precisava. O wizard pergunta outra coisa: QUAL cômodo acabou
+   * de ficar pronto, para trocar aquela imagem na tela enquanto o corretor
+   * marca os pontos de passagem. Com o agregado, ele teria que rebaixar o tour
+   * inteiro a cada volta do polling só para descobrir.
+   */
+  panoramas: AndamentoDoPanorama[];
 }
 
 @Injectable()
@@ -34,7 +51,10 @@ export class MontarTourService {
    * Dispara e volta na hora. O corretor acompanha por `andamento`; segurar a
    * resposta por vários minutos morreria em timeout de proxy antes de terminar.
    */
-  async iniciar(tourId: string, user: JwtPayload): Promise<AndamentoDaMontagem> {
+  async iniciar(
+    tourId: string,
+    user: JwtPayload,
+  ): Promise<AndamentoDaMontagem> {
     const panoramas = await this.panoramasDoTour(tourId, user);
 
     // Sem chave nada vai ser montado, e isso precisa aparecer como estado
@@ -53,7 +73,10 @@ export class MontarTourService {
     // Já montado ou já em curso não volta para a fila: um segundo clique não
     // pode custar outra rodada de API.
     const alvos = panoramas
-      .filter((p) => p.treatmentStatus !== 'DONE' && p.treatmentStatus !== 'PROCESSING')
+      .filter(
+        (p) =>
+          p.treatmentStatus !== 'DONE' && p.treatmentStatus !== 'PROCESSING',
+      )
       .map((p) => p.id);
 
     // PROCESSING é gravado AQUI, e aguardado, antes de qualquer coisa entrar na
@@ -67,7 +90,9 @@ export class MontarTourService {
         where: { id: { in: alvos } },
         data: { treatmentStatus: 'PROCESSING', treatmentError: null },
       });
-      this.logger.log(`${tourId}: ${alvos.length} panorama(s) enfileirado(s) para montagem.`);
+      this.logger.log(
+        `${tourId}: ${alvos.length} panorama(s) enfileirado(s) para montagem.`,
+      );
     }
 
     for (const id of alvos) this.tratamento.agendar(id);
@@ -75,10 +100,14 @@ export class MontarTourService {
     return this.andamento(tourId, user);
   }
 
-  async andamento(tourId: string, user: JwtPayload): Promise<AndamentoDaMontagem> {
+  async andamento(
+    tourId: string,
+    user: JwtPayload,
+  ): Promise<AndamentoDaMontagem> {
     const panoramas = await this.panoramasDoTour(tourId, user);
 
-    const conta = (status: string) => panoramas.filter((p) => p.treatmentStatus === status).length;
+    const conta = (status: string) =>
+      panoramas.filter((p) => p.treatmentStatus === status).length;
     const prontos = conta('DONE');
     const falhas = conta('FAILED');
     const dispensados = conta('SKIPPED');
@@ -88,6 +117,10 @@ export class MontarTourService {
       prontos,
       falhas,
       dispensados,
+      panoramas: panoramas.map((p) => ({
+        id: p.id,
+        status: p.treatmentStatus,
+      })),
       // Falha e dispensa também encerram: o tour abre com o panorama original,
       // e prender o corretor numa tela de espera por algo que não vai mudar
       // seria pior que mostrar o resultado que existe.
@@ -104,7 +137,11 @@ export class MontarTourService {
     if (ids.length === 0) return;
     await this.prisma.panorama.updateMany({
       where: { id: { in: ids } },
-      data: { treatmentStatus: 'SKIPPED', treatmentError: motivo, treatedAt: new Date() },
+      data: {
+        treatmentStatus: 'SKIPPED',
+        treatmentError: motivo,
+        treatedAt: new Date(),
+      },
     });
     this.logger.warn(`${ids.length} panorama(s) dispensado(s): ${motivo}.`);
   }
