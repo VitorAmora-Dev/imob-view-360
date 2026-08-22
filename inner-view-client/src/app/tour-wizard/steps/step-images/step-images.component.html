@@ -43,14 +43,14 @@
     dispara o seletor de arquivos uma segunda vez.
   -->
   <div class="tw-drop__actions">
-    <label for="tw-files" class="tw-btn tw-btn--primary" (click)="$event.stopPropagation()">
+    <label for="tw-files" class="tw-btn tw-btn--bordered" (click)="$event.stopPropagation()">
       <span aria-hidden="true">↑</span>
       {{ 'TOUR_WIZARD.STEP1.UPLOAD_FILES' | translate }}
     </label>
 
     <button
       type="button"
-      class="tw-btn tw-btn--bordered"
+      class="tw-btn tw-btn--primary"
       (click)="$event.stopPropagation(); openCapture()">
       <span aria-hidden="true">◎</span>
       {{ 'TOUR_WIZARD.STEP1.TAKE_PHOTO' | translate }}
