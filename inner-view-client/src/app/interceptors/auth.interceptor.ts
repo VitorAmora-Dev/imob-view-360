@@ -2,14 +2,30 @@ import { HttpInterceptorFn, HttpRequest, HttpHandlerFn, HttpErrorResponse } from
 import { inject } from '@angular/core';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { environment } from '../../environments/environment';
 
 const PUBLIC_URLS = ['/auth/signin', '/auth/signup'];
 
 export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
   const authService = inject(AuthService);
 
-  // Absolute URLs are external APIs (backend calls use the relative /api path) — never send the app's JWT
-  if (/^https?:\/\//.test(req.url)) {
+  // O JWT da aplicação não pode vazar para serviço de terceiro. Isso já era a
+  // intenção aqui, mas o teste usado para decidir — "é URL absoluta?" — só
+  // funcionava enquanto a API era same-origin: em desenvolvimento o `apiUrl` é
+  // `/api` e o proxy do Angular resolve o resto.
+  //
+  // Em produção cliente e API ficam em hosts diferentes e o `apiUrl` passa a ser
+  // absoluto, momento em que a própria API do sistema era classificada como
+  // externa e ficava sem token. O sintoma é 401 em tudo logo após entrar, com o
+  // login funcionando — porque `/auth/signin` é rota pública e não depende disto.
+  //
+  // A pergunta certa não é se a URL é absoluta, e sim se ela é a nossa API.
+  const apiEhAbsoluta = /^https?:\/\//.test(environment.apiUrl);
+  const ehTerceiro =
+    /^https?:\/\//.test(req.url) &&
+    !(apiEhAbsoluta && req.url.startsWith(environment.apiUrl));
+
+  if (ehTerceiro) {
     return next(req);
   }
 
