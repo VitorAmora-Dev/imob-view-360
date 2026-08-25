@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { VirtualTour } from '../models/virtual-tour.model';
+import { CaptureFrameUpload, CaptureGeometry } from '../services/virtual-tour.service';
 import { PropertyService } from '../services/property.service';
 import {
   AndamentoDaMontagem,
@@ -42,6 +43,26 @@ const ADDRESS_FIELDS = ['street', 'city', 'state'] as const;
  * quantidade, e duas fotos grandes já estouram o corpo.
  */
 const MAX_PUBLISH_BYTES = 34 * 1024 * 1024;
+
+/**
+ * Fotos originais mínimas para o servidor tratar em vez de dispensar.
+ *
+ * Espelha o `MINIMO_DE_FOTOS` de `treat-panorama.service.ts`. Duplicado de
+ * propósito: aqui ele evita uma ida à rede para receber um SKIPPED previsível,
+ * e lá é a regra de verdade. Se os dois divergirem, o pior caso é o cliente
+ * pedir uma montagem que o servidor recusa — nunca o contrário.
+ */
+const MINIMO_DE_REFERENCIAS = 4;
+
+/**
+ * Teto da espera com o corretor parado olhando o loader.
+ *
+ * A montagem leva ~60s por cômodo. Dois minutos cobrem uma que demorou mais
+ * que o normal sem transformar a captura numa tela travada — passado isso, o
+ * panorama costurado é entregue e ele segue. O `acompanharMontagem` admite dez
+ * minutos por padrão, que serve para segundo plano e não para isto.
+ */
+const LIMITE_DA_ESPERA_MS = 2 * 60 * 1000;
 
 /**
  * Como o estado do servidor vira o estado da tela.
@@ -350,108 +371,17 @@ export class TourDraftStore {
     };
     this.scenes.update((list) => [...list, created]);
     if (!rejeitada) this.selectedSceneId.update((id) => id ?? created.id);
-
-    // Sem `await`: a cena já está na lista e a tela precisa responder agora. O
-    // corretor está de pé dentro do cômodo, e prendê-lo aqui por um upload é a
-    // versão bloqueante que esta mudança existe para evitar.
-    if (!rejeitada && created.frames?.length) this.enfileirarEnvio(created.id);
   }
 
-  // ---- montagem por IA em segundo plano ----------------------------------
-
-  /**
-   * Envio de um ambiente por vez.
-   *
-   * Serial de propósito. Duas capturas confirmadas em sequência disputariam a
-   * criação do rascunho e criariam dois imóveis, e o paralelismo que interessa
-   * — três montagens ao mesmo tempo — já acontece do lado do servidor. Aqui o
-   * gargalo é a rede do celular dentro de um imóvel, onde subir dois conjuntos
-   * de fotos ao mesmo tempo só deixa os dois mais lentos.
-   */
-  private filaDeEnvio: Promise<void> = Promise.resolve();
-
-  /**
-   * A fila, para o teste poder esperar por ela.
-   *
-   * O envio é disparado sem `await` de propósito — é isso que faz a captura
-   * responder na hora. Sem um ponto de sincronia exposto, um teste do disparo
-   * só teria `setTimeout` com um número chutado, que passa na máquina de quem
-   * escreveu e falha na de outra pessoa.
-   */
-  get filaDeEnvioParaTeste(): Promise<void> {
-    return this.filaDeEnvio;
-  }
-
-  /** Evita dois laços de acompanhamento sobre o mesmo tour. */
-  private acompanhando = false;
-
-  private enfileirarEnvio(sceneId: string): void {
-    this.filaDeEnvio = this.filaDeEnvio.then(() => this.subirAmbiente(sceneId));
-  }
-
-  /**
-   * Cria o panorama no servidor, sobe as fotos originais e pede a montagem.
-   *
-   * A ordem é obrigatória e o servidor documenta por quê: sem pelo menos quatro
-   * fotos originais gravadas, `montar` dispensa o panorama na hora e ainda o
-   * deixa preso na guarda de idempotência, o que transformaria a chamada
-   * seguinte num no-op silencioso.
-   *
-   * Nada aqui derruba o wizard. Falhar significa que o corretor publica com o
-   * panorama costurado — exatamente o que ele teria sem esta etapa.
-   */
-  private async subirAmbiente(sceneId: string): Promise<void> {
-    // Relê do signal em vez de usar o objeto capturado: entre entrar na fila e
-    // chegar aqui, a cena pode ter sido renomeada ou removida.
-    const scene = this.scenes().find((s) => s.id === sceneId);
-    if (!scene || scene.state !== 'ready' || !scene.frames?.length) return;
-    if (this.abortar.signal.aborted) return;
-
-    this.marcarIa(sceneId, 'uploading');
-    try {
-      const tourId = await this.garantirRascunho();
-      if (this.abortar.signal.aborted) return;
-
-      const panorama = await firstValueFrom(
-        this.virtualTourService.addPanorama(tourId, {
-          roomName: scene.room.trim() || scene.fileName,
-          imageData: scene.imageData,
-          order: scene.order,
-          initialPanorama: scene.order === 0,
-          ...(scene.geometry ?? {}),
-        }),
-      );
-      this.patchScene(sceneId, (s) => ({ ...s, serverPanoramaId: panorama.id }));
-
-      const { uploaded } = await this.virtualTourService.uploadCaptureFrames(
-        panorama.id,
-        scene.frames,
-      );
-      if (this.abortar.signal.aborted) return;
-
-      // Menos de quatro referências e o servidor dispensa em vez de tratar.
-      // Pedir a montagem assim mesmo gastaria uma ida à rede para receber um
-      // SKIPPED — e o corretor veria "melhorando" por nada.
-      if (uploaded < 4) {
-        this.marcarIa(sceneId, uploaded === 0 ? 'failed' : 'skipped');
-        return;
-      }
-
-      await firstValueFrom(this.virtualTourService.montarTour(tourId));
-      this.marcarIa(sceneId, 'processing');
-      void this.acompanhar(tourId);
-    } catch {
-      this.marcarIa(sceneId, 'failed');
-    }
-  }
+  // ---- montagem por IA, durante a captura --------------------------------
 
   /**
    * Cria o imóvel e o tour na primeira captura, e devolve o mesmo tour depois.
    *
    * O imóvel nasce como marcador: os dados de verdade só existem na etapa 3, e
-   * esperar por eles adiaria a montagem para depois da captura inteira, que é
-   * justamente o que estamos deixando de fazer. Ele não aparece em lugar nenhum
-   * enquanto o tour estiver em rascunho — a listagem filtra.
+   * esperar por eles adiaria a montagem para depois da captura inteira. Ele não
+   * aparece em lugar nenhum enquanto o tour estiver em rascunho — a listagem
+   * filtra.
    */
   private async garantirRascunho(): Promise<string> {
     const jaTem = this.rascunhoTourId();
@@ -480,66 +410,109 @@ export class TourDraftStore {
   }
 
   /**
-   * Acompanha a montagem e vai trocando o estado de cada cena conforme ela
-   * termina.
+   * Sobe um cômodo recém-capturado e espera a IA montá-lo.
    *
-   * O laço para quando tudo o que existe hoje chegou a um estado terminal. Um
-   * ambiente capturado depois disso reabre o laço pelo `subirAmbiente`, e a
-   * verificação no fim cobre a janela em que os dois se cruzam: sem ela, uma
-   * captura confirmada no instante exato do último polling ficaria em
-   * "melhorando" para sempre.
+   * Chamado PELO MODAL DE CAPTURA, que segura a tela com o loader enquanto isto
+   * roda — por isso é a única coisa neste store que faz o usuário esperar de
+   * propósito. A alternativa, tratar em segundo plano enquanto ele fotografa o
+   * próximo cômodo, escondia melhor a espera mas entregava a ele o panorama
+   * cru no momento em que ele mais olha para o resultado: logo depois de girar
+   * 360° com o celular na mão.
+   *
+   * Devolve `null` quando não deu — rede fora, tempo estourado, IA desabilitada
+   * no servidor. Quem chama mostra o panorama costurado e segue: falhar aqui
+   * degrada a qualidade do tour, nunca o impede.
    */
-  private async acompanhar(tourId: string): Promise<void> {
-    if (this.acompanhando) return;
-    this.acompanhando = true;
+  async tratarCaptura(captura: {
+    imageData: string;
+    frames: CaptureFrameUpload[];
+    geometry: CaptureGeometry | null;
+    sinal?: AbortSignal;
+  }): Promise<{ panoramaId: string; treatedUrl: string } | null> {
+    try {
+      const tourId = await this.garantirRascunho();
+
+      const panorama = await firstValueFrom(
+        this.virtualTourService.addPanorama(tourId, {
+          // O nome ainda não existe: ele é perguntado DEPOIS, na tela de
+          // preview, com a foto à vista. `publish` reconcilia todos no fim.
+          roomName: `Ambiente ${this.scenes().length + 1}`,
+          imageData: captura.imageData,
+          order: this.scenes().length,
+          initialPanorama: this.scenes().length === 0,
+          ...(captura.geometry ?? {}),
+        }),
+      );
+
+      const { uploaded } = await this.virtualTourService.uploadCaptureFrames(
+        panorama.id,
+        captura.frames,
+      );
+      // Menos de quatro referências e o servidor dispensa em vez de tratar.
+      // Pedir a montagem gastaria uma ida à rede para receber um SKIPPED.
+      if (uploaded < MINIMO_DE_REFERENCIAS) {
+        return { panoramaId: panorama.id, treatedUrl: '' };
+      }
+
+      await firstValueFrom(this.virtualTourService.montarTour(tourId));
+
+      const pronto = await this.esperarPanorama(tourId, panorama.id, captura.sinal);
+      if (!pronto) return { panoramaId: panorama.id, treatedUrl: '' };
+
+      const blob = await firstValueFrom(
+        this.virtualTourService.baixarPreview(panorama.id, 'treated'),
+      );
+      return { panoramaId: panorama.id, treatedUrl: URL.createObjectURL(blob) };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Espera ESTE panorama chegar a um estado terminal.
+   *
+   * O andamento é por tour, então o laço olha a entrada deste id dentro dele —
+   * é para isso que o servidor passou a devolver a lista cômodo a cômodo.
+   *
+   * O teto é curto de propósito. O `acompanharMontagem` admite dez minutos, que
+   * serve para um acompanhamento em segundo plano e é inaceitável com alguém
+   * parado olhando: passado o limite, é melhor entregar o panorama costurado do
+   * que continuar segurando a tela.
+   */
+  private async esperarPanorama(
+    tourId: string,
+    panoramaId: string,
+    sinal?: AbortSignal,
+  ): Promise<boolean> {
+    // Controlador próprio para poder encerrar o laço no instante em que ESTE
+    // cômodo termina, sem esperar os outros do tour. Ele também repassa a
+    // desistência de quem chamou — o botão de seguir sem melhorar, ou a tela
+    // morrendo.
+    const controle = new AbortController();
+    const encerrar = () => controle.abort();
+    sinal?.addEventListener('abort', encerrar, { once: true });
+    this.abortar.signal.addEventListener('abort', encerrar, { once: true });
+
+    let terminou = false;
     try {
       await this.virtualTourService.acompanharMontagem(
         tourId,
-        (a) => this.aplicarAndamento(a),
-        { sinal: this.abortar.signal },
+        (andamento) => {
+          const meu = andamento.panoramas.find((p) => p.id === panoramaId);
+          if (meu && meu.status !== 'PENDING' && meu.status !== 'PROCESSING') {
+            terminou = meu.status === 'DONE';
+            // Só este cômodo interessa: os outros já foram tratados nas
+            // capturas anteriores, e esperar por eles seria esperar de novo.
+            controle.abort();
+          }
+        },
+        { sinal: controle.signal, limiteMs: LIMITE_DA_ESPERA_MS },
       );
-    } catch {
-      // Perder o acompanhamento não perde a montagem: ela roda no servidor, e
-      // a imagem tratada aparece no tour publicado de qualquer forma.
     } finally {
-      this.acompanhando = false;
+      sinal?.removeEventListener('abort', encerrar);
+      this.abortar.signal.removeEventListener('abort', encerrar);
     }
-
-    if (this.abortar.signal.aborted) return;
-    if (this.scenes().some((s) => s.aiState === 'processing')) {
-      void this.acompanhar(tourId);
-    }
-  }
-
-  private aplicarAndamento(andamento: AndamentoDaMontagem): void {
-    for (const p of andamento.panoramas) {
-      const scene = this.scenes().find((s) => s.serverPanoramaId === p.id);
-      if (!scene) continue;
-
-      const estado = ESTADO_DA_IA[p.status];
-      if (scene.aiState === estado) continue;
-
-      this.patchScene(scene.id, (s) => ({
-        ...s,
-        aiState: estado,
-        ...(estado === 'done'
-          ? {
-              // O `v` desempata o cache do navegador: a URL é a mesma antes e
-              // depois do tratamento, e sem ele o <img>/textura já carregada
-              // continuaria valendo.
-              treatedImageUrl: this.virtualTourService.urlDoPreview(
-                p.id,
-                'treated',
-                String(Date.now()),
-              ),
-            }
-          : {}),
-      }));
-    }
-  }
-
-  private marcarIa(sceneId: string, aiState: WizardSceneAiState): void {
-    this.patchScene(sceneId, (s) => ({ ...s, aiState }));
+    return terminou;
   }
 
   renameScene(id: string, room: string): void {
@@ -562,7 +535,13 @@ export class TourDraftStore {
     // Best-effort e sem `await`: falhar aqui deixa um cômodo a mais num tour
     // que ainda nem é público, e prender a remoção da tela numa ida à rede
     // seria pior. O que sobrar é varrido por `yarn limpar-rascunhos`.
-    const remoto = this.scenes().find((s) => s.id === id)?.serverPanoramaId;
+    const alvo = this.scenes().find((s) => s.id === id);
+    // O `blob:` da imagem tratada foi criado no modal de captura e vive fora do
+    // ciclo do Angular: sem revogar, cada cômodo removido deixa alguns MB
+    // presos até a aba fechar.
+    if (alvo?.treatedImageUrl) URL.revokeObjectURL(alvo.treatedImageUrl);
+
+    const remoto = alvo?.serverPanoramaId;
     if (remoto) {
       void firstValueFrom(this.virtualTourService.deletePanorama(remoto)).catch(
         () => undefined,
@@ -739,11 +718,8 @@ export class TourDraftStore {
     this.publishing.set(true);
     this.publishError.set(null);
     try {
-      // Espera a fila de envio drenar. Sem isto, um clique em "criar tour"
-      // logo depois da última captura publicaria o tour sem o último cômodo —
-      // ele ainda estaria a caminho.
-      await this.filaDeEnvio;
-
+      // Sem espera de fila: cada cômodo já subiu e foi tratado dentro do modal
+      // de captura, antes mesmo de o corretor dar nome a ele.
       const tourId = await this.garantirRascunho();
       const prontas = this.readyScenes();
 
@@ -890,6 +866,11 @@ export class TourDraftStore {
 
   /** "Criar outro tour": volta tudo ao estado inicial. */
   reset(): void {
+    // Mesma razão do `removeScene`: os blobs das imagens tratadas não somem
+    // sozinhos quando a lista é zerada.
+    for (const scene of this.scenes()) {
+      if (scene.treatedImageUrl) URL.revokeObjectURL(scene.treatedImageUrl);
+    }
     this.step.set(1);
     this.scenes.set([]);
     this.selectedSceneId.set(null);
@@ -906,7 +887,6 @@ export class TourDraftStore {
     this.rascunhoTourId.set(null);
     this.rascunhoPropertyId.set(null);
     this.hotspotsNoServidor.set([]);
-    this.filaDeEnvio = Promise.resolve();
   }
 }
 

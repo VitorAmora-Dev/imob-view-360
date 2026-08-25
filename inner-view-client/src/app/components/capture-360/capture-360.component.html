@@ -126,7 +126,35 @@
       </div>
     }
 
+    <!--
+      A espera da montagem por IA. Vem DEPOIS da costura e ANTES do preview,
+      porque é o que faz o corretor ver a foto já tratada no momento em que ele
+      mais olha para o resultado — logo depois de girar 360° com o celular.
+    -->
+    @case ('treating') {
+      <div class="panel panel--ia">
+        <app-owl-loader />
+        <h2>{{ 'CAPTURE.TRATANDO_TITULO' | translate }}</h2>
+        <p>{{ 'CAPTURE.TRATANDO' | translate }}</p>
+        <!--
+          Saída da espera. Sessenta segundos sem escape é armadilha: rede ruim
+          dentro de um imóvel acontece, e o panorama costurado já é utilizável.
+        -->
+        <ion-button fill="clear" size="small" class="on-dark" (click)="seguirSemMelhorar()">
+          {{ 'CAPTURE.SEGUIR_SEM_MELHORAR' | translate }}
+        </ion-button>
+      </div>
+    }
+
     @case ('preview') {
+      <!--
+        A espera terminou sem melhora. Dizer isso é o mínimo: ele acabou de
+        aguardar por algo, e uma tela que volta calada não deixa distinguir
+        "a IA não conseguiu" de "a IA nem tentou".
+      -->
+      @if (naoMelhorou()) {
+        <p class="capture-aviso" role="status">{{ 'CAPTURE.NAO_MELHOROU' | translate }}</p>
+      }
       <div class="result-viewer">
         <app-panoramic-viewer [panoramas]="previewPanoramas()"></app-panoramic-viewer>
       </div>

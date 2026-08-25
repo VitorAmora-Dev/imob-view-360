@@ -133,6 +133,13 @@ export class StepImagesComponent {
     const modal = await this.modalController.create({
       component: Capture360Component,
       cssClass: 'capture-360-modal',
+      // Passado por `componentProps` e não resolvido por injeção: o
+      // `ModalController` cria o componente fora da árvore da página, então ele
+      // não enxerga o `TourDraftStore`, que é provido lá.
+      componentProps: {
+        tratar: (captura: Parameters<TourDraftStore['tratarCaptura']>[0]) =>
+          this.store.tratarCaptura(captura),
+      },
     });
     await modal.present();
 
@@ -141,6 +148,8 @@ export class StepImagesComponent {
       frames: CaptureFrameUpload[];
       geometry: CaptureGeometry | null;
       room: string;
+      serverPanoramaId: string | null;
+      treatedUrl: string;
     }>();
     if (role !== 'confirm' || !data?.imageData) return;
 
@@ -164,6 +173,10 @@ export class StepImagesComponent {
       imageData: data.imageData,
       frames: data.frames,
       geometry: data.geometry,
+      // O cômodo já existe no servidor e já passou pela IA: isso aconteceu
+      // dentro do modal, enquanto o corretor esperava, antes de ele dar nome.
+      ...(data.serverPanoramaId ? { serverPanoramaId: data.serverPanoramaId } : {}),
+      ...(data.treatedUrl ? { treatedImageUrl: data.treatedUrl, aiState: 'done' as const } : {}),
     });
   }
 }
