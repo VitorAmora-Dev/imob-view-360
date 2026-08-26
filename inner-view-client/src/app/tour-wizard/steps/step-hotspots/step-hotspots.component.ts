@@ -51,6 +51,27 @@ export class StepHotspotsComponent {
   readonly draft = inject(TourDraftStore);
   readonly editor = inject(HotspotEditorStore);
 
+  constructor() {
+    /**
+     * A cena retomada chega sem foto (Tarefa 9): `imageData` vazio de
+     * propósito, ver o campo em `tour-wizard.model.ts`. Sem isto, a etapa 2
+     * abre com a esfera branca — `TextureLoader` falha calado com endereço
+     * vazio e o material fica sem mapa, o mesmo sintoma corrigido em 036b4ac,
+     * por outra causa.
+     *
+     * Fica NUM EFFECT À PARTE, e não dentro do `computed` de
+     * `viewerPanoramas`: aquele computed é comparado por identidade de
+     * propósito (ver o comentário dele), e recriar o array a cada resposta
+     * deste download recarregaria a equirretangular inteira — exatamente o
+     * que o par de testes de identidade protege.
+     */
+    effect(() => {
+      const cena = this.draft.selectedScene();
+      if (!cena || cena.treatedImageUrl || cena.imageData) return;
+      void this.draft.garantirImagem(cena.id, 'treated');
+    });
+  }
+
   // ---- antes e depois da montagem por IA ----------------------------------
 
   /**

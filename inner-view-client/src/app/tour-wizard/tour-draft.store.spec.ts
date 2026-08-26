@@ -1590,4 +1590,58 @@ describe('TourDraftStore (contrato)', () => {
       expect(apagar).not.toHaveBeenCalled();
     });
   });
+
+  /**
+   * A Tarefa 9 devolve a cena retomada SEM foto, de propósito — reidratar seis
+   * equirretangulares no 4G antes de mostrar qualquer coisa seria pior que não
+   * retomar. `garantirImagem` é o que busca essa foto quando alguém finalmente
+   * precisa dela: o viewer da etapa 2, a miniatura da etapa 1.
+   */
+  describe('garantirImagem', () => {
+    it('baixa a foto de uma cena retomada e a guarda na cena', async () => {
+      const store = storeWith(
+        scene('s1', { room: 'Sala', serverPanoramaId: 'p1', imageData: '' }),
+      );
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter')
+        .and.resolveTo('blob:http://localhost/abc');
+
+      const url = await store.garantirImagem('s1', 'treated');
+
+      expect(url).toBe('blob:http://localhost/abc');
+      expect(store.scenes()[0].treatedImageUrl).toBe('blob:http://localhost/abc');
+      expect(obter).toHaveBeenCalledWith('p1', 'treated');
+    });
+
+    it('não vai à rede quando a cena já tem a foto em memória', async () => {
+      // Cena recém-capturada já traz a dataURL da costura e o blob da tratada,
+      // vindos do modal. Baixar de novo seria pagar 4G por algo que está ali.
+      const store = storeWith(
+        scene('s1', {
+          room: 'Sala',
+          serverPanoramaId: 'p1',
+          imageData: 'data:image/jpeg;base64,SGk=',
+          treatedImageUrl: 'blob:http://localhost/ja-tenho',
+        }),
+      );
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter');
+
+      const url = await store.garantirImagem('s1', 'treated');
+
+      expect(url).toBe('blob:http://localhost/ja-tenho');
+      expect(obter).not.toHaveBeenCalled();
+    });
+
+    it('devolve vazio, sem ir à rede, para uma cena que nunca subiu e não tem foto', async () => {
+      // Sem `serverPanoramaId` não há o que baixar — essa cena não existe no
+      // servidor. Estourar aqui seria pior que devolver vazio e deixar quem
+      // chamou decidir.
+      const store = storeWith(scene('s1', { imageData: '' }));
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter');
+
+      const url = await store.garantirImagem('s1', 'treated');
+
+      expect(url).toBe('');
+      expect(obter).not.toHaveBeenCalled();
+    });
+  });
 });

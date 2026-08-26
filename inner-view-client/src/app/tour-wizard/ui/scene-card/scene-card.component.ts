@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, effect, inject, input } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
@@ -24,6 +24,32 @@ export class SceneCardComponent {
   readonly scene = input.required<WizardScene>();
 
   private readonly store = inject(TourDraftStore);
+
+  constructor() {
+    /**
+     * Cena retomada (Tarefa 9) chega sem foto — `imageData` vazio de
+     * propósito, ver o campo em `tour-wizard.model.ts`. A rota de preview é
+     * autenticada, então um `background-image` direto para a URL da API não
+     * levaria o token; só `garantirImagem` (via `PanoramaImageCache`) devolve
+     * o `blob:` que o CSS pode usar. Sem isto, o card de um rascunho retomado
+     * fica com a miniatura vazia para sempre — ninguém mais pede por ela.
+     */
+    effect(() => {
+      if (this.thumbUrl()) return;
+      void this.store.garantirImagem(this.scene().id, 'treated');
+    });
+  }
+
+  /**
+   * Fonte da miniatura: a tratada quando existe — é o que a IA entregou —,
+   * senão a foto original. Cena retomada não tem nenhuma das duas até
+   * `garantirImagem` responder, e por isso pode devolver vazio: cabe ao
+   * template não desenhar `background-image` nesse caso (ver o template —
+   * `url('')` desenha ícone de imagem quebrada).
+   */
+  readonly thumbUrl = computed(
+    () => this.scene().treatedImageUrl ?? this.scene().imageData,
+  );
 
   /**
    * Número do ambiente entre os VÁLIDOS, 1-based. Zero quando a cena não é

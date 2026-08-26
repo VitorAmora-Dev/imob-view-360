@@ -3,6 +3,7 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { firstValueFrom } from 'rxjs';
 import { VirtualTour } from '../models/virtual-tour.model';
 import { CaptureFrameUpload, CaptureGeometry } from '../services/virtual-tour.service';
+import { PanoramaImageCache } from '../services/panorama-image-cache.service';
 import { PropertyService } from '../services/property.service';
 import {
   AndamentoDaMontagem,
@@ -103,6 +104,7 @@ const ESTADO_DA_IA: Record<TreatmentStatus, WizardSceneAiState> = {
 export class TourDraftStore {
   private readonly propertyService = inject(PropertyService);
   private readonly virtualTourService = inject(VirtualTourService);
+  private readonly imagens = inject(PanoramaImageCache);
 
   /**
    * Corta o acompanhamento da montagem quando a tela morre.
@@ -817,6 +819,43 @@ export class TourDraftStore {
           }
         : {}),
     });
+  }
+
+  /**
+   * A foto de um cômodo, venha ela da memória ou do servidor.
+   *
+   * Cena recém-capturada já tem tudo: a dataURL da costura e o `blob:` da
+   * tratada, entregues pelo modal. Cena retomada não tem nada — o rascunho é
+   * lido sem coluna de imagem de propósito, porque reidratar seis
+   * equirretangulares antes de mostrar qualquer coisa seria pior do que não
+   * retomar.
+   *
+   * Então a regra é: usa o que está em memória; se não houver, baixa uma vez e
+   * guarda na cena. O download passa pelo `PanoramaImageCache` porque a rota é
+   * autenticada e o `TextureLoader` não leva token.
+   */
+  async garantirImagem(
+    sceneId: string,
+    variante: 'treated' | 'original',
+  ): Promise<string> {
+    const cena = this.scenes().find((s) => s.id === sceneId);
+    if (!cena) return '';
+
+    const jaTenho = variante === 'treated' ? cena.treatedImageUrl : cena.imageData;
+    if (jaTenho) return jaTenho;
+
+    const panoramaId = cena.serverPanoramaId;
+    // Cena que nunca subiu e não tem foto em memória não existe na prática;
+    // devolver vazio deixa quem chamou decidir, em vez de estourar.
+    if (!panoramaId) return '';
+
+    const url = await this.imagens.obter(panoramaId, variante);
+    this.patchScene(sceneId, (s) =>
+      variante === 'treated'
+        ? { ...s, treatedImageUrl: url }
+        : { ...s, imageData: url },
+    );
+    return url;
   }
 
   /**

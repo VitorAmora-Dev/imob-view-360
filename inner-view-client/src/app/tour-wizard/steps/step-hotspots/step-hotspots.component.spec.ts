@@ -443,3 +443,94 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
     expect(fixture.componentInstance.revealUrl()).toBeNull();
   });
 });
+
+/**
+ * A foto de uma cena retomada (Tarefa 10).
+ *
+ * A Tarefa 9 devolve o rascunho retomado sem foto nenhuma, de propósito — ver
+ * o comentário de `imageData` em `tour-wizard.model.ts`. Esta etapa é quem
+ * primeiro precisa da foto: é ela que abre com a cena selecionada.
+ */
+describe('StepHotspotsComponent — foto de uma cena retomada', () => {
+  let fixture: ComponentFixture<StepHotspotsComponent>;
+
+  /**
+   * Monta a etapa 2 com uma única cena retomada — `imageData` vazio e
+   * `serverPanoramaId` preenchido, o par que `retomarRascunho()` deixa. Não
+   * chama `detectChanges()`: quem chama precisa instalar o `spyOn` em
+   * `garantirImagem` ANTES da primeira rodada, senão o efeito chamaria a
+   * implementação de verdade e pediria ao `PanoramaImageCache`.
+   */
+  function montarEtapa2ComCenaRetomada(): {
+    fixture: ComponentFixture<StepHotspotsComponent>;
+    store: TourDraftStore;
+  } {
+    TestBed.configureTestingModule({
+      providers: [
+        TourDraftStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideIonicAngular(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+      ],
+    });
+    const store = TestBed.inject(TourDraftStore);
+    store.scenes.set([
+      {
+        id: 's1',
+        room: 'Sala',
+        fileName: 'Sala',
+        fileSize: 0,
+        imageData: '',
+        order: 0,
+        hotspots: [],
+        state: 'ready',
+        serverPanoramaId: 'p1',
+      },
+    ]);
+    store.selectedSceneId.set('s1');
+    return { fixture: TestBed.createComponent(StepHotspotsComponent), store };
+  }
+
+  // Mesmo motivo do describe de revelação acima: a cena 'ready' monta o
+  // visualizador de verdade, e o navegador só aguenta ~16 contextos WebGL
+  // vivos ao mesmo tempo.
+  afterEach(() => {
+    fixture?.destroy();
+  });
+
+  it('pede a foto ao abrir uma cena retomada', async () => {
+    // Sem isto, a etapa 2 de um rascunho retomado abre com a esfera branca:
+    // `imageUrl` vazio faz o TextureLoader falhar calado e o material fica
+    // sem mapa. É o mesmo sintoma corrigido em 036b4ac, por outra causa.
+    const montado = montarEtapa2ComCenaRetomada();
+    fixture = montado.fixture;
+    const garantir = spyOn(montado.store, 'garantirImagem')
+      .and.resolveTo('blob:http://localhost/abc');
+
+    fixture.detectChanges();
+    // `whenStable()` e não aqui: o viewer mantém um `requestAnimationFrame`
+    // dentro da zona do Angular, que nunca fica estável. Mesmo truque de
+    // `assenta()`, no describe acima.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    fixture.detectChanges();
+
+    expect(garantir).toHaveBeenCalledWith(jasmine.any(String), 'treated');
+  });
+
+  it('não pede nada quando a cena já tem foto', async () => {
+    const montado = montarEtapa2ComCenaRetomada();
+    fixture = montado.fixture;
+    montado.store.patchScene('s1', (s) => ({
+      ...s,
+      imageData: 'data:image/jpeg;base64,x',
+    }));
+    const garantir = spyOn(montado.store, 'garantirImagem');
+
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    fixture.detectChanges();
+
+    expect(garantir).not.toHaveBeenCalled();
+  });
+});
