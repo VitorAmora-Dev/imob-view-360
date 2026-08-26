@@ -815,26 +815,39 @@ export class TourDraftStore {
     }
 
     const p = this.property();
-    await firstValueFrom(
-      this.propertyService.updateProperty(this.rascunhoPropertyId()!, {
-        title: p.name.trim(),
-        type: p.type as string,
-        purpose: p.purpose as string,
-        ...(this.addressTouched()
-          ? {
-              address: {
-                street: p.address.street.trim(),
-                number: p.address.number.trim() || undefined,
-                complement: p.address.complement.trim() || undefined,
-                district: p.address.district.trim() || undefined,
-                city: p.address.city.trim(),
-                state: p.address.state.trim().toUpperCase(),
-                zipCode: p.address.zip.replace(/\D/g, '') || undefined,
-              },
-            }
-          : {}),
-      }),
-    );
+    // Monta só o que tem conteúdo. Um rascunho recém-começado não tem nada da
+    // etapa 3, e `PATCH /properties/:id` recusa corpo vazio de propósito —
+    // mandar assim trocaria "não havia o que salvar" por um 400 que quem
+    // chamou não sabe distinguir de rede fora. No `publish()`, os três campos
+    // já passaram por `invalidFields()` e chegam aqui sempre preenchidos —
+    // a diferença só aparece no salvamento intermediário.
+    const camposDoImovel = {
+      ...(p.name.trim() ? { title: p.name.trim() } : {}),
+      ...(p.type ? { type: p.type as string } : {}),
+      ...(p.purpose ? { purpose: p.purpose as string } : {}),
+      ...(this.addressTouched()
+        ? {
+            address: {
+              street: p.address.street.trim(),
+              number: p.address.number.trim() || undefined,
+              complement: p.address.complement.trim() || undefined,
+              district: p.address.district.trim() || undefined,
+              city: p.address.city.trim(),
+              state: p.address.state.trim().toUpperCase(),
+              zipCode: p.address.zip.replace(/\D/g, '') || undefined,
+            },
+          }
+        : {}),
+    };
+
+    if (Object.keys(camposDoImovel).length) {
+      await firstValueFrom(
+        this.propertyService.updateProperty(
+          this.rascunhoPropertyId()!,
+          camposDoImovel,
+        ),
+      );
+    }
   }
 
   /**

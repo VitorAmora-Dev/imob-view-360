@@ -782,6 +782,49 @@ describe('TourDraftStore (contrato)', () => {
       expect(publicar).not.toHaveBeenCalled();
     });
 
+    it('não chama o PATCH do imóvel quando a etapa 3 está em branco', async () => {
+      // `PATCH /properties/:id` tem `.refine()` recusando corpo vazio, para
+      // que um PATCH sem campo nenhum não passe por sucesso. Salvar um
+      // rascunho recém-começado não tem o que mandar — e engolir o 400
+      // esconderia falha de rede real no mesmo silêncio.
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      const update = spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      // property() continua em EMPTY_PROPERTY.
+
+      await store.salvarRascunho();
+
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('chama o PATCH do imóvel assim que houver um campo preenchido', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      const update = spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      store.property.update((p) => ({ ...p, name: 'Casa na praia' }));
+
+      await store.salvarRascunho();
+
+      expect(update).toHaveBeenCalled();
+      expect(update.calls.mostRecent().args[1]).toEqual(
+        jasmine.objectContaining({ title: 'Casa na praia' }),
+      );
+    });
+
     /**
      * `publish()` passou a chamar `salvarRascunho()` por dentro. Este caso
      * prova que a composição dos dois não inventou um caminho novo: chamar
