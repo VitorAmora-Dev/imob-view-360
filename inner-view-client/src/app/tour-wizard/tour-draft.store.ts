@@ -727,6 +727,99 @@ export class TourDraftStore {
   readonly publishError = signal<string | null>(null);
 
   /**
+   * Traz de volta uma captura interrompida.
+   *
+   * As fotos e o tratamento por IA nunca se perderam — eles sobem durante a
+   * captura, cômodo a cômodo. O que se perdia ao tocar em voltar era o nome
+   * dos ambientes, os hotspots e os dados do imóvel, que só existiam aqui.
+   *
+   * Não baixa foto. Um tour de seis cômodos são dezenas de MB de equirect, e
+   * reidratar todas antes de mostrar qualquer coisa seria pior do que não
+   * retomar. A imagem chega pelo `PanoramaImageCache` quando o viewer pedir.
+   */
+  async retomarRascunho(tourId: string): Promise<void> {
+    const rascunho = await firstValueFrom(
+      this.virtualTourService.lerRascunho(tourId),
+    );
+
+    this.rascunhoTourId.set(rascunho.id);
+    this.rascunhoPropertyId.set(rascunho.propertyId);
+
+    // Uma cena local por panorama, antes dos hotspots: eles apontam para
+    // panoramaId e precisam do mapa completo para traduzir ao id local.
+    const porPanoramaId = new Map<string, string>();
+    const cenas: WizardScene[] = rascunho.panoramas.map((p) => {
+      const idLocal = crypto.randomUUID();
+      porPanoramaId.set(p.id, idLocal);
+      return {
+        id: idLocal,
+        room: p.roomName,
+        fileName: p.roomName,
+        fileSize: 0,
+        // Vazio de propósito. Ver o comentário do campo no modelo: cena com
+        // `imageData` vazio E `serverPanoramaId` presente é íntegra — a foto
+        // chega sob demanda, pelo `PanoramaImageCache`.
+        imageData: '',
+        order: p.order,
+        hotspots: [],
+        state: 'ready',
+        serverPanoramaId: p.id,
+        aiState: p.treatmentStatus === 'DONE' ? 'done' : 'idle',
+      };
+    });
+
+    for (const p of rascunho.panoramas) {
+      const cena = cenas.find((c) => c.serverPanoramaId === p.id)!;
+      cena.hotspots = p.hotspots.map((h) => ({
+        id: crypto.randomUUID(),
+        u: h.positionX,
+        v: h.positionY,
+        label: h.label ?? '',
+        target: porPanoramaId.get(h.targetId) ?? null,
+        serverId: h.id,
+      }));
+    }
+
+    // `scenes.set(...)`, não `patchScene` cena a cena: o que chega aqui é o
+    // estado inteiro vindo do servidor, e nada nele "sumiu" da tela — não há
+    // hotspot para `patchScene` empilhar em `hotspotsParaApagar`. E a própria
+    // fila é zerada a seguir: um resíduo de sessão anterior (ambiente
+    // removido sem salvar, por exemplo) apontaria para um hotspot de um
+    // rascunho que este retomar sequer carregou.
+    this.scenes.set(cenas);
+    this.hotspotsParaApagar.set([]);
+    this.selectedSceneId.set(cenas[0]?.id ?? null);
+    this.step.set(1);
+
+    const endereco = rascunho.property.address;
+    this.property.set({
+      ...EMPTY_PROPERTY,
+      // 'Captura em andamento' é o marcador que `garantirRascunho()` grava —
+      // não é dado do corretor. Devolvê-lo faria a etapa 3 abrir com esse
+      // texto no campo Nome, como se ele mesmo tivesse digitado.
+      name:
+        rascunho.property.title === 'Captura em andamento'
+          ? ''
+          : rascunho.property.title,
+      type: rascunho.property.type as PropertyDraft['type'],
+      purpose: rascunho.property.purpose as PropertyDraft['purpose'],
+      ...(endereco
+        ? {
+            address: {
+              street: endereco.street,
+              number: endereco.number ?? '',
+              complement: endereco.complement ?? '',
+              district: endereco.district ?? '',
+              city: endereco.city,
+              state: endereco.state,
+              zip: endereco.zipCode ?? '',
+            },
+          }
+        : {}),
+    });
+  }
+
+  /**
    * Grava no servidor o que hoje só existe na memória do wizard.
    *
    * É o miolo do `publish()`, extraído. O corretor perdia o nome dos cômodos,

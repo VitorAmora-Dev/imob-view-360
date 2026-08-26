@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
+import { PanoramaImageCache } from '../services/panorama-image-cache.service';
 import { TourDraftStore } from './tour-draft.store';
 import { CaptureFrameUpload } from '../services/virtual-tour.service';
 import { WizardScene } from './tour-wizard.model';
@@ -1438,6 +1439,155 @@ describe('TourDraftStore (contrato)', () => {
 
       expect(store.hasError('name')).toBe(true);
       expect(store.addressHasError()).toBe(false);
+    });
+  });
+
+  describe('retomarRascunho', () => {
+    /**
+     * O mesmo rascunho de dois cômodos, reaproveitado pelos casos abaixo.
+     * `title: 'Captura em andamento'` é o marcador que `garantirRascunho()`
+     * grava — cobrado à parte, no caso que segue.
+     */
+    function rascunhoDeDoisComodos() {
+      return {
+        id: 't1',
+        propertyId: 'imovel-1',
+        status: 'DRAFT',
+        updatedAt: '2026-08-26T12:00:00Z',
+        property: {
+          title: 'Casa na praia',
+          type: 'HOUSE',
+          purpose: 'SALE',
+          address: null,
+        },
+        panoramas: [
+          {
+            id: 'p1', roomName: 'Sala', order: 0, initialPanorama: true,
+            treatmentStatus: 'DONE',
+            hotspots: [
+              { id: 'h1', label: null, positionX: 0.25, positionY: 0.5, targetId: 'p2' },
+            ],
+          },
+          {
+            id: 'p2', roomName: 'Quarto', order: 1, initialPanorama: false,
+            treatmentStatus: 'DONE', hotspots: [],
+          },
+        ],
+      };
+    }
+
+    it('remonta as cenas do rascunho sem baixar equirect nenhuma', async () => {
+      // Retomar um tour de seis cômodos baixando as fotos inteiras seriam
+      // dezenas de MB no 4G antes de mostrar qualquer coisa. A foto chega
+      // quando o viewer pedir.
+      const store = newStore();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of(rascunhoDeDoisComodos()) as never,
+      );
+      const baixar = spyOn(TestBed.inject(PanoramaImageCache), 'obter');
+
+      await store.retomarRascunho('t1');
+
+      expect(store.scenes().map((s) => s.room)).toEqual(['Sala', 'Quarto']);
+      expect(store.rascunhoTourId()).toBe('t1');
+      expect(store.rascunhoPropertyId()).toBe('imovel-1');
+      expect(store.property().name).toBe('Casa na praia');
+      expect(baixar).not.toHaveBeenCalled();
+    });
+
+    it('religa os hotspots aos ids locais das cenas', async () => {
+      // O hotspot do servidor aponta para um panoramaId; o wizard trabalha com
+      // o id local da cena. Sem a tradução, a etapa 2 abre com todo ponto sem
+      // destino — que é como um ponto inerte, descartado no publicar.
+      const store = newStore();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of(rascunhoDeDoisComodos()) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      const sala = store.scenes()[0];
+      const quarto = store.scenes()[1];
+      expect(sala.hotspots[0].target).toBe(quarto.id);
+      expect(sala.hotspots[0].serverId).toBe('h1');
+    });
+
+    it('a cena retomada guarda o id do servidor e fica sem imageData', async () => {
+      const store = newStore();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of(rascunhoDeDoisComodos()) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.scenes()[0].serverPanoramaId).toBe('p1');
+      expect(store.scenes()[0].imageData).toBe('');
+      // E mesmo assim é cena íntegra: `readyScenes` precisa contá-la, ou o
+      // wizard retomado abre dizendo que não há imagem nenhuma.
+      expect(store.readyScenes().length).toBe(2);
+    });
+
+    it('devolve o nome vazio quando o título é só o marcador de garantirRascunho()', async () => {
+      // `garantirRascunho()` grava 'Captura em andamento' como marcador, não
+      // como dado — o comentário do próprio método já diz isso. Devolvê-lo
+      // faria a etapa 3 abrir com esse texto no campo Nome, como se o
+      // corretor mesmo tivesse digitado.
+      const store = newStore();
+      const marcador = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({ ...marcador, property: { ...marcador.property, title: 'Captura em andamento' } }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.property().name).toBe('');
+    });
+
+    it('zera a fila de hotspots a apagar de uma sessão anterior', async () => {
+      // `retomarRascunho` substitui o estado inteiro por dado vindo do
+      // servidor — não há nada da sessão anterior para excluir. Se a fila de
+      // `removeScene`/`patchScene` sobrevivesse, o PRÓXIMO `salvarRascunho()`
+      // mandaria apagar um hotspot de um rascunho que este retomar sequer
+      // carregou.
+      const store = storeWith(
+        scene('a', {
+          serverPanoramaId: 'p-old',
+          hotspots: [
+            { id: 'h-old', u: 0.5, v: 0.5, label: '', target: 'b', serverId: 'srv-old' },
+          ],
+        }),
+        scene('b', { serverPanoramaId: 'p-old-2' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'deletePanorama').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+      // Empilha 'srv-old' em hotspotsParaApagar, como se o corretor tivesse
+      // removido o ambiente e saído sem salvar.
+      store.removeScene('a');
+
+      spyOn(tours, 'lerRascunho').and.returnValue(
+        of(rascunhoDeDoisComodos()) as never,
+      );
+      await store.retomarRascunho('t1');
+
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(tours, 'atualizarHotspot').and.returnValue(
+        of({ id: 'h1' } as unknown) as ReturnType<VirtualTourService['atualizarHotspot']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(apagar).not.toHaveBeenCalled();
     });
   });
 });
