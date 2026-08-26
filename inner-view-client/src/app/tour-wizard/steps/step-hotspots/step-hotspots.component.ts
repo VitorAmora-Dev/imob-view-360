@@ -51,114 +51,46 @@ export class StepHotspotsComponent {
   readonly draft = inject(TourDraftStore);
   readonly editor = inject(HotspotEditorStore);
 
-  private readonly virtualTourService = inject(VirtualTourService);
-
   // ---- antes e depois da montagem por IA ----------------------------------
 
   /**
-   * `blob:` da imagem tratada do ambiente à vista, quando ela já existe.
+   * O corretor pediu para ver a foto como saiu da câmera.
    *
-   * Blob e não a URL da rota: o preview é autenticado por cabeçalho e o
-   * `TextureLoader` do three.js carrega sem passar pelo interceptor. Só o
-   * ambiente selecionado é baixado — manter os seis de um tour em memória
-   * somaria dezenas de MB, sobre os data-URI das originais que já estão lá.
+   * O padrão é a tratada, e não é uma escolha de gosto: ele JÁ aprovou essa
+   * versão no modal de captura, onde esperou por ela. Abrir a etapa 2 no
+   * panorama cru desfaria na cara dele o que ele acabou de ver.
    */
-  private readonly urlTratada = signal<string | null>(null);
-
-  /** Qual panorama o blob acima representa, para não rebaixar o mesmo duas vezes. */
-  private panoramaBaixado: string | null = null;
-
-  /** O corretor pediu para ver a foto como saiu da câmera. */
   readonly vendoOriginal = signal(false);
 
   /** Só faz sentido oferecer a comparação quando existem as duas imagens. */
-  readonly temComparacao = computed(
-    () => this.draft.selectedScene()?.aiState === 'done',
+  readonly temComparacao = computed(() =>
+    Boolean(this.draft.selectedScene()?.treatedImageUrl),
   );
-
-  /** Este ambiente ainda está sendo montado. Vira a tag sobre o visualizador. */
-  readonly melhorandoAgora = computed(() => {
-    const ai = this.draft.selectedScene()?.aiState;
-    return ai === 'uploading' || ai === 'processing';
-  });
 
   /**
    * A imagem que o viewer deve dissolver por cima da que está à vista.
    *
-   * Vale para os DOIS sentidos, e é por isso que o toggle funciona. A
-   * revelação não é um efeito que acontece uma vez: terminada a dissolvência, a
-   * imagem nova passa a ser a que está na esfera principal. Voltar à original
-   * é, do ponto de vista do viewer, outra revelação — a da foto de câmera por
-   * cima da tratada. Devolver `null` aqui não desfaria nada; deixaria a tratada
-   * na tela com o botão dizendo o contrário.
+   * Nenhum download aqui: o `blob:` da tratada foi criado no modal de captura,
+   * enquanto o corretor esperava, e vive na cena. Baixar de novo custaria os
+   * mesmos megabytes por uma imagem que já está na memória.
    *
-   * A trava por interação é o coração disto. `pinDrag` é o sinal canônico de
-   * arraste — mora no editor porque a lixeira precisa do mesmo dado — e
-   * `picker` cobre o seletor de destino aberto. Trocar a imagem debaixo do dedo
-   * de quem está posicionando um ponto é desorientador, e o seletor é medido
-   * uma vez na abertura: recarregar por baixo dele o deixa fora do lugar.
-   * Quando a interação acaba, o `computed` reavalia e a revelação acontece.
+   * A trava por interação é o que impede a troca no meio de um gesto. `pinDrag`
+   * é o sinal canônico de arraste — mora no editor porque a lixeira precisa do
+   * mesmo dado — e `picker` cobre o seletor de destino aberto: ele é medido uma
+   * vez na abertura, e recarregar por baixo dele o deixa fora do lugar.
    */
   readonly revealUrl = computed(() => {
     if (this.editor.pinDrag() || this.editor.picker()) return null;
 
     const scene = this.draft.selectedScene();
-    if (!scene || scene.state !== 'ready') return null;
+    if (!scene?.treatedImageUrl) return null;
 
-    // O data-URI da costura é o que o viewer já carregou por `panoramas`;
-    // devolvê-lo aqui dissolve de volta para ele.
-    if (this.vendoOriginal()) return scene.imageData;
-    return this.urlTratada();
+    return this.vendoOriginal() ? scene.imageData : scene.treatedImageUrl;
   });
-
-  constructor() {
-    // Baixa a tratada assim que o ambiente à vista termina de ser montado — ou
-    // ao trocar para um ambiente que já está pronto.
-    effect(() => {
-      const scene = this.draft.selectedScene();
-      const alvo = scene?.aiState === 'done' ? scene.serverPanoramaId : undefined;
-      if (!alvo) {
-        if (this.panoramaBaixado) this.descartarTratada();
-        return;
-      }
-      if (alvo === this.panoramaBaixado) return;
-      void this.baixarTratada(alvo);
-    });
-
-    // O blob vive fora do ciclo do Angular: sem revogar, cada ida e volta entre
-    // etapas deixa alguns MB presos até a aba fechar.
-    inject(DestroyRef).onDestroy(() => this.descartarTratada());
-  }
-
-  private async baixarTratada(panoramaId: string): Promise<void> {
-    this.descartarTratada();
-    this.panoramaBaixado = panoramaId;
-    try {
-      const blob = await firstValueFrom(
-        this.virtualTourService.baixarPreview(panoramaId, 'treated'),
-      );
-      // Trocou de ambiente enquanto baixava: este blob não serve mais.
-      if (this.panoramaBaixado !== panoramaId) return;
-      this.urlTratada.set(URL.createObjectURL(blob));
-    } catch {
-      // Sem a tratada o corretor segue com a costurada, que é o que ele teria
-      // sem esta etapa. Falhar aqui não pode custar a edição dos pontos.
-      this.panoramaBaixado = null;
-    }
-  }
-
-  private descartarTratada(): void {
-    const url = this.urlTratada();
-    if (url) URL.revokeObjectURL(url);
-    this.urlTratada.set(null);
-    this.panoramaBaixado = null;
-    this.vendoOriginal.set(false);
-  }
 
   alternarOriginal(): void {
     this.vendoOriginal.update((v) => !v);
   }
-
 
   /**
    * A cena selecionada no formato que o viewer entende.
@@ -193,9 +125,10 @@ export class StepHotspotsComponent {
         {
           id: scene.id,
           roomName: scene.room,
-          // A foto ainda não subiu: o que existe é o data-URI que o navegador
-          // leu do arquivo. `urlDaImagem` reconhece `data:` e devolve como está.
-          imageUrl: scene.imageData,
+          // A tratada quando existe: ela é o que o corretor aprovou no modal
+          // de captura. Cai no data-URI da costura para cena vinda de arquivo,
+          // que nunca passa pela IA. `urlDaImagem` reconhece os dois.
+          imageUrl: scene.treatedImageUrl ?? scene.imageData,
           order: scene.order,
           initialPanorama: true,
           originHotspots: [],

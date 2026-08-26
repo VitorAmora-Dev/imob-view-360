@@ -51,11 +51,11 @@
           CSS: qualquer coisa sólida aqui engoliria o clique que cria hotspot,
           porque este elemento fica sobre a mesma área do canvas.
         -->
-        @if (melhorandoAgora()) {
-          <p class="tw-viewer__ia" role="status">
-            {{ 'TOUR_WIZARD.STEP2.MELHORANDO' | translate }}
-          </p>
-        } @else if (temComparacao() && !vendoOriginal()) {
+        <!--
+          Não há mais estado "melhorando" aqui: o cômodo chega tratado, porque
+          a espera acontece no modal de captura, antes de ele ganhar nome.
+        -->
+        @if (temComparacao() && !vendoOriginal()) {
           <p class="tw-viewer__ia is-pronto" role="status">
             {{ 'TOUR_WIZARD.STEP2.MELHORADO' | translate }}
           </p>

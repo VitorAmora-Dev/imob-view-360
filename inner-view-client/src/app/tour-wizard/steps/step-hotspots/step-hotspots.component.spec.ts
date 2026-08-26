@@ -311,12 +311,6 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
       ],
     });
     draft = TestBed.inject(TourDraftStore);
-    // O download vira `URL.createObjectURL`, que num teste não tem quem revogue.
-    spyOn(TestBed.inject(VirtualTourService), 'baixarPreview').and.returnValue(
-      of(new Blob(['tratada'], { type: 'image/jpeg' })),
-    );
-    spyOn(URL, 'createObjectURL').and.returnValue('blob:tratada');
-    spyOn(URL, 'revokeObjectURL');
   });
 
   function monta(): void {
@@ -354,20 +348,20 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
     fixture.detectChanges();
   }
 
-  it('não revela nada enquanto a montagem não terminou', async () => {
-    draft.scenes.set([scene('a', { aiState: 'processing', serverPanoramaId: 'pan-0' })]);
+  it('não oferece comparação para cena que nunca passou pela IA', async () => {
+    // Foto vinda de arquivo: não tem fotos originais, logo não tem tratada, e
+    // um botão de comparar ali sugeriria que algo deixou de funcionar.
+    draft.scenes.set([scene('a', { serverPanoramaId: 'pan-0' })]);
     draft.selectedSceneId.set('a');
     monta();
     await assenta();
 
     expect(fixture.componentInstance.revealUrl()).toBeNull();
-    expect(fixture.componentInstance.melhorandoAgora()).toBe(true);
-    // Nada a comparar ainda — um botão morto sugeriria que algo quebrou.
     expect(fixture.componentInstance.temComparacao()).toBe(false);
   });
 
   it('revela a tratada quando o ambiente à vista fica pronto', async () => {
-    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.scenes.set([scene('a', { treatedImageUrl: 'blob:tratada', serverPanoramaId: 'pan-0' })]);
     draft.selectedSceneId.set('a');
     monta();
     await assenta();
@@ -386,7 +380,7 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
    * dado.
    */
   it('adia a revelação enquanto um pin está sendo arrastado', async () => {
-    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.scenes.set([scene('a', { treatedImageUrl: 'blob:tratada', serverPanoramaId: 'pan-0' })]);
     draft.selectedSceneId.set('a');
     monta();
     await assenta();
@@ -401,7 +395,7 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
   });
 
   it('adia a revelação enquanto o seletor de destino está aberto', async () => {
-    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.scenes.set([scene('a', { treatedImageUrl: 'blob:tratada', serverPanoramaId: 'pan-0' })]);
     draft.selectedSceneId.set('a');
     monta();
     await assenta();
@@ -419,7 +413,7 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
    * dizendo o contrário.
    */
   it('dissolve de volta para a foto de câmera ao pedir o original', async () => {
-    draft.scenes.set([scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' })]);
+    draft.scenes.set([scene('a', { treatedImageUrl: 'blob:tratada', serverPanoramaId: 'pan-0' })]);
     draft.selectedSceneId.set('a');
     monta();
     await assenta();
@@ -433,10 +427,10 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
     expect(fixture.componentInstance.revealUrl()).toBe('blob:tratada');
   });
 
-  it('solta o blob ao trocar para um ambiente sem tratamento', async () => {
+  it('não revela nada ao trocar para um ambiente sem tratamento', async () => {
     draft.scenes.set([
-      scene('a', { aiState: 'done', serverPanoramaId: 'pan-0' }),
-      scene('b', { aiState: 'processing', serverPanoramaId: 'pan-1' }),
+      scene('a', { treatedImageUrl: 'blob:tratada', serverPanoramaId: 'pan-0' }),
+      scene('b', { serverPanoramaId: 'pan-1' }),
     ]);
     draft.selectedSceneId.set('a');
     monta();
@@ -446,9 +440,6 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
     draft.selectScene('b');
     await assenta();
 
-    // Sem revogar, cada ida e volta entre ambientes deixa alguns MB presos
-    // até a aba fechar.
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:tratada');
     expect(fixture.componentInstance.revealUrl()).toBeNull();
   });
 });

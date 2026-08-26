@@ -1,5 +1,6 @@
 import { Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { IonButton, IonIcon, IonSpinner, ModalController } from '@ionic/angular/standalone';
+import { OwlLoaderComponent } from '../owl-loader/owl-loader.component';
 import { addIcons } from 'ionicons';
 import { cameraOutline, closeOutline, refreshOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -25,7 +26,21 @@ import { CaptureFrameUpload, CaptureGeometry } from '../../services/virtual-tour
 import { releaseCanvas, sharpnessScore, storeFrame } from './frame-store';
 import { StitchShot, hfovFromSpec, hfovFromVfov, stitchEquirect } from './stitcher';
 
-type CaptureState = 'intro' | 'lens' | 'capturing' | 'stitching' | 'preview' | 'error';
+type CaptureState =
+  | 'intro'
+  | 'lens'
+  | 'capturing'
+  | 'stitching'
+  | 'treating'
+  | 'preview'
+  | 'error';
+
+/** O que o wizard precisa devolver para o modal poder mostrar a foto tratada. */
+export interface TratamentoDaCaptura {
+  panoramaId: string;
+  /** Vazio quando a IA não pôde melhorar — o modal cai no panorama costurado. */
+  treatedUrl: string;
+}
 
 interface Candidate {
   canvas: HTMLCanvasElement;
@@ -65,7 +80,14 @@ const CANDIDATE_START_PROGRESS = 0.4;
   templateUrl: './capture-360.component.html',
   styleUrls: ['./capture-360.component.scss'],
   standalone: true,
-  imports: [IonButton, IonIcon, IonSpinner, TranslatePipe, PanoramicViewerComponent],
+  imports: [
+    IonButton,
+    IonIcon,
+    IonSpinner,
+    TranslatePipe,
+    PanoramicViewerComponent,
+    OwlLoaderComponent,
+  ],
 })
 export class Capture360Component implements OnDestroy {
   @ViewChild('previewContainer') previewContainer?: ElementRef<HTMLElement>;
@@ -151,6 +173,46 @@ export class Capture360Component implements OnDestroy {
   private stitchedShots: StitchShot[] = [];
   /** What the stitch measured, saved with the panorama so the AI pass knows. */
   private geometry: CaptureGeometry | null = null;
+
+  /**
+   * O panorama como a costura o entregou, sempre.
+   *
+   * Separado do que a tela mostra: no preview o corretor vê a versão tratada
+   * pela IA, mas é esta que sobe como `imageData` e é ela que o botão "ver
+   * original" da etapa 2 exibe. O tratamento nunca substitui o que foi
+   * fotografado.
+   */
+  private originalImageData = '';
+
+  /** Id do panorama no servidor, criado durante a espera do tratamento. */
+  private serverPanoramaId: string | null = null;
+  private treatedUrl = '';
+
+  /** Deixa o corretor sair do loader sem esperar a IA terminar. */
+  private esperaDaIa: AbortController | null = null;
+
+  /**
+   * A IA não melhorou este cômodo — rede fora, tempo estourado ou dispensa do
+   * servidor. O preview mostra o costurado e diz isso, em vez de calar: uma
+   * espera que termina sem explicação é pior que não ter esperado.
+   */
+  readonly naoMelhorou = signal(false);
+
+  /**
+   * Quem sabe subir e tratar a captura. Injetado pelo wizard via
+   * `componentProps` em vez de resolvido por injeção: este modal é criado pelo
+   * `ModalController`, que não enxerga os provedores da página do wizard —
+   * `TourDraftStore` mora lá.
+   *
+   * Ausente quando não há wizard por trás (bancada de diagnóstico). Aí o modal
+   * pula direto para o preview, com o panorama costurado.
+   */
+  tratar?: (captura: {
+    imageData: string;
+    frames: CaptureFrameUpload[];
+    geometry: CaptureGeometry | null;
+    sinal?: AbortSignal;
+  }) => Promise<TratamentoDaCaptura | null>;
   private candidates: Candidate[] = [];
   private lastCandidateMs = 0;
   private rafId: number | null = null;
@@ -175,7 +237,10 @@ export class Capture360Component implements OnDestroy {
   }
 
   usePanorama(): void {
-    const imageData = this.previewPanoramas()[0]?.imageUrl;
+    // `originalImageData` e não o que está na tela: o preview mostra a versão
+    // tratada, mas quem sobe e quem alimenta o "ver original" da etapa 2 é o
+    // panorama como a costura o entregou.
+    const imageData = this.originalImageData;
     if (!imageData) {
       this.modalCtrl.dismiss(null, 'cancel');
       return;
@@ -189,7 +254,16 @@ export class Capture360Component implements OnDestroy {
       quaternion: shot.quaternion,
     }));
     this.modalCtrl.dismiss(
-      { imageData, frames, geometry: this.geometry, room: this.roomName().trim() },
+      {
+        imageData,
+        frames,
+        geometry: this.geometry,
+        room: this.roomName().trim(),
+        // Já existem quando o tratamento rodou: o cômodo subiu antes de ter
+        // nome, e o wizard não precisa subi-lo de novo no publicar.
+        serverPanoramaId: this.serverPanoramaId,
+        treatedUrl: this.treatedUrl,
+      },
       'confirm',
     );
   }
@@ -503,20 +577,79 @@ export class Capture360Component implements OnDestroy {
         // Lets an automated run diff the stitch against SimEnvironment.groundTruth.
         (window as unknown as Record<string, unknown>)['__captureResult'] = result;
       }
-      this.previewPanoramas.set([{
-        id: 'capture-preview',
-        roomName: '',
-        // Prévia local da captura: a foto ainda está só no navegador.
-        imageUrl: result.imageData,
-        order: 0,
-        initialPanorama: true,
-        originHotspots: [],
-        measurements: [],
-      }]);
-      this.state.set('preview');
+      this.originalImageData = result.imageData;
+      await this.tratarEEntao(result.imageData);
     } catch {
       this.fail('CAPTURE.STITCH_ERROR');
     }
+  }
+
+  /**
+   * Segura a tela enquanto a IA monta o cômodo, e só então mostra a foto.
+   *
+   * É esta espera que faz o corretor ver o resultado BOM no momento em que ele
+   * está olhando — logo depois de girar 360° com o celular. Tratar em segundo
+   * plano escondia melhor a espera, mas entregava o panorama cru justamente no
+   * instante de maior atenção, e era por ele que o produto era julgado.
+   *
+   * O caminho sem `tratar` existe para a bancada de diagnóstico, que abre este
+   * modal fora do wizard.
+   */
+  private async tratarEEntao(costurado: string): Promise<void> {
+    const frames: CaptureFrameUpload[] = this.stitchedShots.map((shot, index) => ({
+      index,
+      blob: shot.frame.blob,
+      quaternion: shot.quaternion,
+    }));
+
+    if (!this.tratar || !frames.length) {
+      this.mostrarPreview(costurado);
+      return;
+    }
+
+    this.zone.run(() => this.state.set('treating'));
+    this.esperaDaIa = new AbortController();
+    try {
+      const r = await this.tratar({
+        imageData: costurado,
+        frames,
+        geometry: this.geometry,
+        sinal: this.esperaDaIa.signal,
+      });
+      this.serverPanoramaId = r?.panoramaId ?? null;
+      this.treatedUrl = r?.treatedUrl ?? '';
+    } catch {
+      this.treatedUrl = '';
+    } finally {
+      this.esperaDaIa = null;
+    }
+
+    this.zone.run(() => {
+      this.naoMelhorou.set(!this.treatedUrl);
+      // Mostra a tratada quando ela existe; o costurado é o fallback e segue
+      // guardado em `originalImageData` de qualquer forma.
+      this.mostrarPreview(this.treatedUrl || costurado);
+    });
+  }
+
+  /** Desiste da espera e segue com o panorama costurado. */
+  seguirSemMelhorar(): void {
+    this.esperaDaIa?.abort();
+  }
+
+  private mostrarPreview(imageUrl: string): void {
+    this.previewPanoramas.set([{
+      id: 'capture-preview',
+      roomName: '',
+      // Ou a dataURL local da costura, ou o `blob:` da tratada que veio do
+      // servidor. `urlDaImagem` reconhece os dois e devolve como estão.
+      imageUrl,
+      order: 0,
+      initialPanorama: true,
+      originHotspots: [],
+      measurements: [],
+    }]);
+    this.state.set('preview');
   }
 
   private fail(key: string): void {

@@ -462,3 +462,43 @@ ion-button.on-dark {
   outline: 2px solid #fff;
   outline-offset: 2px;
 }
+
+/* -- Espera da montagem por IA -------------------------------------------- */
+
+// A coruja já ocupa ~280px e traz o peso visual do painel. O `gap` menor puxa
+// o texto para perto dela, para os três lerem como um bloco só em vez de três
+// elementos soltos no meio da tela.
+.panel--ia {
+  gap: 4px;
+
+  h2 {
+    margin: 8px 0 0;
+    font-size: 19px;
+  }
+
+  // A saída da espera é deliberadamente discreta: existe para quem está com a
+  // rede ruim, não para ser o caminho normal.
+  ion-button {
+    width: auto;
+    margin-top: 4px;
+    --color: rgba(255, 255, 255, 0.62);
+    font-size: 13px;
+  }
+}
+
+// Fica acima da foto no preview, onde o olho já está.
+.capture-aviso {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 14px;
+  max-width: min(420px, calc(100% - 32px));
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12.5px;
+  text-align: center;
+}
