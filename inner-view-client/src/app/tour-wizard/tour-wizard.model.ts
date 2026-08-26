@@ -11,9 +11,10 @@ import type { PropertyPurpose, PropertyType } from '../models/property.model';
  * `feature/tour-wizard`, com as duas frentes cientes. É o único arquivo que
  * as duas leem e do qual as duas dependem.
  *
- * Nada aqui é o que o servidor guarda. Estes tipos existem só enquanto o
- * corretor preenche o wizard; a conversão para o payload da API acontece uma
- * vez, no publicar (`toCreateTourPayload`).
+ * Quase nada aqui é o que o servidor guarda: estes tipos existem enquanto o
+ * corretor preenche o wizard. As exceções são os campos `server*Id`, que são a
+ * ponte entre o rascunho em memória e as linhas que já subiram — sem eles não
+ * há como retomar uma captura nem reconciliar o que mudou.
  */
 
 /** Etapas do wizard. Não existe etapa 0 nem 4 — o sucesso é um estado à parte. */
@@ -29,8 +30,25 @@ export type WizardStep = 1 | 2 | 3;
  * imagem estática. Aqui não há conversão a fazer.
  */
 export interface WizardHotspot {
-  /** uuid local. Nunca é o id do servidor — hotspot só existe lá após publicar. */
+  /** uuid local. Nunca é o id do servidor — esse é o `serverId`. */
   id: string;
+  /**
+   * Id do hotspot no servidor, quando ele já foi gravado.
+   *
+   * Previsto em §4.2 desde o commit-zero — "preenchido no diff do publicar" —
+   * e nunca implementado, porque até agora o publicar apagava todos os
+   * hotspots do tour e recriava, e para isso não era preciso saber qual é
+   * qual.
+   *
+   * Apagar-e-recriar era aceitável rodando uma vez, no publicar: a janela sem
+   * hotspot no banco durava milissegundos e ninguém a via. Deixou de ser
+   * quando o salvamento passou a rodar a cada troca de etapa — uma queda de
+   * rede dentro dessa janela devolve o rascunho sem os pontos que o corretor
+   * marcou.
+   *
+   * Ausente em ponto recém-criado e em cena que nunca foi salva.
+   */
+  serverId?: string;
   /** 0–1, longitude na projeção equirretangular. */
   u: number;
   /** 0–1, latitude na projeção equirretangular. */
@@ -94,7 +112,19 @@ export interface WizardScene {
   room: string;
   fileName: string;
   fileSize: number;
-  /** dataURL — mesmo formato que `PanoramaUpload.imageData` espera. */
+  /**
+   * dataURL — mesmo formato que `PanoramaUpload.imageData` espera.
+   *
+   * **Vazio numa cena retomada**, até alguém precisar da foto. O rascunho lido
+   * do servidor traz os cômodos sem imagem de propósito: a equirect é TOAST de
+   * dezenas de MB e reidratar seis deles no 4G, antes de mostrar qualquer
+   * coisa, seria pior do que não retomar. A foto chega por URL, sob demanda,
+   * pelo `PanoramaImageCache`.
+   *
+   * Logo: `imageData` vazio **e** `serverPanoramaId` presente é uma cena
+   * íntegra, não uma cena quebrada. Quem consumir este campo precisa dos dois
+   * para decidir.
+   */
   imageData: string;
   /** 0 é a capa. */
   order: number;
