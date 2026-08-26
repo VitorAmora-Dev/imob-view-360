@@ -1644,4 +1644,60 @@ describe('TourDraftStore (contrato)', () => {
       expect(obter).not.toHaveBeenCalled();
     });
   });
+
+  /**
+   * `descartarRascunho` joga fora a captura em andamento — o botão que a
+   * Tarefa 9 pediu de par com "retomar". Apaga o IMÓVEL, não o tour: ver o
+   * comentário do método na implementação para a razão inteira (cascade e o
+   * filtro da listagem).
+   */
+  describe('descartarRascunho', () => {
+    it('descartar apaga o IMÓVEL, não o tour', async () => {
+      // Imóvel sem tour nenhum passa pelo filtro da listagem: ele esconde
+      // quem tem tour DRAFT, não quem não tem tour. Apagar só o tour deixaria
+      // no catálogo a linha vazia "Captura em andamento" que aquele filtro
+      // existe para evitar. `Property` é onDelete: Cascade, então uma chamada
+      // basta.
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1' }));
+      comRascunhoCriado(store);
+      const apagarImovel = spyOn(TestBed.inject(PropertyService), 'deleteProperty')
+        .and.returnValue(of(undefined) as ReturnType<PropertyService['deleteProperty']>);
+      const apagarTour = spyOn(TestBed.inject(VirtualTourService), 'deleteTour')
+        .and.returnValue(of(undefined) as ReturnType<VirtualTourService['deleteTour']>);
+
+      await store.descartarRascunho();
+
+      expect(apagarImovel).toHaveBeenCalledWith('imovel-1');
+      expect(apagarTour).not.toHaveBeenCalled();
+    });
+
+    it('descartar limpa o wizard e solta os blobs', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1' }));
+      comRascunhoCriado(store);
+      spyOn(TestBed.inject(PropertyService), 'deleteProperty').and.returnValue(
+        of(undefined) as ReturnType<PropertyService['deleteProperty']>,
+      );
+      const liberar = spyOn(TestBed.inject(PanoramaImageCache), 'liberar');
+
+      await store.descartarRascunho();
+
+      expect(store.scenes()).toEqual([]);
+      expect(store.rascunhoTourId()).toBeNull();
+      expect(store.rascunhoPropertyId()).toBeNull();
+      expect(liberar).toHaveBeenCalled();
+    });
+
+    it('descartar um rascunho que nunca subiu não chama a rede', async () => {
+      // Sem `rascunhoPropertyId` não há imóvel nenhum no servidor — a etapa 1
+      // ainda não tirou a primeira foto. Chamar `deleteProperty` aqui seria
+      // apagar um id que não existe.
+      const store = newStore();
+      const apagarImovel = spyOn(TestBed.inject(PropertyService), 'deleteProperty')
+        .and.returnValue(of(undefined) as ReturnType<PropertyService['deleteProperty']>);
+
+      await store.descartarRascunho();
+
+      expect(apagarImovel).not.toHaveBeenCalled();
+    });
+  });
 });

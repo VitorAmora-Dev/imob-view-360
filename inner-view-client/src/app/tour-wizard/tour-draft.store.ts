@@ -1095,6 +1095,25 @@ export class TourDraftStore {
     }
   }
 
+  /**
+   * Joga fora a captura em andamento.
+   *
+   * Apaga o **imóvel**, não o tour. `VirtualTour.property` é
+   * `onDelete: Cascade`, então uma chamada derruba tour, panoramas, hotspots e
+   * frames de uma vez — e apagar só o tour deixaria para trás um imóvel órfão
+   * chamado "Captura em andamento". Imóvel sem tour nenhum passa pelo filtro
+   * da listagem, que esconde quem tem tour DRAFT e não quem não tem tour: o
+   * descarte pela metade apareceria no catálogo como a linha vazia que aquele
+   * filtro existe para evitar.
+   */
+  async descartarRascunho(): Promise<void> {
+    const propertyId = this.rascunhoPropertyId();
+    if (propertyId) {
+      await firstValueFrom(this.propertyService.deleteProperty(propertyId));
+    }
+    this.reset();
+  }
+
   /** "Criar outro tour": volta tudo ao estado inicial. */
   reset(): void {
     // Mesma razão do `removeScene`: os blobs das imagens tratadas não somem
@@ -1102,6 +1121,10 @@ export class TourDraftStore {
     for (const scene of this.scenes()) {
       if (scene.treatedImageUrl) URL.revokeObjectURL(scene.treatedImageUrl);
     }
+    // As cenas retomadas que já chegaram a pedir a própria foto (Tarefa 10)
+    // guardam o `blob:` no cache, não na cena — soltar aqui é o que falta
+    // para nenhum dos dois jeitos de imagem sobreviver ao reset.
+    this.imagens.liberar();
     this.step.set(1);
     this.scenes.set([]);
     this.selectedSceneId.set(null);
