@@ -181,7 +181,7 @@ solta (`hotspotsNoServidor`) que não diz qual id corresponde a qual ponto.
 só por PR para `feature/tour-wizard`, com as duas frentes cientes. Esta task
 precisa de:
 
-- `WizardHotspot.serverHotspotId?: string` — para a reconciliação incremental.
+- `WizardHotspot.serverId?: string` — para a reconciliação incremental.
 - `WizardScene.imageData` passa a admitir string vazia numa cena `ready`, que
   hoje é contradição: cena retomada tem a foto no servidor e nada em memória até
   alguém precisar dela. Em vez de um campo booleano novo, a condição vira

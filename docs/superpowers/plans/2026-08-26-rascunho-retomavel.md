@@ -12,7 +12,8 @@
 
 ## Global Constraints
 
-- **`tour-wizard.model.ts` é CONGELADO** (SPRINT-3-TOUR-WIZARD.md §4.2): mudança só por PR para `feature/tour-wizard`, com as duas frentes cientes. A Tarefa 3 é essa mudança e deve virar PR próprio.
+- **`tour-wizard.model.ts` é CONGELADO** (SPRINT-3-TOUR-WIZARD.md §4.2; §7 diz "PR à integração"). Mas o campo de que este plano precisa — `WizardHotspot.serverId` — **já está no contrato congelado**, descrito lá como "preenchido no diff do publicar": o código é que nunca o implementou. A Tarefa 3 alinha o código ao contrato, não altera o contrato. Segue como commit próprio, marcado `[CONGELADO]` no assunto, que é o precedente dos commits anteriores neste arquivo.
+- **Mapa de propriedade (§7)** — dois arquivos deste plano têm dono declarado: `virtual-tour.service.ts` é da **Frente A** (Tarefa 4) e `steps/step-hotspots/**` é da **Frente B** (Tarefa 10). O documento fala em frentes, não em pessoas; conferir quem está em cada uma hoje antes de abrir os PRs.
 - **Nunca rodar `yarn lint` no `server-api`.** O script tem `--fix` embutido e reescreve o repositório inteiro. Para conferir: `npx eslint <arquivos>` sem a flag.
 - **Cliente é Karma + Jasmine, não Jest.** Mock por `spyOn` no serviço injetado devolvendo `of(...)`. Nunca `HttpTestingController.expectOne`.
 - **Servidor: services instanciados à mão**, sem `Test.createTestingModule`. Padrão em `test/rascunho-de-captura.spec.ts`.
@@ -53,7 +54,7 @@
 **Cliente — modificar**
 | Arquivo | Mudança |
 |---|---|
-| `src/app/tour-wizard/tour-wizard.model.ts` | `serverHotspotId`, doc de `imageData` (CONGELADO) |
+| `src/app/tour-wizard/tour-wizard.model.ts` | `serverId`, doc de `imageData` (CONGELADO) |
 | `src/app/services/virtual-tour.service.ts` | `listarRascunhos`, `lerRascunho`, `atualizarHotspot` |
 | `src/app/tour-wizard/tour-draft.store.ts` | `salvarRascunho`, `retomarRascunho`, `descartarRascunho`, `garantirImagem`, reconciliação de hotspot |
 | `src/app/tour-wizard/steps/step-hotspots/step-hotspots.component.ts` | Pedir a foto de cena retomada |
@@ -647,13 +648,17 @@ git commit -m "feat(api): ler rascunho para reidratar o wizard, e 30 dias no swe
 
 ### Task 3: Modelo congelado — campos para a retomada
 
-> **PR PRÓPRIO.** `tour-wizard.model.ts` é congelado (SPRINT-3-TOUR-WIZARD.md §4.2): PR para `feature/tour-wizard`, com as duas frentes cientes. **Não começar a Tarefa 4 antes deste PR estar alinhado.**
+> **Arquivo congelado, mas o campo já é do contrato.** §4.2 do SPRINT-3-TOUR-WIZARD.md declara `serverId?: string` em `WizardHotspot`, com o comentário "preenchido no diff do publicar" — o campo foi desenhado e nunca implementado. Esta tarefa alinha o código ao contrato; ela **não** precisa de renegociação entre as frentes.
+>
+> O que ela precisa é do rito de §7 ("PR à integração"): commit próprio, assunto marcado `[CONGELADO]`, como no commit `refactor(tour-wizard)!: proporção 2:1 vira aviso, não recusa [CONGELADO]` que já está no histórico deste arquivo.
+>
+> A mudança em `imageData` é só de comentário — o tipo não muda.
 
 **Files:**
 - Modify: `inner-view-client/src/app/tour-wizard/tour-wizard.model.ts`
 
 **Interfaces:**
-- Produces: `WizardHotspot.serverHotspotId?: string`
+- Produces: `WizardHotspot.serverId?: string`
 
 - [ ] **Step 1: Acrescentar o id do servidor no hotspot**
 
@@ -663,15 +668,20 @@ Em `WizardHotspot`, depois do campo `id`, acrescentar:
   /**
    * Id do hotspot no servidor, quando ele já foi gravado.
    *
-   * Existe para a reconciliação ser incremental. Antes, salvar apagava TODOS
-   * os hotspots do tour e recriava — o que era aceitável rodando uma vez, no
-   * publicar, e deixou de ser quando o salvamento passou a rodar a cada troca
-   * de etapa: uma queda de rede dentro daquela janela devolvia o rascunho sem
-   * os pontos que o corretor marcou.
+   * Previsto em §4.2 desde o commit-zero — "preenchido no diff do publicar" —
+   * e nunca implementado, porque até agora o publicar apagava todos os
+   * hotspots do tour e recriava, e para isso não era preciso saber qual é
+   * qual.
+   *
+   * Apagar-e-recriar era aceitável rodando uma vez, no publicar: a janela sem
+   * hotspot no banco durava milissegundos e ninguém a via. Deixou de ser
+   * quando o salvamento passou a rodar a cada troca de etapa — uma queda de
+   * rede dentro dessa janela devolve o rascunho sem os pontos que o corretor
+   * marcou.
    *
    * Ausente em ponto recém-criado e em cena que nunca foi salva.
    */
-  serverHotspotId?: string;
+  serverId?: string;
 ```
 
 E corrigir o comentário do campo `id` logo acima, que hoje afirma o contrário:
@@ -681,7 +691,7 @@ E corrigir o comentário do campo `id` logo acima, que hoje afirma o contrário:
 ```
 vira
 ```ts
-  /** uuid local. Nunca é o id do servidor — esse é o `serverHotspotId`. */
+  /** uuid local. Nunca é o id do servidor — esse é o `serverId`. */
 ```
 
 - [ ] **Step 2: Documentar o estado novo de `imageData`**
@@ -730,7 +740,7 @@ Expected: sem erro — os dois campos são opcionais e nada existente quebra.
 
 ```bash
 git add inner-view-client/src/app/tour-wizard/tour-wizard.model.ts
-git commit -m "feat(wizard): serverHotspotId e cena retomada sem imageData
+git commit -m "feat(wizard): serverId e cena retomada sem imageData
 
 CONGELADO (SPRINT-3-TOUR-WIZARD.md §4.2) — abrir PR para feature/tour-wizard."
 ```
@@ -858,7 +868,7 @@ Em `inner-view-client/src/app/services/virtual-tour.service.ts`, acrescentar as 
    * Move ou renomeia um hotspot que já existe no servidor.
    *
    * Existe para o salvamento não precisar apagar e recriar. Ver
-   * `WizardHotspot.serverHotspotId`.
+   * `WizardHotspot.serverId`.
    */
   atualizarHotspot(
     id: string,
@@ -1024,7 +1034,7 @@ E os helpers, no topo do `describe` — são usados pelas Tarefas 5 a 11:
   }
 ```
 
-> **Atenção ao `removerHotspot`:** ele descarta o ponto e, com ele, o `serverHotspotId`. É exatamente o caso que a Tarefa 7 resolve com a lista `hotspotsParaApagar` — o helper aqui imita a remoção real da UI, então a Tarefa 7 precisa ligar essa pilha **dentro do `removeHotspot` do store**, não neste helper. Se a UI remover por outro caminho, ajustar o helper para chamar o método real do store.
+> **Atenção ao `removerHotspot`:** ele descarta o ponto e, com ele, o `serverId`. É exatamente o caso que a Tarefa 7 resolve com a lista `hotspotsParaApagar` — o helper aqui imita a remoção real da UI, então a Tarefa 7 precisa ligar essa pilha **dentro do `removeHotspot` do store**, não neste helper. Se a UI remover por outro caminho, ajustar o helper para chamar o método real do store.
 
 - [ ] **Step 2: Rodar e confirmar que falha**
 
@@ -1211,7 +1221,7 @@ git commit -m "fix(client): não mandar PATCH de imóvel vazio ao salvar rascunh
 - Modify: `inner-view-client/src/app/tour-wizard/tour-draft.store.spec.ts`
 
 **Interfaces:**
-- Consumes: `WizardHotspot.serverHotspotId` (Tarefa 3), `atualizarHotspot` (Tarefa 4)
+- Consumes: `WizardHotspot.serverId` (Tarefa 3), `atualizarHotspot` (Tarefa 4)
 - Produces: o campo privado `hotspotsNoServidor` deixa de existir — o id passa a viver em cada `WizardHotspot`
 
 - [ ] **Step 1: Escrever os testes que falham**
@@ -1284,7 +1294,7 @@ git commit -m "fix(client): não mandar PATCH de imóvel vazio ao salvar rascunh
     await store.salvarRascunho();
 
     const ponto = store.scenes().find((s) => s.id === 's1')!.hotspots[0];
-    expect(ponto.serverHotspotId).toBe('h-srv');
+    expect(ponto.serverId).toBe('h-srv');
   });
 ```
 
@@ -1322,10 +1332,10 @@ Em `salvarRascunho()`, substituir o laço de apagar-tudo-e-recriar por:
             ...(h.label ? { label: h.label } : {}),
           };
 
-          if (h.serverHotspotId) {
-            vivos.add(h.serverHotspotId);
+          if (h.serverId) {
+            vivos.add(h.serverId);
             await firstValueFrom(
-              this.virtualTourService.atualizarHotspot(h.serverHotspotId, dados),
+              this.virtualTourService.atualizarHotspot(h.serverId, dados),
             );
             continue;
           }
@@ -1343,7 +1353,7 @@ Em `salvarRascunho()`, substituir o laço de apagar-tudo-e-recriar por:
           this.patchScene(scene.id, (s) => ({
             ...s,
             hotspots: s.hotspots.map((x) =>
-              x.id === h.id ? { ...x, serverHotspotId: criado.id } : x,
+              x.id === h.id ? { ...x, serverId: criado.id } : x,
             ),
           }));
         }
@@ -1352,16 +1362,16 @@ Em `salvarRascunho()`, substituir o laço de apagar-tudo-e-recriar por:
       // Só o que sumiu de verdade.
       for (const scene of cenasFinais) {
         for (const h of scene.hotspots) {
-          if (h.serverHotspotId && !vivos.has(h.serverHotspotId)) {
+          if (h.serverId && !vivos.has(h.serverId)) {
             await firstValueFrom(
-              this.virtualTourService.deleteHotspot(h.serverHotspotId),
+              this.virtualTourService.deleteHotspot(h.serverId),
             ).catch(() => undefined);
           }
         }
       }
 ```
 
-> **Ponto que exige cuidado:** o laço de exclusão acima só alcança hotspot que ainda está em `scenes()`. Um ponto **removido da tela** já não está lá, e seu id do servidor iria embora junto. Por isso `removeHotspot` (e `removeScene`) precisam empilhar o `serverHotspotId` removido numa lista `hotspotsParaApagar: signal<string[]>`, consumida e esvaziada aqui. Implementar isso no mesmo passo.
+> **Ponto que exige cuidado:** o laço de exclusão acima só alcança hotspot que ainda está em `scenes()`. Um ponto **removido da tela** já não está lá, e seu id do servidor iria embora junto. Por isso `removeHotspot` (e `removeScene`) precisam empilhar o `serverId` removido numa lista `hotspotsParaApagar: signal<string[]>`, consumida e esvaziada aqui. Implementar isso no mesmo passo.
 
 - [ ] **Step 4: Apagar `hotspotsNoServidor`**
 
@@ -1639,7 +1649,7 @@ git commit -m "feat(client): cache de imagem de panorama, dono dos blobs"
     const sala = store.scenes()[0];
     const quarto = store.scenes()[1];
     expect(sala.hotspots[0].target).toBe(quarto.id);
-    expect(sala.hotspots[0].serverHotspotId).toBe('h1');
+    expect(sala.hotspots[0].serverId).toBe('h1');
   });
 
   it('a cena retomada guarda o id do servidor e fica sem imageData', async () => {
@@ -1719,7 +1729,7 @@ Em `tour-draft.store.ts`:
         v: h.positionY,
         label: h.label ?? '',
         target: porPanoramaId.get(h.targetId) ?? null,
-        serverHotspotId: h.id,
+        serverId: h.id,
       }));
     }
 
