@@ -52,6 +52,34 @@ describe('TourDraftStore (contrato)', () => {
     return store;
   }
 
+  /**
+   * Preenche os ids do rascunho à mão, como se `garantirRascunho()` já tivesse
+   * criado o imóvel e o tour.
+   *
+   * Os casos de `salvarRascunho` testam o salvamento em si, não a criação do
+   * rascunho — passar por `garantirRascunho()` de verdade obrigaria a mockar
+   * `createProperty` e `createTour` em cada um deles.
+   */
+  function comRascunhoCriado(store: TourDraftStore): void {
+    store.rascunhoTourId.set('tour-1');
+    store.rascunhoPropertyId.set('imovel-1');
+  }
+
+  /** Liga `origem` a `destino`, como o clique do editor de hotspots faz. */
+  function ligarHotspot(
+    store: TourDraftStore,
+    origemId: string,
+    destinoId: string,
+  ): void {
+    store.patchScene(origemId, (s) => ({
+      ...s,
+      hotspots: [
+        ...s.hotspots,
+        { id: `h-${origemId}-${destinoId}`, u: 0.5, v: 0.5, label: '', target: destinoId },
+      ],
+    }));
+  }
+
   describe('a regra bloqueante da etapa 1', () => {
     it('não avança sem nenhuma imagem', () => {
       const store = newStore();
@@ -721,6 +749,90 @@ describe('TourDraftStore (contrato)', () => {
 
       const r = await store.tratarCaptura(captura());
       expect(r?.treatedUrl).toBe('blob:tratada');
+    });
+  });
+
+  describe('salvarRascunho', () => {
+    it('grava nome, ordem e capa sem publicar', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      // Precisa de dublê mesmo sem ser o alvo do teste: sem ele a chamada real
+      // cairia no `provideHttpClientTesting()` e o teste travaria até estourar
+      // o tempo, em vez de falhar pela asserção.
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      const publicar = spyOn(tours, 'publicarTour').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['publicarTour']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(patch).toHaveBeenCalledWith('p1', {
+        roomName: 'Sala',
+        order: 0,
+        initialPanorama: true,
+      });
+      // O que separa salvar de publicar é exatamente esta linha.
+      expect(publicar).not.toHaveBeenCalled();
+    });
+
+    /**
+     * `publish()` passou a chamar `salvarRascunho()` por dentro. Este caso
+     * prova que a composição dos dois não inventou um caminho novo: chamar
+     * `salvarRascunho()` e depois `publish()` sincroniza os hotspots duas
+     * vezes — uma em cada chamada — e cada sincronização apaga o que a
+     * anterior criou antes de recriar, exatamente como já acontecia entre
+     * duas tentativas de publicar (ver 'não duplica os pontos de passagem
+     * quando a tentativa se repete', acima). O servidor nunca chega a ter
+     * mais de um hotspot ativo ao mesmo tempo.
+     */
+    it('publicar depois de salvar não deixa hotspot duplicado no servidor', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+      );
+      comRascunhoCriado(store);
+      ligarHotspot(store, 's1', 's2');
+      store.patchProperty({
+        name: 'Apartamento Vila Mariana',
+        type: 'APARTMENT',
+        purpose: 'SALE',
+      });
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      const criar = spyOn(tours, 'createHotspot').and.returnValue(
+        of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      spyOn(tours, 'publicarTour').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['publicarTour']>,
+      );
+
+      await store.salvarRascunho();
+      expect(criar).toHaveBeenCalledTimes(1);
+
+      await store.publish();
+
+      // A segunda sincronização apaga o hotspot da primeira antes de recriar:
+      // nunca existem dois pontos para uma ligação só.
+      expect(apagar).toHaveBeenCalledWith('h-srv');
+      expect(apagar).toHaveBeenCalledTimes(1);
+      expect(criar).toHaveBeenCalledTimes(2);
+      expect(store.published()).toBe(true);
     });
   });
 

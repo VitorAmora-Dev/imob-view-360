@@ -691,14 +691,159 @@ export class TourDraftStore {
   readonly publishError = signal<string | null>(null);
 
   /**
-   * Fecha o tour: grava os dados do imóvel, liga os pontos de passagem e
-   * publica.
+   * Grava no servidor o que hoje só existe na memória do wizard.
    *
-   * Curto porque o trabalho pesado já aconteceu. Os panoramas e as fotos
-   * originais subiram durante a captura, cômodo a cômodo, e a montagem por IA
-   * rodou junto. O que sobra aqui é o que só existe no fim: o formulário do
-   * imóvel, os hotspots — que dependem de todos os ambientes existirem — e a
-   * troca de status.
+   * É o miolo do `publish()`, extraído. O corretor perdia o nome dos cômodos,
+   * os hotspots e os dados do imóvel ao tocar em voltar ou recarregar, porque
+   * essas três coisas só subiam no publicar — enquanto as fotos e o
+   * tratamento por IA, que são o caro, já subiam durante a captura.
+   *
+   * Chamado de três lugares: ao publicar, ao sair do wizard, e quando o app
+   * vai para segundo plano. Publicar exercitar o mesmo caminho é de propósito:
+   * é o que impede o salvamento de apodrecer sem ninguém notar.
+   *
+   * Lança em falha de rede. Quem chama decide — publicar aborta, sair não.
+   */
+  async salvarRascunho(): Promise<void> {
+    // Sem espera de fila: cada cômodo já subiu e foi tratado dentro do modal
+    // de captura, antes mesmo de o corretor dar nome a ele.
+    const tourId = await this.garantirRascunho();
+    const prontas = this.readyScenes();
+
+    // Cena vinda de arquivo nunca passou pelo envio em segundo plano, porque
+    // não tem fotos originais e não haveria o que a IA tratar. Ela entra
+    // aqui, no mesmo caminho, só que sem montagem.
+    for (const [ordem, scene] of prontas.entries()) {
+      if (scene.serverPanoramaId) continue;
+      const panorama = await firstValueFrom(
+        this.virtualTourService.addPanorama(tourId, {
+          roomName: scene.room.trim() || scene.fileName,
+          imageData: scene.imageData,
+          order: ordem,
+          initialPanorama: ordem === 0,
+          ...(scene.geometry ?? {}),
+        }),
+      );
+      this.patchScene(scene.id, (s) => ({ ...s, serverPanoramaId: panorama.id }));
+    }
+
+    // Reconcilia o que mudou depois de o panorama já estar no servidor. O
+    // `order` foi gravado na hora da captura e sai do lugar quando o corretor
+    // remove um ambiente ou renomeia outro; sem isto o tour publicado abriria
+    // por um cômodo que não é a capa, com nomes velhos.
+    //
+    // Sem `imageData` de propósito: o servidor lê foto nova como refotografia
+    // e zera o tratamento junto, jogando fora uma montagem já paga.
+    const cenasFinais = this.readyScenes();
+    await Promise.all(
+      cenasFinais.map((scene, ordem) => {
+        const id = scene.serverPanoramaId;
+        if (!id) return Promise.resolve(null);
+        return firstValueFrom(
+          this.virtualTourService.atualizarPanorama(id, {
+            roomName: scene.room.trim() || scene.fileName,
+            order: ordem,
+            initialPanorama: ordem === 0,
+          }),
+        );
+      }),
+    );
+
+    // Hotspots só agora: eles ligam um ambiente a outro, e o destino precisa
+    // existir no servidor. Durante a captura, metade deles apontaria para um
+    // cômodo ainda não fotografado.
+    const porCena = new Map(cenasFinais.map((s) => [s.id, s.serverPanoramaId]));
+    const ligacoes: Array<{
+      panoramaId: string;
+      targetId: string;
+      positionX: number;
+      positionY: number;
+      label?: string;
+    }> = [];
+    let descartados = 0;
+
+    for (const scene of cenasFinais) {
+      const origem = porCena.get(scene.id);
+      for (const h of scene.hotspots) {
+        const destino = h.target ? porCena.get(h.target) : undefined;
+        // Ponto sem destino é inerte: some do viewer do visitante e ninguém
+        // entende por quê. Descartar e avisar é melhor que publicar morto.
+        if (!origem || !destino) {
+          descartados++;
+          continue;
+        }
+        ligacoes.push({
+          panoramaId: origem,
+          targetId: destino,
+          positionX: h.u,
+          positionY: h.v,
+          ...(h.label.trim() ? { label: h.label.trim() } : {}),
+        });
+      }
+    }
+    this.discardedHotspots.set(descartados);
+
+    // Apaga o que uma tentativa anterior já tinha criado, e recria do zero.
+    //
+    // `createHotspot` não é idempotente: cada chamada insere uma linha. Como
+    // os passos abaixo — dados do imóvel e publicar — podem falhar depois
+    // deste ponto, e o botão volta a ficar clicável, um segundo clique
+    // publicava o tour com cada ponto de passagem duplicado. O código antigo
+    // não tinha o problema porque os hotspots subiam dentro da transação que
+    // criava o tour; foi quebrar o publicar em passos que abriu o buraco.
+    //
+    // Apagar e recriar, em vez de pular os que já existem: entre a falha e o
+    // retry o corretor pode ter apagado ou movido um ponto na etapa 2, e só
+    // recriando o tour publicado reflete o que ele está vendo na tela. São
+    // poucos pontos por tour, e na primeira tentativa esta lista é vazia.
+    for (const id of this.hotspotsNoServidor()) {
+      // Falha aqui é benigna: um ponto órfão a mais é melhor que abortar a
+      // publicação inteira. O `catch` evita que isso derrube o retry.
+      await firstValueFrom(this.virtualTourService.deleteHotspot(id)).catch(
+        () => undefined,
+      );
+    }
+    this.hotspotsNoServidor.set([]);
+
+    for (const ligacao of ligacoes) {
+      const criado = await firstValueFrom(
+        this.virtualTourService.createHotspot(ligacao),
+      );
+      // Registrado UM A UM, e não em lote no fim: se o laço morrer no meio,
+      // o retry precisa saber exatamente o que já entrou para poder apagar.
+      this.hotspotsNoServidor.update((ids) => [...ids, criado.id]);
+    }
+
+    const p = this.property();
+    await firstValueFrom(
+      this.propertyService.updateProperty(this.rascunhoPropertyId()!, {
+        title: p.name.trim(),
+        type: p.type as string,
+        purpose: p.purpose as string,
+        ...(this.addressTouched()
+          ? {
+              address: {
+                street: p.address.street.trim(),
+                number: p.address.number.trim() || undefined,
+                complement: p.address.complement.trim() || undefined,
+                district: p.address.district.trim() || undefined,
+                city: p.address.city.trim(),
+                state: p.address.state.trim().toUpperCase(),
+                zipCode: p.address.zip.replace(/\D/g, '') || undefined,
+              },
+            }
+          : {}),
+      }),
+    );
+  }
+
+  /**
+   * Fecha o tour: garante que tudo o que está na tela foi salvo, e publica.
+   *
+   * Curto porque o trabalho pesado já não é dele — `salvarRascunho()` cuida do
+   * formulário do imóvel, dos hotspots e da reconciliação dos panoramas. O que
+   * sobra aqui é só a troca de status, que é o único passo que torna o tour
+   * visível fora da imobiliária.
    *
    * Ambiente ainda em montagem NÃO segura a publicação. O tratamento termina no
    * servidor, e `GET /panoramas/:id/image` passa a servir a imagem tratada
@@ -718,143 +863,16 @@ export class TourDraftStore {
     this.publishing.set(true);
     this.publishError.set(null);
     try {
-      // Sem espera de fila: cada cômodo já subiu e foi tratado dentro do modal
-      // de captura, antes mesmo de o corretor dar nome a ele.
-      const tourId = await this.garantirRascunho();
-      const prontas = this.readyScenes();
-
-      // Cena vinda de arquivo nunca passou pelo envio em segundo plano, porque
-      // não tem fotos originais e não haveria o que a IA tratar. Ela entra
-      // aqui, no mesmo caminho, só que sem montagem.
-      for (const [ordem, scene] of prontas.entries()) {
-        if (scene.serverPanoramaId) continue;
-        const panorama = await firstValueFrom(
-          this.virtualTourService.addPanorama(tourId, {
-            roomName: scene.room.trim() || scene.fileName,
-            imageData: scene.imageData,
-            order: ordem,
-            initialPanorama: ordem === 0,
-            ...(scene.geometry ?? {}),
-          }),
-        );
-        this.patchScene(scene.id, (s) => ({ ...s, serverPanoramaId: panorama.id }));
-      }
-
-      // Reconcilia o que mudou depois de o panorama já estar no servidor. O
-      // `order` foi gravado na hora da captura e sai do lugar quando o corretor
-      // remove um ambiente ou renomeia outro; sem isto o tour publicado abriria
-      // por um cômodo que não é a capa, com nomes velhos.
-      //
-      // Sem `imageData` de propósito: o servidor lê foto nova como refotografia
-      // e zera o tratamento junto, jogando fora uma montagem já paga.
-      const cenasFinais = this.readyScenes();
-      await Promise.all(
-        cenasFinais.map((scene, ordem) => {
-          const id = scene.serverPanoramaId;
-          if (!id) return Promise.resolve(null);
-          return firstValueFrom(
-            this.virtualTourService.atualizarPanorama(id, {
-              roomName: scene.room.trim() || scene.fileName,
-              order: ordem,
-              initialPanorama: ordem === 0,
-            }),
-          );
-        }),
-      );
-
-      // Hotspots só agora: eles ligam um ambiente a outro, e o destino precisa
-      // existir no servidor. Durante a captura, metade deles apontaria para um
-      // cômodo ainda não fotografado.
-      const porCena = new Map(cenasFinais.map((s) => [s.id, s.serverPanoramaId]));
-      const ligacoes: Array<{
-        panoramaId: string;
-        targetId: string;
-        positionX: number;
-        positionY: number;
-        label?: string;
-      }> = [];
-      let descartados = 0;
-
-      for (const scene of cenasFinais) {
-        const origem = porCena.get(scene.id);
-        for (const h of scene.hotspots) {
-          const destino = h.target ? porCena.get(h.target) : undefined;
-          // Ponto sem destino é inerte: some do viewer do visitante e ninguém
-          // entende por quê. Descartar e avisar é melhor que publicar morto.
-          if (!origem || !destino) {
-            descartados++;
-            continue;
-          }
-          ligacoes.push({
-            panoramaId: origem,
-            targetId: destino,
-            positionX: h.u,
-            positionY: h.v,
-            ...(h.label.trim() ? { label: h.label.trim() } : {}),
-          });
-        }
-      }
-      this.discardedHotspots.set(descartados);
-
-      // Apaga o que uma tentativa anterior já tinha criado, e recria do zero.
-      //
-      // `createHotspot` não é idempotente: cada chamada insere uma linha. Como
-      // os passos abaixo — dados do imóvel e publicar — podem falhar depois
-      // deste ponto, e o botão volta a ficar clicável, um segundo clique
-      // publicava o tour com cada ponto de passagem duplicado. O código antigo
-      // não tinha o problema porque os hotspots subiam dentro da transação que
-      // criava o tour; foi quebrar o publicar em passos que abriu o buraco.
-      //
-      // Apagar e recriar, em vez de pular os que já existem: entre a falha e o
-      // retry o corretor pode ter apagado ou movido um ponto na etapa 2, e só
-      // recriando o tour publicado reflete o que ele está vendo na tela. São
-      // poucos pontos por tour, e na primeira tentativa esta lista é vazia.
-      for (const id of this.hotspotsNoServidor()) {
-        // Falha aqui é benigna: um ponto órfão a mais é melhor que abortar a
-        // publicação inteira. O `catch` evita que isso derrube o retry.
-        await firstValueFrom(this.virtualTourService.deleteHotspot(id)).catch(
-          () => undefined,
-        );
-      }
-      this.hotspotsNoServidor.set([]);
-
-      for (const ligacao of ligacoes) {
-        const criado = await firstValueFrom(
-          this.virtualTourService.createHotspot(ligacao),
-        );
-        // Registrado UM A UM, e não em lote no fim: se o laço morrer no meio,
-        // o retry precisa saber exatamente o que já entrou para poder apagar.
-        this.hotspotsNoServidor.update((ids) => [...ids, criado.id]);
-      }
-
-      const p = this.property();
-      await firstValueFrom(
-        this.propertyService.updateProperty(this.rascunhoPropertyId()!, {
-          title: p.name.trim(),
-          type: p.type as string,
-          purpose: p.purpose as string,
-          ...(this.addressTouched()
-            ? {
-                address: {
-                  street: p.address.street.trim(),
-                  number: p.address.number.trim() || undefined,
-                  complement: p.address.complement.trim() || undefined,
-                  district: p.address.district.trim() || undefined,
-                  city: p.address.city.trim(),
-                  state: p.address.state.trim().toUpperCase(),
-                  zipCode: p.address.zip.replace(/\D/g, '') || undefined,
-                },
-              }
-            : {}),
-        }),
-      );
+      await this.salvarRascunho();
 
       // Por último: até esta linha nada é visível fora da imobiliária. Se algo
       // acima falhar, o rascunho continua rascunho e o retry reaproveita tudo o
       // que já subiu, em vez de duplicar imóvel a cada tentativa.
-      await firstValueFrom(this.virtualTourService.publicarTour(tourId));
+      await firstValueFrom(
+        this.virtualTourService.publicarTour(this.rascunhoTourId()!),
+      );
 
-      this.publishedTourId.set(tourId);
+      this.publishedTourId.set(this.rascunhoTourId());
       this.publishedPropertyId.set(this.rascunhoPropertyId());
       this.published.set(true);
     } catch (error) {
