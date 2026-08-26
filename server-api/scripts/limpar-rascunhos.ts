@@ -12,13 +12,17 @@ import { PrismaClient } from '../generated/prisma/client';
  *
  *   yarn limpar-rascunhos                  # o que seria apagado, sem apagar
  *   yarn limpar-rascunhos --apagar         # apaga de verdade
- *   yarn limpar-rascunhos --dias=3         # outra idade de corte (padrão: 7)
+ *   yarn limpar-rascunhos --dias=3         # outra idade de corte (padrão: 30)
  *
  * Seco por padrão. Um comando que apaga dado de cliente não pode ter o caminho
  * destrutivo como o mais fácil de digitar por engano.
  */
 
-const DIAS_PADRAO = 7;
+// 30 dias, e não 7. Enquanto o rascunho era invisível, varrer cedo era higiene:
+// ninguém sentia falta do que não sabia que existia. Agora ele aparece numa
+// faixa na home, e o mesmo script passa a apagar o que o corretor acha que
+// guardou — uma captura de sexta, retomada só depois das férias, cabe em 30.
+const DIAS_PADRAO = 30;
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL ?? '',

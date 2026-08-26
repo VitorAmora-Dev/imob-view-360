@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CreateVirtualTourController } from './controllers/create-virtual-tour.controller';
 import { DeleteVirtualTourController } from './controllers/delete-virtual-tour.controller';
+import { FindDraftTourController } from './controllers/find-draft-tour.controller';
 import { FindVirtualTourController } from './controllers/find-virtual-tour.controller';
 import { GetAnalyticsController } from './controllers/get-analytics.controller';
 import { GetThumbnailController } from './controllers/get-thumbnail.controller';
@@ -9,6 +10,7 @@ import { RecordViewController } from './controllers/record-view.controller';
 import { UpdateVirtualTourController } from './controllers/update-virtual-tour.controller';
 import { CreateVirtualTourService } from './services/create-virtual-tour.service';
 import { DeleteVirtualTourService } from './services/delete-virtual-tour.service';
+import { FindDraftTourService } from './services/find-draft-tour.service';
 import { FindVirtualTourService } from './services/find-virtual-tour.service';
 import { GetAnalyticsService } from './services/get-analytics.service';
 import { GetThumbnailService } from './services/get-thumbnail.service';
@@ -34,6 +36,10 @@ import { PanoramasModule } from '../panoramas/panoramas.module';
     // do `@Get(':id')`, ou `GET /virtual-tours` cai na rota de parâmetro.
     ListDraftToursController,
     FindVirtualTourController,
+    // `@Get(':id/rascunho')` tem sufixo: não disputa nem com o `@Get()` acima
+    // nem com o `@Get(':id')` do FindVirtualTourController, então a ordem
+    // aqui é livre.
+    FindDraftTourController,
     GetThumbnailController,
     RecordViewController,
     RecordShareController,
@@ -45,6 +51,7 @@ import { PanoramasModule } from '../panoramas/panoramas.module';
     DeleteVirtualTourService,
     UpdateVirtualTourService,
     FindVirtualTourService,
+    FindDraftTourService,
     GetThumbnailService,
     RecordViewService,
     RecordShareService,
