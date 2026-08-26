@@ -1051,6 +1051,75 @@ describe('TourDraftStore (contrato)', () => {
 
       expect(apagar).toHaveBeenCalledWith('h-srv');
     });
+
+    /**
+     * Achado da revisão da Tarefa 7: o corretor apaga o ambiente de
+     * destino — `removeScene` zera o `target` do ponto de origem, mas o
+     * ponto CONTINUA na tela com o `serverId` antigo. Sem limpar esse
+     * campo, o ponto reconectado num salvamento seguinte chegaria com um id
+     * que o servidor já esqueceu, e o PATCH em cima dele falharia para
+     * sempre — o rascunho ficava impossível de salvar ou publicar.
+     */
+    it('ponto que perde o destino é apagado, tem o serverId limpo, e pode ser reconectado', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+        scene('s3', { serverPanoramaId: 'p3', room: 'Varanda' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      const criar = spyOn(tours, 'createHotspot').and.returnValues(
+        of({ id: 'h-x' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+        of({ id: 'h-y' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+      );
+      const mover = spyOn(tours, 'atualizarHotspot').and.returnValue(
+        of({ id: 'h-y' } as unknown) as ReturnType<VirtualTourService['atualizarHotspot']>,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(tours, 'deletePanorama').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      ligarHotspot(store, 's1', 's2');
+
+      await store.salvarRascunho();
+      expect(criar).toHaveBeenCalledTimes(1);
+
+      // 1. O ambiente de destino some. `removeScene` zera o `target`, mas o
+      // ponto continua em `s1` com o `serverId` de antes.
+      store.removeScene('s2');
+      await store.salvarRascunho();
+
+      expect(apagar).toHaveBeenCalledWith('h-x');
+      expect(apagar).toHaveBeenCalledTimes(1);
+      const semDestino = store.scenes().find((s) => s.id === 's1')!.hotspots[0];
+      expect(semDestino.serverId).toBeUndefined();
+
+      // 2. Reconectado a outro ambiente: sem `serverId`, vira criação — não
+      // um PATCH sobre um id que o servidor já esqueceu.
+      store.patchScene('s1', (s) => ({
+        ...s,
+        hotspots: s.hotspots.map((h) => ({ ...h, target: 's3' })),
+      }));
+      await store.salvarRascunho();
+
+      expect(criar).toHaveBeenCalledTimes(2);
+      expect(mover).not.toHaveBeenCalled();
+
+      // 3. Uma gravação a mais, sem nada de novo: a pilha de exclusão já foi
+      // drenada na chamada anterior, e não reenvia o que já apagou.
+      await store.salvarRascunho();
+
+      expect(apagar).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('falha ao publicar', () => {

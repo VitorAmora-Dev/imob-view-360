@@ -805,11 +805,25 @@ export class TourDraftStore {
       for (const h of scene.hotspots) {
         const destino = h.target ? porCena.get(h.target) : undefined;
         // Ponto sem destino é inerte: some do viewer do visitante e ninguém
-        // entende por quê. Descartar e avisar é melhor que publicar morto —
-        // e, como não entra em `vivos`, um que já tinha `serverId` é apagado
-        // no laço de exclusão abaixo.
+        // entende por quê. Descartar e avisar é melhor que publicar morto.
         if (!origem || !destino) {
           descartados++;
+          // Já tinha `serverId`? Ele existe no servidor e não devia mais
+          // existir. Limpar o campo aqui — via `patchScene`, não com um
+          // `deleteHotspot` direto — é o que faz a própria captura de diff
+          // empilhar o id em `hotspotsParaApagar`: o MESMO caminho de
+          // exclusão de um ponto removido da tela, e não um segundo. Sem
+          // isto, o ponto — se reapontado num salvamento seguinte —
+          // chegaria com um `serverId` já apagado no servidor, e o PATCH em
+          // cima dele falharia para sempre.
+          if (h.serverId) {
+            this.patchScene(scene.id, (s) => ({
+              ...s,
+              hotspots: s.hotspots.map((x) =>
+                x.id === h.id ? { ...x, serverId: undefined } : x,
+              ),
+            }));
+          }
           continue;
         }
 
@@ -847,27 +861,26 @@ export class TourDraftStore {
     }
     this.discardedHotspots.set(descartados);
 
-    // Só o que sumiu de verdade: o ponto que ficou sem destino (ainda
-    // presente na cena, mas não entrou em `vivos`) e o que sumiu da tela
-    // inteira — removido pelo editor ou levado junto de uma cena apagada —,
-    // que por isso só aparece aqui, empilhado por `patchScene`/`removeScene`.
-    for (const scene of cenasFinais) {
-      for (const h of scene.hotspots) {
-        if (h.serverId && !vivos.has(h.serverId)) {
-          // Falha aqui é benigna: um ponto órfão a mais é melhor que abortar
-          // a publicação inteira.
-          await firstValueFrom(
-            this.virtualTourService.deleteHotspot(h.serverId),
-          ).catch(() => undefined);
-        }
-      }
-    }
-    for (const id of this.hotspotsParaApagar()) {
+    // Todo hotspot que precisa sumir do servidor chega aqui pelo MESMO
+    // caminho: o que perdeu o destino (limpo acima, no laço principal) e o
+    // que saiu da tela inteiramente — removido pelo editor ou levado junto
+    // de uma cena apagada (`patchScene`/`removeScene`). Um só mecanismo de
+    // exclusão, não dois.
+    const paraApagar = this.hotspotsParaApagar();
+    for (const id of paraApagar) {
+      // Falha aqui é benigna: um ponto órfão a mais é melhor que abortar a
+      // publicação inteira.
       await firstValueFrom(this.virtualTourService.deleteHotspot(id)).catch(
         () => undefined,
       );
     }
-    this.hotspotsParaApagar.set([]);
+    // Drena só o que este laço consumiu, nunca o sinal inteiro: uma remoção
+    // concorrente durante os `await` acima — o corretor apagando outro ponto
+    // enquanto este salvamento está em voo — empilharia um id novo ali, e um
+    // `set([])` o jogaria fora sem nunca virar `DELETE`.
+    this.hotspotsParaApagar.update((ids) =>
+      ids.filter((id) => !paraApagar.includes(id)),
+    );
 
     const p = this.property();
     // Monta só o que tem conteúdo. Um rascunho recém-começado não tem nada da
