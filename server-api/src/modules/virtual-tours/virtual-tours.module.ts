@@ -17,6 +17,8 @@ import { RecordViewService } from './services/record-view.service';
 import { UpdateVirtualTourService } from './services/update-virtual-tour.service';
 import { MontarTourController } from './controllers/montar-tour.controller';
 import { MontarTourService } from './services/montar-tour.service';
+import { ListDraftToursController } from './controllers/list-draft-tours.controller';
+import { ListDraftToursService } from './services/list-draft-tours.service';
 import { PanoramasModule } from '../panoramas/panoramas.module';
 
 @Module({
@@ -28,6 +30,9 @@ import { PanoramasModule } from '../panoramas/panoramas.module';
     CreateVirtualTourController,
     DeleteVirtualTourController,
     UpdateVirtualTourController,
+    // Antes do FindVirtualTourController: `@Get()` precisa ser resolvido antes
+    // do `@Get(':id')`, ou `GET /virtual-tours` cai na rota de parâmetro.
+    ListDraftToursController,
     FindVirtualTourController,
     GetThumbnailController,
     RecordViewController,
@@ -45,6 +50,7 @@ import { PanoramasModule } from '../panoramas/panoramas.module';
     RecordShareService,
     GetAnalyticsService,
     MontarTourService,
+    ListDraftToursService,
   ],
 })
 export class VirtualToursModule {}
