@@ -548,6 +548,17 @@ export class TourDraftStore {
       );
     }
 
+    // Os hotspots que nasceram NESTA cena somem junto com ela, e não pelo
+    // filtro comum de `patchScene` — a cena inteira sai da lista. Sem
+    // empilhar os `serverId` deles aqui, o laço de exclusão de
+    // `salvarRascunho()`, que só percorre `scenes()`, nunca mais os veria.
+    const orfaos = (alvo?.hotspots ?? [])
+      .map((h) => h.serverId)
+      .filter((sid): sid is string => !!sid);
+    if (orfaos.length) {
+      this.hotspotsParaApagar.update((ids) => [...ids, ...orfaos]);
+    }
+
     this.scenes.update((list) =>
       list
         .filter((s) => s.id !== id)
@@ -607,10 +618,31 @@ export class TourDraftStore {
    * É a ÚNICA porta pela qual o `HotspotEditorStore` (Frente B) altera cenas.
    * Existe para que as duas frentes não escrevam no mesmo arquivo — ver §7 do
    * plano do sprint. Não remova nem mude a assinatura sem avisar a Frente B.
+   *
+   * É também por aqui que passa TODA remoção de hotspot com `serverId` — a de
+   * hoje (`HotspotEditorStore.remove()`) e qualquer futura: comparando os
+   * hotspots antes e depois da mutação, quem sumiu com um `serverId` vai para
+   * `hotspotsParaApagar`. Sem isto, o laço de exclusão de `salvarRascunho()`
+   * jamais veria esse id — ele só percorre o que ainda está em `scenes()`.
    */
   patchScene(id: string, fn: (scene: WizardScene) => WizardScene): void {
+    const antes = this.scenes().find((s) => s.id === id);
+    const depois = antes ? fn(antes) : undefined;
+
+    if (antes && depois) {
+      const idsDepois = new Set(
+        depois.hotspots.map((h) => h.serverId).filter(Boolean),
+      );
+      const sumiram = antes.hotspots
+        .map((h) => h.serverId)
+        .filter((sid): sid is string => !!sid && !idsDepois.has(sid));
+      if (sumiram.length) {
+        this.hotspotsParaApagar.update((ids) => [...ids, ...sumiram]);
+      }
+    }
+
     this.scenes.update((list) =>
-      list.map((s) => (s.id === id ? fn(s) : s)),
+      list.map((s) => (s.id === id ? depois! : s)),
     );
   }
 
@@ -673,12 +705,16 @@ export class TourDraftStore {
   readonly rascunhoPropertyId = signal<string | null>(null);
 
   /**
-   * Ids dos hotspots que já subiram, para o retry poder desfazê-los.
+   * Ids de hotspot que sumiram de `scenes()` sem que `salvarRascunho()` ainda
+   * tivesse rodado, e por isso continuam vivos no servidor.
    *
-   * Fica aqui e não em `WizardHotspot` porque o modelo afirma que o `id` de um
-   * hotspot nunca é o do servidor — e essa afirmação é lida pela outra frente.
+   * Cada ponto guarda o próprio `serverId` (ver `WizardHotspot`); esta lista
+   * não duplica esse dado — ela existe só para o que já NÃO tem mais onde
+   * guardar id nenhum, porque o ponto (ou a cena inteira) saiu da tela.
+   * Populada por `patchScene` e por `removeScene`; `salvarRascunho()`
+   * consome e esvazia a cada chamada seguinte.
    */
-  private readonly hotspotsNoServidor = signal<string[]>([]);
+  private readonly hotspotsParaApagar = signal<string[]>([]);
 
   /** Id do tour publicado — vira o link de compartilhamento na tela de sucesso. */
   readonly publishedTourId = signal<string | null>(null);
@@ -753,66 +789,85 @@ export class TourDraftStore {
     // existir no servidor. Durante a captura, metade deles apontaria para um
     // cômodo ainda não fotografado.
     const porCena = new Map(cenasFinais.map((s) => [s.id, s.serverPanoramaId]));
-    const ligacoes: Array<{
-      panoramaId: string;
-      targetId: string;
-      positionX: number;
-      positionY: number;
-      label?: string;
-    }> = [];
     let descartados = 0;
+
+    // Reconciliação incremental, e não apagar-e-recriar.
+    //
+    // Apagar todos e recriar era aceitável quando isto rodava uma vez, no
+    // publicar: a janela em que o tour ficava sem hotspot durava
+    // milissegundos e ninguém a via. Rodando a cada troca de etapa, essa
+    // janela passa a existir muitas vezes — e uma queda de rede dentro dela
+    // devolve o rascunho retomado sem os pontos que o corretor marcou.
+    const vivos = new Set<string>();
 
     for (const scene of cenasFinais) {
       const origem = porCena.get(scene.id);
       for (const h of scene.hotspots) {
         const destino = h.target ? porCena.get(h.target) : undefined;
         // Ponto sem destino é inerte: some do viewer do visitante e ninguém
-        // entende por quê. Descartar e avisar é melhor que publicar morto.
+        // entende por quê. Descartar e avisar é melhor que publicar morto —
+        // e, como não entra em `vivos`, um que já tinha `serverId` é apagado
+        // no laço de exclusão abaixo.
         if (!origem || !destino) {
           descartados++;
           continue;
         }
-        ligacoes.push({
-          panoramaId: origem,
-          targetId: destino,
+
+        const dados = {
           positionX: h.u,
           positionY: h.v,
           ...(h.label.trim() ? { label: h.label.trim() } : {}),
-        });
+        };
+
+        if (h.serverId) {
+          vivos.add(h.serverId);
+          await firstValueFrom(
+            this.virtualTourService.atualizarHotspot(h.serverId, dados),
+          );
+          continue;
+        }
+
+        const criado = await firstValueFrom(
+          this.virtualTourService.createHotspot({
+            panoramaId: origem,
+            targetId: destino,
+            ...dados,
+          }),
+        );
+        vivos.add(criado.id);
+        // Gravado UM A UM: se o laço morrer no meio, o retry precisa saber
+        // exatamente o que já entrou para não criar em dobro.
+        this.patchScene(scene.id, (s) => ({
+          ...s,
+          hotspots: s.hotspots.map((x) =>
+            x.id === h.id ? { ...x, serverId: criado.id } : x,
+          ),
+        }));
       }
     }
     this.discardedHotspots.set(descartados);
 
-    // Apaga o que uma tentativa anterior já tinha criado, e recria do zero.
-    //
-    // `createHotspot` não é idempotente: cada chamada insere uma linha. Como
-    // os passos abaixo — dados do imóvel e publicar — podem falhar depois
-    // deste ponto, e o botão volta a ficar clicável, um segundo clique
-    // publicava o tour com cada ponto de passagem duplicado. O código antigo
-    // não tinha o problema porque os hotspots subiam dentro da transação que
-    // criava o tour; foi quebrar o publicar em passos que abriu o buraco.
-    //
-    // Apagar e recriar, em vez de pular os que já existem: entre a falha e o
-    // retry o corretor pode ter apagado ou movido um ponto na etapa 2, e só
-    // recriando o tour publicado reflete o que ele está vendo na tela. São
-    // poucos pontos por tour, e na primeira tentativa esta lista é vazia.
-    for (const id of this.hotspotsNoServidor()) {
-      // Falha aqui é benigna: um ponto órfão a mais é melhor que abortar a
-      // publicação inteira. O `catch` evita que isso derrube o retry.
+    // Só o que sumiu de verdade: o ponto que ficou sem destino (ainda
+    // presente na cena, mas não entrou em `vivos`) e o que sumiu da tela
+    // inteira — removido pelo editor ou levado junto de uma cena apagada —,
+    // que por isso só aparece aqui, empilhado por `patchScene`/`removeScene`.
+    for (const scene of cenasFinais) {
+      for (const h of scene.hotspots) {
+        if (h.serverId && !vivos.has(h.serverId)) {
+          // Falha aqui é benigna: um ponto órfão a mais é melhor que abortar
+          // a publicação inteira.
+          await firstValueFrom(
+            this.virtualTourService.deleteHotspot(h.serverId),
+          ).catch(() => undefined);
+        }
+      }
+    }
+    for (const id of this.hotspotsParaApagar()) {
       await firstValueFrom(this.virtualTourService.deleteHotspot(id)).catch(
         () => undefined,
       );
     }
-    this.hotspotsNoServidor.set([]);
-
-    for (const ligacao of ligacoes) {
-      const criado = await firstValueFrom(
-        this.virtualTourService.createHotspot(ligacao),
-      );
-      // Registrado UM A UM, e não em lote no fim: se o laço morrer no meio,
-      // o retry precisa saber exatamente o que já entrou para poder apagar.
-      this.hotspotsNoServidor.update((ids) => [...ids, criado.id]);
-    }
+    this.hotspotsParaApagar.set([]);
 
     const p = this.property();
     // Monta só o que tem conteúdo. Um rascunho recém-começado não tem nada da
@@ -917,7 +972,7 @@ export class TourDraftStore {
     // captura criar o seu, em vez de acrescentar cômodos ao imóvel recém-criado.
     this.rascunhoTourId.set(null);
     this.rascunhoPropertyId.set(null);
-    this.hotspotsNoServidor.set([]);
+    this.hotspotsParaApagar.set([]);
   }
 }
 

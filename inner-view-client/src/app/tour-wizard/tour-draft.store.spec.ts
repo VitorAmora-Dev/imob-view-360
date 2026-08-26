@@ -65,18 +65,52 @@ describe('TourDraftStore (contrato)', () => {
     store.rascunhoPropertyId.set('imovel-1');
   }
 
-  /** Liga `origem` a `destino`, como o clique do editor de hotspots faz. */
+  /**
+   * Liga `origem` a `destino`, como o clique do editor de hotspots faz.
+   * Devolve o id LOCAL do ponto criado — quem for removê-lo depois (ver
+   * `removerHotspot`) precisa dele, e o id do servidor só existe depois de
+   * `salvarRascunho()`.
+   */
   function ligarHotspot(
     store: TourDraftStore,
     origemId: string,
     destinoId: string,
-  ): void {
+  ): string {
+    const id = `h-${origemId}-${destinoId}`;
     store.patchScene(origemId, (s) => ({
       ...s,
       hotspots: [
         ...s.hotspots,
-        { id: `h-${origemId}-${destinoId}`, u: 0.5, v: 0.5, label: '', target: destinoId },
+        { id, u: 0.5, v: 0.5, label: '', target: destinoId },
       ],
+    }));
+    return id;
+  }
+
+  /** Move um ponto, como o arraste no editor de hotspots faz. */
+  function moverHotspot(
+    store: TourDraftStore,
+    sceneId: string,
+    pos: { u: number; v: number },
+  ): void {
+    store.patchScene(sceneId, (s) => ({
+      ...s,
+      hotspots: s.hotspots.map((h) => ({ ...h, ...pos })),
+    }));
+  }
+
+  /**
+   * Remove um ponto pelo id local, como `HotspotEditorStore.remove()` faz —
+   * via `patchScene`, filtrando o ponto para fora da lista da cena.
+   */
+  function removerHotspot(
+    store: TourDraftStore,
+    sceneId: string,
+    hotspotId: string,
+  ): void {
+    store.patchScene(sceneId, (s) => ({
+      ...s,
+      hotspots: s.hotspots.filter((h) => h.id !== hotspotId),
     }));
   }
 
@@ -829,11 +863,11 @@ describe('TourDraftStore (contrato)', () => {
      * `publish()` passou a chamar `salvarRascunho()` por dentro. Este caso
      * prova que a composição dos dois não inventou um caminho novo: chamar
      * `salvarRascunho()` e depois `publish()` sincroniza os hotspots duas
-     * vezes — uma em cada chamada — e cada sincronização apaga o que a
-     * anterior criou antes de recriar, exatamente como já acontecia entre
-     * duas tentativas de publicar (ver 'não duplica os pontos de passagem
-     * quando a tentativa se repete', acima). O servidor nunca chega a ter
-     * mais de um hotspot ativo ao mesmo tempo.
+     * vezes — uma em cada chamada —, e a segunda encontra o ponto já com
+     * `serverId` (gravado pela primeira) e só o atualiza. O servidor nunca
+     * chega a ter mais de um hotspot ativo para a mesma ligação — antes essa
+     * garantia vinha de apagar tudo e recriar; agora vem de nunca criar em
+     * dobro.
      */
     it('publicar depois de salvar não deixa hotspot duplicado no servidor', async () => {
       const store = storeWith(
@@ -855,6 +889,9 @@ describe('TourDraftStore (contrato)', () => {
       const criar = spyOn(tours, 'createHotspot').and.returnValue(
         of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
       );
+      const mover = spyOn(tours, 'atualizarHotspot').and.returnValue(
+        of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['atualizarHotspot']>,
+      );
       const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
         of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
       );
@@ -870,12 +907,149 @@ describe('TourDraftStore (contrato)', () => {
 
       await store.publish();
 
-      // A segunda sincronização apaga o hotspot da primeira antes de recriar:
-      // nunca existem dois pontos para uma ligação só.
-      expect(apagar).toHaveBeenCalledWith('h-srv');
-      expect(apagar).toHaveBeenCalledTimes(1);
-      expect(criar).toHaveBeenCalledTimes(2);
+      // A segunda sincronização reconhece o `serverId` já gravado e faz um
+      // PATCH; não cria de novo, e por isso não precisa apagar nada.
+      expect(mover).toHaveBeenCalledTimes(1);
+      expect(criar).toHaveBeenCalledTimes(1);
+      expect(apagar).not.toHaveBeenCalled();
       expect(store.published()).toBe(true);
+    });
+
+    it('mover um ponto vira PATCH, não apagar e recriar', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      const criar = spyOn(tours, 'createHotspot').and.returnValue(
+        of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+      );
+      const mover = spyOn(tours, 'atualizarHotspot').and.returnValue(
+        of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['atualizarHotspot']>,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      ligarHotspot(store, 's1', 's2');
+
+      await store.salvarRascunho();
+      expect(criar).toHaveBeenCalledTimes(1);
+
+      moverHotspot(store, 's1', { u: 0.8, v: 0.4 });
+      await store.salvarRascunho();
+
+      expect(mover).toHaveBeenCalledTimes(1);
+      expect(criar).toHaveBeenCalledTimes(1);
+      expect(apagar).not.toHaveBeenCalled();
+    });
+
+    it('remover um ponto apaga só ele', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      spyOn(tours, 'createHotspot').and.returnValues(
+        of({ id: 'h-a' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+        of({ id: 'h-b' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      // O ponto de s2 para s1 sobrevive à remoção e já tem `serverId` na
+      // segunda chamada — sem este dublê, o PATCH dele cairia na rede de
+      // teste de verdade e travaria até estourar o tempo.
+      spyOn(tours, 'atualizarHotspot').and.returnValue(
+        of({ id: 'h-b' } as unknown) as ReturnType<VirtualTourService['atualizarHotspot']>,
+      );
+      const a = ligarHotspot(store, 's1', 's2');
+      ligarHotspot(store, 's2', 's1');
+
+      await store.salvarRascunho();
+      removerHotspot(store, 's1', a);
+      await store.salvarRascunho();
+
+      expect(apagar).toHaveBeenCalledTimes(1);
+      expect(apagar).toHaveBeenCalledWith('h-a');
+    });
+
+    it('guarda o id do servidor em cada ponto, e não numa lista solta', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      spyOn(tours, 'createHotspot').and.returnValue(
+        of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      ligarHotspot(store, 's1', 's2');
+
+      await store.salvarRascunho();
+
+      const ponto = store.scenes().find((s) => s.id === 's1')!.hotspots[0];
+      expect(ponto.serverId).toBe('h-srv');
+    });
+
+    /**
+     * A cena de origem some inteira — junto com o array de hotspots que
+     * nasceram nela. O laço de exclusão de `salvarRascunho` só percorre
+     * `scenes()`; sem `removeScene` empilhar o `serverId` órfão em
+     * `hotspotsParaApagar`, este ponto nunca mais seria alcançado.
+     */
+    it('remover a cena de origem apaga os hotspots que nasceram nela', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      spyOn(tours, 'createHotspot').and.returnValue(
+        of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(tours, 'deletePanorama').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      ligarHotspot(store, 's1', 's2');
+      await store.salvarRascunho();
+
+      store.removeScene('s1');
+      await store.salvarRascunho();
+
+      expect(apagar).toHaveBeenCalledWith('h-srv');
     });
   });
 
@@ -959,9 +1133,13 @@ describe('TourDraftStore (contrato)', () => {
      *
      * `createHotspot` insere uma linha por chamada. Os passos depois dele —
      * dados do imóvel e publicar — podem falhar, e aí o botão volta a ficar
-     * clicável; o segundo clique publicava o tour com cada ponto de passagem
-     * em dobro. O caso acima passava mesmo assim porque só conferia
-     * `createProperty`, que é idempotente por outro motivo.
+     * clicável. Antes da reconciliação incremental (Tarefa 7), o segundo
+     * clique publicava o tour com cada ponto de passagem em dobro, e o
+     * conserto era apagar o de antes e recriar. Agora o ponto já sai da
+     * primeira tentativa com `serverId` gravado — a segunda o reconhece e só
+     * atualiza, sem criar nem apagar de novo. O caso acima (retry de imóvel)
+     * passava mesmo assim porque só conferia `createProperty`, que é
+     * idempotente por outro motivo.
      */
     it('não duplica os pontos de passagem quando a tentativa se repete', async () => {
       const store = storeWith(
@@ -997,6 +1175,9 @@ describe('TourDraftStore (contrato)', () => {
             VirtualTourService['createHotspot']
           >,
       );
+      const mover = spyOn(tours, 'atualizarHotspot').and.returnValue(
+        of({ id: 'hot-0' } as unknown) as ReturnType<VirtualTourService['atualizarHotspot']>,
+      );
       const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
         of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
       );
@@ -1018,18 +1199,21 @@ describe('TourDraftStore (contrato)', () => {
       await store.publish();
 
       expect(store.published()).toBe(true);
-      // O da primeira tentativa foi apagado antes de recriar...
-      expect(apagar).toHaveBeenCalledWith('hot-0');
-      // ...então o tour publicado tem UM ponto, não dois.
-      expect(criar).toHaveBeenCalledTimes(2);
-      expect(apagar).toHaveBeenCalledTimes(1);
+      // A segunda tentativa reconhece o `serverId` da primeira e só faz PATCH.
+      expect(mover).toHaveBeenCalledWith('hot-0', jasmine.any(Object));
+      // ...então nunca houve uma segunda criação, e nada para apagar.
+      expect(criar).toHaveBeenCalledTimes(1);
+      expect(apagar).not.toHaveBeenCalled();
     });
 
     /**
      * O corretor apagou um ponto entre a falha e o retry.
      *
-     * É por isto que o conserto apaga e recria, em vez de pular o que já
-     * existe: pulando, o ponto removido na tela continuaria no tour publicado.
+     * Com a reconciliação incremental (Tarefa 7), o ponto some de
+     * `scene.hotspots` por `patchScene`, que nota o `serverId` desaparecido e
+     * o empilha em `hotspotsParaApagar` — sem isso, o laço de exclusão de
+     * `salvarRascunho()`, que só percorre `scenes()`, nunca o alcançaria, e o
+     * ponto removido na tela continuaria vivo no tour publicado.
      */
     it('não republica o ponto que o corretor apagou depois da falha', async () => {
       const store = storeWith(
