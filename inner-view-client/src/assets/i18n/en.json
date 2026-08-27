@@ -252,7 +252,6 @@
     },
     "STEP2": {
       "TITLE": "Mark the points of interest",
-      "SUBTITLE": "Click on the image to create a navigation point. They are how visitors move between rooms — every room needs a path to it.",
       "SUBTITLE_SOLO": "Click on the image to create a navigation point. With a single room there is nowhere to take the visitor: this step is optional.",
       "UNREACHABLE": "No path to: {{ambientes}}. In the published tour visitors only change rooms by clicking a point — without a link, those rooms never appear to them.",
       "DEAD_END": "No way back from: {{ambientes}}. Whoever goes in cannot get out.",

@@ -1,13 +1,13 @@
 <header class="tw-step-head">
   <h2>{{ 'TOUR_WIZARD.STEP2.TITLE' | translate }}</h2>
-  <p>
-    {{
-      (draft.etapa2Opcional()
-        ? 'TOUR_WIZARD.STEP2.SUBTITLE_SOLO'
-        : 'TOUR_WIZARD.STEP2.SUBTITLE'
-      ) | translate
-    }}
-  </p>
+  <!--
+    O subtitulo geral saiu: era um paragrafo que ninguem lia, explicando o que a
+    propria tela ja mostra. Sobra o do caso de UM ambiente so, que carrega
+    informacao que nao esta em outro lugar aqui -- que a etapa pode ser pulada.
+  -->
+  @if (draft.etapa2Opcional()) {
+    <p>{{ 'TOUR_WIZARD.STEP2.SUBTITLE_SOLO' | translate }}</p>
+  }
 
   <!--
     Link discreto: quem procura o modo avançado sabe o que quer, e quem não

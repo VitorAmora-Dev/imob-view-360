@@ -252,7 +252,6 @@
     },
     "STEP2": {
       "TITLE": "Marque os pontos de interesse",
-      "SUBTITLE": "Clique sobre a imagem para criar um ponto de navegação. É por eles que o visitante troca de ambiente — todo ambiente precisa de um caminho até ele.",
       "SUBTITLE_SOLO": "Clique sobre a imagem para criar um ponto de navegação. Com um ambiente só não há para onde levar o visitante: esta etapa é opcional.",
       "UNREACHABLE": "Sem caminho até: {{ambientes}}. No tour publicado o visitante só troca de ambiente clicando num ponto — sem ligação, esses ambientes não aparecem para ele.",
       "DEAD_END": "Sem volta: {{ambientes}}. Quem entrar não tem como sair de lá.",

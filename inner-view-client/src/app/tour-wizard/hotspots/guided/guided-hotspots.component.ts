@@ -1,4 +1,11 @@
-import { Component, computed, effect, inject, viewChild } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { Panorama } from '../../../models/virtual-tour.model';
@@ -127,18 +134,44 @@ export class GuidedHotspotsComponent {
     },
   );
 
+  /**
+   * O id do ambiente à vista — e SÓ o id.
+   *
+   * Existe para o `effect` do reset de câmera ter uma dependência que muda
+   * quando o ambiente muda, e não a cada mutação de hotspot.
+   *
+   * `passo()` devolve um objeto novo sempre que `cenas()` muda, e `cenas()` muda
+   * a cada `patchScene` — ou seja, a cada ponto marcado ou arrastado. Um
+   * `computed` de string usa `Object.is`, então enquanto o ambiente for o mesmo
+   * ele não notifica ninguém, e a corrente para aqui.
+   */
+  private readonly cenaAtualId = computed(
+    () => this.guided.passo()?.scene.id ?? null,
+  );
+
   constructor() {
     // Entrar no assistente pula para o primeiro passo incompleto: quem já ligou
     // metade no editor livre não deve confirmar de novo o que já está feito.
     this.guided.abrir();
 
-    // Trocar de ambiente devolve a câmera ao ângulo inicial. Sem isto o
-    // corretor chega na foto nova olhando o ângulo da anterior — que ali não
-    // quer dizer nada, porque equirretangulares de celular não compartilham
-    // orientação de bússola. Ver `resetView` no viewer.
+    /**
+     * Trocar de ambiente devolve a câmera ao ângulo inicial. Sem isto o corretor
+     * chega na foto nova olhando o ângulo da anterior — que ali não quer dizer
+     * nada, porque equirretangulares de celular não compartilham orientação de
+     * bússola.
+     *
+     * A dependência é `cenaAtualId`, e não `passo()`: amarrado ao objeto do
+     * passo, este effect disparava a cada ponto marcado e a foto voltava ao
+     * centro no instante do toque. O corretor girava até a porta, tocava, e a
+     * tela parecia não ter feito nada. Chegou a produção assim.
+     *
+     * `untracked` no `viewerRef()` porque ele é sinal também, e lê-lo aqui
+     * acrescentaria uma dependência que não tem nada a ver com trocar de
+     * ambiente.
+     */
     effect(() => {
-      this.guided.passo()?.scene.id;
-      this.viewerRef()?.resetView();
+      this.cenaAtualId();
+      untracked(() => this.viewerRef()?.resetView());
     });
   }
 
