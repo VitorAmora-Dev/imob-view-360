@@ -66,6 +66,26 @@ const MINIMO_DE_REFERENCIAS = 4;
 const LIMITE_DA_ESPERA_MS = 2 * 60 * 1000;
 
 /**
+ * Largura que o card da etapa 1 e o rail da etapa 2 pedem ao servidor.
+ *
+ * Os dois desenham um retângulo perto de 196×110. Sem esta largura a rota de
+ * preview devolve a equirretangular inteira — dezenas de MB por cômodo, no 4G,
+ * para preencher algo do tamanho de um selo. 320 dá margem para tela de alta
+ * densidade sem chegar perto do custo da imagem cheia.
+ */
+const LARGURA_DA_MINIATURA = 320;
+
+/**
+ * Título que `garantirRascunho()` grava no imóvel enquanto os dados de verdade
+ * não existem.
+ *
+ * Marcador, não dado — e o discriminador que a retomada usa para saber que
+ * `type` e `purpose` daquele imóvel também são marcadores. Ver
+ * `retomarRascunho()`.
+ */
+const IMOVEL_SEM_DADOS = 'Captura em andamento';
+
+/**
  * Como o estado do servidor vira o estado da tela.
  *
  * `PENDING` e `PROCESSING` viram a mesma coisa de propósito: para quem espera,
@@ -273,10 +293,18 @@ export class TourDraftStore {
    * dobro com a que ele já faz por dentro. Fogo-e-esquece: nenhum dos três
    * chamadores é async, e falhar aqui não pode travar a troca de etapa —
    * ninguém pediu para salvar, só para navegar.
+   *
+   * Só salva quando há cômodo pronto, a mesma guarda das outras duas portas de
+   * auto-save (`tour-wizard.page.ts`, ao sair e ao esconder o app).
+   * `salvarRascunhoAgora()` começa por `garantirRascunho()`, que CRIA imóvel e
+   * tour: sem esta linha, tocar no chip da etapa em que já se está — `goTo(1)`
+   * com `canReach(1)` trivialmente verdadeiro — bastava para deixar na home um
+   * cartão "Nenhum ambiente ainda" que só some em 30 dias.
    */
   private irPara(step: WizardStep): void {
     this.showErrors.set(false);
     this.step.set(step);
+    if (!this.readyScenes().length) return;
     void this.salvarRascunho().catch(() => undefined);
   }
 
@@ -406,8 +434,10 @@ export class TourDraftStore {
         await firstValueFrom(
           this.propertyService.createProperty({
             code: `IML-${Date.now().toString(36).toUpperCase()}`,
-            // Marcadores, não dados. A etapa 3 sobrescreve os três por PATCH.
-            title: 'Captura em andamento',
+            // Marcadores, não dados. A etapa 3 sobrescreve os três por PATCH,
+            // e `retomarRascunho()` usa o título para saber que os OUTROS DOIS
+            // também são marcadores.
+            title: IMOVEL_SEM_DADOS,
             type: 'HOUSE',
             purpose: 'SALE',
           }),
@@ -777,7 +807,12 @@ export class TourDraftStore {
         hotspots: [],
         state: 'ready',
         serverPanoramaId: p.id,
-        aiState: p.treatmentStatus === 'DONE' ? 'done' : 'idle',
+        // Pelo mapa, e não por um `=== 'DONE'`: `PENDING`/`PROCESSING` viravam
+        // `idle`, o selo "melhorando" sumia do card e o corretor via como
+        // pronto um cômodo que a IA ainda estava montando. `FAILED`/`SKIPPED`
+        // perdiam a distinção que o comentário do próprio mapa diz que importa
+        // no suporte.
+        aiState: ESTADO_DA_IA[p.treatmentStatus] ?? 'idle',
       };
     });
 
@@ -805,17 +840,22 @@ export class TourDraftStore {
     this.step.set(1);
 
     const endereco = rascunho.property.address;
+    // `title`, `type` e `purpose` são gravados JUNTOS por `garantirRascunho()`,
+    // os três como marcador e nenhum como escolha do corretor. O servidor não
+    // distingue as duas coisas, então o critério aqui é o único disponível:
+    // enquanto o título ainda é o marcador, os outros dois também são.
+    //
+    // Devolvê-los como escolha abria a etapa 3 com Casa/Venda pré-selecionados,
+    // `invalidFields()` passava, e um apartamento para alugar era publicado
+    // rotulado como casa à venda — sem ninguém ter tocado nos campos.
+    const soMarcadores = rascunho.property.title === IMOVEL_SEM_DADOS;
     this.property.set({
       ...EMPTY_PROPERTY,
-      // 'Captura em andamento' é o marcador que `garantirRascunho()` grava —
-      // não é dado do corretor. Devolvê-lo faria a etapa 3 abrir com esse
-      // texto no campo Nome, como se ele mesmo tivesse digitado.
-      name:
-        rascunho.property.title === 'Captura em andamento'
-          ? ''
-          : rascunho.property.title,
-      type: rascunho.property.type as PropertyDraft['type'],
-      purpose: rascunho.property.purpose as PropertyDraft['purpose'],
+      name: soMarcadores ? '' : rascunho.property.title,
+      type: soMarcadores ? '' : (rascunho.property.type as PropertyDraft['type']),
+      purpose: soMarcadores
+        ? ''
+        : (rascunho.property.purpose as PropertyDraft['purpose']),
       ...(endereco
         ? {
             address: {
@@ -870,6 +910,65 @@ export class TourDraftStore {
   }
 
   /**
+   * `blob:` da MINIATURA de cada cena, por id local.
+   *
+   * Fora da `WizardScene` de propósito. `treatedImageUrl` é a foto que o viewer
+   * da etapa 2 sobe para a GPU como textura; guardar ali uma versão de 320px
+   * faria a esfera abrir borrada por causa de um card da etapa 1 que carregou
+   * antes. São duas imagens diferentes do mesmo cômodo, e cada uma tem o seu
+   * lugar — o cache também as separa, pela largura na chave.
+   */
+  readonly miniaturas = signal<Record<string, string>>({});
+
+  /**
+   * Panoramas cuja miniatura já falhou nesta sessão.
+   *
+   * O card e o rail pedem a miniatura de dentro de um `effect`, que reroda a
+   * cada mutação da cena — uma tecla digitada no nome do ambiente basta. Sem
+   * esta memória, uma falha de rede virava um download novo por tecla.
+   */
+  private readonly miniaturasQueFalharam = new Set<string>();
+
+  /** A miniatura de uma cena, ou vazio enquanto ela não chegou. */
+  miniatura(sceneId: string): string {
+    return this.miniaturas()[sceneId] ?? '';
+  }
+
+  /**
+   * Baixa a miniatura de um cômodo retomado, pequena.
+   *
+   * Separado de `garantirImagem` porque o que se pede é outra imagem, e não a
+   * mesma em outro tamanho: quem chama aqui desenha um selo de 196×110, e
+   * pagar a equirretangular inteira por isso era o custo que a faixa da home
+   * cobrava em toda visita.
+   *
+   * Não rejeita: quem chama é um `effect`, e uma promise rejeitada ali não tem
+   * onde ser tratada. Miniatura que não veio é um card sem foto, não um erro.
+   */
+  async garantirMiniatura(sceneId: string): Promise<string> {
+    const jaTenho = this.miniaturas()[sceneId];
+    if (jaTenho) return jaTenho;
+
+    const panoramaId = this.scenes().find((s) => s.id === sceneId)
+      ?.serverPanoramaId;
+    if (!panoramaId) return '';
+    if (this.miniaturasQueFalharam.has(panoramaId)) return '';
+
+    try {
+      const url = await this.imagens.obter(
+        panoramaId,
+        'treated',
+        LARGURA_DA_MINIATURA,
+      );
+      this.miniaturas.update((atual) => ({ ...atual, [sceneId]: url }));
+      return url;
+    } catch {
+      this.miniaturasQueFalharam.add(panoramaId);
+      return '';
+    }
+  }
+
+  /**
    * Grava no servidor o que hoje só existe na memória do wizard.
    *
    * É o miolo do `publish()`, extraído. O corretor perdia o nome dos cômodos,
@@ -906,8 +1005,13 @@ export class TourDraftStore {
     // o estado JÁ ATUALIZADO no momento em que ela de fato começa. Todo
     // mundo que chamar nessa janela compartilha essa MESMA próxima rodada,
     // em vez de abrir uma cada.
+    //
+    // A geração é lida AQUI, na intenção de salvar, e cobrada lá na frente,
+    // quando a rodada de fato começa. Ver `geracao` e `salvarRascunhoAgora()`.
+    const geracao = this.geracao;
+
     if (!this.salvandoRascunho) {
-      return this.iniciarGravacao();
+      return this.iniciarGravacao(geracao);
     }
     if (!this.proximaGravacao) {
       let resolver!: () => void;
@@ -917,14 +1021,38 @@ export class TourDraftStore {
         rejeitar = rej;
       });
       this.proximaGravacao = { promise, resolver, rejeitar };
-      this.salvandoRascunho.finally(() => {
-        const propria = this.proximaGravacao!;
-        this.proximaGravacao = null;
-        this.iniciarGravacao().then(propria.resolver, propria.rejeitar);
-      });
+      this.salvandoRascunho
+        .finally(() => {
+          // `reset()` pode ter passado por aqui enquanto a rodada em voo
+          // terminava e já ter resolvido esta pendente. Sem esta saída, o
+          // `!` de antes estourava um TypeError dentro do `finally`.
+          const propria = this.proximaGravacao;
+          if (!propria) return;
+          this.proximaGravacao = null;
+          this.iniciarGravacao(geracao).then(propria.resolver, propria.rejeitar);
+        })
+        // A promise derivada do `finally` não tem dono. Se a gravação em voo
+        // rejeitar — rede fora, que é o caso esperado deste fluxo —, ela
+        // rejeitava sem handler nenhum. Quem espera o resultado é
+        // `proximaGravacao.promise`, entregue a quem chamou.
+        .catch(() => undefined);
     }
     return this.proximaGravacao.promise;
   }
+
+  /**
+   * Conta quantas vezes o rascunho foi zerado.
+   *
+   * Uma rodada de gravação enfileirada leva consigo a geração em que foi
+   * PEDIDA, e desiste se o rascunho tiver sido descartado antes de ela rodar.
+   * Sem isso a sequência era: troca de etapa dispara a rodada A → um
+   * `visibilitychange` enfileira a B → o corretor toca em voltar e descarta →
+   * `reset()` zera os ids → a rodada A settla → a B roda, vê `rascunhoTourId`
+   * nulo e RECRIA um imóvel "Captura em andamento" com tour DRAFT, que
+   * reaparece na faixa da home. É o mesmo desfecho que a trava de reentrância
+   * da página existe para impedir, por outra porta.
+   */
+  private geracao = 0;
 
   /** A promise da gravação em voo agora, ou `null` quando nenhuma está. */
   private salvandoRascunho: Promise<void> | null = null;
@@ -950,7 +1078,7 @@ export class TourDraftStore {
    * `salvarRascunho()` de novo), mas a invariante fica correta por
    * construção, e não por sorte de quem mexer depois.
    */
-  private iniciarGravacao(): Promise<void> {
+  private iniciarGravacao(geracao: number): Promise<void> {
     let resolver!: () => void;
     let rejeitar!: (erro: unknown) => void;
     const promise = new Promise<void>((res, rej) => {
@@ -958,7 +1086,7 @@ export class TourDraftStore {
       rejeitar = rej;
     });
     this.salvandoRascunho = promise;
-    this.salvarRascunhoAgora().then(
+    this.salvarRascunhoAgora(geracao).then(
       () => {
         if (this.salvandoRascunho === promise) this.salvandoRascunho = null;
         resolver();
@@ -972,7 +1100,13 @@ export class TourDraftStore {
   }
 
   /** Corpo de fato do `salvarRascunho()` — ver a trava de reentrância acima. */
-  private async salvarRascunhoAgora(): Promise<void> {
+  private async salvarRascunhoAgora(geracao: number): Promise<void> {
+    // O rascunho que esta rodada foi pedida para salvar não existe mais: ela
+    // foi enfileirada antes de um descarte e só chegou a rodar depois dele.
+    // Seguir daqui recriaria no servidor o imóvel que o corretor acabou de
+    // mandar apagar. Ver `geracao`.
+    if (geracao !== this.geracao) return;
+
     // Sem espera de fila: cada cômodo já subiu e foi tratado dentro do modal
     // de captura, antes mesmo de o corretor dar nome a ele.
     const tourId = await this.garantirRascunho();
@@ -985,7 +1119,8 @@ export class TourDraftStore {
       if (scene.serverPanoramaId) continue;
       const panorama = await firstValueFrom(
         this.virtualTourService.addPanorama(tourId, {
-          roomName: scene.room.trim() || scene.fileName,
+          // `Ambiente N` e nunca `fileName`: ver `nomeDeRascunho`.
+          roomName: scene.room.trim() || `Ambiente ${ordem + 1}`,
           imageData: scene.imageData,
           order: ordem,
           initialPanorama: ordem === 0,
@@ -1009,7 +1144,10 @@ export class TourDraftStore {
         if (!id) return Promise.resolve(null);
         return firstValueFrom(
           this.virtualTourService.atualizarPanorama(id, {
-            roomName: scene.room.trim() || scene.fileName,
+            // Cômodo sem nome não manda `roomName` NENHUM — ver
+            // `nomeDeRascunho`. O servidor fica com o marcador que já tinha, e
+            // o vazio continua vazio de cá.
+            ...nomeDeRascunho(scene),
             order: ordem,
             initialPanorama: ordem === 0,
           }),
@@ -1030,8 +1168,6 @@ export class TourDraftStore {
     // milissegundos e ninguém a via. Rodando a cada troca de etapa, essa
     // janela passa a existir muitas vezes — e uma queda de rede dentro dela
     // devolve o rascunho retomado sem os pontos que o corretor marcou.
-    const vivos = new Set<string>();
-
     for (const scene of cenasFinais) {
       const origem = porCena.get(scene.id);
       for (const h of scene.hotspots) {
@@ -1066,7 +1202,6 @@ export class TourDraftStore {
         };
 
         if (h.serverId) {
-          vivos.add(h.serverId);
           await firstValueFrom(
             this.virtualTourService.atualizarHotspot(h.serverId, dados),
           );
@@ -1080,7 +1215,23 @@ export class TourDraftStore {
             ...dados,
           }),
         );
-        vivos.add(criado.id);
+
+        // O laço percorre o SNAPSHOT `cenasFinais`, e o corretor continua
+        // editando durante os `await`. Um ponto apagado nesse meio-tempo ainda
+        // chega até aqui e é criado no servidor — e o `patchScene` abaixo não
+        // acharia onde gravar o `serverId`. Como a captura de diff do
+        // `patchScene` também não veria `serverId` nenhum sumir (nunca houve
+        // um), o hotspot ficaria no servidor para sempre e reapareceria na
+        // próxima retomada. Empilhar o id novo na fila de exclusão o manda
+        // embora pelo mesmo caminho de qualquer outro ponto removido.
+        const aindaExiste = this.scenes()
+          .find((s) => s.id === scene.id)
+          ?.hotspots.some((x) => x.id === h.id);
+        if (!aindaExiste) {
+          this.hotspotsParaApagar.update((ids) => [...ids, criado.id]);
+          continue;
+        }
+
         // Gravado UM A UM: se o laço morrer no meio, o retry precisa saber
         // exatamente o que já entrou para não criar em dobro.
         this.patchScene(scene.id, (s) => ({
@@ -1207,6 +1358,11 @@ export class TourDraftStore {
    * filtro existe para evitar.
    */
   async descartarRascunho(): Promise<void> {
+    // Antes da ida à rede, e não só no `reset()` do fim: o que invalida uma
+    // gravação enfileirada é a DECISÃO de descartar, não a confirmação do
+    // servidor. Entre uma e outra cabe a rodada que recriaria o imóvel.
+    this.geracao++;
+
     const propertyId = this.rascunhoPropertyId();
     if (propertyId) {
       await firstValueFrom(this.propertyService.deleteProperty(propertyId));
@@ -1241,6 +1397,21 @@ export class TourDraftStore {
     this.rascunhoTourId.set(null);
     this.rascunhoPropertyId.set(null);
     this.hotspotsParaApagar.set([]);
+    this.miniaturas.set({});
+    this.miniaturasQueFalharam.clear();
+
+    // A partir daqui, toda gravação PEDIDA antes deste ponto vira no-op: sem
+    // isto, uma rodada enfileirada antes de um descarte rodava depois dele,
+    // via os ids nulos e recriava no servidor o imóvel que acabou de ser
+    // apagado. Ver `geracao`.
+    this.geracao++;
+    this.salvandoRascunho = null;
+    // A rodada pendente é RESOLVIDA, não rejeitada: não há mais rascunho a
+    // salvar, e quem a espera (sair do wizard, publicar) não tem o que fazer
+    // com um erro sobre um rascunho que deixou de existir.
+    const pendente = this.proximaGravacao;
+    this.proximaGravacao = null;
+    pendente?.resolver();
   }
 }
 
@@ -1257,6 +1428,24 @@ function publishErrorKey(error: unknown): string {
   return status === 413
     ? 'TOUR_WIZARD.STEP3.WARN_SIZE'
     : 'TOUR_WIZARD.SUCCESS.PUBLISH_ERROR';
+}
+
+/**
+ * O `roomName` que um SALVAMENTO DE RASCUNHO pode mandar ao servidor.
+ *
+ * Nome vazio manda campo nenhum, e nunca o `fileName`. O salvamento de rascunho
+ * roda por caminhos que não passam por `canAdvance` — o `visibilitychange`, por
+ * exemplo, dispara com o app indo para segundo plano —, e gravar
+ * "captura-360-1.jpg" ali fazia esse texto voltar como nome de verdade na
+ * retomada: `ambientesSemNome` ficava vazio e o portão da etapa 1 parava de
+ * proteger justamente quem mais precisava dele.
+ *
+ * No publicar isso não muda nada: para chegar à etapa 3 é preciso ter passado
+ * pelo portão da etapa 1, que só libera com todo ambiente nomeado.
+ */
+function nomeDeRascunho(scene: WizardScene): { roomName?: string } {
+  const nome = scene.room.trim();
+  return nome ? { roomName: nome } : {};
 }
 
 function rejectionFor(file: File): WizardSceneRejection | null {

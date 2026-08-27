@@ -533,4 +533,103 @@ describe('StepHotspotsComponent — foto de uma cena retomada', () => {
 
     expect(garantir).not.toHaveBeenCalled();
   });
+
+  it('não estoura quando o download da foto falha', async () => {
+    // O effect reroda a cada mutação da cena — uma tecla no nome de um ponto
+    // basta. Sem `.catch`, cada rerodada de uma cena sem foto deixava uma
+    // promise rejeitada sem dono.
+    const montado = montarEtapa2ComCenaRetomada();
+    fixture = montado.fixture;
+    spyOn(montado.store, 'garantirImagem').and.rejectWith(new Error('rede caiu'));
+
+    expect(() => fixture.detectChanges()).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+
+  /**
+   * O "ver original" numa cena retomada.
+   *
+   * `temComparacao` fica verdadeiro assim que a tratada chega, então o botão é
+   * OFERECIDO — mas `revealUrl` devolvia `scene.imageData`, que numa cena
+   * retomada é a string vazia. O botão aparecia e não fazia nada, e a variante
+   * `'original'` de `garantirImagem`, criada na Tarefa 10, não tinha um único
+   * chamador em todo o cliente.
+   */
+  describe('comparar com a original', () => {
+    /** Responde os dois downloads como o store de verdade responderia. */
+    function dublarDownloads(store: TourDraftStore): jasmine.Spy {
+      return spyOn(store, 'garantirImagem').and.callFake(
+        async (id: string, variante: 'treated' | 'original') => {
+          const url = `blob:${variante}`;
+          store.patchScene(id, (s) =>
+            variante === 'treated'
+              ? { ...s, treatedImageUrl: url }
+              : { ...s, imageData: url },
+          );
+          return url;
+        },
+      );
+    }
+
+    async function assenta(): Promise<void> {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      fixture.detectChanges();
+    }
+
+    it('baixa a original antes de revelar', async () => {
+      const montado = montarEtapa2ComCenaRetomada();
+      fixture = montado.fixture;
+      const garantir = dublarDownloads(montado.store);
+
+      fixture.detectChanges();
+      await assenta();
+      expect(fixture.componentInstance.temComparacao()).toBe(true);
+
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+
+      expect(garantir).toHaveBeenCalledWith('s1', 'original');
+      expect(fixture.componentInstance.vendoOriginal()).toBe(true);
+      expect(fixture.componentInstance.revealUrl()).toBe('blob:original');
+    });
+
+    it('não troca de imagem quando a original não vem — o botão não pode mentir', async () => {
+      const montado = montarEtapa2ComCenaRetomada();
+      fixture = montado.fixture;
+      spyOn(montado.store, 'garantirImagem').and.callFake(
+        async (id: string, variante: 'treated' | 'original') => {
+          if (variante === 'original') throw new Error('rede caiu');
+          montado.store.patchScene(id, (s) => ({ ...s, treatedImageUrl: 'blob:treated' }));
+          return 'blob:treated';
+        },
+      );
+
+      fixture.detectChanges();
+      await assenta();
+
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+
+      expect(fixture.componentInstance.vendoOriginal()).toBe(false);
+      expect(fixture.componentInstance.revealUrl()).toBe('blob:treated');
+    });
+
+    it('volta para a tratada sem baixar nada de novo', async () => {
+      const montado = montarEtapa2ComCenaRetomada();
+      fixture = montado.fixture;
+      const garantir = dublarDownloads(montado.store);
+
+      fixture.detectChanges();
+      await assenta();
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+      const antes = garantir.calls.count();
+
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+
+      expect(fixture.componentInstance.vendoOriginal()).toBe(false);
+      expect(garantir.calls.count()).toBe(antes);
+    });
+  });
 });

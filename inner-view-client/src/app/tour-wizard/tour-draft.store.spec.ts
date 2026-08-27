@@ -817,6 +817,136 @@ describe('TourDraftStore (contrato)', () => {
       expect(publicar).not.toHaveBeenCalled();
     });
 
+    /**
+     * O salvamento de rascunho roda por caminhos que NÃO passam por
+     * `canAdvance` — o `visibilitychange` dispara com o app indo para segundo
+     * plano, a qualquer momento. Gravar `fileName` como `roomName` fazia
+     * "captura-360-1.jpg" voltar como nome de verdade na retomada:
+     * `ambientesSemNome` ficava vazio e o portão da etapa 1 parava de proteger
+     * justamente quem mais precisava dele.
+     */
+    it('não grava o nome do arquivo como nome do cômodo', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: '', fileName: 'captura-360-1.jpg' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(patch).toHaveBeenCalledWith('p1', { order: 0, initialPanorama: true });
+    });
+
+    it('também não manda o nome do arquivo no cômodo que sobe agora', async () => {
+      const store = storeWith(scene('s1', { room: '', fileName: 'captura-360-1.jpg' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const subir = spyOn(tours, 'addPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['addPanorama']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(subir.calls.mostRecent().args[1].roomName).toBe('Ambiente 1');
+    });
+
+    it('grava o nome digitado, quando existe um', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: '  Cozinha  ', fileName: 'x.jpg' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(patch.calls.mostRecent().args[1]).toEqual(
+        jasmine.objectContaining({ roomName: 'Cozinha' }),
+      );
+    });
+
+    /**
+     * O laço de hotspots itera o SNAPSHOT `cenasFinais`, e o corretor continua
+     * editando durante os `await`. Um ponto sem `serverId` apagado nesse
+     * meio-tempo ainda chegava ao `createHotspot`; o `patchScene` seguinte não
+     * encontrava onde gravar o id, e a captura de diff do `patchScene` não via
+     * `serverId` nenhum sumir (nunca houve um). O hotspot ficava no servidor
+     * para sempre e reaparecia na próxima retomada.
+     */
+    it('apaga o hotspot criado para um ponto que sumiu durante a gravação', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+      );
+      comRascunhoCriado(store);
+      const idLocal = ligarHotspot(store, 's1', 's2');
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      // O corretor apaga o ponto EXATAMENTE enquanto o POST está em voo.
+      spyOn(tours, 'createHotspot').and.callFake(() => {
+        removerHotspot(store, 's1', idLocal);
+        return of({ id: 'h-orfao' } as unknown) as ReturnType<
+          VirtualTourService['createHotspot']
+        >;
+      });
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(apagar).toHaveBeenCalledWith('h-orfao');
+    });
+
+    it('não apaga o hotspot criado para um ponto que continua na tela', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Quarto' }),
+      );
+      comRascunhoCriado(store);
+      ligarHotspot(store, 's1', 's2');
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      spyOn(tours, 'createHotspot').and.returnValue(
+        of({ id: 'h-srv' } as unknown) as ReturnType<VirtualTourService['createHotspot']>,
+      );
+      const apagar = spyOn(tours, 'deleteHotspot').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deleteHotspot']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(apagar).not.toHaveBeenCalled();
+      expect(store.scenes()[0].hotspots[0].serverId).toBe('h-srv');
+    });
+
     it('não chama o PATCH do imóvel quando a etapa 3 está em branco', async () => {
       // `PATCH /properties/:id` tem `.refine()` recusando corpo vazio, para
       // que um PATCH sem campo nenhum não passe por sucesso. Salvar um
@@ -1233,6 +1363,98 @@ describe('TourDraftStore (contrato)', () => {
       );
     });
 
+    /**
+     * O descarte tem que matar a rodada JÁ ENFILEIRADA.
+     *
+     * Sequência do achado: uma troca de etapa dispara a rodada A; uma segunda
+     * troca (ou o `visibilitychange`) enfileira a B; o corretor toca em voltar
+     * e escolhe "Descartar", que apaga o `Property` e chama `reset()`, zerando
+     * `rascunhoTourId`/`rascunhoPropertyId`; a rodada A settla, o `finally`
+     * dispara a B, ela chama `garantirRascunho()`, vê os ids nulos e CRIA um
+     * `Property` "Captura em andamento" + `VirtualTour` DRAFT novos — que
+     * reaparecem na faixa da home. É o mesmo desfecho que a trava de
+     * reentrância da página existe para impedir, por outra porta.
+     */
+    it('descartar cancela a gravação enfileirada, em vez de recriar o imóvel', async () => {
+      const store = storeWith(scene('a', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const property = TestBed.inject(PropertyService);
+      const criarImovel = spyOn(property, 'createProperty').and.returnValue(
+        of({ id: 'imovel-2' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      const criarTour = spyOn(tours, 'createTour').and.returnValue(
+        of({ id: 'tour-2', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      spyOn(property, 'deleteProperty').and.returnValue(
+        of(undefined) as ReturnType<PropertyService['deleteProperty']>,
+      );
+
+      // Trava a rodada A no PATCH do panorama, como no caso da borda de saída
+      // acima: é o ponto em que ela já leu as cenas e ainda não terminou.
+      let liberar!: () => void;
+      const presa = new Promise<void>((resolve) => {
+        liberar = resolve;
+      });
+      spyOn(tours, 'atualizarPanorama').and.callFake(
+        () =>
+          from(presa.then(() => ({ id: 'p1' }))) as ReturnType<
+            VirtualTourService['atualizarPanorama']
+          >,
+      );
+
+      const primeira = store.salvarRascunho();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const segunda = store.salvarRascunho();
+
+      await store.descartarRascunho();
+
+      liberar();
+      await Promise.all([primeira, segunda]);
+
+      expect(criarImovel).not.toHaveBeenCalled();
+      expect(criarTour).not.toHaveBeenCalled();
+      expect(store.rascunhoTourId()).toBeNull();
+      expect(store.rascunhoPropertyId()).toBeNull();
+    });
+
+    it('depois de um descarte, uma captura NOVA volta a criar rascunho', async () => {
+      // A geração invalida o que foi pedido ANTES do descarte, e só isso: quem
+      // recomeça depois precisa de imóvel e tour novos.
+      const store = storeWith(scene('a', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const property = TestBed.inject(PropertyService);
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(property, 'deleteProperty').and.returnValue(
+        of(undefined) as ReturnType<PropertyService['deleteProperty']>,
+      );
+      const criarImovel = spyOn(property, 'createProperty').and.returnValue(
+        of({ id: 'imovel-2' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      spyOn(tours, 'createTour').and.returnValue(
+        of({ id: 'tour-2', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      spyOn(tours, 'addPanorama').and.returnValue(
+        of({ id: 'pan-0' } as unknown) as ReturnType<VirtualTourService['addPanorama']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'pan-0' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+
+      await store.descartarRascunho();
+      store.scenes.set([scene('nova', { room: 'Sala' })]);
+      await store.salvarRascunho();
+
+      expect(criarImovel).toHaveBeenCalledTimes(1);
+    });
+
     it('depois de terminar (com sucesso ou não), a próxima chamada tenta de novo', async () => {
       // A trava é só para o que está EM VOO — sem isto, uma falha deixaria
       // `salvarRascunho()` preso numa promise rejeitada para sempre, e nem
@@ -1344,6 +1566,25 @@ describe('TourDraftStore (contrato)', () => {
 
       expect(salvar).not.toHaveBeenCalled();
       expect(store.step()).toBe(1);
+    });
+
+    /**
+     * O chip da etapa ATUAL, sem nenhum cômodo, criava rascunho fantasma.
+     *
+     * `canReach(1)` é `1 <= 1` — trivialmente verdadeiro —, então tocar no
+     * chip onde já se está chegava em `irPara()`, que salvava sem checar se
+     * havia o que salvar. `salvarRascunhoAgora()` começa por
+     * `garantirRascunho()`, que CRIA `Property` + `VirtualTour`: cada toque
+     * perdido virava um cartão "Nenhum ambiente ainda" na home, que só some
+     * em 30 dias. As outras duas portas de auto-save já tinham esta guarda.
+     */
+    it('não salva ao tocar no chip da etapa atual sem nenhum cômodo', () => {
+      const store = newStore();
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+
+      store.goTo(1);
+
+      expect(salvar).not.toHaveBeenCalled();
     });
   });
 
@@ -1751,6 +1992,47 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.readyScenes().length).toBe(2);
     });
 
+    /**
+     * O `Record<TreatmentStatus, WizardSceneAiState>` do topo do store existe
+     * exatamente para esta tradução, e a retomada fazia a sua própria:
+     * `=== 'DONE' ? 'done' : 'idle'`. `PENDING`/`PROCESSING` viravam `idle`,
+     * o selo "melhorando" sumia do card e o corretor via como pronto um cômodo
+     * que a IA ainda estava montando.
+     */
+    it('traduz o estado da IA pelo mapa, e não só DONE contra o resto', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [
+            { ...base.panoramas[0], treatmentStatus: 'PROCESSING' },
+            { ...base.panoramas[1], treatmentStatus: 'FAILED' },
+          ],
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.scenes()[0].aiState).toBe('processing');
+      expect(store.scenes()[1].aiState).toBe('failed');
+    });
+
+    it('trata PENDING como montagem em curso, e não como cômodo pronto', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [{ ...base.panoramas[0], treatmentStatus: 'PENDING' }],
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.scenes()[0].aiState).toBe('processing');
+    });
+
     it('devolve o nome vazio quando o título é só o marcador de garantirRascunho()', async () => {
       // `garantirRascunho()` grava 'Captura em andamento' como marcador, não
       // como dado — o comentário do próprio método já diz isso. Devolvê-lo
@@ -1765,6 +2047,57 @@ describe('TourDraftStore (contrato)', () => {
       await store.retomarRascunho('t1');
 
       expect(store.property().name).toBe('');
+    });
+
+    /**
+     * `title`, `type` e `purpose` são gravados JUNTOS por `garantirRascunho()`,
+     * os três como marcador. A Tarefa 9 filtrou só o título, e Casa/Venda
+     * voltavam como escolha do corretor: a etapa 3 abria pré-selecionada,
+     * `invalidFields()` passava, e um apartamento para alugar era publicado
+     * rotulado como casa à venda sem ninguém ter tocado nos campos.
+     */
+    it('não devolve type e purpose quando eles também são só marcadores', async () => {
+      const store = newStore();
+      const marcador = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...marcador,
+          property: {
+            ...marcador.property,
+            title: 'Captura em andamento',
+            type: 'HOUSE',
+            purpose: 'SALE',
+          },
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.property().type).toBe('');
+      expect(store.property().purpose).toBe('');
+      // E a etapa 3 volta a cobrar os três, em vez de deixar publicar assim.
+      expect(store.invalidFields()).toEqual(['name', 'type', 'purpose']);
+    });
+
+    it('devolve type e purpose quando o corretor já os escolheu', async () => {
+      const store = newStore();
+      const escolhido = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...escolhido,
+          property: {
+            ...escolhido.property,
+            title: 'Casa na praia',
+            type: 'APARTMENT',
+            purpose: 'RENT',
+          },
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.property().type).toBe('APARTMENT');
+      expect(store.property().purpose).toBe('RENT');
     });
 
     it('zera a fila de hotspots a apagar de uma sessão anterior', async () => {
@@ -1870,6 +2203,73 @@ describe('TourDraftStore (contrato)', () => {
   });
 
   /**
+   * A MINIATURA de uma cena retomada.
+   *
+   * Separada de `garantirImagem` porque é outra imagem: o card da etapa 1 e o
+   * rail da etapa 2 desenham 196x110, e a foto cheia é dezenas de MB. Guardar
+   * a pequena em `treatedImageUrl` faria a esfera da etapa 2 abrir borrada —
+   * daí ela viver num mapa à parte.
+   */
+  describe('garantirMiniatura', () => {
+    it('baixa reduzida e guarda fora da cena', async () => {
+      const store = storeWith(
+        scene('s1', { room: 'Sala', serverPanoramaId: 'p1', imageData: '' }),
+      );
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter').and.resolveTo(
+        'blob:mini',
+      );
+
+      const url = await store.garantirMiniatura('s1');
+
+      expect(url).toBe('blob:mini');
+      expect(obter).toHaveBeenCalledWith('p1', 'treated', 320);
+      expect(store.miniatura('s1')).toBe('blob:mini');
+      // O viewer continua sem imagem: quem baixa a esfera é a etapa 2.
+      expect(store.scenes()[0].treatedImageUrl).toBeUndefined();
+    });
+
+    it('baixa uma vez só', async () => {
+      const store = storeWith(
+        scene('s1', { room: 'Sala', serverPanoramaId: 'p1', imageData: '' }),
+      );
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter').and.resolveTo(
+        'blob:mini',
+      );
+
+      await store.garantirMiniatura('s1');
+      await store.garantirMiniatura('s1');
+
+      expect(obter).toHaveBeenCalledTimes(1);
+    });
+
+    it('não tenta de novo depois de uma falha, e não rejeita', async () => {
+      // Quem chama é um `effect`, que reroda a cada mutação da cena — uma
+      // tecla digitada no nome basta. Sem esta memória, uma falha de rede
+      // virava um download novo por tecla; e uma promise rejeitada ali não
+      // teria onde ser tratada.
+      const store = storeWith(
+        scene('s1', { room: 'Sala', serverPanoramaId: 'p1', imageData: '' }),
+      );
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter').and.rejectWith(
+        new Error('rede caiu'),
+      );
+
+      await expectAsync(store.garantirMiniatura('s1')).toBeResolvedTo('');
+      await expectAsync(store.garantirMiniatura('s1')).toBeResolvedTo('');
+
+      expect(obter).toHaveBeenCalledTimes(1);
+    });
+
+    it('devolve vazio, sem ir à rede, para uma cena que nunca subiu', async () => {
+      const store = storeWith(scene('s1', { imageData: '' }));
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter');
+
+      expect(await store.garantirMiniatura('s1')).toBe('');
+      expect(obter).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
    * `descartarRascunho` joga fora a captura em andamento — o botão que a
    * Tarefa 9 pediu de par com "retomar". Apaga o IMÓVEL, não o tour: ver o
    * comentário do método na implementação para a razão inteira (cascade e o
@@ -1909,6 +2309,23 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.rascunhoTourId()).toBeNull();
       expect(store.rascunhoPropertyId()).toBeNull();
       expect(liberar).toHaveBeenCalled();
+    });
+
+    it('descartar solta também as miniaturas', async () => {
+      // Os `blob:` das miniaturas vivem num mapa do store, fora da cena: sem
+      // limpá-los, "Criar outro tour" começaria com as miniaturas do tour
+      // anterior apontando para blobs já revogados.
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', imageData: '' }));
+      comRascunhoCriado(store);
+      spyOn(TestBed.inject(PropertyService), 'deleteProperty').and.returnValue(
+        of(undefined) as ReturnType<PropertyService['deleteProperty']>,
+      );
+      spyOn(TestBed.inject(PanoramaImageCache), 'obter').and.resolveTo('blob:mini');
+      await store.garantirMiniatura('s1');
+
+      await store.descartarRascunho();
+
+      expect(store.miniatura('s1')).toBe('');
     });
 
     it('descartar um rascunho que nunca subiu não chama a rede', async () => {
