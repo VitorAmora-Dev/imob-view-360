@@ -354,3 +354,48 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
     });
   });
 });
+
+/**
+ * `resetView()` existe para o assistente guiado: avançar de ambiente tem de
+ * devolver a câmera ao ângulo inicial.
+ *
+ * Sem ele, `loadPanorama()` troca só a textura e o OrbitControls fica no ângulo
+ * do ambiente anterior — um ângulo que na foto nova não quer dizer nada, já que
+ * equirretangulares de celular não compartilham orientação de bússola.
+ */
+describe('PanoramicViewerComponent — resetView', () => {
+  let fixture: ComponentFixture<PanoramicViewerComponent>;
+  let component: PanoramicViewerComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PanoramicViewerComponent],
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PanoramicViewerComponent);
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  // Quem chama é um `effect`, e ele pode disparar antes do init adiado ou
+  // depois do destroy. Explodir ali derrubaria a etapa inteira.
+  it('antes de inicializar não explode', () => {
+    expect(() => component.resetView()).not.toThrow();
+  });
+
+  it('devolve a câmera ao ponto inicial', async () => {
+    fixture.detectChanges();
+    await afterInit();
+
+    const camera = component.viewerCamera!;
+    camera.position.set(400, 120, -300);
+
+    component.resetView();
+
+    expect(camera.position.x).toBeCloseTo(0, 5);
+    expect(camera.position.y).toBeCloseTo(0, 5);
+    expect(camera.position.z).toBeCloseTo(0.1, 5);
+  });
+});

@@ -1,0 +1,99 @@
+@if (viewerPanoramas().length) {
+  <div class="tw-step2">
+    <div class="tw-step2__stage">
+      <div class="tw-viewer">
+        <!--
+          `roomNav` desligado: a lista de ambientes do viewer é para quem VÊ o
+          tour. Aqui quem troca de ambiente é o trilho, logo abaixo da foto, e
+          duas respostas para a mesma pergunta na mesma tela é uma a mais.
+        -->
+        <app-panoramic-viewer
+          #viewer
+          [panoramas]="viewerPanoramas()"
+          [revealUrl]="revealUrl()"
+          [editMode]="true"
+          [roomNav]="false"
+          (hotspotPlaced)="onPlaced($event)" />
+
+        <!--
+          Estado da montagem por IA sobre a foto. `pointer-events: none` no
+          CSS: qualquer coisa sólida aqui engoliria o clique que cria hotspot,
+          porque este elemento fica sobre a mesma área do canvas.
+        -->
+        <!--
+          Não há mais estado "melhorando" aqui: o cômodo chega tratado, porque
+          a espera acontece no modal de captura, antes de ele ganhar nome.
+        -->
+        @if (temComparacao() && !vendoOriginal()) {
+          <p class="tw-viewer__ia is-pronto" role="status">
+            {{ 'TOUR_WIZARD.STEP2.MELHORADO' | translate }}
+          </p>
+        }
+
+        <!--
+          ANTES do overlay no DOM: assim o pin em arraste passa por cima do
+          alvo, e não desaparece atrás dele bem no instante em que se precisa
+          ver o que está sendo largado.
+        -->
+        <app-hotspot-trash #trash />
+
+        <app-hotspot-overlay
+          [viewer]="viewer"
+          [hotspots]="editor.hotspots()"
+          [roomNames]="roomNames()"
+          [draggingId]="editor.pinDrag()?.hotspotId ?? null"
+          [picker]="editor.picker()"
+          [rooms]="destinos()"
+          (targetPicked)="editor.pickTarget($event.hotspotId, $event.targetId)"
+          (pickerClosed)="editor.closePicker()"
+          (pinActivated)="onPinActivated($event)"
+          (pinDragStarted)="editor.startDrag($event)"
+          (pinDragMoved)="onPinDragMoved($event)"
+          (pinDragEnded)="editor.endDrag()" />
+
+        <!--
+          A dica fica sobre a imagem porque é ali que a ação acontece, e some
+          assim que o primeiro ponto existe: instrução que não some vira ruído
+          permanente para quem já entendeu.
+        -->
+        @if (!editor.hotspots().length) {
+          <p class="tw-viewer__hint">{{ 'TOUR_WIZARD.STEP2.HINT' | translate }}</p>
+        }
+      </div>
+
+      <!--
+        Comparar fica FORA do visualizador, não sobre ele: dentro, o botão
+        disputaria a área em que se toca para criar um ponto, e o template do
+        viewer é proibido de ganhar coisa que aloque a cada quadro.
+
+        Só aparece quando existem as duas imagens — antes disso não há o que
+        comparar, e um botão morto sugeriria que algo deixou de funcionar.
+      -->
+      @if (temComparacao()) {
+        <button type="button" class="tw-viewer__comparar" (click)="alternarOriginal()">
+          {{
+            (vendoOriginal()
+              ? 'TOUR_WIZARD.STEP2.VER_MELHORADA'
+              : 'TOUR_WIZARD.STEP2.VER_ORIGINAL'
+            ) | translate
+          }}
+        </button>
+      }
+
+      <app-scene-rail />
+
+      <!-- Só no mobile: no desktop o painel ao lado já mostra a lista inteira. -->
+      <app-hotspot-summary-row class="tw-step2__row" />
+    </div>
+
+    <app-hotspot-panel class="tw-step2__panel" />
+  </div>
+
+  <!--
+    Sobreposição, não layout: fica fora da grade de propósito. Ele mesmo decide
+    que não existe no desktop — ver `isMobileViewport`.
+  -->
+  <app-hotspot-sheet />
+} @else {
+  <p class="tw-viewer__empty">{{ 'TOUR_WIZARD.STEP2.EMPTY' | translate }}</p>
+}

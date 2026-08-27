@@ -283,7 +283,29 @@
       "SHEET_LIST": "Pontos deste ambiente",
       "SHEET_DONE": "Concluído",
       "TRASH_HINT": "Excluir",
-      "TRASH_RELEASE": "Solte para excluir"
+      "TRASH_RELEASE": "Solte para excluir",
+      "GUIDED": {
+        "PROGRESS": "Passo {{n}} de {{total}} · {{ambiente}}",
+        "PROGRESS_LABEL": "Progresso do percurso",
+        "INSTRUCTION": "Toque onde fica a passagem para {{ambiente}}",
+        "INSTRUCTION_LAST": "Toque onde fica a passagem de volta para {{ambiente}}",
+        "HINT": "arraste para girar · toque para marcar",
+        "NEXT_ROOM": "Próximo ambiente",
+        "REDO": "Refazer",
+        "CONFIRM": "Confirmar passagem",
+        "CONFIRM_LAST": "Fechar percurso",
+        "DOT_CURRENT": "Ambiente {{n}}, atual",
+        "DOT_DONE": "Ambiente {{n}}, concluído",
+        "DOT_PENDING": "Ambiente {{n}}, pendente",
+        "CYCLE_TITLE": "Percurso fechado",
+        "CYCLE_TEXT": "Os {{n}} ambientes estão conectados em ciclo — dá para percorrer o imóvel inteiro e voltar ao início.",
+        "CYCLE_TEXT_ONE": "O ambiente está conectado em ciclo.",
+        "CYCLE_NOTE": "↩ fecha o ciclo em {{ambiente}}",
+        "CONTINUE": "Continuar",
+        "EDIT_LINKS": "Editar conexões",
+        "ADVANCED": "Editar manualmente",
+        "GUIDED_MODE": "Voltar ao assistente"
+      }
     },
     "STEP3": {
       "TITLE": "Informações do imóvel",

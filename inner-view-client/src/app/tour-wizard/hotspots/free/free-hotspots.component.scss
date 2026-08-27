@@ -1,0 +1,152 @@
+@use '../../../../theme/tour-wizard-mixins' as tw;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+// Viewer e painel lado a lado no desktop; empilhados no mobile, onde o painel
+// dá lugar ao bottom sheet (B8).
+.tw-step2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+
+  @include tw.tw-mobile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tw-step2__stage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  // Sem isto, o viewer com largura intrínseca grande estoura a coluna da grade
+  // em vez de encolher dentro dela.
+  min-width: 0;
+}
+
+.tw-step2__panel {
+  @include tw.tw-mobile {
+    display: none;
+  }
+}
+
+// O inverso do painel: a linha-resumo é do mobile.
+.tw-step2__row {
+  @include tw.tw-desktop {
+    display: none;
+  }
+}
+
+.tw-viewer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--tw-radius-md);
+  background: #000;
+
+  // Mais alto no mobile: em 16/9 a faixa de imagem fica baixa demais para
+  // acertar um ponto com o polegar sem ampliar antes.
+  @include tw.tw-mobile {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/**
+ * Estado da montagem por IA, no alto da foto.
+ *
+ * Canto oposto ao da dica, que mora embaixo à esquerda: os dois aparecem juntos
+ * num ambiente recém-capturado e sem pontos, e empilhados um cobriria o outro.
+ */
+.tw-viewer__ia {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  // Mesma regra da dica: este elemento fica sobre a área do canvas em que se
+  // toca para criar um ponto, e sólido ele engoliria o clique.
+  pointer-events: none;
+  margin: 0;
+  padding: 7px 12px;
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-hint-bg);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 650;
+  white-space: nowrap;
+
+  &.is-pronto {
+    background: var(--tw-brand);
+  }
+}
+
+.tw-viewer__comparar {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-surface);
+  color: var(--tw-text-strong);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--tw-surface-muted);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tw-brand);
+    outline-offset: 2px;
+  }
+}
+
+.tw-viewer__hint {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  // Não intercepta o clique: a dica cobre justamente a área onde se marca.
+  pointer-events: none;
+  margin: 0;
+  padding: 9px 14px;
+  max-width: calc(100% - 24px);
+  border-radius: var(--tw-radius-pill);
+  background: var(--tw-hint-bg);
+  color: #fff;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Estado sem imagem (B1). A hachura ocupa exatamente a caixa que a foto vai
+// ocupar, com a mesma proporção do viewer: assim a etapa não encolhe e depois
+// salta quando a imagem chega, e fica claro que o que falta é a foto, não o
+// resto da tela.
+.tw-viewer__empty {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px dashed var(--tw-border-dashed);
+  border-radius: var(--tw-radius-md);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--tw-surface-muted) 0 9px,
+    var(--tw-surface) 9px 18px
+  );
+  text-align: center;
+  font-size: 14px;
+  color: var(--tw-text-muted);
+  text-wrap: pretty;
+
+  @include tw.tw-mobile {
+    aspect-ratio: 4 / 3;
+  }
+}
