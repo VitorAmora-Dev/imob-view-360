@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { AlertController } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TourWizardPage } from './tour-wizard.page';
@@ -311,6 +311,72 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       // Sem isto, o listener do componente anterior seguiria vivo em
       // `document` — cada wizard aberto e fechado empilharia mais um.
       expect(salvar).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * O gatilho da Tarefa 13: a faixa "Capturas em andamento" da home navega
+   * para `/tour/novo?rascunho=<tourId>`, e é este `ngOnInit` que fecha o
+   * caminho de volta lendo o parâmetro. Sem ele, o link da faixa levaria a um
+   * wizard vazio como qualquer outro — a mecânica de `retomarRascunho()` já
+   * existe e está testada em `tour-draft.store.spec.ts`; falta só chamá-la.
+   */
+  describe('retomar pela query string', () => {
+    function montarPaginaComQuery(rascunho: string | null): TourWizardPage {
+      TestBed.configureTestingModule({
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+          provideRouter([]),
+          {
+            provide: AlertController,
+            useValue: {
+              create: () => Promise.resolve({ present: () => Promise.resolve() }),
+            },
+          },
+          // Dublê mínimo, como o `AlertController` acima: só precisa devolver
+          // o `queryParamMap` que o `ngOnInit` lê no `snapshot`. Navegar de
+          // verdade pediria uma rota configurada para `/tour/novo`, que nada
+          // aqui além deste parâmetro usa.
+          {
+            provide: ActivatedRoute,
+            useValue: {
+              snapshot: {
+                queryParamMap: convertToParamMap(rascunho ? { rascunho } : {}),
+              },
+            },
+          },
+        ],
+      });
+      return TestBed.createComponent(TourWizardPage).componentInstance;
+    }
+
+    it('chama retomarRascunho quando a URL veio da faixa da home', () => {
+      const page = montarPaginaComQuery('t1');
+      const retomar = spyOn(page.store, 'retomarRascunho').and.resolveTo();
+
+      page.ngOnInit();
+
+      expect(retomar).toHaveBeenCalledWith('t1');
+    });
+
+    it('sem o parametro o wizard comeca vazio, como sempre comecou', () => {
+      const page = montarPaginaComQuery(null);
+      const retomar = spyOn(page.store, 'retomarRascunho').and.resolveTo();
+
+      page.ngOnInit();
+
+      expect(retomar).not.toHaveBeenCalled();
+    });
+
+    it('falha ao retomar nao quebra o wizard', () => {
+      // Mesma regra de "sair nao pode travar" que vale em `aoVoltar()`: uma
+      // falha de rede aqui deixa o wizard vazio, nao a tela inteira presa.
+      const page = montarPaginaComQuery('t1');
+      spyOn(page.store, 'retomarRascunho').and.rejectWith(new Error('rede'));
+
+      expect(() => page.ngOnInit()).not.toThrow();
     });
   });
 });

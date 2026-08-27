@@ -1,4 +1,5 @@
-import { Component, DestroyRef, ViewChild, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { AlertController, IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
@@ -41,13 +42,14 @@ import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.compo
     TourPublishedComponent,
   ],
 })
-export class TourWizardPage {
+export class TourWizardPage implements OnInit {
   readonly store = inject(TourDraftStore);
 
   @ViewChild(AppHeaderComponent) private header?: AppHeaderComponent;
 
   private readonly alertController = inject(AlertController);
   private readonly translate = inject(TranslateService);
+  private readonly route = inject(ActivatedRoute);
 
   constructor() {
     // `visibilitychange`, e não `beforeunload`: navegador de celular ignora ou
@@ -64,6 +66,21 @@ export class TourWizardPage {
     inject(DestroyRef).onDestroy(() =>
       document.removeEventListener('visibilitychange', aoEsconder),
     );
+  }
+
+  /**
+   * Entrada pela faixa "Capturas em andamento" da home (Tarefa 13), que
+   * navega para `/tour/novo?rascunho=<tourId>`. Sem o parâmetro, o wizard
+   * começa vazio como sempre começou — é o mesmo caminho do FAB e do "Criar
+   * meu primeiro tour".
+   *
+   * `.catch()` e não deixar propagar: uma falha de rede aqui não pode travar
+   * a tela em branco — o pior caso aceitável é o wizard abrir vazio, do jeito
+   * que abriria se a pessoa tivesse tocado no FAB em vez da faixa.
+   */
+  ngOnInit(): void {
+    const rascunho = this.route.snapshot.queryParamMap.get('rascunho');
+    if (rascunho) void this.store.retomarRascunho(rascunho).catch(() => undefined);
   }
 
   /** O header encolhe com o scroll e depende do container do ion-content. */

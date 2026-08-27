@@ -29,7 +29,12 @@
       "RESULT_COUNT": "{{n}} properties found.",
       "RESULT_COUNT_ONE": "1 property found.",
       "NO_RESULTS_FILTERS": "No property matches the selected filters."
-    }
+    },
+    "DRAFTS_TITLE": "Captures in progress",
+    "DRAFTS_ROOMS": "{{count}} room(s)",
+    "DRAFTS_EMPTY_ROOMS": "No rooms yet",
+    "DRAFTS_RESUME": "Resume",
+    "DRAFTS_DISCARD": "Discard"
   },
   "NAV": {
     "HOME": "Home",

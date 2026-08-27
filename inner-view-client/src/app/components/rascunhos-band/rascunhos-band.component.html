@@ -1,0 +1,41 @@
+@if (rascunhos().length) {
+  <section class="rascunhos">
+    <h2 class="rascunhos__titulo">{{ 'HOME.DRAFTS_TITLE' | translate }}</h2>
+
+    <ul class="rascunhos__lista">
+      @for (r of rascunhos(); track r.id) {
+        <li class="rascunhos__card">
+          <button type="button" class="rascunhos__abrir" (click)="retomar(r)">
+            <span class="rascunhos__thumb">
+              <!--
+                Só desenha o <img> quando a miniatura já chegou. O rascunho
+                sem cômodo nenhum é estado normal — existe entre criar o
+                rascunho e a primeira captura terminar — e um <img> com src
+                vazio desenharia o ícone de imagem quebrada no lugar dela.
+              -->
+              @if (r.miniatura) {
+                <img [src]="r.miniatura" alt="" />
+              }
+            </span>
+
+            <span class="rascunhos__info">
+              <span class="rascunhos__ambientes">
+                @if (r.ambientes) {
+                  {{ 'HOME.DRAFTS_ROOMS' | translate: { count: r.ambientes } }}
+                } @else {
+                  {{ 'HOME.DRAFTS_EMPTY_ROOMS' | translate }}
+                }
+              </span>
+              <span class="rascunhos__data">{{ r.updatedAt | date: 'short' }}</span>
+              <span class="rascunhos__continuar">{{ 'HOME.DRAFTS_RESUME' | translate }}</span>
+            </span>
+          </button>
+
+          <button type="button" class="rascunhos__descartar" (click)="descartar(r)">
+            {{ 'HOME.DRAFTS_DISCARD' | translate }}
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+}

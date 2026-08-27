@@ -18,6 +18,7 @@ import { AppHeaderComponent } from '../components/app-header/app-header.componen
 import { InnerViewListComponent } from '../components/inner-view-list/inner-view-list.component';
 import { HomePlaceholderComponent } from '../components/home-placeholder/home-placeholder.component';
 import { HomeNoTourBannerComponent } from '../components/home-no-tour-banner/home-no-tour-banner.component';
+import { RascunhosBandComponent } from '../components/rascunhos-band/rascunhos-band.component';
 import { PropertyFiltersBarComponent } from '../components/property-filters-bar/property-filters-bar.component';
 import { ActiveFilterChipsComponent } from '../components/active-filter-chips/active-filter-chips.component';
 import { PropertyService } from '../services/property.service';
@@ -44,7 +45,7 @@ import {
   imports: [
     IonContent, IonSearchbar, IonIcon, IonFab, IonFabButton, IonProgressBar,
     AppHeaderComponent, InnerViewListComponent, HomePlaceholderComponent,
-    HomeNoTourBannerComponent, PropertyFiltersBarComponent,
+    HomeNoTourBannerComponent, RascunhosBandComponent, PropertyFiltersBarComponent,
     ActiveFilterChipsComponent, RouterLink, TranslatePipe,
   ],
 })

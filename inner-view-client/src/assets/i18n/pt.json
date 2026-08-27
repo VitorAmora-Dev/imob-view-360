@@ -29,7 +29,12 @@
       "RESULT_COUNT": "{{n}} imóveis encontrados.",
       "RESULT_COUNT_ONE": "1 imóvel encontrado.",
       "NO_RESULTS_FILTERS": "Nenhum imóvel corresponde aos filtros selecionados."
-    }
+    },
+    "DRAFTS_TITLE": "Capturas em andamento",
+    "DRAFTS_ROOMS": "{{count}} ambiente(s)",
+    "DRAFTS_EMPTY_ROOMS": "Nenhum ambiente ainda",
+    "DRAFTS_RESUME": "Continuar",
+    "DRAFTS_DISCARD": "Descartar"
   },
   "NAV": {
     "HOME": "Início",
