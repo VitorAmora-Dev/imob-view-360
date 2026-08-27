@@ -331,10 +331,21 @@ export class VirtualTourService {
    * Diferente de `imageUrl`, que só funciona depois de publicado: durante a
    * captura o tour está em rascunho e a rota pública responde 404. `treated`
    * cai na original enquanto a montagem não terminou.
+   *
+   * `largura` é o `w` que a rota já sabia atender e que ninguém pedia. Sem ele
+   * a resposta é a equirretangular inteira — dezenas de MB —, e quem só vai
+   * desenhar uma miniatura de 196×110 pagava esse download por cômodo, em toda
+   * visita à home. Quem precisa da esfera (o viewer da etapa 2) continua
+   * pedindo sem largura.
    */
-  urlDoPreview(panoramaId: string, variante: 'treated' | 'original', versao?: string): string {
-    const v = versao ? `&v=${encodeURIComponent(versao)}` : '';
-    return `${environment.apiUrl}/panoramas/${panoramaId}/preview?variant=${variante}${v}`;
+  urlDoPreview(
+    panoramaId: string,
+    variante: 'treated' | 'original',
+    opcoes: { largura?: number; versao?: string } = {},
+  ): string {
+    const v = opcoes.versao ? `&v=${encodeURIComponent(opcoes.versao)}` : '';
+    const w = opcoes.largura ? `&w=${opcoes.largura}` : '';
+    return `${environment.apiUrl}/panoramas/${panoramaId}/preview?variant=${variante}${w}${v}`;
   }
 
   /**
@@ -346,8 +357,12 @@ export class VirtualTourService {
    * chama transforma o blob em `URL.createObjectURL` e é responsável por
    * revogá-lo.
    */
-  baixarPreview(panoramaId: string, variante: 'treated' | 'original'): Observable<Blob> {
-    return this.http.get(this.urlDoPreview(panoramaId, variante), {
+  baixarPreview(
+    panoramaId: string,
+    variante: 'treated' | 'original',
+    largura?: number,
+  ): Observable<Blob> {
+    return this.http.get(this.urlDoPreview(panoramaId, variante, { largura }), {
       responseType: 'blob',
     });
   }

@@ -1,12 +1,23 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
+
+/**
+ * Largura da capa que o cartão pede ao servidor.
+ *
+ * O cartão desenha 196×110. Sem o `w`, a rota de preview devolve a
+ * equirretangular inteira — e esta faixa dispara um download por rascunho, em
+ * paralelo, no `ngOnInit` da home. Eram dezenas de MB no 4G a cada visita à
+ * tela inicial para preencher um punhado de selos.
+ */
+const LARGURA_DA_CAPA = 320;
 
 /** Uma linha de `listarRascunhos()`, mais a miniatura quando ela já chegou. */
 interface CartaoDeRascunho extends RascunhoResumo {
@@ -44,6 +55,9 @@ export class RascunhosBandComponent implements OnInit {
   private readonly propertyService = inject(PropertyService);
   private readonly imagens = inject(PanoramaImageCache);
   private readonly router = inject(Router);
+  private readonly alertController = inject(AlertController);
+  private readonly toastController = inject(ToastController);
+  private readonly translate = inject(TranslateService);
 
   readonly rascunhos = signal<CartaoDeRascunho[]>([]);
 
@@ -82,12 +96,15 @@ export class RascunhosBandComponent implements OnInit {
    *
    * Pede a variante `'treated'`: é a mesma que o wizard mostra durante a
    * captura, e cai na original sozinha enquanto a montagem por IA não termina
-   * (ver o comentário de `urlDoPreview`).
+   * (ver o comentário de `urlDoPreview`). E pede com largura: ver
+   * `LARGURA_DA_CAPA`.
    */
   private async carregarMiniatura(r: RascunhoResumo): Promise<void> {
     if (!r.capaPanoramaId) return;
 
-    const url = await this.imagens.obter(r.capaPanoramaId, 'treated').catch(() => '');
+    const url = await this.imagens
+      .obter(r.capaPanoramaId, 'treated', LARGURA_DA_CAPA)
+      .catch(() => '');
     if (!url) return;
 
     this.rascunhos.update((atual) =>
@@ -111,13 +128,60 @@ export class RascunhosBandComponent implements OnInit {
    * não tem tour nenhum). O descarte pela metade voltaria a aparecer no
    * catálogo como a linha vazia que aquele filtro existe para evitar. Mesma
    * regra de `TourDraftStore.descartarRascunho()`.
+   *
+   * Por isso a confirmação, no mesmo padrão do alerta de saída do wizard: o
+   * botão tem 44px, encosta no cartão e vive dentro de um carrossel de rolagem
+   * horizontal — um toque errado apagava, sem pergunta e sem desfazer, as
+   * fotos, os hotspots e o tratamento por IA já pago.
+   *
+   * E o cartão só some se o DELETE tiver dado certo. Engolir a falha e remover
+   * o cartão mesmo assim fazia um descarte que não aconteceu parecer concluído
+   * — o rascunho reaparecia no próximo carregamento da home, sem explicação.
    */
   async descartar(r: CartaoDeRascunho): Promise<void> {
-    await firstValueFrom(this.propertyService.deleteProperty(r.propertyId)).catch(
-      () => undefined,
-    );
+    if (!(await this.confirmarDescarte())) return;
+
+    try {
+      await firstValueFrom(this.propertyService.deleteProperty(r.propertyId));
+    } catch {
+      await this.avisar(this.texto('HOME.DRAFTS_DISCARD_ERROR'));
+      return;
+    }
 
     if (r.capaPanoramaId) this.imagens.liberar(r.capaPanoramaId);
     this.rascunhos.update((atual) => atual.filter((x) => x.id !== r.id));
+  }
+
+  /**
+   * Decide pelo papel do botão devolvido em `onDidDismiss()`, e não por
+   * `handler`: assim tocar fora do alerta — que não chama handler nenhum —
+   * conta como desistir, em vez de deixar a promise pendurada para sempre.
+   */
+  private async confirmarDescarte(): Promise<boolean> {
+    const alerta = await this.alertController.create({
+      header: this.texto('HOME.DRAFTS_DISCARD_TITLE'),
+      message: this.texto('HOME.DRAFTS_DISCARD_MESSAGE'),
+      buttons: [
+        { text: this.texto('HOME.DRAFTS_DISCARD_CANCEL'), role: 'cancel' },
+        { text: this.texto('HOME.DRAFTS_DISCARD_CONFIRM'), role: 'destructive' },
+      ],
+    });
+    await alerta.present();
+    const { role } = await alerta.onDidDismiss();
+    return role === 'destructive';
+  }
+
+  private async avisar(mensagem: string): Promise<void> {
+    const toast = await this.toastController.create({
+      message: mensagem,
+      duration: 3000,
+      position: 'bottom',
+      color: 'danger',
+    });
+    await toast.present();
+  }
+
+  private texto(chave: string): string {
+    return this.translate.instant(chave) as string;
   }
 }

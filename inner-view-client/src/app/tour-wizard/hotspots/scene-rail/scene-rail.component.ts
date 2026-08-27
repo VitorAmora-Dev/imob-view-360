@@ -1,7 +1,8 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
+import { WizardScene } from '../../tour-wizard.model';
 
 /**
  * Rail de ambientes sob o viewer (tarefa B5).
@@ -27,6 +28,38 @@ export class SceneRailComponent {
 
   readonly scenes = computed(() => this.draft.readyScenes());
   readonly selectedId = computed(() => this.draft.selectedSceneId());
+
+  constructor() {
+    /**
+     * Pede a miniatura dos cômodos que ainda não têm foto em memória.
+     *
+     * Numa captura retomada isso é a lista inteira: o rascunho é lido sem
+     * coluna de imagem, e quem baixa a foto grande é o viewer — só a do cômodo
+     * SELECIONADO. Ninguém pedia pelos outros, e o rail abria com todas as
+     * miniaturas em branco. Aqui vai a versão pequena; a esfera continua sendo
+     * assunto do viewer.
+     */
+    effect(() => {
+      for (const cena of this.scenes()) {
+        if (this.fundoDe(cena)) continue;
+        void this.draft.garantirMiniatura(cena.id);
+      }
+    });
+  }
+
+  /**
+   * `background-image` da miniatura, ou `null` quando não há imagem nenhuma.
+   *
+   * `null` e não `url('')`: com a string vazia o navegador desenha o ícone de
+   * imagem quebrada, que é exatamente o que o rail mostrava em toda cena
+   * retomada — ele lia `scene.imageData` direto, e numa cena retomada esse
+   * campo é vazio de propósito.
+   */
+  fundoDe(scene: WizardScene): string | null {
+    const url =
+      scene.treatedImageUrl ?? (scene.imageData || this.draft.miniatura(scene.id));
+    return url ? `url(${url})` : null;
+  }
 
   /**
    * Quantos pontos cada ambiente já tem, para o rail dizer onde falta trabalho

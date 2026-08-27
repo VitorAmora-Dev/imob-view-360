@@ -30,26 +30,32 @@ export class SceneCardComponent {
      * Cena retomada (Tarefa 9) chega sem foto — `imageData` vazio de
      * propósito, ver o campo em `tour-wizard.model.ts`. A rota de preview é
      * autenticada, então um `background-image` direto para a URL da API não
-     * levaria o token; só `garantirImagem` (via `PanoramaImageCache`) devolve
-     * o `blob:` que o CSS pode usar. Sem isto, o card de um rascunho retomado
-     * fica com a miniatura vazia para sempre — ninguém mais pede por ela.
+     * levaria o token; só o `PanoramaImageCache`, via store, devolve o `blob:`
+     * que o CSS pode usar. Sem isto, o card de um rascunho retomado fica com a
+     * miniatura vazia para sempre — ninguém mais pede por ela.
+     *
+     * `garantirMiniatura` e não `garantirImagem`: o que este card desenha é um
+     * retângulo de 196×110, e a segunda baixa a equirretangular inteira — a
+     * foto que o viewer da etapa 2 vai querer, e que ele mesmo pede quando
+     * chegar a hora.
      */
     effect(() => {
       if (this.thumbUrl()) return;
-      void this.store.garantirImagem(this.scene().id, 'treated');
+      void this.store.garantirMiniatura(this.scene().id);
     });
   }
 
   /**
    * Fonte da miniatura: a tratada quando existe — é o que a IA entregou —,
-   * senão a foto original. Cena retomada não tem nenhuma das duas até
-   * `garantirImagem` responder, e por isso pode devolver vazio: cabe ao
-   * template não desenhar `background-image` nesse caso (ver o template —
-   * `url('')` desenha ícone de imagem quebrada).
+   * senão a foto original, senão a miniatura baixada para a cena retomada.
+   * Pode devolver vazio enquanto o download não responde: cabe ao template não
+   * desenhar `background-image` nesse caso (ver o template — `url('')` desenha
+   * ícone de imagem quebrada).
    */
-  readonly thumbUrl = computed(
-    () => this.scene().treatedImageUrl ?? this.scene().imageData,
-  );
+  readonly thumbUrl = computed(() => {
+    const cena = this.scene();
+    return cena.treatedImageUrl ?? (cena.imageData || this.store.miniatura(cena.id));
+  });
 
   /**
    * Número do ambiente entre os VÁLIDOS, 1-based. Zero quando a cena não é

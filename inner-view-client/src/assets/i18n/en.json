@@ -34,7 +34,12 @@
     "DRAFTS_ROOMS": "{{count}} room(s)",
     "DRAFTS_EMPTY_ROOMS": "No rooms yet",
     "DRAFTS_RESUME": "Resume",
-    "DRAFTS_DISCARD": "Discard"
+    "DRAFTS_DISCARD": "Discard",
+    "DRAFTS_DISCARD_TITLE": "Discard this capture?",
+    "DRAFTS_DISCARD_MESSAGE": "The photos, the points and the AI treatment of this capture will be deleted. This cannot be undone.",
+    "DRAFTS_DISCARD_CANCEL": "Keep",
+    "DRAFTS_DISCARD_CONFIRM": "Discard",
+    "DRAFTS_DISCARD_ERROR": "Could not discard. Please try again."
   },
   "NAV": {
     "HOME": "Home",

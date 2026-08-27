@@ -2,8 +2,13 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import {
+  AlertController,
+  ToastController,
+  provideIonicAngular,
+} from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { RascunhosBandComponent } from './rascunhos-band.component';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
@@ -30,6 +35,7 @@ describe('RascunhosBandComponent', () => {
   let propertyService: PropertyService;
   let imagens: PanoramaImageCache;
   let router: Router;
+  let alertController: AlertController;
 
   function rascunho(over: Partial<RascunhoResumo> = {}): RascunhoResumo {
     return {
@@ -42,12 +48,33 @@ describe('RascunhosBandComponent', () => {
     };
   }
 
+  /**
+   * Dubla o alerta de confirmacao inteiro.
+   *
+   * O `AlertController` de verdade nao tem onde se apresentar num TestBed
+   * ("framework delegate is missing"), e o que estes casos verificam e a
+   * DECISAO — apagou ou nao —, nao o desenho do Ionic. `escolha` e o papel do
+   * botao tocado: `destructive` confirma; qualquer outro (o cancelar, ou um
+   * toque fora do alerta) desiste.
+   */
+  function dublarAlerta(escolha: 'destructive' | 'cancel' | 'backdrop'): void {
+    alertController = TestBed.inject(AlertController);
+    spyOn(alertController, 'create').and.resolveTo({
+      present: () => Promise.resolve(),
+      onDidDismiss: () => Promise.resolve({ role: escolha }),
+    } as unknown as HTMLIonAlertElement);
+    spyOn(TestBed.inject(ToastController), 'create').and.resolveTo({
+      present: () => Promise.resolve(),
+    } as unknown as HTMLIonToastElement);
+  }
+
   function montar(rascunhos: RascunhoResumo[]): void {
     TestBed.configureTestingModule({
       imports: [RascunhosBandComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
         provideRouter([]),
       ],
@@ -119,12 +146,13 @@ describe('RascunhosBandComponent', () => {
    * não leva o token. A miniatura só pode chegar pelo `PanoramaImageCache`,
    * que baixa pelo `HttpClient` e devolve `blob:`.
    */
-  it('busca a miniatura pelo cache de imagens, na variante tratada, e não por src direto', async () => {
+  it('busca a miniatura pelo cache, na variante tratada e REDUZIDA, e não por src direto', async () => {
     TestBed.configureTestingModule({
       imports: [RascunhosBandComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
         provideRouter([]),
       ],
@@ -141,7 +169,10 @@ describe('RascunhosBandComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(obter).toHaveBeenCalledWith('p1', 'treated');
+    // A largura é a outra metade do achado: sem ela a faixa dispara um
+    // download de equirretangular inteira por rascunho, em paralelo, no
+    // `ngOnInit` da home — dezenas de MB para desenhar selos de 196x110.
+    expect(obter).toHaveBeenCalledWith('p1', 'treated', 320);
     const img = fixture.nativeElement.querySelector('.rascunhos__thumb img');
     expect(img).not.toBeNull();
     expect(img.getAttribute('src')).toBe('blob:xyz');
@@ -170,6 +201,7 @@ describe('RascunhosBandComponent', () => {
    */
   it('descartar apaga o imóvel, não o tour, e some da faixa', async () => {
     montar([rascunho({ id: 't1', propertyId: 'i1' })]);
+    dublarAlerta('destructive');
     await fixture.whenStable();
     fixture.detectChanges();
     const apagar = spyOn(propertyService, 'deleteProperty').and.returnValue(of(undefined));
@@ -184,12 +216,77 @@ describe('RascunhosBandComponent', () => {
     expect(fixture.nativeElement.querySelector('.rascunhos__card')).toBeNull();
   });
 
+  /**
+   * O botão tem 44px, encosta no cartão e vive num carrossel de rolagem
+   * horizontal — arrastar a faixa e tocar no botão passam pelo mesmo pixel. E
+   * o que ele apaga é o `Property` em cascata: tour, panoramas, hotspots,
+   * frames e o tratamento por IA já pago, sem desfazer. O mesmo descarte
+   * dentro do wizard passa por um alerta desde a Tarefa 11.
+   */
+  it('não apaga nada enquanto a pessoa não confirma', async () => {
+    montar([rascunho({ id: 't1', propertyId: 'i1' })]);
+    dublarAlerta('cancel');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const apagar = spyOn(propertyService, 'deleteProperty').and.returnValue(of(undefined));
+
+    fixture.nativeElement.querySelector('.rascunhos__descartar').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(alertController.create).toHaveBeenCalled();
+    expect(apagar).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.rascunhos__card')).not.toBeNull();
+  });
+
+  it('tocar fora do alerta conta como desistir, não como confirmar', async () => {
+    // O toque no backdrop não chama handler nenhum. Decidir pelo papel
+    // devolvido em `onDidDismiss()` é o que impede um toque fora de apagar por
+    // omissão — ou de deixar a promise pendurada para sempre.
+    montar([rascunho({ id: 't1', propertyId: 'i1' })]);
+    dublarAlerta('backdrop');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const apagar = spyOn(propertyService, 'deleteProperty').and.returnValue(of(undefined));
+
+    fixture.nativeElement.querySelector('.rascunhos__descartar').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(apagar).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.rascunhos__card')).not.toBeNull();
+  });
+
+  it('mantém o cartão quando o DELETE falha, em vez de fingir que apagou', async () => {
+    // A remoção otimista com o erro engolido fazia um descarte que não
+    // aconteceu parecer concluído: o rascunho reaparecia no carregamento
+    // seguinte da home, sem nada explicando.
+    montar([rascunho({ id: 't1', propertyId: 'i1' })]);
+    dublarAlerta('destructive');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    spyOn(propertyService, 'deleteProperty').and.returnValue(
+      throwError(() => new Error('rede caiu')),
+    );
+    const liberar = spyOn(imagens, 'liberar');
+
+    fixture.nativeElement.querySelector('.rascunhos__descartar').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.rascunhos__card')).not.toBeNull();
+    // Os blobs também ficam: a capa continua na tela.
+    expect(liberar).not.toHaveBeenCalled();
+    expect(TestBed.inject(ToastController).create).toHaveBeenCalled();
+  });
+
   it('não derruba a home quando listarRascunhos falha — a faixa é um atalho, não o catálogo', async () => {
     TestBed.configureTestingModule({
       imports: [RascunhosBandComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
         provideRouter([]),
       ],

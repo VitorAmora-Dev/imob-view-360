@@ -52,6 +52,43 @@ describe('PanoramaImageCache', () => {
     expect(baixar).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * A miniatura de 320px e a equirretangular inteira são imagens diferentes do
+   * mesmo cômodo. Sem a largura na chave, o card da etapa 1 — que carrega
+   * primeiro — deixaria a versão pequena na entrada que o viewer da etapa 2 lê
+   * depois, e a esfera abriria borrada sem nenhuma requisição para denunciar.
+   */
+  it('trata larguras diferentes como imagens diferentes', async () => {
+    const cheia = await cache.obter('p1', 'treated');
+    const miniatura = await cache.obter('p1', 'treated', 320);
+
+    expect(cheia).not.toBe(miniatura);
+    expect(baixar).toHaveBeenCalledTimes(2);
+    expect(baixar).toHaveBeenCalledWith('p1', 'treated', undefined);
+    expect(baixar).toHaveBeenCalledWith('p1', 'treated', 320);
+  });
+
+  it('reaproveita a miniatura já baixada, sem voltar à rede', async () => {
+    const a = await cache.obter('p1', 'treated', 320);
+    const b = await cache.obter('p1', 'treated', 320);
+
+    expect(a).toBe(b);
+    expect(baixar).toHaveBeenCalledTimes(1);
+  });
+
+  it('liberar solta a foto cheia e a miniatura do mesmo cômodo', async () => {
+    // A varredura é por prefixo de panorama: as duas entradas do mesmo cômodo
+    // têm que sair juntas, senão descartar um rascunho deixaria a miniatura
+    // dele presa até a aba fechar.
+    const revoke = spyOn(URL, 'revokeObjectURL').and.callThrough();
+    await cache.obter('p1', 'treated');
+    await cache.obter('p1', 'treated', 320);
+
+    cache.liberar('p1');
+
+    expect(revoke).toHaveBeenCalledTimes(2);
+  });
+
   it('liberar revoga e força novo download', async () => {
     const revoke = spyOn(URL, 'revokeObjectURL').and.callThrough();
     await cache.obter('p1', 'treated');

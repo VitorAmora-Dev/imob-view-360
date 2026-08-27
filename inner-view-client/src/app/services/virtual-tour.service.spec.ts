@@ -54,4 +54,32 @@ describe('VirtualTourService', () => {
       { positionX: 0.4, positionY: 0.6 },
     );
   });
+  /**
+   * O `w` da rota de preview existia no servidor desde sempre e o cliente
+   * nunca o mandava: toda miniatura baixava a equirretangular inteira.
+   */
+  it('pede a imagem reduzida quando quem chama diz de que tamanho precisa', () => {
+    expect(service.urlDoPreview('p1', 'treated', { largura: 320 })).toBe(
+      `${environment.apiUrl}/panoramas/p1/preview?variant=treated&w=320`,
+    );
+  });
+
+  it('pede a imagem inteira quando ninguém diz o tamanho — é o caso do viewer', () => {
+    expect(service.urlDoPreview('p1', 'treated')).toBe(
+      `${environment.apiUrl}/panoramas/p1/preview?variant=treated`,
+    );
+  });
+
+  it('leva a largura até o download do blob', () => {
+    const http = TestBed.inject(HttpClient);
+    const get = spyOn(http, 'get').and.returnValue(of(new Blob()));
+
+    service.baixarPreview('p1', 'treated', 320).subscribe();
+
+    // Só a URL: a sobrecarga de `get` que devolve blob tem um tipo de opções
+    // que o `toHaveBeenCalledWith` do Jasmine não consegue casar.
+    expect(get.calls.mostRecent().args[0]).toBe(
+      `${environment.apiUrl}/panoramas/p1/preview?variant=treated&w=320`,
+    );
+  });
 });

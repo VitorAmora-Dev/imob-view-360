@@ -116,21 +116,46 @@ describe('SceneCardComponent — capa e numeração', () => {
    * primeiro mostra essa cena na tela, então é ele quem tem que pedi-la.
    */
   describe('foto de uma cena retomada', () => {
-    it('pede a própria foto quando a cena chega sem imagem', async () => {
+    /**
+     * MINIATURA, e não a foto cheia.
+     *
+     * O card desenha 196x110. `garantirImagem` baixa a equirretangular
+     * inteira — dezenas de MB — e ainda a deixa em `treatedImageUrl`, que é
+     * de onde o viewer da etapa 2 tira a textura da esfera. A foto grande é
+     * assunto de quem vai mostrá-la grande.
+     */
+    it('pede a MINIATURA quando a cena chega sem imagem, não a foto cheia', async () => {
       const retomada = scene('retomada', { imageData: '', serverPanoramaId: 'p1' });
-      const garantir = spyOn(store, 'garantirImagem').and.resolveTo('blob:x');
+      const miniatura = spyOn(store, 'garantirMiniatura').and.resolveTo('blob:x');
+      const cheia = spyOn(store, 'garantirImagem').and.resolveTo('blob:grande');
 
       const fixture = monta(retomada, [retomada]);
       await fixture.whenStable();
 
-      expect(garantir).toHaveBeenCalledWith('retomada', 'treated');
+      expect(miniatura).toHaveBeenCalledWith('retomada');
+      expect(cheia).not.toHaveBeenCalled();
+    });
+
+    it('desenha a miniatura assim que ela chega', async () => {
+      const retomada = scene('retomada', { imageData: '', serverPanoramaId: 'p1' });
+      spyOn(store, 'garantirMiniatura').and.callFake(async (id: string) => {
+        store.miniaturas.update((m) => ({ ...m, [id]: 'blob:mini' }));
+        return 'blob:mini';
+      });
+
+      const fixture = monta(retomada, [retomada]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const thumb: HTMLElement = fixture.nativeElement.querySelector('.tw-scene__thumb');
+      expect(thumb.style.backgroundImage).toContain('blob:mini');
     });
 
     it('não desenha background-image enquanto a foto não chega — url(\'\') mostra ícone quebrado', () => {
       const retomada = scene('retomada', { imageData: '', serverPanoramaId: 'p1' });
       // Sem o dublê, o efeito do construtor chamaria a implementação de
       // verdade e cairia na rede de teste sem ninguém para responder.
-      spyOn(store, 'garantirImagem').and.resolveTo('');
+      spyOn(store, 'garantirMiniatura').and.resolveTo('');
 
       const fixture = monta(retomada, [retomada]);
 
@@ -140,7 +165,7 @@ describe('SceneCardComponent — capa e numeração', () => {
 
     it('não pede nada quando a cena já tem foto', async () => {
       const comFoto = scene('a');
-      const garantir = spyOn(store, 'garantirImagem');
+      const garantir = spyOn(store, 'garantirMiniatura');
 
       const fixture = monta(comFoto, [comFoto]);
       await fixture.whenStable();

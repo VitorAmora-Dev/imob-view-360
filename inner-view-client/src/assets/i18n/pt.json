@@ -34,7 +34,12 @@
     "DRAFTS_ROOMS": "{{count}} ambiente(s)",
     "DRAFTS_EMPTY_ROOMS": "Nenhum ambiente ainda",
     "DRAFTS_RESUME": "Continuar",
-    "DRAFTS_DISCARD": "Descartar"
+    "DRAFTS_DISCARD": "Descartar",
+    "DRAFTS_DISCARD_TITLE": "Descartar esta captura?",
+    "DRAFTS_DISCARD_MESSAGE": "As fotos, os pontos e o tratamento da IA desta captura serão apagados. Não dá para desfazer.",
+    "DRAFTS_DISCARD_CANCEL": "Manter",
+    "DRAFTS_DISCARD_CONFIRM": "Descartar",
+    "DRAFTS_DISCARD_ERROR": "Não deu para descartar. Tente de novo."
   },
   "NAV": {
     "HOME": "Início",

@@ -18,20 +18,32 @@ type Variante = 'treated' | 'original';
  *    liberado por `revokeObjectURL` ou pelo fim da aba. Espalhados pelo store
  *    e pelo modal de captura, cada cômodo aberto deixava MB presos.
  * 2. **Retomar um rascunho abriria N downloads.** Com cache por `(id,
- *    variante)`, voltar a um cômodo já visto é de graça, e a promessa em voo é
- *    compartilhada — dois pedidos simultâneos do mesmo cômodo são um download.
+ *    variante, largura)`, voltar a um cômodo já visto é de graça, e a promessa
+ *    em voo é compartilhada — dois pedidos simultâneos do mesmo cômodo são um
+ *    download.
  */
 @Injectable({ providedIn: 'root' })
 export class PanoramaImageCache {
   private readonly virtualTourService = inject(VirtualTourService);
 
-  /** `panoramaId:variante` → `blob:` pronto. */
+  /** `panoramaId:variante:largura` → `blob:` pronto. */
   private readonly prontos = new Map<string, string>();
-  /** `panoramaId:variante` → download em voo, para não duplicar. */
+  /** `panoramaId:variante:largura` → download em voo, para não duplicar. */
   private readonly emVoo = new Map<string, Promise<string>>();
 
-  async obter(panoramaId: string, variante: Variante): Promise<string> {
-    const chave = `${panoramaId}:${variante}`;
+  /**
+   * `largura` pede ao servidor a imagem já reduzida — é o `w` da rota de
+   * preview. Ela entra na CHAVE, e não só na requisição: sem isso a miniatura
+   * de 320px e a equirretangular inteira do mesmo cômodo dividiriam a mesma
+   * entrada, e quem pedisse a segunda receberia a primeira — a esfera da etapa
+   * 2 abriria borrada por causa de um card da etapa 1 que carregou antes.
+   */
+  async obter(
+    panoramaId: string,
+    variante: Variante,
+    largura?: number,
+  ): Promise<string> {
+    const chave = `${panoramaId}:${variante}:${largura ?? 0}`;
 
     const pronto = this.prontos.get(chave);
     if (pronto) return pronto;
@@ -40,7 +52,7 @@ export class PanoramaImageCache {
     if (emVoo) return emVoo;
 
     const promessa = firstValueFrom(
-      this.virtualTourService.baixarPreview(panoramaId, variante),
+      this.virtualTourService.baixarPreview(panoramaId, variante, largura),
     )
       .then((blob) => {
         const url = URL.createObjectURL(blob);
