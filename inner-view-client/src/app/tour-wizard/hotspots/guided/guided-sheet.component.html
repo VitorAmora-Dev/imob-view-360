@@ -1,0 +1,61 @@
+<div class="gs">
+  <span class="gs__grabber" aria-hidden="true"></span>
+
+  <!--
+    Os dots sao cor e forma, e quem usa leitor de tela nao recebe nada deles.
+    O rotulo escondido em cada um diz o mesmo em texto.
+  -->
+  <ol
+    class="gs__dots"
+    [attr.aria-label]="'TOUR_WIZARD.STEP2.GUIDED.PROGRESS_LABEL' | translate">
+    @for (estado of dots(); track $index) {
+      <li
+        class="gs__dot"
+        [class.is-atual]="estado === 'atual'"
+        [class.is-feito]="estado === 'concluido'"
+        [attr.aria-current]="estado === 'atual' ? 'step' : null">
+        <span class="tw-visually-hidden">
+          {{
+            (estado === 'atual'
+              ? 'TOUR_WIZARD.STEP2.GUIDED.DOT_CURRENT'
+              : estado === 'concluido'
+                ? 'TOUR_WIZARD.STEP2.GUIDED.DOT_DONE'
+                : 'TOUR_WIZARD.STEP2.GUIDED.DOT_PENDING'
+            ) | translate: { n: $index + 1 }
+          }}
+        </span>
+      </li>
+    }
+  </ol>
+
+  <div class="gs__linha">
+    <span class="gs__thumb" [style.background]="cor()" aria-hidden="true"></span>
+    <span class="gs__nomes">
+      <small>{{ 'TOUR_WIZARD.STEP2.GUIDED.NEXT_ROOM' | translate }}</small>
+      <strong>{{ target() }}</strong>
+    </span>
+
+    @if (temPassagem()) {
+      <button type="button" class="gs__refazer" (click)="refazer.emit()">
+        {{ 'TOUR_WIZARD.STEP2.GUIDED.REDO' | translate }}
+      </button>
+    }
+  </div>
+
+  <!--
+    `disabled` de verdade, e nao so opacidade: um botao que parece clicavel e
+    nao responde nao explica nada a ninguem.
+  -->
+  <button
+    type="button"
+    class="gs__acao"
+    [disabled]="!temPassagem()"
+    (click)="confirmar.emit()">
+    {{
+      (ultimo()
+        ? 'TOUR_WIZARD.STEP2.GUIDED.CONFIRM_LAST'
+        : 'TOUR_WIZARD.STEP2.GUIDED.CONFIRM'
+      ) | translate
+    }}
+  </button>
+</div>

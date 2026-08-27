@@ -1,0 +1,64 @@
+@if (guided.disponivel()) {
+  <div class="gh">
+    <div class="gh__pano">
+      <!--
+        `roomNav` desligado: a lista de ambientes do viewer é para quem VÊ o
+        tour. Aqui quem decide o ambiente é o roteiro, e oferecer um atalho para
+        pular fora dele desfaria o assistente.
+      -->
+      <app-panoramic-viewer
+        [panoramas]="viewerPanoramas()"
+        [editMode]="!guided.resumo()"
+        [roomNav]="false"
+        (hotspotPlaced)="onPlaced($event)" />
+
+      @if (!guided.resumo() && guided.passo(); as passo) {
+        <div class="gh__topo">
+          <span class="gh__passo">
+            {{
+              'TOUR_WIZARD.STEP2.GUIDED.PROGRESS'
+                | translate
+                  : {
+                      n: passo.index + 1,
+                      total: passo.total,
+                      ambiente: passo.scene.room.trim() || passo.scene.fileName
+                    }
+            }}
+          </span>
+        </div>
+
+        <app-guided-banner
+          class="gh__banner"
+          [target]="nomeDoAlvo()"
+          [cor]="corDoAlvo()"
+          [ultimo]="passo.isLast" />
+
+        <!--
+          A dica some assim que a passagem existe: instrução que não some vira
+          ruído permanente para quem já entendeu.
+        -->
+        @if (!passo.hotspot) {
+          <p class="gh__dica">
+            {{ 'TOUR_WIZARD.STEP2.GUIDED.HINT' | translate }}
+          </p>
+        }
+      }
+    </div>
+
+    @if (guided.resumo()) {
+      <app-guided-cycle
+        [rooms]="nomes()"
+        (continuar)="continuar()"
+        (editar)="guided.voltarAoInicio()" />
+    } @else if (guided.passo(); as passo) {
+      <app-guided-sheet
+        [dots]="guided.dots()"
+        [target]="nomeDoAlvo()"
+        [cor]="corDoAlvo()"
+        [ultimo]="passo.isLast"
+        [temPassagem]="!!passo.hotspot"
+        (confirmar)="guided.confirmar()"
+        (refazer)="guided.refazer()" />
+    }
+  </div>
+}
