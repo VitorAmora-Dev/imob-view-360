@@ -42,10 +42,15 @@ async function main(): Promise<void> {
 
   const corte = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
 
-  // `updatedAt` e não `createdAt`: o tour é tocado a cada panorama que entra e
-  // a cada tratamento que termina, então ele mede quando a captura parou de
-  // andar. Por `createdAt`, uma captura longa começada há oito dias e ainda em
-  // curso seria apagada debaixo do corretor.
+  // `updatedAt` e não `createdAt`: `CreatePanoramaService` e
+  // `UpdatePanoramaService` tocam a linha do tour a cada cômodo que entra e a
+  // cada renomear/reordenar do salvamento de rascunho, então ele mede quando a
+  // captura parou de andar. Por `createdAt`, uma captura longa começada há
+  // oito dias e ainda em curso seria apagada debaixo do corretor.
+  //
+  // Esses dois toques são a única coisa que move este relógio durante a
+  // captura, e por muito tempo não existiram — o comentário aqui já afirmava
+  // que existiam. Quem mexer neles mexe também na idade de corte deste script.
   const rascunhos = await prisma.virtualTour.findMany({
     where: { status: 'DRAFT', updatedAt: { lt: corte } },
     select: {
