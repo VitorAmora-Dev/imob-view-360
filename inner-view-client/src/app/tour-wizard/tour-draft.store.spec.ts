@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { from, of, throwError } from 'rxjs';
 import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { PanoramaImageCache } from '../services/panorama-image-cache.service';
@@ -1133,6 +1133,14 @@ describe('TourDraftStore (contrato)', () => {
    * chamadas antes da primeira terminar, e cada uma lê `rascunhoTourId()` e
    * `serverPanoramaId` no mesmo estado "antes", criando imóvel, tour ou
    * panorama em dobro.
+   *
+   * Segunda rodada de revisão: a primeira versão da trava devolvia a MESMA
+   * promise da gravação em voo para quem chamasse durante ela — o que é
+   * regressão, não conserto. Aquela gravação já tinha fotografado
+   * `readyScenes()`/`property()` ANTES da chamada nova, então o segundo
+   * chamador saía informado "salvei" sem a edição que motivou a própria
+   * chamada. O teste "borda de saída" abaixo é o que essa segunda rodada
+   * pegou.
    */
   describe('salvarRascunho — reentrância', () => {
     function comRede() {
@@ -1159,7 +1167,10 @@ describe('TourDraftStore (contrato)', () => {
       const store = storeWith(scene('a', { room: 'Sala' }));
       const { createProperty, createTour, addPanorama } = comRede();
 
-      // O cenário do achado: nenhuma das duas espera a outra terminar.
+      // O cenário do achado: nenhuma das duas espera a outra terminar. A
+      // segunda chamada encadeia uma rodada seguinte (ver describe acima),
+      // mas essa rodada é um no-op de rede: os ids e o `serverPanoramaId` já
+      // existem quando ela roda, então nada é recriado.
       await Promise.all([store.salvarRascunho(), store.salvarRascunho()]);
 
       expect(createProperty).toHaveBeenCalledTimes(1);
@@ -1167,19 +1178,59 @@ describe('TourDraftStore (contrato)', () => {
       expect(addPanorama).toHaveBeenCalledTimes(1);
     });
 
-    it('a segunda chamada recebe o resultado da mesma gravação, não uma vazia', async () => {
-      // A trava não pode virar um "faz de conta que salvou": quem chama de
-      // novo enquanto uma gravação está em voo precisa saber quando ELA
-      // termina de verdade — inclusive se ela falhar.
-      const store = storeWith(scene('a', { room: 'Sala' }));
+    /**
+     * A regressão que a revisão pegou: uma edição feita DURANTE a gravação em
+     * voo tem que entrar numa passada seguinte, e não ser perdida porque
+     * chegou tarde demais para a que já estava rodando.
+     *
+     * O truque do teste é travar o PATCH do panorama (que só roda depois de
+     * `cenasFinais = this.readyScenes()` já ter sido lido) para garantir que
+     * a rodada 1 já fotografou o nome antigo antes de renomear — exatamente
+     * o ponto em que a implementação antiga informava "salvei" sem ter
+     * salvo.
+     */
+    it('uma edição feita durante o voo entra numa segunda passada, não é perdida', async () => {
+      const store = storeWith(scene('a', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
       const property = TestBed.inject(PropertyService);
-      spyOn(property, 'createProperty').and.returnValue(
-        throwError(() => new Error('rede caiu')),
+      spyOn(property, 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
       );
 
-      await expectAsync(
-        Promise.all([store.salvarRascunho(), store.salvarRascunho()]),
-      ).toBeRejected();
+      let liberar!: () => void;
+      const presa = new Promise<void>((resolve) => {
+        liberar = resolve;
+      });
+      const atualizarPanorama = spyOn(tours, 'atualizarPanorama').and.callFake(
+        () =>
+          from(presa.then(() => ({ id: 'p1' }))) as ReturnType<
+            VirtualTourService['atualizarPanorama']
+          >,
+      );
+
+      const primeira = store.salvarRascunho();
+      // Deixa a rodada 1 avançar até travar no PATCH do panorama — ela já
+      // leu `cenasFinais` com o nome "Sala" neste ponto. `setTimeout` drena
+      // toda a fila de microtasks pendente antes de rodar, o que garante que
+      // a rodada 1 chegou o mais longe que consegue sem a nossa liberação.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // A edição que chega tarde demais para a rodada 1.
+      store.renameScene('a', 'Quarto');
+      const segunda = store.salvarRascunho();
+
+      liberar();
+      await Promise.all([primeira, segunda]);
+
+      expect(atualizarPanorama).toHaveBeenCalledTimes(2);
+      expect(atualizarPanorama.calls.argsFor(0)[1]).toEqual(
+        jasmine.objectContaining({ roomName: 'Sala' }),
+      );
+      // A garantia da borda de saída: a ÚLTIMA passada lê o nome atualizado.
+      expect(atualizarPanorama.calls.mostRecent().args[1]).toEqual(
+        jasmine.objectContaining({ roomName: 'Quarto' }),
+      );
     });
 
     it('depois de terminar (com sucesso ou não), a próxima chamada tenta de novo', async () => {
@@ -1215,10 +1266,13 @@ describe('TourDraftStore (contrato)', () => {
   /**
    * A Tarefa 12 passou a chamar `salvarRascunho()` também ao trocar de etapa
    * — é o "bloco de trabalho" de cada tela (nomes, hotspots, dados do imóvel)
-   * sendo fechado no ponto em que há mais a perder.
+   * sendo fechado no ponto em que há mais a perder. `irPara()` é o funil dos
+   * três caminhos que trocam de etapa: `next()`, `back()` e os chips do
+   * stepper via `goTo()`. Achado da revisão: a primeira versão só cobria
+   * `next()` — os outros dois terços das transições ficavam sem gravar.
    */
-  describe('next() salva ao trocar de etapa', () => {
-    it('salva ao avançar de etapa', () => {
+  describe('salva ao trocar de etapa (irPara — funil de next/back/goTo)', () => {
+    it('salva ao avançar com next()', () => {
       const store = storeWith(scene('a', { room: 'Sala' }));
       const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
 
@@ -1250,6 +1304,46 @@ describe('TourDraftStore (contrato)', () => {
 
       expect(publicar).toHaveBeenCalled();
       expect(salvar).not.toHaveBeenCalled();
+    });
+
+    it('salva ao voltar com back()', () => {
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      store.goTo(2);
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+
+      store.back();
+
+      expect(salvar).toHaveBeenCalled();
+      expect(store.step()).toBe(1);
+    });
+
+    it('não salva quando back() não sai da etapa 1', () => {
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+
+      store.back();
+
+      expect(salvar).not.toHaveBeenCalled();
+    });
+
+    it('salva ao pular direto pelo chip do stepper com goTo()', () => {
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+
+      store.goTo(2);
+
+      expect(salvar).toHaveBeenCalled();
+      expect(store.step()).toBe(2);
+    });
+
+    it('não salva quando goTo() é bloqueado por etapa inalcançável', () => {
+      const store = newStore();
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+
+      store.goTo(3);
+
+      expect(salvar).not.toHaveBeenCalled();
+      expect(store.step()).toBe(1);
     });
   });
 

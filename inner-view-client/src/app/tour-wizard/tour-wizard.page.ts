@@ -72,6 +72,26 @@ export class TourWizardPage {
   }
 
   /**
+   * A decisão de saída em voo, ou `null` quando nenhuma está.
+   *
+   * O Router cancela uma navegação em curso quando outra chega, e roda o
+   * `canDeactivate` de novo — então o botão físico do Android, um duplo
+   * toque no header ou o voltar do navegador em sequência chamam
+   * `aoVoltar()` mais de uma vez antes da primeira responder. Sem esta
+   * trava, a segunda chamada abriria um SEGUNDO alerta por cima do primeiro;
+   * se os dois botões escolhidos divergissem ("Descartar" em cima,
+   * "Continuar depois" embaixo), `salvarRascunho()` rodaria DEPOIS do
+   * `reset()` do descarte e recriaria um imóvel "Captura em andamento" vazio
+   * — o registro fantasma que o comentário de `descartarRascunho()` existe
+   * para evitar.
+   *
+   * Não é `async` de propósito: `return this.decisaoDeSaida;` precisa
+   * devolver o MESMO objeto de promise para o segundo chamador, e uma função
+   * `async` sempre embrulha o que ela devolve numa promise nova.
+   */
+  private decisaoDeSaida: Promise<boolean> | null = null;
+
+  /**
    * Decide se dá para sair do wizard. Devolve `true` para deixar a navegação
    * seguir, `false` para ficar.
    *
@@ -82,14 +102,26 @@ export class TourWizardPage {
    * cobrir o clique no header, intercepta o voltar do NAVEGADOR e o botão
    * FÍSICO do Android, os dois casos do chamado original que um `@Output` no
    * header nunca veria.
-   *
+   */
+  aoVoltar(): Promise<boolean> {
+    if (this.decisaoDeSaida) return this.decisaoDeSaida;
+
+    const decisao = this.decidirSaida();
+    this.decisaoDeSaida = decisao;
+    void decisao.finally(() => {
+      if (this.decisaoDeSaida === decisao) this.decisaoDeSaida = null;
+    });
+    return decisao;
+  }
+
+  /**
    * Sem cômodo nenhum não há o que perguntar. E depois de publicado também
    * não: o tour já está no ar, e oferecer "descartar" ali apagaria um imóvel
    * que deixou de ser rascunho.
    */
-  async aoVoltar(): Promise<boolean> {
+  private decidirSaida(): Promise<boolean> {
     if (this.store.published() || !this.store.readyScenes().length) {
-      return true;
+      return Promise.resolve(true);
     }
 
     return new Promise<boolean>((resolve) => {
@@ -132,7 +164,12 @@ export class TourWizardPage {
             },
           ],
         })
-        .then((alerta) => alerta.present());
+        .then((alerta) => alerta.present())
+        // Mesma regra de "sair não pode travar" que já vale para a rede,
+        // acima: se o próprio `create()`/`present()` falhar (raro, mas
+        // existe — overlay sem host, por exemplo), sem isto a promise nunca
+        // resolveria e a pessoa não conseguiria mais sair do wizard, nunca.
+        .catch(() => resolve(true));
     });
   }
 }

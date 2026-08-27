@@ -202,6 +202,50 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       expect(salvar).not.toHaveBeenCalled();
       expect(descartar).not.toHaveBeenCalled();
     });
+
+    /**
+     * Achado da revisão da Tarefa 12: o Router cancela uma navegação em
+     * curso quando outra chega e roda o `canDeactivate` de novo — o botão
+     * físico do Android, um duplo toque no header ou o voltar do navegador
+     * em sequência chamam `aoVoltar()` mais de uma vez antes da primeira
+     * responder. Sem a trava, a segunda chamada abriria um SEGUNDO alerta
+     * por cima do primeiro; se as escolhas divergissem ("Descartar" em cima,
+     * "Continuar depois" embaixo), `salvarRascunho()` rodaria DEPOIS do
+     * `reset()` do descarte e recriaria um imóvel fantasma.
+     */
+    it('duas solicitações de saída concorrentes não abrem um segundo alerta', async () => {
+      const page = montarPagina();
+      comUmaCena(page);
+      const descartar = spyOn(page.store, 'descartarRascunho').and.resolveTo();
+      escolherNoAlerta('LEAVE_DISCARD');
+      const create = TestBed.inject(AlertController).create as jasmine.Spy;
+
+      const primeira = page.aoVoltar();
+      const segunda = page.aoVoltar();
+
+      // Só um alerta é aberto — a segunda chamada compartilha a MESMA
+      // decisão da primeira, em vez de perguntar de novo.
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(await primeira).toBe(true);
+      expect(await segunda).toBe(true);
+      expect(descartar).toHaveBeenCalledTimes(1);
+    });
+
+    it('sai mesmo quando o próprio alerta falha ao abrir', async () => {
+      // Mesma regra de "sair não pode travar" que já vale para a rede: sem
+      // o `.catch` no fim da cadeia do alerta, um `present()` que rejeita
+      // deixaria a promise do guard pendurada para sempre, e a pessoa não
+      // conseguiria mais sair do wizard.
+      const page = montarPagina();
+      comUmaCena(page);
+      spyOn(TestBed.inject(AlertController), 'create').and.resolveTo({
+        present: () => Promise.reject(new Error('sem overlay')),
+      } as never);
+
+      const pode = await page.aoVoltar();
+
+      expect(pode).toBe(true);
+    });
   });
 
   describe('salvamento ao ir para segundo plano', () => {

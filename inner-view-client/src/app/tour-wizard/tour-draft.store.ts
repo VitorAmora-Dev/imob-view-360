@@ -257,16 +257,27 @@ export class TourDraftStore {
   }
 
   /**
-   * Troca de etapa e apaga as marcas de erro.
+   * Troca de etapa, apaga as marcas de erro e salva.
    *
    * `showErrors` significa "esta pessoa já tentou e não deu" — e isso é sobre a
    * etapa em que ela tentou. Carregá-lo para a seguinte faria a etapa 3 abrir
    * com campos em vermelho antes de qualquer tentativa, que é exatamente o
    * "repreender antes de haver erro" que ele existe para evitar.
+   *
+   * É o FUNIL dos três caminhos que trocam de etapa — `next()`, `back()` e os
+   * chips do stepper via `goTo()` — e por isso é aqui, e não em cada um deles,
+   * que mora o salvamento: cada etapa fecha um bloco de trabalho (nome dos
+   * cômodos, hotspots, dados do imóvel), e salvar na fronteira entre elas é o
+   * ponto em que há mais a perder e menos a atrapalhar. `next()` na etapa 3
+   * sai para `publish()` ANTES de chegar aqui, então não há gravação em
+   * dobro com a que ele já faz por dentro. Fogo-e-esquece: nenhum dos três
+   * chamadores é async, e falhar aqui não pode travar a troca de etapa —
+   * ninguém pediu para salvar, só para navegar.
    */
   private irPara(step: WizardStep): void {
     this.showErrors.set(false);
     this.step.set(step);
+    void this.salvarRascunho().catch(() => undefined);
   }
 
   next(): void {
@@ -283,12 +294,6 @@ export class TourDraftStore {
       this.showErrors.set(true);
       return;
     }
-    // Cada etapa fecha um bloco de trabalho: nome dos cômodos, hotspots, dados
-    // do imóvel. Salvar na fronteira entre elas é o ponto em que há mais a
-    // perder e menos a atrapalhar. Fogo-e-esquece: `next()` não é async, e
-    // falhar aqui não pode travar a troca de etapa — o corretor não está
-    // pedindo para salvar, só para seguir em frente.
-    void this.salvarRascunho().catch(() => undefined);
     this.irPara((current + 1) as WizardStep);
   }
 
@@ -879,26 +884,92 @@ export class TourDraftStore {
    * Lança em falha de rede. Quem chama decide — publicar aborta, sair não.
    */
   async salvarRascunho(): Promise<void> {
-    // Trava de reentrância. Antes só o clique em "Publicar" chamava isto — um
-    // botão que a própria tela desabilita enquanto `publishing()` está em voo.
-    // A Tarefa 12 passou a chamar sozinha, sem gesto nenhum do corretor: ao
-    // trocar de etapa e quando o app vai para segundo plano. Isso abriu uma
-    // janela que não existia antes — trocar de etapa e minimizar o app quase
-    // no mesmo instante dispara duas chamadas antes da primeira terminar, e as
-    // duas leem `rascunhoTourId()`/`serverPanoramaId` no mesmo estado "antes",
-    // criando imóvel, panorama ou hotspot em dobro. Quem chama enquanto uma
-    // gravação está em voo recebe a MESMA promise, em vez de abrir uma
-    // segunda.
-    if (this.salvandoRascunho) return this.salvandoRascunho;
-    const emVoo = this.salvarRascunhoAgora().finally(() => {
-      this.salvandoRascunho = null;
-    });
-    this.salvandoRascunho = emVoo;
-    return emVoo;
+    // Trava de reentrância COM borda de saída. Antes só o clique em
+    // "Publicar" chamava isto — um botão que a própria tela desabilita
+    // enquanto `publishing()` está em voo. A Tarefa 12 passou a chamar
+    // sozinha, sem gesto nenhum do corretor: ao trocar de etapa e quando o
+    // app vai para segundo plano. Isso abriu uma janela que não existia
+    // antes — trocar de etapa e minimizar o app quase no mesmo instante
+    // dispara duas chamadas antes da primeira terminar.
+    //
+    // Devolver a MESMA promise da gravação em voo para o segundo chamador
+    // (a primeira versão desta trava) é regressão: aquela gravação já
+    // fotografou `readyScenes()`/`property()` ANTES desta chamada nova (ver
+    // os pontos `cenasFinais` e `camposDoImovel` abaixo), e o segundo
+    // chamador seria informado "salvei" sem a edição que motivou a sua
+    // própria chamada — inclusive quem sai do wizard logo depois, achando
+    // que ficou tudo salvo.
+    //
+    // Por isso, quem chama durante uma gravação em voo não recebe aquela
+    // promise: fica marcado como "há mais uma rodada pendente" e uma ÚNICA
+    // rodada nova é encadeada para rodar assim que a atual terminar — lendo
+    // o estado JÁ ATUALIZADO no momento em que ela de fato começa. Todo
+    // mundo que chamar nessa janela compartilha essa MESMA próxima rodada,
+    // em vez de abrir uma cada.
+    if (!this.salvandoRascunho) {
+      return this.iniciarGravacao();
+    }
+    if (!this.proximaGravacao) {
+      let resolver!: () => void;
+      let rejeitar!: (erro: unknown) => void;
+      const promise = new Promise<void>((res, rej) => {
+        resolver = res;
+        rejeitar = rej;
+      });
+      this.proximaGravacao = { promise, resolver, rejeitar };
+      this.salvandoRascunho.finally(() => {
+        const propria = this.proximaGravacao!;
+        this.proximaGravacao = null;
+        this.iniciarGravacao().then(propria.resolver, propria.rejeitar);
+      });
+    }
+    return this.proximaGravacao.promise;
   }
 
-  /** A promise do `salvarRascunho()` em voo, ou `null` quando nenhum está. */
+  /** A promise da gravação em voo agora, ou `null` quando nenhuma está. */
   private salvandoRascunho: Promise<void> | null = null;
+
+  /**
+   * A rodada seguinte, quando alguém chama `salvarRascunho()` durante uma já
+   * em voo — ver o comentário de `salvarRascunho()` para o porquê de não
+   * reaproveitar a que já está rodando.
+   */
+  private proximaGravacao: {
+    promise: Promise<void>;
+    resolver: () => void;
+    rejeitar: (erro: unknown) => void;
+  } | null = null;
+
+  /**
+   * Dispara uma gravação de verdade e devolve a promise dela.
+   *
+   * `this.salvandoRascunho` é atribuído ANTES de chamar `salvarRascunhoAgora()`
+   * — não depois — para a garantia de "nunca duas rodadas em voo ao mesmo
+   * tempo" não depender de nada no prefixo síncrono dela continuar sem
+   * reentrar. Hoje é seguro dos dois jeitos (nada nesse prefixo chama
+   * `salvarRascunho()` de novo), mas a invariante fica correta por
+   * construção, e não por sorte de quem mexer depois.
+   */
+  private iniciarGravacao(): Promise<void> {
+    let resolver!: () => void;
+    let rejeitar!: (erro: unknown) => void;
+    const promise = new Promise<void>((res, rej) => {
+      resolver = res;
+      rejeitar = rej;
+    });
+    this.salvandoRascunho = promise;
+    this.salvarRascunhoAgora().then(
+      () => {
+        if (this.salvandoRascunho === promise) this.salvandoRascunho = null;
+        resolver();
+      },
+      (erro: unknown) => {
+        if (this.salvandoRascunho === promise) this.salvandoRascunho = null;
+        rejeitar(erro);
+      },
+    );
+    return promise;
+  }
 
   /** Corpo de fato do `salvarRascunho()` — ver a trava de reentrância acima. */
   private async salvarRascunhoAgora(): Promise<void> {
