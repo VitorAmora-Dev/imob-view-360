@@ -8,7 +8,7 @@ import { VirtualTourService } from '../../../services/virtual-tour.service';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardHotspot, WizardScene } from '../../tour-wizard.model';
-import { StepHotspotsComponent } from './step-hotspots.component';
+import { FreeHotspotsComponent } from './free-hotspots.component';
 
 /**
  * O clique no pin (B4).
@@ -18,9 +18,9 @@ import { StepHotspotsComponent } from './step-hotspots.component';
  * confere o que o visitante vai viver. Se clicar num ponto abrisse formulário,
  * ele nunca veria o tour funcionando enquanto o monta.
  */
-describe('StepHotspotsComponent — clique no pin', () => {
+describe('FreeHotspotsComponent — clique no pin', () => {
   let draft: TourDraftStore;
-  let fixture: ComponentFixture<StepHotspotsComponent>;
+  let fixture: ComponentFixture<FreeHotspotsComponent>;
   let editor: HotspotEditorStore;
 
   function scene(id: string, hotspots: WizardHotspot[] = []): WizardScene {
@@ -44,9 +44,13 @@ describe('StepHotspotsComponent — clique no pin', () => {
     TestBed.configureTestingModule({
       providers: [
         TourDraftStore,
+        // Na aplicação quem fornece o editor é a ETAPA, para os dois modos
+        // dela compartilharem a instância. Aqui a etapa não está montada, então
+        // ele entra pelo módulo — mesma instância única, um nível acima.
+        HotspotEditorStore,
         provideHttpClient(),
         provideHttpClientTesting(),
-        // A etapa monta o bottom sheet (B8), que é um `IonModal`.
+        // O editor livre monta o bottom sheet (B8), que é um `IonModal`.
         provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
       ],
@@ -55,10 +59,8 @@ describe('StepHotspotsComponent — clique no pin', () => {
   });
 
   function monta(): void {
-    fixture = TestBed.createComponent(StepHotspotsComponent);
+    fixture = TestBed.createComponent(FreeHotspotsComponent);
     fixture.detectChanges();
-    // O store do editor é fornecido PELO componente, então só existe depois de
-    // ele ser criado.
     editor = fixture.debugElement.injector.get(HotspotEditorStore);
   }
 
@@ -281,9 +283,9 @@ describe('StepHotspotsComponent — clique no pin', () => {
  * visível — antes disso ele acontecia depois do publicar, atrás de um spinner,
  * e morria numa linha de log.
  */
-describe('StepHotspotsComponent — revelação da imagem tratada', () => {
+describe('FreeHotspotsComponent — revelação da imagem tratada', () => {
   let draft: TourDraftStore;
-  let fixture: ComponentFixture<StepHotspotsComponent>;
+  let fixture: ComponentFixture<FreeHotspotsComponent>;
   let editor: HotspotEditorStore;
 
   function scene(id: string, over: Partial<WizardScene> = {}): WizardScene {
@@ -304,6 +306,10 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
     TestBed.configureTestingModule({
       providers: [
         TourDraftStore,
+        // Na aplicação quem fornece o editor é a ETAPA, para os dois modos
+        // dela compartilharem a instância. Aqui a etapa não está montada, então
+        // ele entra pelo módulo — mesma instância única, um nível acima.
+        HotspotEditorStore,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideIonicAngular(),
@@ -314,7 +320,7 @@ describe('StepHotspotsComponent — revelação da imagem tratada', () => {
   });
 
   function monta(): void {
-    fixture = TestBed.createComponent(StepHotspotsComponent);
+    fixture = TestBed.createComponent(FreeHotspotsComponent);
     fixture.detectChanges();
     editor = fixture.debugElement.injector.get(HotspotEditorStore);
   }
