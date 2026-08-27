@@ -153,6 +153,38 @@ describe('GuidedHotspotsComponent', () => {
     expect(pontosDe('sala')[0].u).toBe(0.5);
   });
 
+  it('o pino da passagem aparece sobre a foto', () => {
+    montar([cena('sala'), cena('cozinha')]);
+    expect(el().querySelectorAll('.tw-pin').length).toBe(0);
+
+    fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.5 });
+    fixture.detectChanges();
+
+    expect(el().querySelectorAll('.tw-pin').length).toBe(1);
+  });
+
+  // O ambiente pode ter outros pontos, do editor livre. Mostra-los aqui
+  // encheria a foto de pinos que nao sao deste passo, com nomes de destinos
+  // que o roteiro nao esta perguntando.
+  it('mostra so a passagem do passo, nao os outros pontos do ambiente', () => {
+    // A Sala ja tem dois pontos do editor livre: um para outro lugar e um sem
+    // destino. Nenhum dos dois e a passagem deste passo.
+    montar([
+      cena('sala', [ponto('h1', 'varanda'), ponto('h2', null)]),
+      cena('cozinha'),
+    ]);
+
+    expect(el().querySelectorAll('.tw-pin').length).toBe(0);
+
+    fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.5 });
+    fixture.detectChanges();
+
+    // Um pino, e um so: os outros dois continuam na cena e fora da tela.
+    expect(el().querySelectorAll('.tw-pin').length).toBe(1);
+    expect(fixture.componentInstance.pinoDoPasso().length).toBe(1);
+    expect(pontosDe('sala').length).toBe(3);
+  });
+
   it('com um ambiente so, o assistente nao monta', () => {
     montar([cena('sala')]);
 

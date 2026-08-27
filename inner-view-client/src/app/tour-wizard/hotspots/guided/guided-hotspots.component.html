@@ -7,10 +7,28 @@
         pular fora dele desfaria o assistente.
       -->
       <app-panoramic-viewer
+        #viewer
         [panoramas]="viewerPanoramas()"
         [editMode]="!guided.resumo()"
         [roomNav]="false"
         (hotspotPlaced)="onPlaced($event)" />
+
+      <!--
+        O mesmo overlay do editor livre, com UM ponto: a passagem deste passo.
+        Sem lixeira e sem seletor de destino -- os dois inputs ficam no default,
+        e o destino aqui e derivado da sequencia, nao escolhido.
+
+        O arraste vem de graca e vale a pena: corrigir a mira do pino sem apagar
+        e marcar de novo e o gesto natural de quem errou por pouco.
+      -->
+      <app-hotspot-overlay
+        [viewer]="viewer"
+        [hotspots]="pinoDoPasso()"
+        [roomNames]="roomNames()"
+        [draggingId]="editor.pinDrag()?.hotspotId ?? null"
+        (pinDragStarted)="editor.startDrag($event)"
+        (pinDragMoved)="editor.dragTo($event.u, $event.v)"
+        (pinDragEnded)="editor.endDrag()" />
 
       @if (!guided.resumo() && guided.passo(); as passo) {
         <div class="gh__topo">

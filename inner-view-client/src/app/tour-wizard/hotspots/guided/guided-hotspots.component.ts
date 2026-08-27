@@ -2,9 +2,11 @@ import { Component, computed, effect, inject, viewChild } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { Panorama } from '../../../models/virtual-tour.model';
+import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
 import { GuidedBannerComponent } from './guided-banner.component';
 import { GuidedCycleComponent } from './guided-cycle.component';
+import { HotspotOverlayComponent } from '../hotspot-overlay/hotspot-overlay.component';
 import { corDoAmbiente } from './guided-route';
 import { GuidedRouteStore } from './guided-route.store';
 import { GuidedSheetComponent } from './guided-sheet.component';
@@ -25,6 +27,7 @@ import { GuidedSheetComponent } from './guided-sheet.component';
     GuidedBannerComponent,
     GuidedSheetComponent,
     GuidedCycleComponent,
+    HotspotOverlayComponent,
   ],
   providers: [GuidedRouteStore],
   templateUrl: './guided-hotspots.component.html',
@@ -34,7 +37,33 @@ export class GuidedHotspotsComponent {
   readonly draft = inject(TourDraftStore);
   readonly guided = inject(GuidedRouteStore);
 
-  private readonly viewer = viewChild(PanoramicViewerComponent);
+  /**
+   * Vem da ETAPA, compartilhado com o editor livre. O assistente escreve pelo
+   * `GuidedRouteStore`; o que se usa daqui direto e' so o arraste do pino, que
+   * e' gesto de tela e nao decisao de roteiro.
+   */
+  readonly editor = inject(HotspotEditorStore);
+
+  private readonly viewerRef = viewChild(PanoramicViewerComponent);
+
+  /**
+   * So a passagem DESTE passo vai para o overlay.
+   *
+   * O ambiente pode ter outros pontos, marcados no editor livre. Mostra-los
+   * aqui encheria a foto de pinos que nao sao deste passo, com nomes de
+   * destinos que o roteiro nao esta perguntando.
+   */
+  readonly pinoDoPasso = computed(() => {
+    const hotspot = this.guided.passo()?.hotspot;
+    return hotspot ? [hotspot] : [];
+  });
+
+  /** Nomes por id, para o pino poder dizer para onde leva (a11y). */
+  readonly roomNames = computed<Record<string, string>>(() => {
+    const mapa: Record<string, string> = {};
+    for (const s of this.guided.cenas()) mapa[s.id] = s.room.trim() || s.fileName;
+    return mapa;
+  });
 
   /** Nomes dos ambientes na ordem do percurso, para o diagrama do ciclo. */
   readonly nomes = computed(() =>
@@ -109,7 +138,7 @@ export class GuidedHotspotsComponent {
     // orientação de bússola. Ver `resetView` no viewer.
     effect(() => {
       this.guided.passo()?.scene.id;
-      this.viewer()?.resetView();
+      this.viewerRef()?.resetView();
     });
   }
 
