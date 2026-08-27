@@ -29,3 +29,17 @@
   color: var(--tw-warn-text);
   background: var(--tw-warn-soft);
 }
+
+/* Link para o modo avançado. Discreto na aparência, mas com alvo de toque
+   cheio: quem procura sabe o que quer, quem não procura não deve tropeçar. */
+.tw-step2__modo {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ion-color-primary);
+  text-decoration: underline;
+}
