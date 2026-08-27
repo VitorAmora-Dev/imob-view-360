@@ -218,7 +218,12 @@
       "SKIP": "Skip",
       "NEXT": "Next",
       "PUBLISH": "Publish tour",
-      "NEEDS_IMAGE": "Upload at least one 360° image to continue"
+      "NEEDS_IMAGE": "Upload at least one 360° image to continue",
+      "LEAVE_TITLE": "Your capture is saved",
+      "LEAVE_MESSAGE": "The photos and the AI treatment are already stored. You can pick it up later from the home screen.",
+      "LEAVE_KEEP": "Continue later",
+      "LEAVE_DISCARD": "Discard capture",
+      "LEAVE_CANCEL": "Stay here"
     },
     "STEP1": {
       "TITLE": "Start with the 360° images",

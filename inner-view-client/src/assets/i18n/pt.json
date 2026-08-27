@@ -218,7 +218,12 @@
       "SKIP": "Pular",
       "NEXT": "Próximo",
       "PUBLISH": "Publicar tour",
-      "NEEDS_IMAGE": "Envie ao menos uma imagem 360° para continuar"
+      "NEEDS_IMAGE": "Envie ao menos uma imagem 360° para continuar",
+      "LEAVE_TITLE": "Sua captura fica salva",
+      "LEAVE_MESSAGE": "As fotos e o tratamento da IA já estão guardados. Você pode continuar depois pela tela inicial.",
+      "LEAVE_KEEP": "Continuar depois",
+      "LEAVE_DISCARD": "Descartar captura",
+      "LEAVE_CANCEL": "Ficar aqui"
     },
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",

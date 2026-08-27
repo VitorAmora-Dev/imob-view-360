@@ -283,6 +283,12 @@ export class TourDraftStore {
       this.showErrors.set(true);
       return;
     }
+    // Cada etapa fecha um bloco de trabalho: nome dos cômodos, hotspots, dados
+    // do imóvel. Salvar na fronteira entre elas é o ponto em que há mais a
+    // perder e menos a atrapalhar. Fogo-e-esquece: `next()` não é async, e
+    // falhar aqui não pode travar a troca de etapa — o corretor não está
+    // pedindo para salvar, só para seguir em frente.
+    void this.salvarRascunho().catch(() => undefined);
     this.irPara((current + 1) as WizardStep);
   }
 
@@ -873,6 +879,29 @@ export class TourDraftStore {
    * Lança em falha de rede. Quem chama decide — publicar aborta, sair não.
    */
   async salvarRascunho(): Promise<void> {
+    // Trava de reentrância. Antes só o clique em "Publicar" chamava isto — um
+    // botão que a própria tela desabilita enquanto `publishing()` está em voo.
+    // A Tarefa 12 passou a chamar sozinha, sem gesto nenhum do corretor: ao
+    // trocar de etapa e quando o app vai para segundo plano. Isso abriu uma
+    // janela que não existia antes — trocar de etapa e minimizar o app quase
+    // no mesmo instante dispara duas chamadas antes da primeira terminar, e as
+    // duas leem `rascunhoTourId()`/`serverPanoramaId` no mesmo estado "antes",
+    // criando imóvel, panorama ou hotspot em dobro. Quem chama enquanto uma
+    // gravação está em voo recebe a MESMA promise, em vez de abrir uma
+    // segunda.
+    if (this.salvandoRascunho) return this.salvandoRascunho;
+    const emVoo = this.salvarRascunhoAgora().finally(() => {
+      this.salvandoRascunho = null;
+    });
+    this.salvandoRascunho = emVoo;
+    return emVoo;
+  }
+
+  /** A promise do `salvarRascunho()` em voo, ou `null` quando nenhum está. */
+  private salvandoRascunho: Promise<void> | null = null;
+
+  /** Corpo de fato do `salvarRascunho()` — ver a trava de reentrância acima. */
+  private async salvarRascunhoAgora(): Promise<void> {
     // Sem espera de fila: cada cômodo já subiu e foi tratado dentro do modal
     // de captura, antes mesmo de o corretor dar nome a ele.
     const tourId = await this.garantirRascunho();

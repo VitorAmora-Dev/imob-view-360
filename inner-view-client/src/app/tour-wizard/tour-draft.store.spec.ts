@@ -1123,6 +1123,136 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  /**
+   * Achado da revisão da Tarefa 12: `salvarRascunho()` não tinha trava de
+   * reentrância — só o botão "Publicar" chamava este método, e o próprio
+   * `publishing()` já impedia um segundo clique. A Tarefa 12 passou a chamá-lo
+   * sozinho, sem gesto nenhum do corretor: a cada troca de etapa e quando o
+   * app vai para segundo plano. Isso abre uma janela que não existia antes —
+   * trocar de etapa e minimizar o app quase ao mesmo tempo dispara as duas
+   * chamadas antes da primeira terminar, e cada uma lê `rascunhoTourId()` e
+   * `serverPanoramaId` no mesmo estado "antes", criando imóvel, tour ou
+   * panorama em dobro.
+   */
+  describe('salvarRascunho — reentrância', () => {
+    function comRede() {
+      const property = TestBed.inject(PropertyService);
+      const tours = TestBed.inject(VirtualTourService);
+      const createProperty = spyOn(property, 'createProperty').and.returnValue(
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      const createTour = spyOn(tours, 'createTour').and.returnValue(
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      const addPanorama = spyOn(tours, 'addPanorama').and.returnValue(
+        of({ id: 'pan-0' } as unknown) as ReturnType<VirtualTourService['addPanorama']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      return { createProperty, createTour, addPanorama };
+    }
+
+    it('duas chamadas concorrentes não duplicam imóvel, tour nem panorama', async () => {
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      const { createProperty, createTour, addPanorama } = comRede();
+
+      // O cenário do achado: nenhuma das duas espera a outra terminar.
+      await Promise.all([store.salvarRascunho(), store.salvarRascunho()]);
+
+      expect(createProperty).toHaveBeenCalledTimes(1);
+      expect(createTour).toHaveBeenCalledTimes(1);
+      expect(addPanorama).toHaveBeenCalledTimes(1);
+    });
+
+    it('a segunda chamada recebe o resultado da mesma gravação, não uma vazia', async () => {
+      // A trava não pode virar um "faz de conta que salvou": quem chama de
+      // novo enquanto uma gravação está em voo precisa saber quando ELA
+      // termina de verdade — inclusive se ela falhar.
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      const property = TestBed.inject(PropertyService);
+      spyOn(property, 'createProperty').and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+
+      await expectAsync(
+        Promise.all([store.salvarRascunho(), store.salvarRascunho()]),
+      ).toBeRejected();
+    });
+
+    it('depois de terminar (com sucesso ou não), a próxima chamada tenta de novo', async () => {
+      // A trava é só para o que está EM VOO — sem isto, uma falha deixaria
+      // `salvarRascunho()` preso numa promise rejeitada para sempre, e nem
+      // publicar nem sair do wizard conseguiriam mais salvar nada.
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      const property = TestBed.inject(PropertyService);
+      const createProperty = spyOn(property, 'createProperty').and.returnValues(
+        throwError(() => new Error('rede caiu')),
+        of({ id: 'imovel-1' }) as ReturnType<PropertyService['createProperty']>,
+      );
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'createTour').and.returnValue(
+        of({ id: 'tour-1', panoramas: [] } as unknown) as ReturnType<
+          VirtualTourService['createTour']
+        >,
+      );
+      spyOn(tours, 'addPanorama').and.returnValue(
+        of({ id: 'pan-0' } as unknown) as ReturnType<VirtualTourService['addPanorama']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+
+      await expectAsync(store.salvarRascunho()).toBeRejected();
+      await store.salvarRascunho();
+
+      expect(createProperty).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  /**
+   * A Tarefa 12 passou a chamar `salvarRascunho()` também ao trocar de etapa
+   * — é o "bloco de trabalho" de cada tela (nomes, hotspots, dados do imóvel)
+   * sendo fechado no ponto em que há mais a perder.
+   */
+  describe('next() salva ao trocar de etapa', () => {
+    it('salva ao avançar de etapa', () => {
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+
+      store.next();
+
+      expect(salvar).toHaveBeenCalled();
+      expect(store.step()).toBe(2);
+    });
+
+    it('não salva quando o avanço é bloqueado', () => {
+      // Nada mudou desde o último salvamento — não há bloco de trabalho novo
+      // para fechar.
+      const store = storeWith(scene('a', { room: '' }));
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+
+      store.next();
+
+      expect(salvar).not.toHaveBeenCalled();
+      expect(store.step()).toBe(1);
+    });
+
+    it('na etapa 3, quem salva é o publish() — next() não dispara uma segunda gravação', () => {
+      const store = storeWith(scene('a', { room: 'Sala' }));
+      store.goTo(3);
+      const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
+      const publicar = spyOn(store, 'publish').and.resolveTo();
+
+      store.next();
+
+      expect(publicar).toHaveBeenCalled();
+      expect(salvar).not.toHaveBeenCalled();
+    });
+  });
+
   describe('falha ao publicar', () => {
     /** Deixa o formulário válido para o publicar chegar até a rede. */
     function pronto(store: TourDraftStore): void {

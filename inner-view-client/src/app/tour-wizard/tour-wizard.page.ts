@@ -1,6 +1,6 @@
-import { Component, ViewChild, inject } from '@angular/core';
-import { IonContent } from '@ionic/angular/standalone';
-import { TranslatePipe } from '@ngx-translate/core';
+import { Component, DestroyRef, ViewChild, inject } from '@angular/core';
+import { AlertController, IonContent } from '@ionic/angular/standalone';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { TourPublishedComponent } from './published/tour-published.component';
 import { StepHotspotsComponent } from './steps/step-hotspots/step-hotspots.component';
@@ -46,8 +46,93 @@ export class TourWizardPage {
 
   @ViewChild(AppHeaderComponent) private header?: AppHeaderComponent;
 
+  private readonly alertController = inject(AlertController);
+  private readonly translate = inject(TranslateService);
+
+  constructor() {
+    // `visibilitychange`, e não `beforeunload`: navegador de celular ignora ou
+    // limita o segundo, e ele não dispara quando o SISTEMA mata o app em
+    // segundo plano — que é justamente um dos dois jeitos de perder o
+    // trabalho que esta tarefa fecha (o outro é o botão de voltar, coberto
+    // pelo `tourWizardLeaveGuard`).
+    const aoEsconder = () => {
+      if (document.visibilityState !== 'hidden') return;
+      if (this.store.published() || !this.store.readyScenes().length) return;
+      void this.store.salvarRascunho().catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', aoEsconder);
+    inject(DestroyRef).onDestroy(() =>
+      document.removeEventListener('visibilitychange', aoEsconder),
+    );
+  }
+
   /** O header encolhe com o scroll e depende do container do ion-content. */
   onScroll(event: CustomEvent<{ scrollTop: number }>): void {
     this.header?.onContentScroll(event.detail.scrollTop);
+  }
+
+  /**
+   * Decide se dá para sair do wizard. Devolve `true` para deixar a navegação
+   * seguir, `false` para ficar.
+   *
+   * Chamado pelo `tourWizardLeaveGuard` (`CanDeactivate` da rota `tour/novo`),
+   * não por um `@Output` do `app-header`: o header é compartilhado por toda a
+   * tela (§7 do SPRINT-3-TOUR-WIZARD.md, "consumido como está") e ele mesmo
+   * navega com `backHref` — não emite evento. Um guard de rota, além de
+   * cobrir o clique no header, intercepta o voltar do NAVEGADOR e o botão
+   * FÍSICO do Android, os dois casos do chamado original que um `@Output` no
+   * header nunca veria.
+   *
+   * Sem cômodo nenhum não há o que perguntar. E depois de publicado também
+   * não: o tour já está no ar, e oferecer "descartar" ali apagaria um imóvel
+   * que deixou de ser rascunho.
+   */
+  async aoVoltar(): Promise<boolean> {
+    if (this.store.published() || !this.store.readyScenes().length) {
+      return true;
+    }
+
+    return new Promise<boolean>((resolve) => {
+      void this.alertController
+        .create({
+          header: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_TITLE'),
+          message: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_MESSAGE'),
+          // Sem escolha explícita a promise nunca resolveria, e o guard
+          // ficaria pendurado — por isso o toque fora do alerta não conta
+          // como resposta.
+          backdropDismiss: false,
+          buttons: [
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_CANCEL'),
+              role: 'cancel',
+              handler: () => resolve(false),
+            },
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_DISCARD'),
+              role: 'destructive',
+              handler: () => {
+                void this.store
+                  .descartarRascunho()
+                  .catch(() => undefined)
+                  .then(() => resolve(true));
+              },
+            },
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_KEEP'),
+              handler: () => {
+                // Falhar aqui não pode prender ninguém na tela: as fotos e o
+                // tratamento por IA já estão no servidor, e o que se perde é
+                // a edição da última etapa. Segurar alguém dentro do wizard
+                // porque a rede caiu é pior.
+                void this.store
+                  .salvarRascunho()
+                  .catch(() => undefined)
+                  .then(() => resolve(true));
+              },
+            },
+          ],
+        })
+        .then((alerta) => alerta.present());
+    });
   }
 }
