@@ -17,8 +17,21 @@ import type { PropertyPurpose, PropertyType } from '../models/property.model';
  * há como retomar uma captura nem reconciliar o que mudou.
  */
 
-/** Etapas do wizard. Não existe etapa 0 nem 4 — o sucesso é um estado à parte. */
-export type WizardStep = 1 | 2 | 3;
+/**
+ * Etapas do wizard: imagens, ordenação e conexões, passagens, informações.
+ *
+ * Não existe etapa 0 nem 5 — o sucesso é um estado à parte, `published()`.
+ */
+export type WizardStep = 1 | 2 | 3 | 4;
+
+/**
+ * Quantas etapas existem, num lugar só.
+ *
+ * Existe porque o total estava espalhado por onze pontos, incluindo DENTRO de
+ * uma string de tradução (`"Etapa {{step}} de 3"`) — o único deles que some em
+ * silêncio quando alguém acrescenta uma etapa.
+ */
+export const TOTAL_ETAPAS = 4;
 
 /**
  * Um ponto marcado sobre a esfera.

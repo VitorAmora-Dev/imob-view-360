@@ -7,7 +7,7 @@ import { VirtualTourService } from '../services/virtual-tour.service';
 import { PanoramaImageCache } from '../services/panorama-image-cache.service';
 import { TourDraftStore } from './tour-draft.store';
 import { CaptureFrameUpload } from '../services/virtual-tour.service';
-import { WizardScene } from './tour-wizard.model';
+import { TOTAL_ETAPAS, WizardScene } from './tour-wizard.model';
 
 /**
  * Testa o CONTRATO do store, não a implementação.
@@ -256,7 +256,7 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
-  describe('a regra bloqueante da etapa 2', () => {
+  describe('a regra bloqueante da etapa de passagens', () => {
     // A etapa deixou de ser opcional, e o motivo é da tela do VISITANTE: o
     // `embed` é só o viewer, e o viewer não tem lista de ambientes nem menu —
     // clicar num ponto é a única forma de trocar de ambiente. Publicar sem
@@ -272,15 +272,15 @@ describe('TourDraftStore (contrato)', () => {
     it('com um ambiente só, segue opcional', () => {
       // Não há destino possível: cobrar ligação seria cobrar o impossível.
       const store = storeWith(scene('a'));
-      store.goTo(2);
+      store.goTo(3);
 
       expect(store.canAdvance()).toBe(true);
-      expect(store.etapa2Opcional()).toBe(true);
+      expect(store.etapaPassagensOpcional()).toBe(true);
     });
 
     it('trava com dois ambientes sem ligação', () => {
       const store = storeWith(scene('a'), scene('b'));
-      store.goTo(2);
+      store.goTo(3);
 
       expect(store.canAdvance()).toBe(false);
       expect(store.ambientesIlhados().map((s) => s.id)).toEqual(['b']);
@@ -291,7 +291,7 @@ describe('TourDraftStore (contrato)', () => {
         scene('a', { hotspots: [ponto('h1', 'b')] }),
         scene('b'),
       );
-      store.goTo(2);
+      store.goTo(3);
 
       expect(store.canAdvance()).toBe(true);
     });
@@ -303,13 +303,13 @@ describe('TourDraftStore (contrato)', () => {
         scene('a', { hotspots: [ponto('h1', null)] }),
         scene('b'),
       );
-      store.goTo(2);
+      store.goTo(3);
 
       expect(store.canAdvance()).toBe(false);
     });
 
     it('não trava as outras etapas', () => {
-      // A regra é da etapa 2. Nas etapas 1 e 3 o mesmo rascunho anda.
+      // A regra é da etapa de passagens. Nas outras o mesmo rascunho anda.
       const store = storeWith(scene('a'), scene('b'));
 
       expect(store.canAdvance()).toBe(true);
@@ -317,7 +317,7 @@ describe('TourDraftStore (contrato)', () => {
 
     it('remover um ambiente não joga o corretor de volta à etapa 1', () => {
       // `removeScene` devolve à etapa 1 quando some a última imagem. Se essa
-      // guarda olhasse `canAdvance`, ilhar um ambiente na etapa 2 arrastaria o
+      // guarda olhasse `canAdvance`, ilhar um ambiente na etapa de passagens arrastaria o
       // corretor duas telas atrás — para consertar algo que se conserta ali
       // mesmo.
       const store = storeWith(
@@ -325,11 +325,13 @@ describe('TourDraftStore (contrato)', () => {
         scene('b'),
         scene('c', { hotspots: [ponto('h2', 'a')] }),
       );
-      store.goTo(2);
+      store.goTo(3);
 
       store.removeScene('a');
 
-      expect(store.step()).toBe(2);
+      // A etapa NAO mudou: e isso que o teste protege. O numero acompanhou a
+      // renumeracao, a assercao continua sendo "ficou onde estava".
+      expect(store.step()).toBe(3);
       expect(store.canAdvance()).toBe(false);
     });
   });
@@ -1516,9 +1518,11 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.step()).toBe(1);
     });
 
-    it('na etapa 3, quem salva é o publish() — next() não dispara uma segunda gravação', () => {
+    // A ULTIMA etapa, que virou a 4 quando a ordenacao entrou entre a 1 e a 2.
+    // O comportamento nao mudou: no fim, quem salva e o publish().
+    it('na ultima etapa, quem salva é o publish() — next() não dispara uma segunda gravação', () => {
       const store = storeWith(scene('a', { room: 'Sala' }));
-      store.goTo(3);
+      store.goTo(4);
       const salvar = spyOn(store, 'salvarRascunho').and.resolveTo();
       const publicar = spyOn(store, 'publish').and.resolveTo();
 
@@ -2499,6 +2503,114 @@ describe('TourDraftStore — ordenar e conectar', () => {
   it('desligar o que nao esta ligado nao perde nada', () => {
     store.scenes.set([cenaCom('sala'), cenaCom('cozinha')]);
     expect(store.desligarAmbientes('sala', 'cozinha')).toEqual([]);
+  });
+});
+
+/**
+ * Quatro etapas: imagens, ordenacao, passagens, informacoes.
+ *
+ * A tela de ordenacao virou etapa propria porque escondida dentro de outra o
+ * botao "Voltar" fica errado: `back()` so sabe decrementar `step`, e de uma
+ * sub-fase ele saltaria a tela inteira.
+ */
+describe('TourDraftStore — quatro etapas', () => {
+  let store: TourDraftStore;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        TourDraftStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    store = TestBed.inject(TourDraftStore);
+    store.scenes.set([
+      {
+        id: 'sala',
+        room: 'Sala',
+        fileName: 'sala.jpg',
+        fileSize: 1024,
+        imageData: 'data:image/jpeg;base64,x',
+        order: 0,
+        hotspots: [],
+        state: 'ready',
+      },
+    ]);
+  });
+
+  it('TOTAL_ETAPAS e quatro', () => {
+    expect(TOTAL_ETAPAS).toBe(4);
+  });
+
+  it('o progresso chega a 100 so na ultima etapa', () => {
+    store.step.set(3);
+    expect(store.progressPct()).toBe(75);
+    store.step.set(4);
+    expect(store.progressPct()).toBe(100);
+  });
+
+  // Publicar mudou de etapa: era a 3, agora e a 4. Sem isto, `next()` na etapa
+  // 3 publicaria um tour sem os dados do imovel.
+  it('next na etapa 3 avanca, e nao publica', () => {
+    const publicar = spyOn(store, 'publish');
+    store.step.set(3);
+    store.next();
+
+    expect(publicar).not.toHaveBeenCalled();
+    expect(store.step()).toBe(4);
+  });
+
+  it('next na etapa 4 publica', () => {
+    const publicar = spyOn(store, 'publish');
+    store.step.set(4);
+    store.next();
+
+    expect(publicar).toHaveBeenCalled();
+  });
+
+  it('back desce uma etapa, e para na 1', () => {
+    store.step.set(4);
+    store.back();
+    expect(store.step()).toBe(3);
+
+    store.step.set(1);
+    store.back();
+    expect(store.step()).toBe(1);
+  });
+
+  // A regra de ambiente ilhado acompanhou a etapa de passagens, que era a 2 e
+  // agora e a 3. Ficar na 2 travaria a ORDENACAO por um defeito que so a etapa
+  // seguinte pode consertar.
+  it('a trava de ambiente ilhado vale na etapa de passagens, nao na de ordenacao', () => {
+    store.scenes.set([
+      {
+        id: 'sala',
+        room: 'Sala',
+        fileName: 'sala.jpg',
+        fileSize: 1024,
+        imageData: 'data:image/jpeg;base64,x',
+        order: 0,
+        hotspots: [],
+        state: 'ready',
+      },
+      {
+        id: 'cozinha',
+        room: 'Cozinha',
+        fileName: 'cozinha.jpg',
+        fileSize: 1024,
+        imageData: 'data:image/jpeg;base64,x',
+        order: 1,
+        hotspots: [],
+        state: 'ready',
+      },
+    ]);
+
+    store.step.set(2);
+    expect(store.canAdvance()).toBeTrue();
+
+    store.step.set(3);
+    expect(store.canAdvance()).toBeFalse();
   });
 });
 

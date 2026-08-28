@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
-import { WizardStep } from '../../tour-wizard.model';
+import { TOTAL_ETAPAS, WizardStep } from '../../tour-wizard.model';
 
 /** Os quatro estados visuais de um chip, na ordem em que o handoff os define. */
 export type ChipState = 'done' | 'current' | 'reachable' | 'blocked';
@@ -24,7 +24,10 @@ export type ChipState = 'done' | 'current' | 'reachable' | 'blocked';
 })
 export class WizardStepperComponent {
   readonly store = inject(TourDraftStore);
-  readonly steps: WizardStep[] = [1, 2, 3];
+  readonly steps: WizardStep[] = [1, 2, 3, 4];
+
+  /** O total vem da constante, e não do template. Ver `TOTAL_ETAPAS`. */
+  readonly total = TOTAL_ETAPAS;
 
   stateOf(step: WizardStep): ChipState {
     const current = this.store.step();

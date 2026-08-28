@@ -26,7 +26,7 @@
 </ol>
 
 <!--
-  O valor lido em voz alta é "Etapa 2 de 3", não "2" — `aria-valuetext` existe
+  O valor lido em voz alta é "Etapa 2 de 4", não "2" — `aria-valuetext` existe
   para isso, e sem ele o leitor de tela anuncia um número solto sem unidade.
 -->
 <div
@@ -34,13 +34,13 @@
   role="progressbar"
   [attr.aria-valuenow]="store.step()"
   aria-valuemin="1"
-  aria-valuemax="3"
-  [attr.aria-valuetext]="'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step() }">
+  aria-valuemax="4"
+  [attr.aria-valuetext]="'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step(), total: total }">
   <div class="tw-progress__fill" [style.width.%]="store.progressPct()"></div>
 </div>
 
 <p class="tw-progress__meta">
-  <span>{{ 'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step() } }}</span>
+  <span>{{ 'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step(), total: total } }}</span>
   <!-- A chave vem do store: na etapa 2 ela depende de haver segundo ambiente. -->
   <span>{{ store.hintKey() | translate }}</span>
 </p>

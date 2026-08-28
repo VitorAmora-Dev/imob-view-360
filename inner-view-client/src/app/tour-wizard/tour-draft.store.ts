@@ -21,6 +21,7 @@ import {
   PropertyDraft,
   RATIO_TOLERANCE,
   ROOM_NAME_MAX,
+  TOTAL_ETAPAS,
   WizardHotspot,
   WizardScene,
   WizardSceneAiState,
@@ -188,12 +189,14 @@ export class TourDraftStore {
    * dizem a mesma coisa a partir do mesmo lugar. Três cópias da regra é como
    * uma delas fica para trás.
    */
-  readonly etapa2Opcional = computed(() => this.readyScenes().length < 2);
+  readonly etapaPassagensOpcional = computed(
+    () => this.readyScenes().length < 2,
+  );
 
-  /** Dica da barra de progresso. Ver `etapa2Opcional`. */
+  /** Dica da barra de progresso. Ver `etapaPassagensOpcional`. */
   readonly hintKey = computed(() =>
-    this.step() === 2 && !this.etapa2Opcional()
-      ? 'TOUR_WIZARD.COMMON.HINT_2_REQUIRED'
+    this.step() === 3 && !this.etapaPassagensOpcional()
+      ? 'TOUR_WIZARD.COMMON.HINT_3_REQUIRED'
       : `TOUR_WIZARD.COMMON.HINT_${this.step()}`,
   );
 
@@ -232,7 +235,10 @@ export class TourDraftStore {
   readonly canAdvance = computed(() => {
     if (!this.temImagem()) return false;
     if (this.step() === 1) return this.ambientesSemNome().length === 0;
-    if (this.step() === 2) return this.ambientesIlhados().length === 0;
+    // A trava de ambiente ilhado vale na etapa de PASSAGENS. Na de ordenação
+    // ela travaria a tela por um defeito que só a etapa seguinte pode consertar
+    // — lá o aviso é informativo, e vem de `ilhadosPorConexao`.
+    if (this.step() === 3) return this.ambientesIlhados().length === 0;
     return true;
   });
 
@@ -242,7 +248,7 @@ export class TourDraftStore {
   );
 
   readonly progressPct = computed(() =>
-    this.published() ? 100 : (this.step() / 3) * 100,
+    this.published() ? 100 : (this.step() / TOTAL_ETAPAS) * 100,
   );
 
   /** Capa do tour: a primeira cena válida. */
@@ -312,7 +318,7 @@ export class TourDraftStore {
 
   next(): void {
     const current = this.step();
-    if (current === 3) {
+    if (current === TOTAL_ETAPAS) {
       void this.publish();
       return;
     }
