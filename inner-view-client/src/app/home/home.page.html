@@ -105,8 +105,9 @@
 
   @if (mostrarMoldura()) {
     <ion-fab slot="fixed" vertical="bottom" horizontal="end">
-      <ion-fab-button routerLink="/tour/novo">
-        <ion-icon name="add"></ion-icon>
+      <ion-fab-button class="home-new-tour" routerLink="/tour/novo">
+        <ion-icon name="add" aria-hidden="true"></ion-icon>
+        <span>{{ 'HOME.NEW_TOUR_CTA' | translate }}</span>
       </ion-fab-button>
     </ion-fab>
   }

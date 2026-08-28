@@ -195,6 +195,15 @@ describe('HomePage', () => {
     expect(el().querySelector('ion-progress-bar')).toBeNull();
   });
 
+  it('explica no FAB que a acao cria um novo tour 360', async () => {
+    responder(await abrir(), [imovel('1')]);
+
+    const button = el().querySelector('ion-fab-button.home-new-tour');
+    expect(button?.getAttribute('routerlink')).toBe('/tour/novo');
+    expect(button?.querySelector('ion-icon')?.getAttribute('name')).toBe('add');
+    expect(button?.textContent).toContain('HOME.NEW_TOUR_CTA');
+  });
+
   it('busca, filtros e FAB somem em carregando e em erro', async () => {
     const req = await abrir();
     expect(component.view()).toBe('loading');

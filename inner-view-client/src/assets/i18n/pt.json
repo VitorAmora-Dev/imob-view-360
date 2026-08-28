@@ -7,6 +7,7 @@
     "EMPTY_TITLE": "Comece pelo seu primeiro tour",
     "EMPTY_TEXT": "Um tour 360° mostra o imóvel por dentro e é o que o cliente abre primeiro. Leva alguns minutos.",
     "EMPTY_CTA": "Criar meu primeiro tour",
+    "NEW_TOUR_CTA": "Novo tour 360",
     "NO_TOUR_BANNER": "{{n}} imóveis ainda não possuem imagens 360°.",
     "NO_TOUR_BANNER_ONE": "1 imóvel ainda não possui imagens 360°.",
     "CARD_CREATE_TOUR": "Criar tour",

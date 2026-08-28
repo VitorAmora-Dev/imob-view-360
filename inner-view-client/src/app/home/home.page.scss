@@ -20,6 +20,24 @@ ion-searchbar.home-search {
   margin-top: 8px;
 }
 
+.home-new-tour {
+  width: 176px;
+  height: 56px;
+  --border-radius: var(--app-radius-xl);
+  --padding-start: 16px;
+  --padding-end: 18px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  ion-icon {
+    flex: 0 0 auto;
+    margin-inline-end: 8px;
+    font-size: 24px;
+  }
+}
+
 // A contagem existe para o leitor de tela; na tela ela seria ruído sobre uma
 // lista que a pessoa está vendo.
 .home-anuncio {

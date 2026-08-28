@@ -21,7 +21,7 @@ const START_HOLD_SECONDS = 0.35;
 const RISE_SECONDS = 0.5;
 const ROTATION_SECONDS = 2;
 const LIFT_HEIGHT = 0.55 * 1.65;
-const ROTATION_TURNS = 3;
+const ROTATION_TURNS = 2;
 const DESCENT_SECONDS = 0.4;
 const END_HOLD_SECONDS = 0.35;
 const IMPACT_INTENSITY = 0.35;
@@ -87,13 +87,9 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
   private baseLeftEyeScale?: THREE.Vector3;
   private baseRightEyeScale?: THREE.Vector3;
   private featherGroup?: THREE.Group;
-  private impactWaveGroup?: THREE.Group;
 
   private readonly featherMeshes: Array<
     THREE.Mesh<THREE.ShapeGeometry, THREE.MeshBasicMaterial>
-  > = [];
-  private readonly impactWaves: Array<
-    THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   > = [];
   private readonly headSideMaterialStates: HeadSideMaterialState[] = [];
 
@@ -128,7 +124,6 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
     this.renderer?.domElement.remove();
 
     this.featherMeshes.length = 0;
-    this.impactWaves.length = 0;
     this.headSideMaterialStates.length = 0;
   }
 
@@ -210,7 +205,6 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
 
     this.setupHeadSeamMaterials();
     this.createFeathers(gltf.scene);
-    this.createImpactWaves(gltf.scene);
     this.buildAnimation();
     this.syncMotionPreference();
     this.renderOnce();
@@ -348,85 +342,6 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
       this.featherMeshes.push(feather);
     }
     model.add(this.featherGroup);
-  }
-
-  private createRibbonGeometry(
-    points: Array<[number, number]>,
-    width: number,
-    samples = 52,
-  ): THREE.BufferGeometry {
-    const curve = new THREE.CatmullRomCurve3(
-      points.map(([x, y]) => new THREE.Vector3(x, y, 0)),
-      false,
-      'centripetal',
-    );
-    const positions: number[] = [];
-    const indices: number[] = [];
-
-    for (let index = 0; index <= samples; index += 1) {
-      const progress = index / samples;
-      const point = curve.getPoint(progress);
-      const tangent = curve.getTangent(progress).normalize();
-      const normal = new THREE.Vector3(-tangent.y, tangent.x, 0);
-      const taper = Math.max(0.035, Math.pow(Math.sin(Math.PI * progress), 0.42));
-      const halfWidth = width * taper * 0.5;
-      positions.push(
-        point.x + normal.x * halfWidth,
-        point.y + normal.y * halfWidth,
-        0,
-        point.x - normal.x * halfWidth,
-        point.y - normal.y * halfWidth,
-        0,
-      );
-
-      if (index < samples) {
-        const offset = index * 2;
-        indices.push(
-          offset,
-          offset + 1,
-          offset + 2,
-          offset + 1,
-          offset + 3,
-          offset + 2,
-        );
-      }
-    }
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setIndex(indices);
-    geometry.computeBoundingSphere();
-    return geometry;
-  }
-
-  private createImpactWaves(model: THREE.Object3D): void {
-    this.impactWaveGroup = new THREE.Group();
-    this.impactWaveGroup.name = 'Ondas_Impacto_Preview';
-
-    const impactShapes: Array<Array<[number, number]>> = [
-      [[0, -0.22], [0.006, -0.11], [0.01, 0], [0.007, 0.11], [0, 0.22]],
-      [[0.09, -0.25], [0.098, -0.125], [0.102, 0], [0.098, 0.125], [0.09, 0.25]],
-    ];
-    impactShapes.forEach((points, index) => {
-      const geometry = this.createRibbonGeometry(points, 0.04 - index * 0.002, 42);
-      const material = new THREE.MeshBasicMaterial({
-        color: OWL_LOADER_COLOR,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        depthTest: false,
-      });
-      const wave = new THREE.Mesh(geometry, material);
-      wave.name = `Onda_Impacto_${index + 1}`;
-      wave.visible = false;
-      wave.userData['delay'] = index * 0.022;
-      wave.userData['indexCount'] = geometry.index?.count ?? 0;
-      geometry.setDrawRange(0, 0);
-      this.impactWaveGroup?.add(wave);
-      this.impactWaves.push(wave);
-    });
-    model.add(this.impactWaveGroup);
   }
 
   private buildAnimation(): void {
@@ -716,60 +631,6 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private updateImpactWaves(): void {
-    const hideWaves = (): void => {
-      this.impactWaves.forEach((wave) => {
-        wave.visible = false;
-        wave.geometry.setDrawRange(0, 0);
-      });
-    };
-
-    if (!this.action || !this.impactWaveGroup || !this.basePosition) {
-      hideWaves();
-      return;
-    }
-
-    const launchDuration = Math.min(0.18, RISE_SECONDS * 0.35);
-    const launchEnd = START_HOLD_SECONDS + launchDuration;
-    const rotationEnd = launchEnd + ROTATION_SECONDS;
-    const impactStart = rotationEnd - 0.005;
-    const impactDuration = 0.28;
-
-    this.impactWaveGroup.position.set(
-      this.basePosition.x + 0.58,
-      this.basePosition.y - 3,
-      0.78,
-    );
-    this.impactWaveGroup.rotation.z = -0.64;
-    this.impactWaveGroup.scale.setScalar(1.12);
-
-    this.impactWaves.forEach((wave, index) => {
-      const delay = Number(wave.userData['delay']);
-      const indexCount = Number(wave.userData['indexCount']);
-      const localProgress = (this.action!.time - impactStart - delay) / impactDuration;
-      if (localProgress <= 0 || localProgress >= 1) {
-        wave.visible = false;
-        wave.geometry.setDrawRange(0, 0);
-        return;
-      }
-
-      wave.visible = true;
-      const reveal = Math.min(1, localProgress / 0.22);
-      const triangleCount = Math.floor((indexCount * reveal) / 6);
-      wave.geometry.setDrawRange(0, triangleCount * 6);
-      const fadeIn = Math.min(1, localProgress / 0.1);
-      const fadeOut = Math.min(1, (1 - localProgress) / 0.62);
-      wave.position.set(
-        localProgress * 0.012 * index,
-        -localProgress * 0.008 * index,
-        index * 0.003,
-      );
-      wave.scale.setScalar(0.96 + reveal * 0.04);
-      wave.material.opacity = Math.min(fadeIn, fadeOut)
-        * (0.76 + IMPACT_INTENSITY * 0.24);
-    });
-  }
-
   private updateHeadSeam(): void {
     if (!this.headPivot || !this.basePosition || this.headSideMaterialStates.length === 0) {
       return;
@@ -824,7 +685,6 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
 
     this.mixer?.update(this.clock.getDelta());
     this.updateFeathers();
-    this.updateImpactWaves();
     this.updateHeadSeam();
     this.renderOnce();
     this.animationFrameId = requestAnimationFrame(this.renderFrame);
