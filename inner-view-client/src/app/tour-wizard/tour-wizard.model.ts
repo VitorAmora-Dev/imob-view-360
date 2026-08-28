@@ -154,9 +154,16 @@ export interface WizardScene {
    * dois cards — e a conexão é recíproca, então as duas pontas viram passagem
    * a posicionar. Ver `ligar`/`desligar` em `passagens/fila.ts`.
    *
-   * Opcional porque cena antiga e cena retomada não têm; ausente lê-se como
-   * lista vazia. Obrigatório quebraria na compilação as fábricas de cena de
-   * dezenas de testes de uma vez.
+   * Opcional porque cena antiga não tem, e porque obrigatório quebraria na
+   * compilação as fábricas de cena de dezenas de testes de uma vez; ausente
+   * lê-se como lista vazia.
+   *
+   * Cena RETOMADA TEM. Esta é a única parte do wizard que não se deduz do
+   * resto — nome, ordem e capa são colunas, a passagem posicionada é um
+   * `Hotspot` —, e por isso ela viaja numa coluna própria,
+   * `Panorama.draftConnections`. Quem faz a travessia é `passagens/conexoes.ts`,
+   * que também completa o que os pontos já posicionados provarem: rascunho
+   * gravado antes daquela coluna existir tem só essa segunda fonte.
    */
   connections?: string[];
   /** Fotos originais; só existe quando veio da captura guiada. */
