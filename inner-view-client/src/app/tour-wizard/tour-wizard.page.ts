@@ -1,8 +1,16 @@
-import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  OnInit,
+  ViewChild,
+  computed,
+  inject,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AlertController, IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
+import { filaDePassagens } from './passagens/fila';
 import { TourPublishedComponent } from './published/tour-published.component';
 import { StepOrderingComponent } from './steps/step-ordering/step-ordering.component';
 import { StepPassagesComponent } from './steps/step-passages/step-passages.component';
@@ -52,6 +60,27 @@ export class TourWizardPage implements OnInit {
   private readonly alertController = inject(AlertController);
   private readonly translate = inject(TranslateService);
   private readonly route = inject(ActivatedRoute);
+
+  /**
+   * A etapa de passagens entrega a tela para a foto — e só enquanto há foto.
+   *
+   * O modo imersivo esconde o stepper e a barra de ação no celular (ver o
+   * SCSS), e a barra é onde mora o único "Continuar". Com a fila acabada, ou
+   * sem conexão nenhuma escolhida, a etapa não mostra foto: mostra um
+   * parágrafo. Esconder a barra ali prendia o corretor numa tela quase branca,
+   * sem avançar nem voltar — foi o que aconteceu no celular.
+   *
+   * A condição sai da mesma função pura que a etapa usa para montar a fila, e
+   * não de um `@Output` dela: o `PassagensStore` é fornecido pelo componente
+   * da etapa, e a página não o alcança. Haver passagem pendente é exatamente
+   * o caso em que a etapa monta o visualizador.
+   */
+  readonly imersivo = computed(
+    () =>
+      this.store.step() === 3 &&
+      !this.store.published() &&
+      filaDePassagens(this.store.scenes()).some((p) => !p.feita),
+  );
 
   constructor() {
     // `visibilitychange`, e não `beforeunload`: navegador de celular ignora ou

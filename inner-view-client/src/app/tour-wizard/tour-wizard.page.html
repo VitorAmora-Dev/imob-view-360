@@ -2,11 +2,12 @@
   <app-header backHref="/home" [pageTitle]="'TOUR_WIZARD.COMMON.TITLE' | translate"></app-header>
 
   <!--
-    `is-imersivo` na etapa de passagens: no celular a foto ocupa a tela, e o
-    stepper e a barra de acao somem. O caminho de volta a ordenacao passa a ser
-    o botao da propria gaveta -- ver `passagens-sheet`.
+    `is-imersivo` enquanto ha foto na etapa de passagens: no celular ela ocupa
+    a tela, e o stepper e a barra de acao somem. O caminho de volta a ordenacao
+    passa a ser o botao da propria gaveta -- ver `passagens-sheet`. Acabada a
+    fila a barra volta, porque e la que mora o "Continuar" -- ver `imersivo`.
   -->
-  <div class="tw-shell" [class.is-imersivo]="store.step() === 3 && !store.published()">
+  <div class="tw-shell" [class.is-imersivo]="imersivo()">
     <app-wizard-stepper />
 
     <div class="tw-body">

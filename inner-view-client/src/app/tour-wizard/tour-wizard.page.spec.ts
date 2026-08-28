@@ -380,3 +380,115 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
     });
   });
 });
+
+/**
+ * O modo imersivo da etapa de passagens.
+ *
+ * No celular ele esconde o stepper e a barra de acao para a foto ocupar a tela
+ * -- e junto com a barra vai embora o UNICO "Continuar". Enquanto ha foto na
+ * tela isso e o desejado. Quando a fila acaba (ou nunca teve nada), a etapa
+ * mostra so um paragrafo, e ai esconder a barra prende o corretor numa tela
+ * quase branca, sem avancar nem voltar. Aconteceu no celular, em producao.
+ */
+describe('TourWizardPage — modo imersivo da etapa de passagens', () => {
+  function montar(): TourWizardPage {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+        provideRouter([]),
+        {
+          provide: AlertController,
+          useValue: {
+            create: () => Promise.resolve({ present: () => Promise.resolve() }),
+          },
+        },
+      ],
+    });
+    return TestBed.createComponent(TourWizardPage).componentInstance;
+  }
+
+  function cenaLigada(
+    id: string,
+    connections: string[],
+    destinosJaMarcados: string[] = [],
+  ): WizardScene {
+    return {
+      id,
+      room: id,
+      fileName: `${id}.jpg`,
+      fileSize: 1024,
+      imageData: 'data:image/jpeg;base64,x',
+      order: 0,
+      hotspots: destinosJaMarcados.map((target, i) => ({
+        id: `${id}-${i}`,
+        u: 0.5,
+        v: 0.5,
+        label: '',
+        target,
+      })),
+      state: 'ready',
+      connections,
+    };
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('com passagem pendente, a foto fica com a tela', () => {
+    const page = montar();
+    page.store.scenes.set([
+      cenaLigada('sala', ['cozinha']),
+      cenaLigada('cozinha', ['sala']),
+    ]);
+    page.store.step.set(3);
+
+    expect(page.imersivo()).toBeTrue();
+  });
+
+  // O defeito: com tudo posicionado a etapa vira um paragrafo, e a barra
+  // escondida levava junto o unico caminho para a etapa 4.
+  it('com a fila acabada, stepper e barra voltam', () => {
+    const page = montar();
+    page.store.scenes.set([
+      cenaLigada('sala', ['cozinha'], ['cozinha']),
+      cenaLigada('cozinha', ['sala'], ['sala']),
+    ]);
+    page.store.step.set(3);
+
+    expect(page.imersivo()).toBeFalse();
+  });
+
+  // Mesma armadilha pela outra porta: quem chega sem ter conectado nada le
+  // "volte aos ambientes" sem ter com o que voltar.
+  it('sem conexao nenhuma, stepper e barra voltam', () => {
+    const page = montar();
+    page.store.scenes.set([cenaLigada('sala', []), cenaLigada('cozinha', [])]);
+    page.store.step.set(3);
+
+    expect(page.imersivo()).toBeFalse();
+  });
+
+  it('fora da etapa de passagens nao ha modo imersivo', () => {
+    const page = montar();
+    page.store.scenes.set([
+      cenaLigada('sala', ['cozinha']),
+      cenaLigada('cozinha', ['sala']),
+    ]);
+    page.store.step.set(2);
+
+    expect(page.imersivo()).toBeFalse();
+  });
+
+  it('no estado publicado nao ha modo imersivo', () => {
+    const page = montar();
+    page.store.scenes.set([
+      cenaLigada('sala', ['cozinha']),
+      cenaLigada('cozinha', ['sala']),
+    ]);
+    page.store.step.set(3);
+    page.store.published.set(true);
+
+    expect(page.imersivo()).toBeFalse();
+  });
+});
