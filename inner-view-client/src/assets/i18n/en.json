@@ -267,11 +267,30 @@
       "REJECTED_SIZE": "Larger than 25 MB. Shrink the photo and upload again.",
       "WARN_RATIO": "The aspect ratio is not 2:1. The tour may look distorted."
     },
+    "STEP_ORDER": {
+      "EYEBROW": "Tour in progress",
+      "TITLE": "{{n}} rooms captured, in this order",
+      "SUBTITLE": "The route follows the order of the photos. Drag to reorder or tap to connect the rooms.",
+      "EXPAND": "Connect {{ambiente}}",
+      "COLLAPSE": "Close {{ambiente}}",
+      "ADD_CONNECTION": "Add a connection to this room",
+      "NO_TARGETS": "Upload another photo in the previous step to connect.",
+      "SUMMARY_NONE": "no connections",
+      "SUMMARY_ONE": "connects to {{nome}}",
+      "SUMMARY_MANY": "connects to {{nomes}} and {{ultimo}}",
+      "UNREACHABLE": "No path to: {{ambientes}}. Visitors won't reach it in the published tour."
+    },
+    "PASSAGES": {
+      "PROGRESS": "{{feitas}} of {{total}} passages",
+      "CURRENT": "Passage to",
+      "ALSO_HERE": "Still in this photo:",
+      "REDO": "Redo",
+      "CONFIRM": "Confirm passage",
+      "BACK": "Back to rooms",
+      "DONE": "All {{n}} passages are placed.",
+      "EMPTY": "No connections chosen. Go back to the rooms and connect them."
+    },
     "STEP2": {
-      "TITLE": "Mark the points of interest",
-      "SUBTITLE_SOLO": "Click on the image to create a navigation point. With a single room there is nowhere to take the visitor: this step is optional.",
-      "UNREACHABLE": "No path to: {{ambientes}}. In the published tour visitors only change rooms by clicking a point — without a link, those rooms never appear to them.",
-      "DEAD_END": "No way back from: {{ambientes}}. Whoever goes in cannot get out.",
       "NEEDS_LINKS": "Connect every room before continuing",
       "PICK_TARGET": "Take the visitor to which room?",
       "PICK_LATER": "Choose later",
@@ -301,26 +320,8 @@
       "TRASH_HINT": "Delete",
       "TRASH_RELEASE": "Release to delete",
       "GUIDED": {
-        "PROGRESS": "Step {{n}} of {{total}} · {{ambiente}}",
-        "PROGRESS_LABEL": "Route progress",
         "INSTRUCTION": "Tap where the passage to {{ambiente}} is",
-        "INSTRUCTION_LAST": "Tap where the passage back to {{ambiente}} is",
-        "HINT": "drag to rotate · tap to mark",
-        "NEXT_ROOM": "Next room",
-        "REDO": "Redo",
-        "CONFIRM": "Confirm passage",
-        "CONFIRM_LAST": "Close the route",
-        "DOT_CURRENT": "Room {{n}}, current",
-        "DOT_DONE": "Room {{n}}, done",
-        "DOT_PENDING": "Room {{n}}, pending",
-        "CYCLE_TITLE": "Route closed",
-        "CYCLE_TEXT": "All {{n}} rooms are connected in a loop — you can walk the whole property and come back to the start.",
-        "CYCLE_TEXT_ONE": "The room is connected in a loop.",
-        "CYCLE_NOTE": "↩ closes the loop at {{ambiente}}",
-        "CONTINUE": "Continue",
-        "EDIT_LINKS": "Edit connections",
-        "ADVANCED": "Edit manually",
-        "GUIDED_MODE": "Back to the assistant"
+        "INSTRUCTION_LAST": "Tap where the passage back to {{ambiente}} is"
       }
     },
     "STEP3": {
