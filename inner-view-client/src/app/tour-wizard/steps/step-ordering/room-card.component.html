@@ -1,0 +1,55 @@
+<article class="rc" [class.is-aberto]="aberto()">
+  <div class="rc__linha">
+    <!--
+      A alca e o unico lugar por onde o arraste comeca: o `canStart` do Ionic e
+      literalmente um `closest("ion-reorder")`. Sem `slot`, porque o shadow CSS
+      do Ionic esconde o host quando ele tem um.
+    -->
+    <ion-reorder class="rc__alca">
+      <span class="rc__alca-icone" aria-hidden="true">
+        <svg viewBox="0 0 16 12" width="16" height="12" focusable="false">
+          <rect y="0" width="16" height="2" rx="1" />
+          <rect y="5" width="16" height="2" rx="1" />
+          <rect y="10" width="16" height="2" rx="1" />
+        </svg>
+      </span>
+    </ion-reorder>
+
+    <span class="rc__num" aria-hidden="true">{{ posicao() }}</span>
+
+    <span
+      class="rc__thumb"
+      [style.background-image]="miniatura() ? 'url(' + miniatura() + ')' : null"
+      aria-hidden="true"></span>
+
+    <span class="rc__textos">
+      <strong class="rc__nome">{{ nome() }}</strong>
+      <small class="rc__resumo">{{ resumoKey() | translate: resumoParams() }}</small>
+    </span>
+
+    <!--
+      O controle de expandir substitui o menu de tres pontos do desenho: ele diz
+      o que faz. Fica FORA da alca -- um botao dentro dela teria o clique morto,
+      porque o `ion-reorder` mata o evento na fase de captura.
+    -->
+    <button
+      type="button"
+      class="rc__abrir"
+      [attr.aria-expanded]="aberto()"
+      [attr.aria-label]="
+        (aberto()
+          ? 'TOUR_WIZARD.STEP_ORDER.COLLAPSE'
+          : 'TOUR_WIZARD.STEP_ORDER.EXPAND'
+        ) | translate: { ambiente: nome() }
+      "
+      (click)="alternar.emit()">
+      <span class="rc__chevron" aria-hidden="true">&#8964;</span>
+    </button>
+  </div>
+
+  @if (aberto()) {
+    <div class="rc__corpo">
+      <ng-content />
+    </div>
+  }
+</article>

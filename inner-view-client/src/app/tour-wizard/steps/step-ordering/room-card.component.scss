@@ -1,0 +1,107 @@
+.rc {
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-strong);
+  box-shadow: var(--app-shadow-tier);
+  transition: box-shadow 0.2s ease;
+}
+
+.rc__linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+// 44px de alvo, como manda o AGENTS.md, mesmo com o icone pequeno.
+.rc__alca {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: -10px;
+  color: var(--app-muted);
+  cursor: grab;
+}
+
+.rc__alca-icone svg {
+  display: block;
+  fill: currentColor;
+}
+
+.rc__num {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--app-radius-sm);
+  background: var(--ion-color-primary);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ion-color-primary-contrast);
+}
+
+.rc__thumb {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--app-radius-md);
+  background: var(--app-surface-soft) center / cover no-repeat;
+}
+
+.rc__textos {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rc__nome {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc__resumo {
+  overflow: hidden;
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+  color: var(--app-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rc__abrir {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--app-muted);
+}
+
+.rc__chevron {
+  display: inline-block;
+  font-size: 18px;
+  transition: transform 0.24s ease;
+}
+
+.is-aberto .rc__chevron {
+  transform: rotate(180deg);
+}
+
+.rc__corpo {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--app-hairline-soft);
+}
+
+// O pedido fala em animacao de 200-300ms; quem desliga movimento nao a recebe.
+@media (prefers-reduced-motion: reduce) {
+  .rc,
+  .rc__chevron {
+    transition: none;
+  }
+}

@@ -1,0 +1,62 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.so__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.so__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--app-muted);
+}
+
+.so__head h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--app-ink);
+  text-wrap: balance;
+}
+
+.so__sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--app-muted);
+  text-wrap: pretty;
+}
+
+.so__aviso {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 3px solid currentColor;
+  border-radius: var(--tw-radius-md);
+  background: var(--tw-warn-soft);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--tw-warn-text);
+  text-wrap: pretty;
+}
+
+.so__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/*
+  A sombra do arraste e do projeto, nao a do Ionic: a dele e fixa, opaca e nao
+  respeita `prefers-reduced-motion`.
+*/
+app-room-card.reorder-selected {
+  box-shadow: 0 18px 32px -16px rgb(0 0 0 / 45%);
+}

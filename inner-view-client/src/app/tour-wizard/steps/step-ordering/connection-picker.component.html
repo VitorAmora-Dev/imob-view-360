@@ -1,0 +1,34 @@
+<p class="cp__titulo">{{ 'TOUR_WIZARD.STEP_ORDER.ADD_CONNECTION' | translate }}</p>
+
+@if (opcoes().length) {
+  <ul class="cp__lista">
+    @for (opcao of opcoes(); track opcao.id) {
+      <li>
+        <!--
+          Um botao com `aria-pressed`, e nao um checkbox: o alvo e o card
+          inteiro, e o estado e "escolhido/nao escolhido", que e exatamente o
+          que `aria-pressed` anuncia.
+        -->
+        <button
+          type="button"
+          class="cp__opcao"
+          [class.is-escolhido]="opcao.escolhido"
+          [attr.aria-pressed]="opcao.escolhido"
+          (click)="alternar.emit(opcao.id)">
+          <span
+            class="cp__thumb"
+            [style.background-image]="
+              opcao.miniatura ? 'url(' + opcao.miniatura + ')' : null
+            "
+            aria-hidden="true"></span>
+          <span class="cp__nome">{{ opcao.nome }}</span>
+          <span class="cp__marca" aria-hidden="true">
+            {{ opcao.escolhido ? '&#10003;' : '' }}
+          </span>
+        </button>
+      </li>
+    }
+  </ul>
+} @else {
+  <p class="cp__vazio">{{ 'TOUR_WIZARD.STEP_ORDER.NO_TARGETS' | translate }}</p>
+}

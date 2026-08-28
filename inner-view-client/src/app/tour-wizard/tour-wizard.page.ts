@@ -4,7 +4,7 @@ import { AlertController, IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { TourPublishedComponent } from './published/tour-published.component';
-import { StepHotspotsComponent } from './steps/step-hotspots/step-hotspots.component';
+import { StepOrderingComponent } from './steps/step-ordering/step-ordering.component';
 import { StepImagesComponent } from './steps/step-images/step-images.component';
 import { StepInfoComponent } from './steps/step-info/step-info.component';
 import { TourDraftStore } from './tour-draft.store';
@@ -37,7 +37,7 @@ import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.compo
     WizardStepperComponent,
     WizardActionsComponent,
     StepImagesComponent,
-    StepHotspotsComponent,
+    StepOrderingComponent,
     StepInfoComponent,
     TourPublishedComponent,
   ],
