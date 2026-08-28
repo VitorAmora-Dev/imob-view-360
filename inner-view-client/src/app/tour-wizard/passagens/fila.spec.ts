@@ -118,17 +118,20 @@ describe('filaDePassagens', () => {
   // Agrupada por ambiente na ordem dos cards, e dentro do ambiente na ordem de
   // selecao. E isso que faz o corretor permanecer na mesma foto ate acabarem
   // os destinos daquele ambiente.
+  // Os destinos da sala entram em ordem NAO alfabetica de proposito: com
+  // ['cozinha', 'quarto'] a assercao passaria mesmo que a fila ordenasse a
+  // lista, porque aquela ja e a ordem alfabetica. A mutacao expos isso.
   it('agrupa por ambiente, na ordem dos cards', () => {
     const cenas = [
-      cena('sala', ['cozinha', 'quarto']),
+      cena('sala', ['quarto', 'cozinha']),
       cena('cozinha', ['sala']),
       cena('quarto', ['sala']),
     ];
     const fila = filaDePassagens(cenas);
 
     expect(fila.map((p) => `${p.origem.id}->${p.destino.id}`)).toEqual([
-      'sala->cozinha',
       'sala->quarto',
+      'sala->cozinha',
       'cozinha->sala',
       'quarto->sala',
     ]);
