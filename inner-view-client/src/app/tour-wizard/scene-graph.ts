@@ -53,6 +53,37 @@ function saidasPublicadas(scenes: WizardScene[]): Map<string, string[]> {
   return saidas;
 }
 
+/** De onde as arestas do grafo vêm. Ver `saidasEscolhidas`. */
+export type FonteDeSaidas = (scenes: WizardScene[]) => Map<string, string[]>;
+
+/**
+ * Arestas lidas das CONEXÕES ESCOLHIDAS, e não dos hotspots posicionados.
+ *
+ * Existe para a tela de ordenação poder avisar cedo. A leitura padrão
+ * (`saidasPublicadas`) só enxerga hotspot já posicionado — correto para o
+ * bloqueio final, inútil numa tela onde ainda não há nenhum.
+ *
+ * As duas podem discordar num intervalo: conexão escolhida e ainda não
+ * posicionada. É deliberado — o aviso da ordenação fala do que VAI ser
+ * montado, e o do `canAdvance` fala do que está montado.
+ *
+ * Conexão para ambiente que não existe mais não vira aresta: ela seria um
+ * caminho para lugar nenhum.
+ */
+export function saidasEscolhidas(scenes: WizardScene[]): Map<string, string[]> {
+  const cenas = prontas(scenes);
+  const existe = new Set(cenas.map((s) => s.id));
+  const saidas = new Map<string, string[]>();
+
+  for (const cena of cenas) {
+    saidas.set(
+      cena.id,
+      (cena.connections ?? []).filter((id) => existe.has(id)),
+    );
+  }
+  return saidas;
+}
+
 /** Cenas com imagem, na ordem em que o payload as numera. */
 function prontas(scenes: WizardScene[]): WizardScene[] {
   return scenes.filter((s) => s.state === 'ready');
@@ -67,11 +98,14 @@ function prontas(scenes: WizardScene[]): WizardScene[] {
  * Com menos de dois ambientes devolve vazio: não há para onde ir, e a etapa de
  * pontos deixa de fazer sentido.
  */
-export function ambientesIlhados(scenes: WizardScene[]): WizardScene[] {
+export function ambientesIlhados(
+  scenes: WizardScene[],
+  fonte: FonteDeSaidas = saidasPublicadas,
+): WizardScene[] {
   const cenas = prontas(scenes);
   if (cenas.length < 2) return [];
 
-  const saidas = saidasPublicadas(scenes);
+  const saidas = fonte(scenes);
   const inicio = cenas[0].id;
   const vistos = new Set<string>([inicio]);
   const fila: string[] = [inicio];
@@ -106,11 +140,14 @@ export function ambientesIlhados(scenes: WizardScene[]): WizardScene[] {
  * quem já está tentando consertar. Beco sem saída só é informação NOVA depois
  * que tudo se alcança.
  */
-export function becosSemSaida(scenes: WizardScene[]): WizardScene[] {
+export function becosSemSaida(
+  scenes: WizardScene[],
+  fonte: FonteDeSaidas = saidasPublicadas,
+): WizardScene[] {
   const cenas = prontas(scenes);
   if (cenas.length < 2) return [];
-  if (ambientesIlhados(scenes).length) return [];
+  if (ambientesIlhados(scenes, fonte).length) return [];
 
-  const saidas = saidasPublicadas(scenes);
+  const saidas = fonte(scenes);
   return cenas.filter((s) => (saidas.get(s.id) ?? []).length === 0);
 }

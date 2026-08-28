@@ -217,6 +217,17 @@ export class TourDraftStore {
   readonly becosSemSaida = computed(() => grafo.becosSemSaida(this.scenes()));
 
   /**
+   * Ambientes que ninguém alcança PELAS CONEXÕES ESCOLHIDAS.
+   *
+   * É o aviso da tela de ordenação, e existe separado de `ambientesIlhados`
+   * porque aquele lê hotspot posicionado — na ordenação ainda não há nenhum, e
+   * ele apontaria todo mundo como ilhado.
+   */
+  readonly ilhadosPorConexao = computed(() =>
+    grafo.ambientesIlhados(this.scenes(), grafo.saidasEscolhidas),
+  );
+
+  /**
    * Dá para sair da etapa atual.
    *
    * A etapa 2 deixou de ser opcional, e a razão é da tela do visitante, não de
