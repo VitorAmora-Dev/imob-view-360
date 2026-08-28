@@ -12,6 +12,7 @@ import {
 } from '../services/virtual-tour.service';
 import { toCreateTourPayload } from './publish-payload';
 import * as grafo from './scene-graph';
+import { desligar, ligar } from './passagens/fila';
 import {
   AddressDraft,
   EMPTY_PROPERTY,
@@ -20,6 +21,7 @@ import {
   PropertyDraft,
   RATIO_TOLERANCE,
   ROOM_NAME_MAX,
+  WizardHotspot,
   WizardScene,
   WizardSceneAiState,
   WizardSceneRejection,
@@ -608,6 +610,9 @@ export class TourDraftStore {
         .map((s, i) => ({
           ...s,
           order: i,
+          // Na MESMA escrita que limpa o hotspot órfão: duas transações para a
+          // mesma remoção é como uma delas fica para trás.
+          connections: (s.connections ?? []).filter((cid) => cid !== id),
           hotspots: s.hotspots.map((h) =>
             h.target === id ? { ...h, target: null } : h,
           ),
@@ -629,6 +634,68 @@ export class TourDraftStore {
     // corretor de volta à etapa 1 no meio da edição, para consertar uma ligação
     // que se conserta na etapa 2 mesmo.
     if (!this.temImagem()) this.step.set(1);
+  }
+
+  /**
+   * Reordena os ambientes, movendo o de `de` para a posição `para`.
+   *
+   * Mexe no ARRAY, e não só no campo `order`: quem manda na sequência do tour é
+   * a posição no array — `publish-payload.ts` faz `ready.map((scene, i) => …)`
+   * com `order: i` e `initialPanorama: i === 0`. Mexer só no campo não mudaria
+   * nada em lugar nenhum.
+   *
+   * O `order` é reescrito junto para não ficar mentindo, mas ele continua sendo
+   * consequência, não causa.
+   *
+   * Não toca nas conexões: reordenar é sobre a sequência, não sobre o grafo.
+   */
+  moveScene(de: number, para: number): void {
+    const atual = this.scenes();
+    if (de === para) return;
+    if (de < 0 || de >= atual.length) return;
+    if (para < 0 || para >= atual.length) return;
+
+    const lista = [...atual];
+    const [movida] = lista.splice(de, 1);
+    lista.splice(para, 0, movida);
+
+    this.scenes.set(lista.map((s, i) => ({ ...s, order: i })));
+  }
+
+  /**
+   * Liga dois ambientes, nos dois sentidos.
+   *
+   * A regra mora em `passagens/fila.ts`, pura e testada; aqui só se escreve o
+   * resultado no sinal. Idempotente: tocar no card da Cozinha para escolher a
+   * Sala, quando a ligação já nasceu do lado da Sala, não duplica.
+   */
+  ligarAmbientes(aId: string, bId: string): void {
+    this.scenes.update((list) => ligar(list, aId, bId));
+  }
+
+  /**
+   * Desliga dois ambientes e devolve os pontos que foram apagados.
+   *
+   * Quem chama usa o retorno para PERGUNTAR antes de confirmar — apagar
+   * trabalho posicionado sem aviso é o que a spec manda evitar.
+   *
+   * O `serverId` dos pontos apagados vai para a fila de exclusão do rascunho:
+   * eles já existem no servidor, e o laço de `salvarRascunho()` só percorre
+   * `scenes()` — sem este registro, um ponto apagado na tela continuaria vivo
+   * no banco.
+   */
+  desligarAmbientes(aId: string, bId: string): WizardHotspot[] {
+    const { cenas, perdidos } = desligar(this.scenes(), aId, bId);
+
+    const remotos = perdidos
+      .map((h) => h.serverId)
+      .filter((sid): sid is string => !!sid);
+    if (remotos.length) {
+      this.hotspotsParaApagar.update((ids) => [...ids, ...remotos]);
+    }
+
+    this.scenes.set(cenas);
+    return perdidos;
   }
 
   selectScene(id: string): void {

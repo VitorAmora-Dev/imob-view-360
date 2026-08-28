@@ -2342,3 +2342,163 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 });
+
+/**
+ * Ordenar e conectar ambientes.
+ *
+ * A ordem de verdade e a posicao no array -- `publish-payload.ts` faz
+ * `ready.map((scene, i) => ...)` com `order: i` e `initialPanorama: i === 0`.
+ * Mexer so no campo `order` nao mudaria nada em lugar nenhum.
+ */
+describe('TourDraftStore — ordenar e conectar', () => {
+  let store: TourDraftStore;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        TourDraftStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    store = TestBed.inject(TourDraftStore);
+  });
+
+  function cenaCom(
+    id: string,
+    connections: string[] = [],
+    hotspots: WizardScene['hotspots'] = [],
+  ): WizardScene {
+    return {
+      id,
+      room: id,
+      fileName: `${id}.jpg`,
+      fileSize: 1024,
+      imageData: 'data:image/jpeg;base64,x',
+      order: 0,
+      hotspots,
+      state: 'ready',
+      connections,
+    };
+  }
+
+  const ids = () => store.scenes().map((s) => s.id);
+  const conexoes = (id: string) =>
+    store.scenes().find((s) => s.id === id)?.connections ?? [];
+  const pontos = (id: string) =>
+    store.scenes().find((s) => s.id === id)?.hotspots ?? [];
+
+  // ---- conexao orfa ------------------------------------------------------
+
+  it('remover um ambiente tira ele das conexoes dos outros', () => {
+    store.scenes.set([
+      cenaCom('sala', ['cozinha', 'quarto']),
+      cenaCom('cozinha', ['sala']),
+      cenaCom('quarto', ['sala']),
+    ]);
+
+    store.removeScene('cozinha');
+
+    expect(conexoes('sala')).toEqual(['quarto']);
+    expect(ids()).toEqual(['sala', 'quarto']);
+  });
+
+  it('remover um ambiente sem conexoes nao estoura', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha')]);
+    expect(() => store.removeScene('cozinha')).not.toThrow();
+  });
+
+  // ---- moveScene ---------------------------------------------------------
+
+  it('moveScene move para baixo', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha'), cenaCom('quarto')]);
+    store.moveScene(0, 2);
+    expect(ids()).toEqual(['cozinha', 'quarto', 'sala']);
+  });
+
+  it('moveScene move para cima', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha'), cenaCom('quarto')]);
+    store.moveScene(2, 0);
+    expect(ids()).toEqual(['quarto', 'sala', 'cozinha']);
+  });
+
+  it('moveScene reescreve o campo order para a posicao nova', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha'), cenaCom('quarto')]);
+    store.moveScene(0, 2);
+    expect(store.scenes().map((s) => s.order)).toEqual([0, 1, 2]);
+  });
+
+  // Reordenar e sobre a sequencia, nao sobre o grafo.
+  it('moveScene nao mexe nas conexoes', () => {
+    store.scenes.set([
+      cenaCom('sala', ['cozinha', 'quarto']),
+      cenaCom('cozinha', ['sala']),
+      cenaCom('quarto', ['sala']),
+    ]);
+    store.moveScene(0, 2);
+    expect(conexoes('sala')).toEqual(['cozinha', 'quarto']);
+  });
+
+  it('moveScene com indice invalido nao faz nada', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha')]);
+    store.moveScene(0, 9);
+    expect(ids()).toEqual(['sala', 'cozinha']);
+    store.moveScene(-1, 0);
+    expect(ids()).toEqual(['sala', 'cozinha']);
+  });
+
+  it('moveScene para a propria posicao nao faz nada', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha')]);
+    store.moveScene(1, 1);
+    expect(ids()).toEqual(['sala', 'cozinha']);
+  });
+
+  // ---- ligar e desligar --------------------------------------------------
+
+  it('ligar escreve nos dois ambientes', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha')]);
+    store.ligarAmbientes('sala', 'cozinha');
+
+    expect(conexoes('sala')).toEqual(['cozinha']);
+    expect(conexoes('cozinha')).toEqual(['sala']);
+  });
+
+  it('desligar tira dos dois e devolve os pontos perdidos', () => {
+    store.scenes.set([
+      cenaCom('sala', ['cozinha'], [
+        { id: 'h1', u: 0.5, v: 0.5, label: '', target: 'cozinha' },
+      ]),
+      cenaCom('cozinha', ['sala']),
+    ]);
+
+    const perdidos = store.desligarAmbientes('sala', 'cozinha');
+
+    expect(perdidos.map((h) => h.id)).toEqual(['h1']);
+    expect(conexoes('sala')).toEqual([]);
+    expect(conexoes('cozinha')).toEqual([]);
+    expect(pontos('sala')).toEqual([]);
+  });
+
+  // O ponto ja gravado no servidor precisa ser APAGADO la, e quem sabe disso e
+  // a store. Sem empilhar o serverId, o laco de exclusao do salvarRascunho --
+  // que so percorre scenes() -- nunca mais o veria.
+  it('desligar tira da tela o ponto que ja existia no servidor', () => {
+    store.scenes.set([
+      cenaCom('sala', ['cozinha'], [
+        { id: 'h1', serverId: 'srv-1', u: 0.5, v: 0.5, label: '', target: 'cozinha' },
+      ]),
+      cenaCom('cozinha', ['sala']),
+    ]);
+
+    const perdidos = store.desligarAmbientes('sala', 'cozinha');
+
+    expect(perdidos[0].serverId).toBe('srv-1');
+    expect(pontos('sala')).toEqual([]);
+  });
+
+  it('desligar o que nao esta ligado nao perde nada', () => {
+    store.scenes.set([cenaCom('sala'), cenaCom('cozinha')]);
+    expect(store.desligarAmbientes('sala', 'cozinha')).toEqual([]);
+  });
+});
+
