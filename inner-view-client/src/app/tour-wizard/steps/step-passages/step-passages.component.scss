@@ -1,0 +1,56 @@
+.sp {
+  display: flex;
+  flex-direction: column;
+}
+
+.sp__pano {
+  position: relative;
+  height: 430px;
+  overflow: hidden;
+  border-radius: var(--app-radius-lg);
+  background: #141210;
+
+  @media (min-width: 744px) {
+    height: 560px;
+  }
+}
+
+/* Sobre a foto, e sem engolir o toque que marca a passagem. */
+.sp__banner {
+  position: absolute;
+  inset: auto 14px 14px;
+  pointer-events: none;
+}
+
+app-passagens-sheet {
+  z-index: 1;
+  margin-top: -20px;
+}
+
+.sp__vazio,
+.sp__pronto {
+  margin: 0;
+  padding: 24px;
+  border: 1px dashed var(--tw-border-dashed);
+  border-radius: var(--tw-radius-md);
+  font-size: 14px;
+  text-align: center;
+  color: var(--tw-text-muted);
+  text-wrap: pretty;
+}
+
+/*
+  No celular a etapa ocupa a tela: o wizard esconde cabecalho e barra (ver
+  `tour-wizard.page.scss`), e a foto cresce para preencher o que sobra.
+*/
+@media (max-width: 743px) {
+  .sp {
+    height: 100dvh;
+  }
+
+  .sp__pano {
+    flex: 1 1 auto;
+    height: auto;
+    border-radius: 0;
+  }
+}

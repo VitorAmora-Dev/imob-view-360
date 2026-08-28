@@ -1,11 +1,15 @@
 <!--
   Miniatura por background-image e não <img>: o `cover` recorta sem deformar, e
   o placeholder do estado "lendo" é o mesmo elemento, só sem imagem.
+
+  Sem `thumbUrl()` de propósito: é a cena retomada, cuja foto ainda não
+  chegou (`garantirImagem` está em voo, disparado no construtor). `url('')`
+  desenharia o ícone de imagem quebrada em vez do placeholder vazio.
 -->
 <span
   class="tw-scene__thumb"
   [class.is-melhorando]="melhorando()"
-  [style.background-image]="scene().imageData ? 'url(' + scene().imageData + ')' : null"
+  [style.background-image]="thumbUrl() ? 'url(' + thumbUrl() + ')' : null"
   aria-hidden="true"></span>
 
 <div class="tw-scene__main">

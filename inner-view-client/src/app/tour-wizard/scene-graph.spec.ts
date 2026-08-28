@@ -1,4 +1,8 @@
-import { ambientesIlhados, becosSemSaida } from './scene-graph';
+import {
+  ambientesIlhados,
+  becosSemSaida,
+  saidasEscolhidas,
+} from './scene-graph';
 import { WizardHotspot, WizardScene } from './tour-wizard.model';
 
 /**
@@ -139,3 +143,83 @@ describe('scene-graph', () => {
     });
   });
 });
+
+/**
+ * A mesma regra de grafo, sobre as conexoes ESCOLHIDAS.
+ *
+ * A leitura padrao ve arestas do payload de publicacao, que so conhece hotspot
+ * posicionado. Na tela de ordenacao ainda nao ha nenhum -- e e justamente la
+ * que o aviso precisa aparecer, antes de o corretor gastar o trabalho.
+ */
+describe('grafo sobre conexoes escolhidas', () => {
+  function conectada(id: string, connections: string[] = []): WizardScene {
+    return {
+      id,
+      room: id.toUpperCase(),
+      fileName: `${id}.jpg`,
+      fileSize: 1024,
+      imageData: 'data:image/jpeg;base64,x',
+      order: 0,
+      hotspots: [],
+      state: 'ready',
+      connections,
+    };
+  }
+
+  it('sem conexao nenhuma, todos menos o primeiro estao ilhados', () => {
+    const cenas = [conectada('a'), conectada('b'), conectada('c')];
+    const ilhados = ambientesIlhados(cenas, saidasEscolhidas);
+
+    expect(ilhados.map((s) => s.id)).toEqual(['b', 'c']);
+  });
+
+  it('corrente ligada nao tem ilhado', () => {
+    const cenas = [
+      conectada('a', ['b']),
+      conectada('b', ['a', 'c']),
+      conectada('c', ['b']),
+    ];
+    expect(ambientesIlhados(cenas, saidasEscolhidas)).toEqual([]);
+  });
+
+  it('um ambiente solto e apontado como ilhado', () => {
+    const cenas = [conectada('a', ['b']), conectada('b', ['a']), conectada('c')];
+    const ilhados = ambientesIlhados(cenas, saidasEscolhidas);
+
+    expect(ilhados.map((s) => s.id)).toEqual(['c']);
+  });
+
+  // Onde o descarte do fantasma importa de verdade e no beco sem saida: um
+  // ambiente cuja unica conexao aponta para um id que nao existe mais E um
+  // beco, e sem o descarte ele contaria como tendo saida.
+  //
+  // No `ambientesIlhados` o filtro nao muda resultado nenhum -- o id fantasma
+  // entra no conjunto de visitados e nunca mais e consultado. Escrever o teste
+  // la seria uma assercao verdadeira pelo motivo errado.
+  it('conexao para ambiente que nao existe nao conta como saida', () => {
+    const cenas = [
+      conectada('a', ['b']),
+      conectada('b', ['fantasma']),
+    ];
+    const becos = becosSemSaida(cenas, saidasEscolhidas);
+
+    expect(becos.map((s) => s.id)).toEqual(['b']);
+  });
+
+  // A leitura padrao continua sendo a do publicar: e ela que o canAdvance da
+  // etapa de passagens usa, e ela nao pode passar a enxergar conexao sem ponto.
+  it('a leitura padrao continua vendo so hotspot posicionado', () => {
+    const cenas = [conectada('a', ['b']), conectada('b', ['a'])];
+    const ilhados = ambientesIlhados(cenas);
+
+    expect(ilhados.map((s) => s.id)).toEqual(['b']);
+  });
+
+  it('becosSemSaida tambem aceita a fonte escolhida', () => {
+    const cenas = [conectada('a', ['b']), conectada('b')];
+    const becos = becosSemSaida(cenas, saidasEscolhidas);
+
+    expect(becos.map((s) => s.id)).toEqual(['b']);
+  });
+});
+

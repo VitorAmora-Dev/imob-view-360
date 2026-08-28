@@ -1,0 +1,41 @@
+<header class="so__head">
+  <p class="so__eyebrow">{{ 'TOUR_WIZARD.STEP_ORDER.EYEBROW' | translate }}</p>
+  <h2>{{ 'TOUR_WIZARD.STEP_ORDER.TITLE' | translate: { n: total() } }}</h2>
+  <p class="so__sub">{{ 'TOUR_WIZARD.STEP_ORDER.SUBTITLE' | translate }}</p>
+</header>
+
+<!--
+  O aviso vem ANTES de qualquer ponto ser posicionado. Descobrir "Banheiro esta
+  ilhado" depois de posicionar oito passagens joga fora o trabalho todo.
+-->
+@if (ilhados()) {
+  <p class="so__aviso" role="status">
+    {{ 'TOUR_WIZARD.STEP_ORDER.UNREACHABLE' | translate: { ambientes: ilhados() } }}
+  </p>
+}
+
+<!--
+  `[disabled]="false"` e obrigatorio: o `ion-reorder-group` nasce desabilitado,
+  e sem isto nada arrasta -- sem erro nenhum no console.
+
+  `ionReorderEnd` e nao `ionItemReorder`, que esta deprecado na 8.8.9.
+-->
+<ion-reorder-group
+  class="so__lista"
+  [disabled]="false"
+  (ionReorderStart)="aoComecarArraste()"
+  (ionReorderEnd)="aoReordenar($event)">
+  @for (cena of cenas(); track cena.id; let i = $index) {
+    <app-room-card
+      [scene]="cena"
+      [posicao]="i + 1"
+      [nomes]="nomesDe(cena.id)"
+      [aberto]="estaAberto(cena.id)"
+      (alternar)="alternarCard(cena.id)">
+      <app-connection-picker
+        [scene]="cena"
+        [todas]="cenas()"
+        (alternar)="alternarConexao(cena.id, $event)" />
+    </app-room-card>
+  }
+</ion-reorder-group>

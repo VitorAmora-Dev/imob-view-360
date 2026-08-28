@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
+import { tourWizardLeaveGuard } from './guards/tour-wizard-leave.guard';
 
 export const routes: Routes = [
   {
@@ -34,6 +35,10 @@ export const routes: Routes = [
     path: 'tour/novo',
     loadComponent: () => import('./tour-wizard/tour-wizard.page').then(m => m.TourWizardPage),
     canActivate: [authGuard],
+    // Pergunta antes de sair quando há foto capturada e ainda não publicada —
+    // ver `tourWizardLeaveGuard` para o porquê de ser um guard e não um
+    // evento do header.
+    canDeactivate: [tourWizardLeaveGuard],
   },
   {
     // A tela antiga segue de pé enquanto o wizard não fecha o fluxo inteiro —

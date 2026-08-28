@@ -1,7 +1,12 @@
 <ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
   <app-header backHref="/home" [pageTitle]="'TOUR_WIZARD.COMMON.TITLE' | translate"></app-header>
 
-  <div class="tw-shell">
+  <!--
+    `is-imersivo` na etapa de passagens: no celular a foto ocupa a tela, e o
+    stepper e a barra de acao somem. O caminho de volta a ordenacao passa a ser
+    o botao da propria gaveta -- ver `passagens-sheet`.
+  -->
+  <div class="tw-shell" [class.is-imersivo]="store.step() === 3 && !store.published()">
     <app-wizard-stepper />
 
     <div class="tw-body">
@@ -19,8 +24,9 @@
       } @else {
         @switch (store.step()) {
           @case (1) { <app-tour-step-images /> }
-          @case (2) { <app-tour-step-hotspots /> }
-          @case (3) { <app-tour-step-info /> }
+          @case (2) { <app-tour-step-ordering /> }
+          @case (3) { <app-tour-step-passages /> }
+          @case (4) { <app-tour-step-info /> }
         }
       }
     </div>

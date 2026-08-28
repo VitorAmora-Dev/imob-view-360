@@ -36,14 +36,28 @@ export class UpdatePanoramaService {
   async execute(id: string, dto: UpdatePanoramaDto, currentUser: JwtPayload) {
     const panorama = await this.prisma.panorama.findFirst({
       where: { id, virtualTour: { property: { agencyId: currentUser.agencyId } } },
-      select: { id: true },
+      select: { id: true, virtualTourId: true },
     });
     if (!panorama) throw new NotFoundException('Panorama not found');
 
-    return this.prisma.panorama.update({
-      where: { id },
-      data: { ...dto, ...(dto.imageData ? SEM_TRATAMENTO : {}) },
-      select: { id: true, roomName: true, order: true, initialPanorama: true, virtualTourId: true },
+    return this.prisma.$transaction(async (tx) => {
+      const atualizado = await tx.panorama.update({
+        where: { id },
+        data: { ...dto, ...(dto.imageData ? SEM_TRATAMENTO : {}) },
+        select: { id: true, roomName: true, order: true, initialPanorama: true, virtualTourId: true },
+      });
+      // O mesmo toque de `CreatePanoramaService`, e pela mesma razão: renomear
+      // e reordenar cômodos é o que o salvamento de rascunho mais faz, e sem
+      // isto meia hora de edição não moveria o relógio do tour um milissegundo
+      // — a faixa da home mostraria a hora em que a captura COMEÇOU, e o
+      // sweeper contaria a idade a partir dali.
+      // Hora explícita: ver o mesmo toque em `CreatePanoramaService` — o
+      // Prisma não preenche `@updatedAt` quando o `data` está vazio.
+      await tx.virtualTour.update({
+        where: { id: panorama.virtualTourId },
+        data: { updatedAt: new Date() },
+      });
+      return atualizado;
     });
   }
 }

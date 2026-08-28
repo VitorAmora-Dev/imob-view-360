@@ -1,13 +1,13 @@
-.gs {
+.ps {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   padding: 10px 16px 16px;
   border-radius: var(--app-radius-xl) var(--app-radius-xl) 0 0;
   background: var(--app-surface-soft);
 }
 
-.gs__grabber {
+.ps__grabber {
   align-self: center;
   width: 38px;
   height: 4px;
@@ -15,47 +15,29 @@
   background: var(--app-hairline);
 }
 
-.gs__dots {
-  display: flex;
-  gap: 6px;
-  align-self: center;
+.ps__progresso {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--app-muted);
 }
 
-.gs__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
-  background: var(--app-hairline);
-  transition: width 0.2s ease;
-
-  &.is-feito {
-    background: var(--ion-color-primary);
-  }
-
-  // A pilula responde "onde eu estou" de relance, sem contar bolinhas.
-  &.is-atual {
-    width: 26px;
-    background: var(--ion-color-primary);
-  }
-}
-
-.gs__linha {
+.ps__linha {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.gs__thumb {
+.ps__thumb {
   flex: 0 0 auto;
   width: 46px;
   height: 46px;
   border-radius: var(--app-radius-md);
 }
 
-.gs__nomes {
+.ps__nomes {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -79,8 +61,7 @@
   }
 }
 
-// 44px de alvo de toque, como manda o AGENTS.md.
-.gs__refazer {
+.ps__refazer {
   flex: 0 0 auto;
   min-height: 44px;
   padding: 0 14px;
@@ -92,7 +73,31 @@
   color: var(--app-muted);
 }
 
-.gs__acao {
+.ps__pendentes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.ps__pendentes-rotulo {
+  font-size: 11.5px;
+  letter-spacing: 0.6px;
+  color: var(--app-muted);
+}
+
+.ps__chip {
+  padding: 3px 9px;
+  border: 1px solid var(--app-hairline-soft);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-strong);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-body);
+}
+
+.ps__acao {
   min-height: 52px;
   padding: 16px;
   border: 0;
@@ -101,11 +106,22 @@
   font-size: 16.5px;
   font-weight: 800;
   color: var(--ion-color-primary-contrast);
-  transition: opacity 0.2s ease;
 
   &:disabled {
     background: var(--app-primary-disabled);
     opacity: 0.55;
     cursor: not-allowed;
   }
+}
+
+.ps__voltar {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ion-color-primary);
+  text-decoration: underline;
 }

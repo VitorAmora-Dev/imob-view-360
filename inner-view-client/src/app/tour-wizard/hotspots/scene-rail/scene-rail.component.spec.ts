@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideTranslateService } from '@ngx-translate/core';
+import { PanoramaImageCache } from '../../../services/panorama-image-cache.service';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardHotspot, WizardScene } from '../../tour-wizard.model';
@@ -131,5 +132,85 @@ describe('SceneRailComponent', () => {
     // ramo escolhido, não o texto — a tradução é conferida na paridade pt/en.
     expect(contagens[0]).toContain('2');
     expect(contagens[1]).toBe('TOUR_WIZARD.STEP2.RAIL_NONE');
+  });
+
+  /**
+   * As miniaturas de uma captura retomada.
+   *
+   * O rascunho é lido sem coluna de imagem (Tarefa 9), e quem baixa a foto
+   * grande é o viewer — só a do cômodo SELECIONADO. O rail lia
+   * `scene.imageData` direto, sem guarda: numa captura retomada ele abria com
+   * `url()` vazio em toda linha, que é o ícone de imagem quebrada. As Tarefas
+   * 9 e 10 blindaram o card da etapa 1 e a faixa da home contra exatamente
+   * isto, e passaram por cima daqui.
+   */
+  describe('miniatura de uma cena retomada', () => {
+    function retomada(id: string): WizardScene {
+      return scene(id, { imageData: '', serverPanoramaId: `p-${id}` });
+    }
+
+    it('não desenha fundo nenhum enquanto não há imagem', () => {
+      draft.scenes.set([retomada('a')]);
+      spyOn(draft, 'garantirMiniatura').and.resolveTo('');
+
+      const thumb: HTMLElement = monta().nativeElement.querySelector('.tw-rail__thumb');
+
+      expect(thumb.style.backgroundImage).toBe('');
+    });
+
+    it('pede a miniatura de TODOS os cômodos do rail, e não só do selecionado', async () => {
+      // O viewer pede a foto do cômodo aberto. Ninguém pedia pelos outros, e
+      // eram justamente os outros que o rail existe para mostrar.
+      draft.scenes.set([retomada('a'), retomada('b'), retomada('c')]);
+      draft.selectedSceneId.set('a');
+      const pedir = spyOn(draft, 'garantirMiniatura').and.resolveTo('');
+
+      const fixture = monta();
+      await fixture.whenStable();
+
+      expect(pedir.calls.allArgs().map((args) => args[0]).sort()).toEqual([
+        'a',
+        'b',
+        'c',
+      ]);
+    });
+
+    it('pede a versão REDUZIDA, e não a equirretangular inteira', async () => {
+      // Seis cômodos de equirect são dezenas de MB para desenhar seis selos.
+      draft.scenes.set([retomada('a')]);
+      const cache = spyOn(TestBed.inject(PanoramaImageCache), 'obter').and.resolveTo(
+        'blob:mini',
+      );
+
+      const fixture = monta();
+      await fixture.whenStable();
+
+      expect(cache).toHaveBeenCalledWith('p-a', 'treated', 320);
+    });
+
+    it('desenha a miniatura assim que ela chega', async () => {
+      draft.scenes.set([retomada('a')]);
+      spyOn(draft, 'garantirMiniatura').and.callFake(async (id: string) => {
+        draft.miniaturas.update((m) => ({ ...m, [id]: 'blob:mini' }));
+        return 'blob:mini';
+      });
+
+      const fixture = monta();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const thumb: HTMLElement = fixture.nativeElement.querySelector('.tw-rail__thumb');
+      expect(thumb.style.backgroundImage).toContain('blob:mini');
+    });
+
+    it('não pede nada para a cena que já tem foto em memória', async () => {
+      draft.scenes.set([scene('a')]);
+      const pedir = spyOn(draft, 'garantirMiniatura');
+
+      const fixture = monta();
+      await fixture.whenStable();
+
+      expect(pedir).not.toHaveBeenCalled();
+    });
   });
 });

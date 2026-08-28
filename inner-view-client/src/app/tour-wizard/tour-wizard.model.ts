@@ -11,13 +11,27 @@ import type { PropertyPurpose, PropertyType } from '../models/property.model';
  * `feature/tour-wizard`, com as duas frentes cientes. É o único arquivo que
  * as duas leem e do qual as duas dependem.
  *
- * Nada aqui é o que o servidor guarda. Estes tipos existem só enquanto o
- * corretor preenche o wizard; a conversão para o payload da API acontece uma
- * vez, no publicar (`toCreateTourPayload`).
+ * Quase nada aqui é o que o servidor guarda: estes tipos existem enquanto o
+ * corretor preenche o wizard. As exceções são os campos `server*Id`, que são a
+ * ponte entre o rascunho em memória e as linhas que já subiram — sem eles não
+ * há como retomar uma captura nem reconciliar o que mudou.
  */
 
-/** Etapas do wizard. Não existe etapa 0 nem 4 — o sucesso é um estado à parte. */
-export type WizardStep = 1 | 2 | 3;
+/**
+ * Etapas do wizard: imagens, ordenação e conexões, passagens, informações.
+ *
+ * Não existe etapa 0 nem 5 — o sucesso é um estado à parte, `published()`.
+ */
+export type WizardStep = 1 | 2 | 3 | 4;
+
+/**
+ * Quantas etapas existem, num lugar só.
+ *
+ * Existe porque o total estava espalhado por onze pontos, incluindo DENTRO de
+ * uma string de tradução (`"Etapa {{step}} de 3"`) — o único deles que some em
+ * silêncio quando alguém acrescenta uma etapa.
+ */
+export const TOTAL_ETAPAS = 4;
 
 /**
  * Um ponto marcado sobre a esfera.
@@ -29,8 +43,25 @@ export type WizardStep = 1 | 2 | 3;
  * imagem estática. Aqui não há conversão a fazer.
  */
 export interface WizardHotspot {
-  /** uuid local. Nunca é o id do servidor — hotspot só existe lá após publicar. */
+  /** uuid local. Nunca é o id do servidor — esse é o `serverId`. */
   id: string;
+  /**
+   * Id do hotspot no servidor, quando ele já foi gravado.
+   *
+   * Previsto em §4.2 desde o commit-zero — "preenchido no diff do publicar" —
+   * e nunca implementado, porque até agora o publicar apagava todos os
+   * hotspots do tour e recriava, e para isso não era preciso saber qual é
+   * qual.
+   *
+   * Apagar-e-recriar era aceitável rodando uma vez, no publicar: a janela sem
+   * hotspot no banco durava milissegundos e ninguém a via. Deixou de ser
+   * quando o salvamento passou a rodar a cada troca de etapa — uma queda de
+   * rede dentro dessa janela devolve o rascunho sem os pontos que o corretor
+   * marcou.
+   *
+   * Ausente em ponto recém-criado e em cena que nunca foi salva.
+   */
+  serverId?: string;
   /** 0–1, longitude na projeção equirretangular. */
   u: number;
   /** 0–1, latitude na projeção equirretangular. */
@@ -94,11 +125,40 @@ export interface WizardScene {
   room: string;
   fileName: string;
   fileSize: number;
-  /** dataURL — mesmo formato que `PanoramaUpload.imageData` espera. */
+  /**
+   * dataURL — mesmo formato que `PanoramaUpload.imageData` espera.
+   *
+   * **Vazio numa cena retomada**, até alguém precisar da foto. O rascunho lido
+   * do servidor traz os cômodos sem imagem de propósito: a equirect é TOAST de
+   * dezenas de MB e reidratar seis deles no 4G, antes de mostrar qualquer
+   * coisa, seria pior do que não retomar. A foto chega por URL, sob demanda,
+   * pelo `PanoramaImageCache`.
+   *
+   * Logo: `imageData` vazio **e** `serverPanoramaId` presente é uma cena
+   * íntegra, não uma cena quebrada. Quem consumir este campo precisa dos dois
+   * para decidir.
+   */
   imageData: string;
   /** 0 é a capa. */
   order: number;
   hotspots: WizardHotspot[];
+  /**
+   * Ambientes ligados a este, na ORDEM EM QUE FORAM ESCOLHIDOS.
+   *
+   * O índice do array é a ordem — não há campo paralelo de ordenação, porque
+   * duas fontes para a mesma sequência é como uma delas fica para trás. Essa
+   * ordem é a que a etapa de passagens percorre.
+   *
+   * SIMÉTRICO: escolher Cozinha dentro do card da Sala escreve `cozinha` aqui
+   * e `sala` na Cozinha. É o que torna "conecta com Cozinha" verdadeiro nos
+   * dois cards — e a conexão é recíproca, então as duas pontas viram passagem
+   * a posicionar. Ver `ligar`/`desligar` em `passagens/fila.ts`.
+   *
+   * Opcional porque cena antiga e cena retomada não têm; ausente lê-se como
+   * lista vazia. Obrigatório quebraria na compilação as fábricas de cena de
+   * dezenas de testes de uma vez.
+   */
+  connections?: string[];
   /** Fotos originais; só existe quando veio da captura guiada. */
   frames?: CaptureFrameUpload[];
   /** O que a costura mediu; só existe quando veio da captura guiada. */

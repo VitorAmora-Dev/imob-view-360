@@ -67,6 +67,48 @@ export interface CaptureFrameUpload {
 /** Como o servidor chama os estados do tratamento de um panorama. */
 export type TreatmentStatus = 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'SKIPPED';
 
+/** Uma linha da lista de capturas em andamento, para a home listar sem baixar o tour inteiro. */
+export interface RascunhoResumo {
+  id: string;
+  propertyId: string;
+  updatedAt: string;
+  ambientes: number;
+  capaPanoramaId: string | null;
+}
+
+/** Um cômodo do rascunho, com o que já foi gravado no servidor até agora. */
+export interface RascunhoPanorama {
+  id: string;
+  roomName: string;
+  order: number;
+  initialPanorama: boolean;
+  treatmentStatus: TreatmentStatus;
+  hotspots: Array<{ id: string; label: string | null; positionX: number; positionY: number; targetId: string }>;
+}
+
+/** O tour em rascunho, como o servidor o guarda, para reidratar o wizard. */
+export interface RascunhoCompleto {
+  id: string;
+  propertyId: string;
+  status: string;
+  updatedAt: string;
+  property: {
+    title: string;
+    type: string;
+    purpose: string;
+    address: {
+      street: string;
+      number: string | null;
+      complement: string | null;
+      district: string | null;
+      city: string;
+      state: string;
+      zipCode: string | null;
+    } | null;
+  };
+  panoramas: RascunhoPanorama[];
+}
+
 /** Situação de um cômodo dentro da montagem, na ordem em que aparece no tour. */
 export interface AndamentoDoPanorama {
   id: string;
@@ -95,6 +137,50 @@ export class VirtualTourService {
 
   findTour(id: string): Observable<VirtualTour> {
     return this.http.get<VirtualTour>(`${environment.apiUrl}/virtual-tours/${id}`);
+  }
+
+  /**
+   * As capturas em andamento da imobiliária.
+   *
+   * Rota autenticada e sem paginação: rascunho é trabalho pela metade, não
+   * catálogo. Quem tem uma dúzia deles tem outro problema, e a faixa da home
+   * mostra os mais recentes primeiro.
+   */
+  listarRascunhos(): Observable<RascunhoResumo[]> {
+    return this.http.get<RascunhoResumo[]>(`${environment.apiUrl}/virtual-tours`, {
+      params: { status: 'DRAFT' },
+    });
+  }
+
+  /**
+   * O tour inteiro para reidratar o wizard.
+   *
+   * `/rascunho` e não `GET /virtual-tours/:id`: aquela é pública, filtra
+   * `PUBLISHED`, e devolveria 404 em exatamente todo rascunho que esta função
+   * existe para abrir.
+   *
+   * Não traz imagem. As fotos vêm depois, uma a uma, pelo `PanoramaImageCache`.
+   */
+  lerRascunho(tourId: string): Observable<RascunhoCompleto> {
+    return this.http.get<RascunhoCompleto>(
+      `${environment.apiUrl}/virtual-tours/${tourId}/rascunho`,
+    );
+  }
+
+  /**
+   * Move ou renomeia um hotspot que já existe no servidor.
+   *
+   * Existe para o salvamento não precisar apagar e recriar. Ver
+   * `WizardHotspot.serverId`.
+   */
+  atualizarHotspot(
+    id: string,
+    dto: { positionX: number; positionY: number; label?: string },
+  ): Observable<{ id: string }> {
+    return this.http.patch<{ id: string }>(
+      `${environment.apiUrl}/hotspots/${id}`,
+      dto,
+    );
   }
 
   /**
@@ -245,10 +331,21 @@ export class VirtualTourService {
    * Diferente de `imageUrl`, que só funciona depois de publicado: durante a
    * captura o tour está em rascunho e a rota pública responde 404. `treated`
    * cai na original enquanto a montagem não terminou.
+   *
+   * `largura` é o `w` que a rota já sabia atender e que ninguém pedia. Sem ele
+   * a resposta é a equirretangular inteira — dezenas de MB —, e quem só vai
+   * desenhar uma miniatura de 196×110 pagava esse download por cômodo, em toda
+   * visita à home. Quem precisa da esfera (o viewer da etapa 2) continua
+   * pedindo sem largura.
    */
-  urlDoPreview(panoramaId: string, variante: 'treated' | 'original', versao?: string): string {
-    const v = versao ? `&v=${encodeURIComponent(versao)}` : '';
-    return `${environment.apiUrl}/panoramas/${panoramaId}/preview?variant=${variante}${v}`;
+  urlDoPreview(
+    panoramaId: string,
+    variante: 'treated' | 'original',
+    opcoes: { largura?: number; versao?: string } = {},
+  ): string {
+    const v = opcoes.versao ? `&v=${encodeURIComponent(opcoes.versao)}` : '';
+    const w = opcoes.largura ? `&w=${opcoes.largura}` : '';
+    return `${environment.apiUrl}/panoramas/${panoramaId}/preview?variant=${variante}${w}${v}`;
   }
 
   /**
@@ -260,8 +357,12 @@ export class VirtualTourService {
    * chama transforma o blob em `URL.createObjectURL` e é responsável por
    * revogá-lo.
    */
-  baixarPreview(panoramaId: string, variante: 'treated' | 'original'): Observable<Blob> {
-    return this.http.get(this.urlDoPreview(panoramaId, variante), {
+  baixarPreview(
+    panoramaId: string,
+    variante: 'treated' | 'original',
+    largura?: number,
+  ): Observable<Blob> {
+    return this.http.get(this.urlDoPreview(panoramaId, variante, { largura }), {
       responseType: 'blob',
     });
   }

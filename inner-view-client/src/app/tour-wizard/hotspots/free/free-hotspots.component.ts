@@ -1,4 +1,11 @@
-import { Component, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
 import { Panorama } from '../../../models/virtual-tour.model';
@@ -79,8 +86,59 @@ export class FreeHotspotsComponent {
     return this.vendoOriginal() ? scene.imageData : scene.treatedImageUrl;
   });
 
+  /**
+   * Liga e desliga o "ver original".
+   *
+   * A cena retomada chega com `imageData` vazio e ganha `treatedImageUrl`
+   * assim que o viewer pede a foto — o que já basta para `temComparacao` ser
+   * verdadeiro e o botão aparecer. Só que a original nunca era baixada por
+   * ninguém: `revealUrl` devolvia string vazia e o botão não fazia nada.
+   *
+   * Não é `async`: o template chama isto num `(click)`, e uma promise devolvida
+   * ali não teria dono. E só troca DEPOIS de a imagem existir — revelar uma
+   * original que não chegou é a mesma tela em branco, só que agora pedida.
+   */
   alternarOriginal(): void {
-    this.vendoOriginal.update((v) => !v);
+    if (this.vendoOriginal()) {
+      this.vendoOriginal.set(false);
+      return;
+    }
+
+    const cena = this.draft.selectedScene();
+    if (!cena) return;
+    if (cena.imageData) {
+      this.vendoOriginal.set(true);
+      return;
+    }
+
+    void this.draft
+      .garantirImagem(cena.id, 'original')
+      .catch(() => '')
+      .then((url) => {
+        if (url) this.vendoOriginal.set(true);
+      });
+  }
+
+  constructor() {
+    /**
+     * A cena retomada chega SEM foto: `imageData` vazio de propósito, ver o
+     * campo em `tour-wizard.model.ts`. Sem isto, o editor abre com a esfera
+     * branca — `TextureLoader` falha calado com endereço vazio e o material
+     * fica sem mapa.
+     *
+     * Fica num effect à parte, e não dentro do `computed` de
+     * `viewerPanoramas`: aquele computed é comparado por identidade de
+     * propósito, e recriar o array a cada resposta deste download recarregaria
+     * a equirretangular inteira — exatamente o que o `equal` dele protege.
+     */
+    effect(() => {
+      const cena = this.draft.selectedScene();
+      if (!cena || cena.treatedImageUrl || cena.imageData) return;
+      // `.catch` porque o effect reroda a cada mutação da cena — uma tecla no
+      // nome de um ponto basta. Sem ele, uma falha de rede vira uma rejeição
+      // sem dono a cada gesto do corretor.
+      void this.draft.garantirImagem(cena.id, 'treated').catch(() => undefined);
+    });
   }
 
   /**

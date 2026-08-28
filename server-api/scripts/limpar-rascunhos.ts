@@ -12,13 +12,17 @@ import { PrismaClient } from '../generated/prisma/client';
  *
  *   yarn limpar-rascunhos                  # o que seria apagado, sem apagar
  *   yarn limpar-rascunhos --apagar         # apaga de verdade
- *   yarn limpar-rascunhos --dias=3         # outra idade de corte (padrão: 7)
+ *   yarn limpar-rascunhos --dias=3         # outra idade de corte (padrão: 30)
  *
  * Seco por padrão. Um comando que apaga dado de cliente não pode ter o caminho
  * destrutivo como o mais fácil de digitar por engano.
  */
 
-const DIAS_PADRAO = 7;
+// 30 dias, e não 7. Enquanto o rascunho era invisível, varrer cedo era higiene:
+// ninguém sentia falta do que não sabia que existia. Agora ele aparece numa
+// faixa na home, e o mesmo script passa a apagar o que o corretor acha que
+// guardou — uma captura de sexta, retomada só depois das férias, cabe em 30.
+const DIAS_PADRAO = 30;
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL ?? '',
@@ -38,10 +42,15 @@ async function main(): Promise<void> {
 
   const corte = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
 
-  // `updatedAt` e não `createdAt`: o tour é tocado a cada panorama que entra e
-  // a cada tratamento que termina, então ele mede quando a captura parou de
-  // andar. Por `createdAt`, uma captura longa começada há oito dias e ainda em
-  // curso seria apagada debaixo do corretor.
+  // `updatedAt` e não `createdAt`: `CreatePanoramaService` e
+  // `UpdatePanoramaService` tocam a linha do tour a cada cômodo que entra e a
+  // cada renomear/reordenar do salvamento de rascunho, então ele mede quando a
+  // captura parou de andar. Por `createdAt`, uma captura longa começada há
+  // oito dias e ainda em curso seria apagada debaixo do corretor.
+  //
+  // Esses dois toques são a única coisa que move este relógio durante a
+  // captura, e por muito tempo não existiram — o comentário aqui já afirmava
+  // que existiam. Quem mexer neles mexe também na idade de corte deste script.
   const rascunhos = await prisma.virtualTour.findMany({
     where: { status: 'DRAFT', updatedAt: { lt: corte } },
     select: {

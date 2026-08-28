@@ -1,9 +1,11 @@
-import { Component, ViewChild, inject } from '@angular/core';
-import { IonContent } from '@ionic/angular/standalone';
-import { TranslatePipe } from '@ngx-translate/core';
+import { Component, DestroyRef, OnInit, ViewChild, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { AlertController, IonContent } from '@ionic/angular/standalone';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { TourPublishedComponent } from './published/tour-published.component';
-import { StepHotspotsComponent } from './steps/step-hotspots/step-hotspots.component';
+import { StepOrderingComponent } from './steps/step-ordering/step-ordering.component';
+import { StepPassagesComponent } from './steps/step-passages/step-passages.component';
 import { StepImagesComponent } from './steps/step-images/step-images.component';
 import { StepInfoComponent } from './steps/step-info/step-info.component';
 import { TourDraftStore } from './tour-draft.store';
@@ -36,18 +38,157 @@ import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.compo
     WizardStepperComponent,
     WizardActionsComponent,
     StepImagesComponent,
-    StepHotspotsComponent,
+    StepOrderingComponent,
+    StepPassagesComponent,
     StepInfoComponent,
     TourPublishedComponent,
   ],
 })
-export class TourWizardPage {
+export class TourWizardPage implements OnInit {
   readonly store = inject(TourDraftStore);
 
   @ViewChild(AppHeaderComponent) private header?: AppHeaderComponent;
 
+  private readonly alertController = inject(AlertController);
+  private readonly translate = inject(TranslateService);
+  private readonly route = inject(ActivatedRoute);
+
+  constructor() {
+    // `visibilitychange`, e não `beforeunload`: navegador de celular ignora ou
+    // limita o segundo, e ele não dispara quando o SISTEMA mata o app em
+    // segundo plano — que é justamente um dos dois jeitos de perder o
+    // trabalho que esta tarefa fecha (o outro é o botão de voltar, coberto
+    // pelo `tourWizardLeaveGuard`).
+    const aoEsconder = () => {
+      if (document.visibilityState !== 'hidden') return;
+      if (this.store.published() || !this.store.readyScenes().length) return;
+      void this.store.salvarRascunho().catch(() => undefined);
+    };
+    document.addEventListener('visibilitychange', aoEsconder);
+    inject(DestroyRef).onDestroy(() =>
+      document.removeEventListener('visibilitychange', aoEsconder),
+    );
+  }
+
+  /**
+   * Entrada pela faixa "Capturas em andamento" da home (Tarefa 13), que
+   * navega para `/tour/novo?rascunho=<tourId>`. Sem o parâmetro, o wizard
+   * começa vazio como sempre começou — é o mesmo caminho do FAB e do "Criar
+   * meu primeiro tour".
+   *
+   * `.catch()` e não deixar propagar: uma falha de rede aqui não pode travar
+   * a tela em branco — o pior caso aceitável é o wizard abrir vazio, do jeito
+   * que abriria se a pessoa tivesse tocado no FAB em vez da faixa.
+   */
+  ngOnInit(): void {
+    const rascunho = this.route.snapshot.queryParamMap.get('rascunho');
+    if (rascunho) void this.store.retomarRascunho(rascunho).catch(() => undefined);
+  }
+
   /** O header encolhe com o scroll e depende do container do ion-content. */
   onScroll(event: CustomEvent<{ scrollTop: number }>): void {
     this.header?.onContentScroll(event.detail.scrollTop);
+  }
+
+  /**
+   * A decisão de saída em voo, ou `null` quando nenhuma está.
+   *
+   * O Router cancela uma navegação em curso quando outra chega, e roda o
+   * `canDeactivate` de novo — então o botão físico do Android, um duplo
+   * toque no header ou o voltar do navegador em sequência chamam
+   * `aoVoltar()` mais de uma vez antes da primeira responder. Sem esta
+   * trava, a segunda chamada abriria um SEGUNDO alerta por cima do primeiro;
+   * se os dois botões escolhidos divergissem ("Descartar" em cima,
+   * "Continuar depois" embaixo), `salvarRascunho()` rodaria DEPOIS do
+   * `reset()` do descarte e recriaria um imóvel "Captura em andamento" vazio
+   * — o registro fantasma que o comentário de `descartarRascunho()` existe
+   * para evitar.
+   *
+   * Não é `async` de propósito: `return this.decisaoDeSaida;` precisa
+   * devolver o MESMO objeto de promise para o segundo chamador, e uma função
+   * `async` sempre embrulha o que ela devolve numa promise nova.
+   */
+  private decisaoDeSaida: Promise<boolean> | null = null;
+
+  /**
+   * Decide se dá para sair do wizard. Devolve `true` para deixar a navegação
+   * seguir, `false` para ficar.
+   *
+   * Chamado pelo `tourWizardLeaveGuard` (`CanDeactivate` da rota `tour/novo`),
+   * não por um `@Output` do `app-header`: o header é compartilhado por toda a
+   * tela (§7 do SPRINT-3-TOUR-WIZARD.md, "consumido como está") e ele mesmo
+   * navega com `backHref` — não emite evento. Um guard de rota, além de
+   * cobrir o clique no header, intercepta o voltar do NAVEGADOR e o botão
+   * FÍSICO do Android, os dois casos do chamado original que um `@Output` no
+   * header nunca veria.
+   */
+  aoVoltar(): Promise<boolean> {
+    if (this.decisaoDeSaida) return this.decisaoDeSaida;
+
+    const decisao = this.decidirSaida();
+    this.decisaoDeSaida = decisao;
+    void decisao.finally(() => {
+      if (this.decisaoDeSaida === decisao) this.decisaoDeSaida = null;
+    });
+    return decisao;
+  }
+
+  /**
+   * Sem cômodo nenhum não há o que perguntar. E depois de publicado também
+   * não: o tour já está no ar, e oferecer "descartar" ali apagaria um imóvel
+   * que deixou de ser rascunho.
+   */
+  private decidirSaida(): Promise<boolean> {
+    if (this.store.published() || !this.store.readyScenes().length) {
+      return Promise.resolve(true);
+    }
+
+    return new Promise<boolean>((resolve) => {
+      void this.alertController
+        .create({
+          header: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_TITLE'),
+          message: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_MESSAGE'),
+          // Sem escolha explícita a promise nunca resolveria, e o guard
+          // ficaria pendurado — por isso o toque fora do alerta não conta
+          // como resposta.
+          backdropDismiss: false,
+          buttons: [
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_CANCEL'),
+              role: 'cancel',
+              handler: () => resolve(false),
+            },
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_DISCARD'),
+              role: 'destructive',
+              handler: () => {
+                void this.store
+                  .descartarRascunho()
+                  .catch(() => undefined)
+                  .then(() => resolve(true));
+              },
+            },
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_KEEP'),
+              handler: () => {
+                // Falhar aqui não pode prender ninguém na tela: as fotos e o
+                // tratamento por IA já estão no servidor, e o que se perde é
+                // a edição da última etapa. Segurar alguém dentro do wizard
+                // porque a rede caiu é pior.
+                void this.store
+                  .salvarRascunho()
+                  .catch(() => undefined)
+                  .then(() => resolve(true));
+              },
+            },
+          ],
+        })
+        .then((alerta) => alerta.present())
+        // Mesma regra de "sair não pode travar" que já vale para a rede,
+        // acima: se o próprio `create()`/`present()` falhar (raro, mas
+        // existe — overlay sem host, por exemplo), sem isto a promise nunca
+        // resolveria e a pessoa não conseguiria mais sair do wizard, nunca.
+        .catch(() => resolve(true));
+    });
   }
 }

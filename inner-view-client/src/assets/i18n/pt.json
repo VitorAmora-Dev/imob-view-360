@@ -29,7 +29,17 @@
       "RESULT_COUNT": "{{n}} imóveis encontrados.",
       "RESULT_COUNT_ONE": "1 imóvel encontrado.",
       "NO_RESULTS_FILTERS": "Nenhum imóvel corresponde aos filtros selecionados."
-    }
+    },
+    "DRAFTS_TITLE": "Capturas em andamento",
+    "DRAFTS_ROOMS": "{{count}} ambiente(s)",
+    "DRAFTS_EMPTY_ROOMS": "Nenhum ambiente ainda",
+    "DRAFTS_RESUME": "Continuar",
+    "DRAFTS_DISCARD": "Descartar",
+    "DRAFTS_DISCARD_TITLE": "Descartar esta captura?",
+    "DRAFTS_DISCARD_MESSAGE": "As fotos, os pontos e o tratamento da IA desta captura serão apagados. Não dá para desfazer.",
+    "DRAFTS_DISCARD_CANCEL": "Manter",
+    "DRAFTS_DISCARD_CONFIRM": "Descartar",
+    "DRAFTS_DISCARD_ERROR": "Não deu para descartar. Tente de novo."
   },
   "NAV": {
     "HOME": "Início",
@@ -207,18 +217,25 @@
     "COMMON": {
       "TITLE": "Novo tour virtual",
       "STEP_1": "Imagens 360°",
-      "STEP_2": "Hotspots",
-      "STEP_3": "Informações",
-      "STEP_OF": "Etapa {{step}} de 3",
+      "STEP_2": "Ambientes",
+      "STEP_3": "Passagens",
+      "STEP_4": "Informações",
+      "STEP_OF": "Etapa {{step}} de {{total}}",
       "HINT_1": "Envie ao menos uma foto",
-      "HINT_2": "Opcional — pule se quiser",
-      "HINT_2_REQUIRED": "Ligue os ambientes entre si",
-      "HINT_3": "Últimos detalhes",
+      "HINT_2": "Arraste para ordenar e toque para conectar",
+      "HINT_3": "Opcional — pule se quiser",
+      "HINT_3_REQUIRED": "Ligue os ambientes entre si",
+      "HINT_4": "Últimos detalhes",
       "BACK": "Voltar",
       "SKIP": "Pular",
       "NEXT": "Próximo",
       "PUBLISH": "Publicar tour",
-      "NEEDS_IMAGE": "Envie ao menos uma imagem 360° para continuar"
+      "NEEDS_IMAGE": "Envie ao menos uma imagem 360° para continuar",
+      "LEAVE_TITLE": "Sua captura fica salva",
+      "LEAVE_MESSAGE": "As fotos e o tratamento da IA já estão guardados. Você pode continuar depois pela tela inicial.",
+      "LEAVE_KEEP": "Continuar depois",
+      "LEAVE_DISCARD": "Descartar captura",
+      "LEAVE_CANCEL": "Ficar aqui"
     },
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",
@@ -250,12 +267,30 @@
       "REJECTED_SIZE": "Maior que 25 MB. Reduza a foto e envie de novo.",
       "WARN_RATIO": "A proporção não é 2:1. O tour pode sair distorcido."
     },
+    "STEP_ORDER": {
+      "EYEBROW": "Tour em construção",
+      "TITLE": "{{n}} ambientes capturados, nesta ordem",
+      "SUBTITLE": "A sequência do percurso segue a ordem das fotos. Arraste para reorganizar ou toque para conectar os ambientes.",
+      "EXPAND": "Conectar {{ambiente}}",
+      "COLLAPSE": "Fechar {{ambiente}}",
+      "ADD_CONNECTION": "Adicionar uma conexão a este ambiente",
+      "NO_TARGETS": "Envie outra foto na etapa anterior para poder conectar.",
+      "SUMMARY_NONE": "sem conexões",
+      "SUMMARY_ONE": "conecta com {{nome}}",
+      "SUMMARY_MANY": "conecta com {{nomes}} e {{ultimo}}",
+      "UNREACHABLE": "Sem caminho até: {{ambientes}}. No tour publicado o visitante não chega lá."
+    },
+    "PASSAGES": {
+      "PROGRESS": "{{feitas}} de {{total}} passagens",
+      "CURRENT": "Passagem para",
+      "ALSO_HERE": "Ainda nesta foto:",
+      "REDO": "Refazer",
+      "CONFIRM": "Confirmar passagem",
+      "BACK": "Voltar aos ambientes",
+      "DONE": "As {{n}} passagens estão posicionadas.",
+      "EMPTY": "Nenhuma conexão escolhida. Volte aos ambientes e conecte-os."
+    },
     "STEP2": {
-      "TITLE": "Marque os pontos de interesse",
-      "SUBTITLE": "Clique sobre a imagem para criar um ponto de navegação. É por eles que o visitante troca de ambiente — todo ambiente precisa de um caminho até ele.",
-      "SUBTITLE_SOLO": "Clique sobre a imagem para criar um ponto de navegação. Com um ambiente só não há para onde levar o visitante: esta etapa é opcional.",
-      "UNREACHABLE": "Sem caminho até: {{ambientes}}. No tour publicado o visitante só troca de ambiente clicando num ponto — sem ligação, esses ambientes não aparecem para ele.",
-      "DEAD_END": "Sem volta: {{ambientes}}. Quem entrar não tem como sair de lá.",
       "NEEDS_LINKS": "Ligue todos os ambientes antes de seguir",
       "PICK_TARGET": "Levar para qual ambiente?",
       "PICK_LATER": "Escolher depois",
@@ -285,26 +320,8 @@
       "TRASH_HINT": "Excluir",
       "TRASH_RELEASE": "Solte para excluir",
       "GUIDED": {
-        "PROGRESS": "Passo {{n}} de {{total}} · {{ambiente}}",
-        "PROGRESS_LABEL": "Progresso do percurso",
         "INSTRUCTION": "Toque onde fica a passagem para {{ambiente}}",
-        "INSTRUCTION_LAST": "Toque onde fica a passagem de volta para {{ambiente}}",
-        "HINT": "arraste para girar · toque para marcar",
-        "NEXT_ROOM": "Próximo ambiente",
-        "REDO": "Refazer",
-        "CONFIRM": "Confirmar passagem",
-        "CONFIRM_LAST": "Fechar percurso",
-        "DOT_CURRENT": "Ambiente {{n}}, atual",
-        "DOT_DONE": "Ambiente {{n}}, concluído",
-        "DOT_PENDING": "Ambiente {{n}}, pendente",
-        "CYCLE_TITLE": "Percurso fechado",
-        "CYCLE_TEXT": "Os {{n}} ambientes estão conectados em ciclo — dá para percorrer o imóvel inteiro e voltar ao início.",
-        "CYCLE_TEXT_ONE": "O ambiente está conectado em ciclo.",
-        "CYCLE_NOTE": "↩ fecha o ciclo em {{ambiente}}",
-        "CONTINUE": "Continuar",
-        "EDIT_LINKS": "Editar conexões",
-        "ADVANCED": "Editar manualmente",
-        "GUIDED_MODE": "Voltar ao assistente"
+        "INSTRUCTION_LAST": "Toque onde fica a passagem de volta para {{ambiente}}"
       }
     },
     "STEP3": {

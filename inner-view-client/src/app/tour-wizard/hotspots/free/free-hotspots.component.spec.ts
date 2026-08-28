@@ -449,3 +449,196 @@ describe('FreeHotspotsComponent — revelação da imagem tratada', () => {
     expect(fixture.componentInstance.revealUrl()).toBeNull();
   });
 });
+
+/**
+ * A foto de uma cena retomada (Tarefa 10).
+ *
+ * A Tarefa 9 devolve o rascunho retomado sem foto nenhuma, de propósito — ver
+ * o comentário de `imageData` em `tour-wizard.model.ts`. Esta etapa é quem
+ * primeiro precisa da foto: é ela que abre com a cena selecionada.
+ */
+describe('FreeHotspotsComponent — foto de uma cena retomada', () => {
+  let fixture: ComponentFixture<FreeHotspotsComponent>;
+
+  /**
+   * Monta o editor livre com uma única cena retomada — `imageData` vazio e
+   * `serverPanoramaId` preenchido, o par que `retomarRascunho()` deixa. Não
+   * chama `detectChanges()`: quem chama precisa instalar o `spyOn` em
+   * `garantirImagem` ANTES da primeira rodada, senão o efeito chamaria a
+   * implementação de verdade e pediria ao `PanoramaImageCache`.
+   */
+  function montarComCenaRetomada(): {
+    fixture: ComponentFixture<FreeHotspotsComponent>;
+    store: TourDraftStore;
+  } {
+    TestBed.configureTestingModule({
+      providers: [
+        TourDraftStore,
+        // Na aplicação quem fornece o editor é a ETAPA, para os dois modos
+        // compartilharem a instância. Aqui a etapa não está montada.
+        HotspotEditorStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideIonicAngular(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+      ],
+    });
+    const store = TestBed.inject(TourDraftStore);
+    store.scenes.set([
+      {
+        id: 's1',
+        room: 'Sala',
+        fileName: 'Sala',
+        fileSize: 0,
+        imageData: '',
+        order: 0,
+        hotspots: [],
+        state: 'ready',
+        serverPanoramaId: 'p1',
+      },
+    ]);
+    store.selectedSceneId.set('s1');
+    return { fixture: TestBed.createComponent(FreeHotspotsComponent), store };
+  }
+
+  // Mesmo motivo do describe de revelação acima: a cena 'ready' monta o
+  // visualizador de verdade, e o navegador só aguenta ~16 contextos WebGL
+  // vivos ao mesmo tempo.
+  afterEach(() => {
+    fixture?.destroy();
+  });
+
+  it('pede a foto ao abrir uma cena retomada', async () => {
+    // Sem isto, a etapa 2 de um rascunho retomado abre com a esfera branca:
+    // `imageUrl` vazio faz o TextureLoader falhar calado e o material fica
+    // sem mapa. É o mesmo sintoma corrigido em 036b4ac, por outra causa.
+    const montado = montarComCenaRetomada();
+    fixture = montado.fixture;
+    const garantir = spyOn(montado.store, 'garantirImagem')
+      .and.resolveTo('blob:http://localhost/abc');
+
+    fixture.detectChanges();
+    // `whenStable()` e não aqui: o viewer mantém um `requestAnimationFrame`
+    // dentro da zona do Angular, que nunca fica estável. Mesmo truque de
+    // `assenta()`, no describe acima.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    fixture.detectChanges();
+
+    expect(garantir).toHaveBeenCalledWith(jasmine.any(String), 'treated');
+  });
+
+  it('não pede nada quando a cena já tem foto', async () => {
+    const montado = montarComCenaRetomada();
+    fixture = montado.fixture;
+    montado.store.patchScene('s1', (s) => ({
+      ...s,
+      imageData: 'data:image/jpeg;base64,x',
+    }));
+    const garantir = spyOn(montado.store, 'garantirImagem');
+
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    fixture.detectChanges();
+
+    expect(garantir).not.toHaveBeenCalled();
+  });
+
+  it('não estoura quando o download da foto falha', async () => {
+    // O effect reroda a cada mutação da cena — uma tecla no nome de um ponto
+    // basta. Sem `.catch`, cada rerodada de uma cena sem foto deixava uma
+    // promise rejeitada sem dono.
+    const montado = montarComCenaRetomada();
+    fixture = montado.fixture;
+    spyOn(montado.store, 'garantirImagem').and.rejectWith(new Error('rede caiu'));
+
+    expect(() => fixture.detectChanges()).not.toThrow();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+
+  /**
+   * O "ver original" numa cena retomada.
+   *
+   * `temComparacao` fica verdadeiro assim que a tratada chega, então o botão é
+   * OFERECIDO — mas `revealUrl` devolvia `scene.imageData`, que numa cena
+   * retomada é a string vazia. O botão aparecia e não fazia nada, e a variante
+   * `'original'` de `garantirImagem`, criada na Tarefa 10, não tinha um único
+   * chamador em todo o cliente.
+   */
+  describe('comparar com a original', () => {
+    /** Responde os dois downloads como o store de verdade responderia. */
+    function dublarDownloads(store: TourDraftStore): jasmine.Spy {
+      return spyOn(store, 'garantirImagem').and.callFake(
+        async (id: string, variante: 'treated' | 'original') => {
+          const url = `blob:${variante}`;
+          store.patchScene(id, (s) =>
+            variante === 'treated'
+              ? { ...s, treatedImageUrl: url }
+              : { ...s, imageData: url },
+          );
+          return url;
+        },
+      );
+    }
+
+    async function assenta(): Promise<void> {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      fixture.detectChanges();
+    }
+
+    it('baixa a original antes de revelar', async () => {
+      const montado = montarComCenaRetomada();
+      fixture = montado.fixture;
+      const garantir = dublarDownloads(montado.store);
+
+      fixture.detectChanges();
+      await assenta();
+      expect(fixture.componentInstance.temComparacao()).toBe(true);
+
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+
+      expect(garantir).toHaveBeenCalledWith('s1', 'original');
+      expect(fixture.componentInstance.vendoOriginal()).toBe(true);
+      expect(fixture.componentInstance.revealUrl()).toBe('blob:original');
+    });
+
+    it('não troca de imagem quando a original não vem — o botão não pode mentir', async () => {
+      const montado = montarComCenaRetomada();
+      fixture = montado.fixture;
+      spyOn(montado.store, 'garantirImagem').and.callFake(
+        async (id: string, variante: 'treated' | 'original') => {
+          if (variante === 'original') throw new Error('rede caiu');
+          montado.store.patchScene(id, (s) => ({ ...s, treatedImageUrl: 'blob:treated' }));
+          return 'blob:treated';
+        },
+      );
+
+      fixture.detectChanges();
+      await assenta();
+
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+
+      expect(fixture.componentInstance.vendoOriginal()).toBe(false);
+      expect(fixture.componentInstance.revealUrl()).toBe('blob:treated');
+    });
+
+    it('volta para a tratada sem baixar nada de novo', async () => {
+      const montado = montarComCenaRetomada();
+      fixture = montado.fixture;
+      const garantir = dublarDownloads(montado.store);
+
+      fixture.detectChanges();
+      await assenta();
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+      const antes = garantir.calls.count();
+
+      fixture.componentInstance.alternarOriginal();
+      await assenta();
+
+      expect(fixture.componentInstance.vendoOriginal()).toBe(false);
+      expect(garantir.calls.count()).toBe(antes);
+    });
+  });
+});

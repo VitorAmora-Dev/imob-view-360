@@ -1,0 +1,55 @@
+<div class="ps">
+  <span class="ps__grabber" aria-hidden="true"></span>
+
+  <p class="ps__progresso">
+    {{
+      'TOUR_WIZARD.PASSAGES.PROGRESS'
+        | translate: { feitas: feitas(), total: total() }
+    }}
+  </p>
+
+  <div class="ps__linha">
+    <span class="ps__thumb" [style.background]="cor()" aria-hidden="true"></span>
+    <span class="ps__nomes">
+      <small>{{ 'TOUR_WIZARD.PASSAGES.CURRENT' | translate }}</small>
+      <strong>{{ nome(atual().destino) }}</strong>
+    </span>
+
+    @if (temPonto()) {
+      <button type="button" class="ps__refazer" (click)="refazer.emit()">
+        {{ 'TOUR_WIZARD.PASSAGES.REDO' | translate }}
+      </button>
+    }
+  </div>
+
+  <!--
+    As que ainda faltam NESTA foto. Some quando nao falta mais nenhuma: uma
+    lista vazia com titulo ocuparia altura para dizer que nao ha o que dizer.
+  -->
+  @if (pendentes().length) {
+    <p class="ps__pendentes">
+      <span class="ps__pendentes-rotulo">
+        {{ 'TOUR_WIZARD.PASSAGES.ALSO_HERE' | translate }}
+      </span>
+      @for (p of pendentes(); track p.destino.id) {
+        <span class="ps__chip">{{ nome(p.destino) }}</span>
+      }
+    </p>
+  }
+
+  <button
+    type="button"
+    class="ps__acao"
+    [disabled]="!temPonto()"
+    (click)="confirmar.emit()">
+    {{ 'TOUR_WIZARD.PASSAGES.CONFIRM' | translate }}
+  </button>
+
+  <!--
+    Em tela cheia a barra do wizard some, e com ela o "Voltar". Sem este botao
+    o corretor fica preso na etapa de passagens sem caminho de volta.
+  -->
+  <button type="button" class="ps__voltar" (click)="voltar.emit()">
+    {{ 'TOUR_WIZARD.PASSAGES.BACK' | translate }}
+  </button>
+</div>

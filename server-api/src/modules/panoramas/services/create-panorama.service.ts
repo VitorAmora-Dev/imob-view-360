@@ -24,6 +24,21 @@ export class CreatePanoramaService {
           data: measurements.map((m) => ({ ...m, panoramaId: panorama.id })),
         });
       }
+      // Toca a LINHA do tour, que o `virtualTourId` escalar acima não toca.
+      //
+      // `VirtualTour.updatedAt` é o relógio de "quando esta captura parou de
+      // andar": a faixa da home ordena por ele, o cartão mostra a hora dele, e
+      // `limpar-rascunhos` apaga por ele. Sem esta escrita ele nunca saía de
+      // `createdAt`, e o sweeper apagava por idade de CRIAÇÃO — a captura de
+      // sexta, editada todo dia até o dia 29, morria no dia 30.
+      //
+      // A hora vai EXPLÍCITA mesmo o campo sendo `@updatedAt`: o Prisma só
+      // preenche esse campo sozinho quando o `data` tem alguma outra coluna
+      // para escrever, e um `data: {}` aqui passava sem erro e sem mover nada.
+      await tx.virtualTour.update({
+        where: { id: tourId },
+        data: { updatedAt: new Date() },
+      });
       return tx.panorama.findUnique({
         where: { id: panorama.id },
         select: {
