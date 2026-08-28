@@ -82,3 +82,25 @@
     padding: 12px 16px;
   }
 }
+
+/*
+  Etapa de passagens no celular: a foto ocupa a tela.
+
+  Some por CSS e nao por `@if`: recriar o stepper e a barra a cada troca de
+  etapa derrubaria o foco de quem navega por teclado, e faria a tela saltar.
+
+  So no celular -- no desktop ha largura de sobra e o stepper e orientacao util.
+*/
+@include tw.tw-mobile {
+  .tw-shell.is-imersivo {
+    app-wizard-stepper,
+    .tw-shell__foot {
+      display: none;
+    }
+
+    .tw-body {
+      padding: 0;
+    }
+  }
+}
+

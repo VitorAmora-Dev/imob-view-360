@@ -1,0 +1,50 @@
+@if (!passagens.total()) {
+  <p class="sp__vazio" role="status">
+    {{ 'TOUR_WIZARD.PASSAGES.EMPTY' | translate }}
+  </p>
+} @else if (passagens.acabou()) {
+  <p class="sp__pronto" role="status">
+    {{ 'TOUR_WIZARD.PASSAGES.DONE' | translate: { n: passagens.total() } }}
+  </p>
+} @else if (passagens.atual(); as passagem) {
+  <div class="sp">
+    <div class="sp__pano">
+      <app-panoramic-viewer
+        #viewer
+        [panoramas]="viewerPanoramas()"
+        [editMode]="true"
+        [roomNav]="false"
+        (hotspotPlaced)="onPlaced($event)" />
+
+      <!--
+        Todos os pontos do ambiente que pertencem a fila, e nao so o do passo:
+        esconder os confirmados faz empilhar duas portas no mesmo lugar.
+      -->
+      <app-hotspot-overlay
+        [viewer]="viewer"
+        [hotspots]="pinos()"
+        [roomNames]="roomNames()"
+        [draggingId]="editor.pinDrag()?.hotspotId ?? null"
+        (pinDragStarted)="editor.startDrag($event)"
+        (pinDragMoved)="editor.dragTo($event.u, $event.v)"
+        (pinDragEnded)="editor.endDrag()" />
+
+      <app-guided-banner
+        class="sp__banner"
+        [target]="nomeDoAlvo()"
+        [cor]="corDoAlvo()"
+        [ultimo]="false" />
+    </div>
+
+    <app-passagens-sheet
+      [atual]="passagem"
+      [pendentes]="passagens.pendentes()"
+      [feitas]="passagens.feitas()"
+      [total]="passagens.total()"
+      [temPonto]="temPonto()"
+      [cor]="corDoAlvo()"
+      (confirmar)="passagens.confirmar()"
+      (refazer)="passagens.refazer()"
+      (voltar)="voltarParaOrdenacao()" />
+  </div>
+}

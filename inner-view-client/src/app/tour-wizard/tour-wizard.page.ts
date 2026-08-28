@@ -5,6 +5,7 @@ import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { TourPublishedComponent } from './published/tour-published.component';
 import { StepOrderingComponent } from './steps/step-ordering/step-ordering.component';
+import { StepPassagesComponent } from './steps/step-passages/step-passages.component';
 import { StepImagesComponent } from './steps/step-images/step-images.component';
 import { StepInfoComponent } from './steps/step-info/step-info.component';
 import { TourDraftStore } from './tour-draft.store';
@@ -38,6 +39,7 @@ import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.compo
     WizardActionsComponent,
     StepImagesComponent,
     StepOrderingComponent,
+    StepPassagesComponent,
     StepInfoComponent,
     TourPublishedComponent,
   ],
