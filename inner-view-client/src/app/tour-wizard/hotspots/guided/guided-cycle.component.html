@@ -1,0 +1,35 @@
+<div class="gc">
+  <span class="gc__grabber" aria-hidden="true"></span>
+
+  <h3 class="gc__titulo">
+    {{ 'TOUR_WIZARD.STEP2.GUIDED.CYCLE_TITLE' | translate }}
+  </h3>
+  <p class="gc__texto">{{ textoKey() | translate: { n: total() } }}</p>
+
+  <!--
+    O diagrama e decorativo para leitor de tela: a mesma informacao ja esta na
+    frase acima, e ler "Sala seta Cozinha seta Quarto volta" ponto a ponto seria
+    repetir o que acabou de ser dito, em pior ordem.
+  -->
+  <p class="gc__ciclo" aria-hidden="true">
+    @for (room of rooms(); track $index) {
+      <span class="gc__chip">{{ room }}</span>
+      <span class="gc__seta">{{ $last ? '&#8617;' : '&#8594;' }}</span>
+    }
+  </p>
+
+  <p class="gc__nota" aria-hidden="true">
+    {{
+      'TOUR_WIZARD.STEP2.GUIDED.CYCLE_NOTE' | translate: { ambiente: primeiro() }
+    }}
+  </p>
+
+  <div class="gc__acoes">
+    <button type="button" class="gc__primario" (click)="continuar.emit()">
+      {{ 'TOUR_WIZARD.STEP2.GUIDED.CONTINUE' | translate }}
+    </button>
+    <button type="button" class="gc__secundario" (click)="editar.emit()">
+      {{ 'TOUR_WIZARD.STEP2.GUIDED.EDIT_LINKS' | translate }}
+    </button>
+  </div>
+</div>

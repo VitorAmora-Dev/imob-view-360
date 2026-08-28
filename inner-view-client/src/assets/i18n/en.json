@@ -267,7 +267,6 @@
     },
     "STEP2": {
       "TITLE": "Mark the points of interest",
-      "SUBTITLE": "Click on the image to create a navigation point. They are how visitors move between rooms — every room needs a path to it.",
       "SUBTITLE_SOLO": "Click on the image to create a navigation point. With a single room there is nowhere to take the visitor: this step is optional.",
       "UNREACHABLE": "No path to: {{ambientes}}. In the published tour visitors only change rooms by clicking a point — without a link, those rooms never appear to them.",
       "DEAD_END": "No way back from: {{ambientes}}. Whoever goes in cannot get out.",
@@ -298,7 +297,29 @@
       "SHEET_LIST": "Points in this room",
       "SHEET_DONE": "Done",
       "TRASH_HINT": "Delete",
-      "TRASH_RELEASE": "Release to delete"
+      "TRASH_RELEASE": "Release to delete",
+      "GUIDED": {
+        "PROGRESS": "Step {{n}} of {{total}} · {{ambiente}}",
+        "PROGRESS_LABEL": "Route progress",
+        "INSTRUCTION": "Tap where the passage to {{ambiente}} is",
+        "INSTRUCTION_LAST": "Tap where the passage back to {{ambiente}} is",
+        "HINT": "drag to rotate · tap to mark",
+        "NEXT_ROOM": "Next room",
+        "REDO": "Redo",
+        "CONFIRM": "Confirm passage",
+        "CONFIRM_LAST": "Close the route",
+        "DOT_CURRENT": "Room {{n}}, current",
+        "DOT_DONE": "Room {{n}}, done",
+        "DOT_PENDING": "Room {{n}}, pending",
+        "CYCLE_TITLE": "Route closed",
+        "CYCLE_TEXT": "All {{n}} rooms are connected in a loop — you can walk the whole property and come back to the start.",
+        "CYCLE_TEXT_ONE": "The room is connected in a loop.",
+        "CYCLE_NOTE": "↩ closes the loop at {{ambiente}}",
+        "CONTINUE": "Continue",
+        "EDIT_LINKS": "Edit connections",
+        "ADVANCED": "Edit manually",
+        "GUIDED_MODE": "Back to the assistant"
+      }
     },
     "STEP3": {
       "TITLE": "Property details",

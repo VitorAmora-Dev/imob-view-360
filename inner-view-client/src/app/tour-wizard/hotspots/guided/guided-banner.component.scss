@@ -1,0 +1,29 @@
+// Vidro sobre a foto: a instrucao tem de ser legivel sobre qualquer imagem de
+// imovel, clara ou escura, e um fundo solido cobriria parte do ambiente bem na
+// hora em que a pessoa procura a porta nele.
+.gb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: var(--app-radius-md);
+  background: rgb(20 16 12 / 55%);
+  backdrop-filter: blur(10px);
+  color: #fff;
+}
+
+.gb__swatch {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--app-radius-sm);
+}
+
+.gb__texto {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: pretty;
+}

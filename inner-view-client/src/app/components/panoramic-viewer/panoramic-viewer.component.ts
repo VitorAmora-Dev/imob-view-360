@@ -293,6 +293,30 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   /**
+   * Devolve a câmera ao ângulo inicial.
+   *
+   * Público e aditivo: quem não chamar não vê diferença nenhuma. Existe para o
+   * assistente guiado, que troca de ambiente a cada passo — e `loadPanorama()`
+   * troca só a textura, deixando o OrbitControls no ângulo do ambiente
+   * anterior. Num tour montado com fotos de celular esse ângulo não quer dizer
+   * nada na foto nova: equirretangulares não compartilham orientação de bússola.
+   *
+   * O `(0, 0, 0.1)` é o mesmo valor de `initThreeJS`, e não um número novo: a
+   * câmera vive no centro da esfera, e o 0.1 é o empurrão que dá ao
+   * OrbitControls uma direção de partida em vez de um vetor nulo.
+   *
+   * Silencioso antes de inicializar e depois do destroy, porque quem chama é um
+   * `effect` e ele pode disparar em qualquer ordem em relação ao ciclo de vida.
+   */
+  resetView(): void {
+    if (!this.initialized) return;
+
+    this.camera.position.set(0, 0, 0.1);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
+  }
+
+  /**
    * Assina um callback rodado ao fim de cada frame, já com a câmera atualizada
    * pelo OrbitControls. Devolve a função que cancela.
    *

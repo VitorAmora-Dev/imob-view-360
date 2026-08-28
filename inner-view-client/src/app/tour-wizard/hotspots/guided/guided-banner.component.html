@@ -1,0 +1,11 @@
+<p class="gb" role="status">
+  <span class="gb__swatch" [style.background]="cor()" aria-hidden="true"></span>
+  <span class="gb__texto">
+    {{
+      (ultimo()
+        ? 'TOUR_WIZARD.STEP2.GUIDED.INSTRUCTION_LAST'
+        : 'TOUR_WIZARD.STEP2.GUIDED.INSTRUCTION'
+      ) | translate: { ambiente: target() }
+    }}
+  </span>
+</p>

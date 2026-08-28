@@ -186,6 +186,19 @@
   /* O único token --app-* acoplado à marca. */
   --app-primary-disabled: var(--brand-primary-200);
 
+  /* Identidade visual de cada ambiente no assistente guiado: o swatch do
+     banner e o thumb da gaveta. Seis tons neutros e dessaturados de proposito
+     -- eles aparecem por cima de fotos de imovel, e cor saturada ali
+     competiria com a foto em vez de ajudar a reconhecer o proximo ambiente de
+     relance. `corDoAmbiente()` cicla entre eles; com mais de seis ambientes
+     dois repetem, o que e aceitavel para um apoio de reconhecimento. */
+  --app-room-1: #b7c1cf;
+  --app-room-2: #cdb7a1;
+  --app-room-3: #b6c3b2;
+  --app-room-4: #a9bcc2;
+  --app-room-5: #c6bd9c;
+  --app-room-6: #c2b3c4;
+
   --app-radius-xs: 4px;
   --app-radius-sm: 8px;
   --app-radius-md: 14px;
