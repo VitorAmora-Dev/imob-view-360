@@ -143,6 +143,82 @@ describe('rascunho retomável', () => {
       expect(rascunho.panoramas[0].hotspots[0].positionX).toBe(0.25);
     });
 
+    /**
+     * A conexão ESCOLHIDA e ainda não posicionada é a única parte do wizard que
+     * não se deduz do resto: nome e ordem são colunas, a passagem posicionada
+     * é um `Hotspot`. Sem esta coluna, o corretor que fizesse a etapa de
+     * ordenação e fechasse o app retomava com a fila de passagens vazia.
+     */
+    it('devolve as conexões escolhidas de cada cômodo', async () => {
+      const tour = await criarTour.execute(
+        { propertyId: tenants.a.propertyId, status: 'DRAFT', panoramas: [] },
+        tenants.a.admin,
+      );
+      const sala = await prisma.panorama.create({
+        data: {
+          virtualTourId: tour!.id,
+          roomName: 'Sala',
+          imageData: 'data:image/jpeg;base64,SGk=',
+          order: 0,
+          initialPanorama: true,
+        },
+        select: { id: true },
+      });
+      const cozinha = await prisma.panorama.create({
+        data: {
+          virtualTourId: tour!.id,
+          roomName: 'Cozinha',
+          imageData: 'data:image/jpeg;base64,SGk=',
+          order: 1,
+          initialPanorama: false,
+        },
+        select: { id: true },
+      });
+      await atualizarPanorama.execute(
+        sala.id,
+        { draftConnections: [cozinha.id] },
+        tenants.a.admin,
+      );
+
+      const rascunho = await lerRascunho.execute(tour!.id, tenants.a.admin);
+
+      expect(rascunho.panoramas[0].draftConnections).toEqual([cozinha.id]);
+      // Nenhum hotspot foi posicionado: é exatamente o estado que se perdia.
+      expect(rascunho.panoramas[0].hotspots).toHaveLength(0);
+    });
+
+    /**
+     * Lista inteira e sempre, inclusive vazia — desligar o último ambiente
+     * precisa chegar ao banco. Um PATCH que tratasse vazio como "não mexer"
+     * manteria a conexão que o corretor acabou de desfazer.
+     */
+    it('aceita lista vazia para desligar tudo', async () => {
+      const tour = await criarTour.execute(
+        { propertyId: tenants.a.propertyId, status: 'DRAFT', panoramas: [] },
+        tenants.a.admin,
+      );
+      const sala = await prisma.panorama.create({
+        data: {
+          virtualTourId: tour!.id,
+          roomName: 'Sala',
+          imageData: 'data:image/jpeg;base64,SGk=',
+          order: 0,
+          initialPanorama: true,
+          draftConnections: [tour!.id],
+        },
+        select: { id: true },
+      });
+
+      await atualizarPanorama.execute(
+        sala.id,
+        { draftConnections: [] },
+        tenants.a.admin,
+      );
+
+      const rascunho = await lerRascunho.execute(tour!.id, tenants.a.admin);
+      expect(rascunho.panoramas[0].draftConnections).toEqual([]);
+    });
+
     it('devolve os dados do imóvel para a etapa 3', async () => {
       const tour = await criarTour.execute(
         { propertyId: tenants.a.propertyId, status: 'DRAFT', panoramas: [] },

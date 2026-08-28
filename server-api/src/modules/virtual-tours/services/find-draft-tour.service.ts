@@ -52,6 +52,10 @@ export class FindDraftTourService {
             order: true,
             initialPanorama: true,
             treatmentStatus: true,
+            // Sem isto a etapa de ordenação voltava com todos os cômodos
+            // soltos, e a fila da etapa de passagens voltava vazia — ver
+            // `Panorama.draftConnections` no schema.
+            draftConnections: true,
             originHotspots: {
               select: {
                 id: true,

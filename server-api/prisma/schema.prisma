@@ -193,6 +193,23 @@ model Panorama {
   treatmentMeta    Json? // dadosTratamento
   treatedAt        DateTime? // tratadoEm
 
+  /// Ambientes que o corretor ligou a este na etapa de ordenação, na ordem em
+  /// que os escolheu — ids de `Panorama`, e a ligação é recíproca (ligar Sala a
+  /// Cozinha escreve nas duas).
+  ///
+  /// É a ÚNICA parte do wizard que não se deduz do resto. Nome do cômodo, ordem
+  /// e capa estão em colunas; a passagem já posicionada é um `Hotspot`. A
+  /// conexão ESCOLHIDA e ainda não posicionada não é nada — e era exatamente
+  /// ela que o corretor perdia ao retomar um rascunho: a fila de trabalho da
+  /// etapa de passagens voltava vazia com metade dos cômodos por ligar.
+  ///
+  /// Rascunho, e não verdade publicada: quem responde "existe passagem de A
+  /// para B" continua sendo o `Hotspot`, aqui e no tour do visitante. Guardar
+  /// isto como relação daria integridade a uma intenção que se descarta — id
+  /// apontando para cômodo apagado já é caso tratado (`saidasEscolhidas` e
+  /// `filaDePassagens` filtram os dois).
+  draftConnections String[] @default([]) // conexoesDoRascunho
+
   /// Versão da linha, e é isso que o cache de imagem usa como identidade.
   ///
   /// A imagem de um panorama passou a ser servida por URL própria, com ETag e
