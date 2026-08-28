@@ -129,6 +129,23 @@ export interface WizardScene {
   /** 0 é a capa. */
   order: number;
   hotspots: WizardHotspot[];
+  /**
+   * Ambientes ligados a este, na ORDEM EM QUE FORAM ESCOLHIDOS.
+   *
+   * O índice do array é a ordem — não há campo paralelo de ordenação, porque
+   * duas fontes para a mesma sequência é como uma delas fica para trás. Essa
+   * ordem é a que a etapa de passagens percorre.
+   *
+   * SIMÉTRICO: escolher Cozinha dentro do card da Sala escreve `cozinha` aqui
+   * e `sala` na Cozinha. É o que torna "conecta com Cozinha" verdadeiro nos
+   * dois cards — e a conexão é recíproca, então as duas pontas viram passagem
+   * a posicionar. Ver `ligar`/`desligar` em `passagens/fila.ts`.
+   *
+   * Opcional porque cena antiga e cena retomada não têm; ausente lê-se como
+   * lista vazia. Obrigatório quebraria na compilação as fábricas de cena de
+   * dezenas de testes de uma vez.
+   */
+  connections?: string[];
   /** Fotos originais; só existe quando veio da captura guiada. */
   frames?: CaptureFrameUpload[];
   /** O que a costura mediu; só existe quando veio da captura guiada. */
