@@ -83,8 +83,12 @@ describe('OwlLoaderComponent', () => {
     expect(fixture.nativeElement.querySelector('input, select, button')).toBeNull();
     expect(component['motionRoot']).toBeDefined();
     expect(component['action']?.getClip().duration).toBeCloseTo(2.875, 3);
+    const headRotationTrack = component['action']?.getClip().tracks.find(
+      (track) => track.name === `${component['headPivot']?.name}.quaternion`,
+    );
+    expect(headRotationTrack?.times.length).toBe(11);
     expect(component['featherMeshes'].length).toBe(3);
-    expect(component['impactWaves'].length).toBe(2);
+    expect(component['motionRoot']?.getObjectByName('Ondas_Impacto_Preview')).toBeUndefined();
     expect(contextAttributes?.alpha).toBeTrue();
     expect(opaquePixels).toBeGreaterThan(100);
     expect(modelColors.length).toBeGreaterThan(0);
