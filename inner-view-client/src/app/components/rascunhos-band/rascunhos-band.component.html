@@ -39,3 +39,13 @@
     </ul>
   </section>
 }
+
+<!--
+  Fora do `@if` da faixa de propósito: com o último rascunho descartado a seção
+  inteira deixa de existir, e o diálogo iria embora no meio da própria animação
+  de saída. Aqui ele sobrevive ao cartão que o abriu.
+-->
+<app-tw-wizard-dialog
+  [pergunta]="dialogo.pergunta()"
+  (escolheu)="dialogo.escolher($event)"
+  (dispensou)="dialogo.dispensar($event)" />

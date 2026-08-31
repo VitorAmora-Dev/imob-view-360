@@ -2,11 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Event, NavigationEnd, Router, provideRouter } from '@angular/router';
-import {
-  AlertController,
-  ToastController,
-  provideIonicAngular,
-} from '@ionic/angular/standalone';
+import { ToastController, provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { Subject, of, throwError } from 'rxjs';
 
@@ -14,6 +10,8 @@ import { RascunhosBandComponent } from './rascunhos-band.component';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
+import { DialogoDoWizard } from '../../tour-wizard/ui/wizard-dialog/dialogo-do-wizard.service';
+import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.model';
 
 /**
  * A faixa "Capturas em andamento" da home (Tarefa 13).
@@ -35,7 +33,7 @@ describe('RascunhosBandComponent', () => {
   let propertyService: PropertyService;
   let imagens: PanoramaImageCache;
   let router: Router;
-  let alertController: AlertController;
+  let perguntar: jasmine.Spy;
 
   function rascunho(over: Partial<RascunhoResumo> = {}): RascunhoResumo {
     return {
@@ -49,20 +47,31 @@ describe('RascunhosBandComponent', () => {
   }
 
   /**
-   * Dubla o alerta de confirmacao inteiro.
+   * Dubla o diálogo de confirmação inteiro.
    *
-   * O `AlertController` de verdade nao tem onde se apresentar num TestBed
-   * ("framework delegate is missing"), e o que estes casos verificam e a
-   * DECISAO — apagou ou nao —, nao o desenho do Ionic. `escolha` e o papel do
-   * botao tocado: `destructive` confirma; qualquer outro (o cancelar, ou um
-   * toque fora do alerta) desiste.
+   * Dubla o SERVIÇO e não o componente: o que estes casos verificam é a
+   * DECISÃO — apagou ou não —, e como o diálogo desenha, prende o foco e
+   * responde ao X tem spec próprio, ao lado dele. Um `IonModal` de verdade
+   * também não se apresenta num TestBed ("framework delegate is missing").
+   *
+   * `escolha` é o sufixo da chave de i18n do botão tocado, ou `null` para
+   * desistir sem tocar em botão nenhum — que é o que o X, o toque fora e o Esc
+   * devolvem.
+   *
+   * O dublê é instalado no injetor do COMPONENTE (`DialogoDoWizard` é
+   * fornecido por ele, não em `root`), por isso vem depois de `montar()`.
    */
-  function dublarAlerta(escolha: 'destructive' | 'cancel' | 'backdrop'): void {
-    alertController = TestBed.inject(AlertController);
-    spyOn(alertController, 'create').and.resolveTo({
-      present: () => Promise.resolve(),
-      onDidDismiss: () => Promise.resolve({ role: escolha }),
-    } as unknown as HTMLIonAlertElement);
+  function dublarDialogo(escolha: string | null): void {
+    perguntar = spyOn(
+      fixture.debugElement.injector.get(DialogoDoWizard),
+      'perguntar',
+    ).and.callFake(
+      async (pergunta: PerguntaDoWizard) =>
+        (escolha === null
+          ? null
+          : (pergunta.acoes.find((acao) => acao.rotuloKey.includes(escolha))?.id ??
+            null)),
+    );
     spyOn(TestBed.inject(ToastController), 'create').and.resolveTo({
       present: () => Promise.resolve(),
     } as unknown as HTMLIonToastElement);
@@ -213,7 +222,7 @@ describe('RascunhosBandComponent', () => {
    */
   it('descartar apaga o imóvel, não o tour, e some da faixa', async () => {
     montar([rascunho({ id: 't1', propertyId: 'i1' })]);
-    dublarAlerta('destructive');
+    dublarDialogo('DISCARD_CONFIRM');
     await fixture.whenStable();
     fixture.detectChanges();
     const apagar = spyOn(propertyService, 'deleteProperty').and.returnValue(of(undefined));
@@ -237,7 +246,7 @@ describe('RascunhosBandComponent', () => {
    */
   it('não apaga nada enquanto a pessoa não confirma', async () => {
     montar([rascunho({ id: 't1', propertyId: 'i1' })]);
-    dublarAlerta('cancel');
+    dublarDialogo('DISCARD_CANCEL');
     await fixture.whenStable();
     fixture.detectChanges();
     const apagar = spyOn(propertyService, 'deleteProperty').and.returnValue(of(undefined));
@@ -246,17 +255,17 @@ describe('RascunhosBandComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(alertController.create).toHaveBeenCalled();
+    expect(perguntar).toHaveBeenCalled();
     expect(apagar).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('.rascunhos__card')).not.toBeNull();
   });
 
-  it('tocar fora do alerta conta como desistir, não como confirmar', async () => {
-    // O toque no backdrop não chama handler nenhum. Decidir pelo papel
-    // devolvido em `onDidDismiss()` é o que impede um toque fora de apagar por
-    // omissão — ou de deixar a promise pendurada para sempre.
+  it('dispensar o diálogo conta como desistir, não como confirmar', async () => {
+    // O X, o toque fora e o Esc chegam como `null`. Só a ação destrutiva
+    // confirma — é isso que impede um toque fora de apagar por omissão, ou de
+    // deixar a promise pendurada para sempre.
     montar([rascunho({ id: 't1', propertyId: 'i1' })]);
-    dublarAlerta('backdrop');
+    dublarDialogo(null);
     await fixture.whenStable();
     fixture.detectChanges();
     const apagar = spyOn(propertyService, 'deleteProperty').and.returnValue(of(undefined));
@@ -267,6 +276,36 @@ describe('RascunhosBandComponent', () => {
 
     expect(apagar).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('.rascunhos__card')).not.toBeNull();
+  });
+
+  /**
+   * A forma da pergunta É a decisão de produto.
+   *
+   * Duas saídas, a segura primeiro, a destrutiva com a lixeira e peso visual
+   * menor — o mesmo diálogo do wizard, para o mesmo gesto não precisar ser
+   * aprendido duas vezes. E `dispensavel`, porque desistir é o que o toque
+   * errado no botão de 44px do carrossel merece encontrar.
+   */
+  it('pergunta com duas saídas, a segura à frente, e deixa desistir', async () => {
+    montar([rascunho({ id: 't1', propertyId: 'i1' })]);
+    dublarDialogo(null);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.rascunhos__descartar').click();
+    await fixture.whenStable();
+
+    const pergunta = perguntar.calls.mostRecent().args[0] as PerguntaDoWizard;
+    expect(pergunta.acoes.map((acao) => acao.rotuloKey)).toEqual([
+      'HOME.DRAFTS_DISCARD_CANCEL',
+      'HOME.DRAFTS_DISCARD_CONFIRM',
+    ]);
+    expect(pergunta.acoes.map((acao) => acao.tom)).toEqual(['primario', 'destrutivo']);
+    expect(pergunta.acoes[1].icone).toBe('lixeira');
+    expect(pergunta.dispensavel).toBeTrue();
+    // Sem segundo toque: este diálogo JÁ é a confirmação do "Descartar" do
+    // cartão. Confirmação dentro de confirmação vira ruído.
+    expect(pergunta.acoes[1].confirmaKey).toBeUndefined();
   });
 
   it('mantém o cartão quando o DELETE falha, em vez de fingir que apagou', async () => {
@@ -274,7 +313,7 @@ describe('RascunhosBandComponent', () => {
     // aconteceu parecer concluído: o rascunho reaparecia no carregamento
     // seguinte da home, sem nada explicando.
     montar([rascunho({ id: 't1', propertyId: 'i1' })]);
-    dublarAlerta('destructive');
+    dublarDialogo('DISCARD_CONFIRM');
     await fixture.whenStable();
     fixture.detectChanges();
     spyOn(propertyService, 'deleteProperty').and.returnValue(
