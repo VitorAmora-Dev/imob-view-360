@@ -821,6 +821,133 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     /**
+     * Este laço rodava para TODOS os cômodos a cada salvamento — e o salvamento
+     * roda a cada troca de etapa e a cada `visibilitychange`.
+     *
+     * O custo não era só tráfego: `Panorama.updatedAt` é `@updatedAt` e é a
+     * identidade do cache de imagem. Um PATCH sem mudança nenhuma mexia no
+     * relógio e invalidava o ETag da foto de TODO cômodo do tour — a sessão
+     * seguinte rebaixava seis equirretangulares por causa de um nome digitado.
+     */
+    it('não reescreve cômodo que não mudou', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Cozinha' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+      expect(patch.calls.count()).toBe(2);
+
+      patch.calls.reset();
+      await store.salvarRascunho();
+
+      expect(patch).not.toHaveBeenCalled();
+    });
+
+    it('reescreve só o cômodo que o corretor mexeu', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Cozinha' }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      await store.salvarRascunho();
+      patch.calls.reset();
+
+      store.renameScene('s2', 'Cozinha grande');
+      await store.salvarRascunho();
+
+      expect(patch.calls.allArgs().map((a) => a[0])).toEqual(['p2']);
+    });
+
+    /**
+     * Marcar como gravado ANTES da resposta faria uma falha de rede parecer
+     * sucesso, e o salvamento seguinte pularia o cômodo que nunca chegou ao
+     * banco — perda silenciosa, que é o desfecho que esta funcionalidade
+     * inteira existe para impedir.
+     */
+    it('cômodo cuja gravação falhou é tentado de novo', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        throwError(() => new Error('rede')) as ReturnType<
+          VirtualTourService['atualizarPanorama']
+        >,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await expectAsync(store.salvarRascunho()).toBeRejected();
+      patch.calls.reset();
+      patch.and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(patch.calls.allArgs().map((a) => a[0])).toEqual(['p1']);
+    });
+
+    /**
+     * A lista viaja no MESMO PATCH dos campos: não pode existir instante em que
+     * o servidor tenha o valor novo e a lista velha — uma queda de rede entre
+     * duas chamadas devolveria o defeito que a lista existe para fechar.
+     */
+    it('manda quais campos do imóvel ainda são marcador, junto com eles', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      store.patchProperty({ name: 'Casa na praia' });
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      const gravar = spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      const enviado = gravar.calls.mostRecent().args[1];
+      expect(enviado.title).toBe('Casa na praia');
+      expect(enviado.draftPlaceholders).toEqual(['type', 'purpose']);
+    });
+
+    /**
+     * Sem nada preenchido a lista gravada na criação (os três) já é a resposta
+     * certa. Mandar assim faria toda troca de etapa disparar um PATCH que a
+     * guarda de "corpo vazio" existe para evitar.
+     */
+    it('não dispara PATCH do imóvel só para repetir a lista', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      const gravar = spyOn(TestBed.inject(PropertyService), 'updateProperty');
+
+      await store.salvarRascunho();
+
+      expect(gravar).not.toHaveBeenCalled();
+    });
+
+    /**
      * A conexão escolhida e ainda não posicionada é a ÚNICA parte do wizard
      * que não se deduz do resto — nome, ordem e capa são colunas, e a passagem
      * já posicionada é um `Hotspot`. Sem esta gravação, retomar depois da
@@ -2237,6 +2364,67 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.property().purpose).toBe('');
       // E a etapa 3 volta a cobrar os três, em vez de deixar publicar assim.
       expect(store.invalidFields()).toEqual(['name', 'type', 'purpose']);
+    });
+
+    /**
+     * O DEFEITO: o critério antigo adivinhava pelo título — "enquanto o título
+     * ainda é o marcador, os outros dois também são". Mas o salvamento grava
+     * campo a campo: digitar o nome na última etapa e o app ir para segundo
+     * plano sobe um PATCH só com `title`. Na volta o título já era real, os
+     * outros dois voltavam como Casa/Venda válidos, `invalidFields()` passava, e
+     * publicava um apartamento para alugar rotulado como casa à venda.
+     */
+    it('título real com tipo e finalidade ainda marcadores volta vazio', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          property: {
+            ...base.property,
+            title: 'Casa na praia',
+            type: 'HOUSE',
+            purpose: 'SALE',
+            draftPlaceholders: ['type', 'purpose'],
+          },
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.property().name).toBe('Casa na praia');
+      expect(store.property().type).toBe('');
+      expect(store.property().purpose).toBe('');
+      // E o portão do publicar volta a cobrar os dois.
+      expect(store.invalidFields()).toContain('type');
+      expect(store.invalidFields()).toContain('purpose');
+    });
+
+    /**
+     * Rascunho gravado antes da coluna existir chega com a lista vazia —
+     * indistinguível de "preencheu tudo". Aí vale o critério antigo, que é o
+     * melhor disponível com a informação que existe.
+     */
+    it('sem a lista, cai no critério antigo do título', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          property: {
+            ...base.property,
+            title: 'Captura em andamento',
+            type: 'HOUSE',
+            purpose: 'SALE',
+          },
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.property().name).toBe('');
+      expect(store.property().type).toBe('');
+      expect(store.property().purpose).toBe('');
     });
 
     it('devolve type e purpose quando o corretor já os escolheu', async () => {

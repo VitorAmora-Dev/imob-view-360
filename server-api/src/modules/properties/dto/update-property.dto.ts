@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   AddressSchema,
+  DraftPlaceholder,
   PropertyPurpose,
   PropertyStatus,
   PropertyType,
@@ -33,6 +34,12 @@ export const UpdatePropertySchema = z
     status: PropertyStatus,
     agentId: z.string().uuid(),
     address: AddressSchema,
+    /**
+     * Lista INTEIRA, e não um acréscimo: quem sabe quais campos ainda são
+     * marcador é o wizard, e ele a recalcula a cada gravacão a partir do que o
+     * corretor já preencheu. Ver `Property.draftPlaceholders`.
+     */
+    draftPlaceholders: z.array(DraftPlaceholder),
   })
   .partial()
   // Um PATCH vazio chegaria aqui como `{}` válido e viraria um UPDATE sem

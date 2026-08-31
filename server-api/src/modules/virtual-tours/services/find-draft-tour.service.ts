@@ -49,6 +49,10 @@ export class FindDraftTourService {
             title: true,
             type: true,
             purpose: true,
+            // Quais dos três acima ainda são marcador. Sem isto a retomada
+            // precisa adivinhar pelo título, e erra quando só o título foi
+            // preenchido — ver `Property.draftPlaceholders`.
+            draftPlaceholders: true,
             address: {
               select: {
                 street: true,

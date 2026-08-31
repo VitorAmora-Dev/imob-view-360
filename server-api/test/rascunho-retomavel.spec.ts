@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { CreatePanoramaService } from '../src/modules/panoramas/services/create-panorama.service';
 import { UpdatePanoramaService } from '../src/modules/panoramas/services/update-panorama.service';
+import { UpdatePropertyService } from '../src/modules/properties/services/update-property.service';
 import { CreateVirtualTourService } from '../src/modules/virtual-tours/services/create-virtual-tour.service';
 import { FindDraftTourService } from '../src/modules/virtual-tours/services/find-draft-tour.service';
 import { ListDraftToursService } from '../src/modules/virtual-tours/services/list-draft-tours.service';
@@ -24,6 +25,7 @@ const listarRascunhos = new ListDraftToursService(asPrismaService);
 const lerRascunho = new FindDraftTourService(asPrismaService);
 const criarPanorama = new CreatePanoramaService(asPrismaService);
 const atualizarPanorama = new UpdatePanoramaService(asPrismaService);
+const atualizarImovel = new UpdatePropertyService(asPrismaService);
 
 describe('rascunho retomável', () => {
   let tenants: TwoTenants;
@@ -292,6 +294,42 @@ describe('rascunho retomável', () => {
       await expect(
         lerRascunho.execute(tour!.id, tenants.a.admin),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    /**
+     * `title`, `type` e `purpose` são obrigatórios no schema, então o wizard
+     * grava marcadores na primeira captura — e a coluna sozinha não distingue
+     * marcador de escolha. A retomada adivinhava pelo título, e errava quando só
+     * o título tinha sido preenchido: `type`/`purpose` voltavam como Casa/Venda
+     * válidos e publicava um apartamento para alugar rotulado como casa à venda.
+     */
+    it('devolve quais campos do imóvel ainda são marcador', async () => {
+      const tour = await criarTour.execute(
+        { propertyId: tenants.a.propertyId, status: 'DRAFT', panoramas: [] },
+        tenants.a.admin,
+      );
+      await atualizarImovel.execute(
+        tenants.a.propertyId,
+        { title: 'Casa na praia', draftPlaceholders: ['type', 'purpose'] },
+        tenants.a.admin,
+      );
+
+      const rascunho = await lerRascunho.execute(tour!.id, tenants.a.admin);
+
+      expect(rascunho.property.title).toBe('Casa na praia');
+      expect(rascunho.property.draftPlaceholders).toEqual(['type', 'purpose']);
+    });
+
+    /** Imóvel de cadastro normal nunca teve marcador: a lista nasce vazia. */
+    it('imóvel que nunca passou pelo wizard tem a lista vazia', async () => {
+      const tour = await criarTour.execute(
+        { propertyId: tenants.a.propertyId, status: 'DRAFT', panoramas: [] },
+        tenants.a.admin,
+      );
+
+      const rascunho = await lerRascunho.execute(tour!.id, tenants.a.admin);
+
+      expect(rascunho.property.draftPlaceholders).toEqual([]);
     });
 
     it('devolve os dados do imóvel para a etapa 3', async () => {

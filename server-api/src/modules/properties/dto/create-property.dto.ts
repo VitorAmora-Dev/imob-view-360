@@ -14,6 +14,12 @@ export const AddressSchema = z.object({
   zipCode: z.string().optional(),
 });
 
+/**
+ * Campos que o wizard grava como MARCADOR na primeira captura, porque o schema
+ * os exige e o corretor ainda não informou nenhum. Ver `Property.draftPlaceholders`.
+ */
+export const DraftPlaceholder = z.enum(['title', 'type', 'purpose']);
+
 export const CreatePropertySchema = z.object({
   code: z.string().min(1),
   title: z.string().min(1),
@@ -25,6 +31,8 @@ export const CreatePropertySchema = z.object({
   status: PropertyStatus.default('AVAILABLE'),
   agentId: z.string().uuid().optional(),
   address: AddressSchema.optional(),
+  /** Ver `Property.draftPlaceholders`. Ausente é imóvel de cadastro normal. */
+  draftPlaceholders: z.array(DraftPlaceholder).optional(),
 });
 
 export type CreatePropertyDto = z.infer<typeof CreatePropertySchema>;

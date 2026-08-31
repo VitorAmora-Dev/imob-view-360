@@ -105,6 +105,13 @@ export interface RascunhoCompleto {
     title: string;
     type: string;
     purpose: string;
+    /**
+     * Quais dos três acima ainda são marcador. Ver `CampoMarcador`.
+     *
+     * Ausente em rascunho gravado antes da coluna existir; aí a retomada volta
+     * ao critério antigo (título ainda é o marcador ⇒ os três são).
+     */
+    draftPlaceholders?: string[];
     address: {
       street: string;
       number: string | null;
