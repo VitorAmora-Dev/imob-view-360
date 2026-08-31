@@ -275,6 +275,7 @@
       "COLLAPSE": "Fechar {{ambiente}}",
       "ADD_CONNECTION": "Adicionar uma conexão a este ambiente",
       "NO_TARGETS": "Envie outra foto na etapa anterior para poder conectar.",
+      "NEEDS_LINKS": "Conecte todos os ambientes antes de seguir",
       "SUMMARY_NONE": "sem conexões",
       "SUMMARY_ONE": "conecta com {{nome}}",
       "SUMMARY_MANY": "conecta com {{nomes}} e {{ultimo}}",
@@ -288,10 +289,10 @@
       "CONFIRM": "Confirmar passagem",
       "BACK": "Voltar aos ambientes",
       "DONE": "As {{n}} passagens estão posicionadas.",
-      "EMPTY": "Nenhuma conexão escolhida. Volte aos ambientes e conecte-os."
+      "EMPTY": "Nenhuma conexão escolhida. Volte aos ambientes e conecte-os.",
+      "NEEDS_LINKS": "Posicione as passagens que faltam antes de seguir"
     },
     "STEP2": {
-      "NEEDS_LINKS": "Ligue todos os ambientes antes de seguir",
       "PICK_TARGET": "Levar para qual ambiente?",
       "PICK_LATER": "Escolher depois",
       "COUNT": "ponto(s)",

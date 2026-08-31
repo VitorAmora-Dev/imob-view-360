@@ -2579,11 +2579,10 @@ describe('TourDraftStore — quatro etapas', () => {
     expect(store.step()).toBe(1);
   });
 
-  // A regra de ambiente ilhado acompanhou a etapa de passagens, que era a 2 e
-  // agora e a 3. Ficar na 2 travaria a ORDENACAO por um defeito que so a etapa
-  // seguinte pode consertar.
-  it('a trava de ambiente ilhado vale na etapa de passagens, nao na de ordenacao', () => {
-    store.scenes.set([
+  // Cada etapa cobra a alcancabilidade pela fonte que ELA produz. As duas
+  // regras usam o mesmo grafo e dao respostas diferentes de proposito.
+  function duasCenas(connections: [string[], string[]]) {
+    return [
       {
         id: 'sala',
         room: 'Sala',
@@ -2592,7 +2591,8 @@ describe('TourDraftStore — quatro etapas', () => {
         imageData: 'data:image/jpeg;base64,x',
         order: 0,
         hotspots: [],
-        state: 'ready',
+        state: 'ready' as const,
+        connections: connections[0],
       },
       {
         id: 'cozinha',
@@ -2602,15 +2602,41 @@ describe('TourDraftStore — quatro etapas', () => {
         imageData: 'data:image/jpeg;base64,x',
         order: 1,
         hotspots: [],
-        state: 'ready',
+        state: 'ready' as const,
+        connections: connections[1],
       },
-    ]);
+    ];
+  }
+
+  // O que a ordenacao NAO cobra: ponto posicionado. Ali nao ha nenhum ainda, e
+  // exigi-los travaria a tela por um defeito que so a etapa seguinte conserta.
+  it('conectados e sem pontos: a ordenacao segue, as passagens travam', () => {
+    store.scenes.set(duasCenas([['cozinha'], ['sala']]));
 
     store.step.set(2);
     expect(store.canAdvance()).toBeTrue();
 
     store.step.set(3);
     expect(store.canAdvance()).toBeFalse();
+  });
+
+  // O que a ordenacao COBRA: a conexao. Sem isto o corretor seguia para a etapa
+  // 3 e encontrava um "volte aos ambientes" -- o wizard deixava entrar num
+  // lugar cuja unica instrucao e sair.
+  it('sem conexao nenhuma, a ordenacao nao deixa seguir', () => {
+    store.scenes.set(duasCenas([[], []]));
+
+    store.step.set(2);
+    expect(store.canAdvance()).toBeFalse();
+  });
+
+  // Um ambiente nao tem com quem se conectar: cobrar seria travar por um
+  // defeito que nao existe.
+  it('com um ambiente so, a ordenacao nao cobra conexao', () => {
+    store.scenes.set([duasCenas([[], []])[0]]);
+
+    store.step.set(2);
+    expect(store.canAdvance()).toBeTrue();
   });
 });
 

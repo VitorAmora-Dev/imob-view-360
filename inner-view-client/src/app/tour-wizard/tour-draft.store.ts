@@ -246,9 +246,15 @@ export class TourDraftStore {
   readonly canAdvance = computed(() => {
     if (!this.temImagem()) return false;
     if (this.step() === 1) return this.ambientesSemNome().length === 0;
-    // A trava de ambiente ilhado vale na etapa de PASSAGENS. Na de ordenação
-    // ela travaria a tela por um defeito que só a etapa seguinte pode consertar
-    // — lá o aviso é informativo, e vem de `ilhadosPorConexao`.
+    // Cada etapa cobra a alcançabilidade pela fonte que ELA produz.
+    //
+    // A ordenação cobra as conexões escolhidas, e não os pontos posicionados:
+    // ali ainda não há ponto nenhum, e cobrar por eles travaria a tela por um
+    // defeito impossível de consertar sem sair dela. Cobrar por conexão, não —
+    // é exatamente o que se faz naquela tela, e sem isso o corretor seguia
+    // para a etapa 3 e encontrava um "volte aos ambientes": o wizard deixava
+    // entrar num lugar cuja única instrução é sair.
+    if (this.step() === 2) return this.ilhadosPorConexao().length === 0;
     if (this.step() === 3) return this.ambientesIlhados().length === 0;
     return true;
   });
