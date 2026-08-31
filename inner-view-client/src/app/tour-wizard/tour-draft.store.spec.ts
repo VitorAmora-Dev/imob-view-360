@@ -814,9 +814,60 @@ describe('TourDraftStore (contrato)', () => {
         roomName: 'Sala',
         order: 0,
         initialPanorama: true,
+        draftConnections: [],
       });
       // O que separa salvar de publicar é exatamente esta linha.
       expect(publicar).not.toHaveBeenCalled();
+    });
+
+    /**
+     * A conexão escolhida e ainda não posicionada é a ÚNICA parte do wizard
+     * que não se deduz do resto — nome, ordem e capa são colunas, e a passagem
+     * já posicionada é um `Hotspot`. Sem esta gravação, retomar depois da
+     * etapa de ordenação devolvia a fila da etapa de passagens VAZIA, com
+     * metade dos cômodos por ligar e nenhum aviso.
+     */
+    it('grava as conexões escolhidas, traduzidas para ids de panorama', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala', connections: ['s2'] }),
+        scene('s2', { serverPanoramaId: 'p2', room: 'Cozinha', connections: ['s1'] }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      const daSala = patch.calls.all().find((c) => c.args[0] === 'p1');
+      expect(daSala?.args[1].draftConnections).toEqual(['p2']);
+    });
+
+    /**
+     * Lista inteira e sempre, inclusive vazia: desligar o último ambiente
+     * precisa chegar ao banco. Omitir o campo faria o servidor manter a
+     * conexão que o corretor acabou de desfazer.
+     */
+    it('manda lista vazia quando o corretor desligou tudo', async () => {
+      const store = storeWith(
+        scene('s1', { serverPanoramaId: 'p1', room: 'Sala', connections: [] }),
+      );
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const patch = spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(patch.calls.mostRecent().args[1].draftConnections).toEqual([]);
     });
 
     /**
@@ -842,7 +893,11 @@ describe('TourDraftStore (contrato)', () => {
 
       await store.salvarRascunho();
 
-      expect(patch).toHaveBeenCalledWith('p1', { order: 0, initialPanorama: true });
+      expect(patch).toHaveBeenCalledWith('p1', {
+        order: 0,
+        initialPanorama: true,
+        draftConnections: [],
+      });
     });
 
     it('também não manda o nome do arquivo no cômodo que sobe agora', async () => {
@@ -2149,6 +2204,51 @@ describe('TourDraftStore (contrato)', () => {
       await store.salvarRascunho();
 
       expect(apagar).not.toHaveBeenCalled();
+    });
+
+    /**
+     * A conexão escolhida é a única parte do wizard que não se deduz do resto,
+     * e por isso ela viaja por uma coluna própria. Sem esta volta, retomar
+     * depois da etapa de ordenação abria a etapa de passagens sem fila e a de
+     * ordenação com todos os cômodos soltos — o trabalho inteiro de uma etapa,
+     * perdido em silêncio.
+     */
+    it('traz de volta as conexões escolhidas, em ids locais', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [
+            { ...base.panoramas[0], hotspots: [], draftConnections: ['p2'] },
+            { ...base.panoramas[1], draftConnections: ['p1'] },
+          ],
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      const [sala, quarto] = store.scenes();
+      expect(sala.connections).toEqual([quarto.id]);
+      expect(quarto.connections).toEqual([sala.id]);
+    });
+
+    /**
+     * Rascunho gravado antes de `draftConnections` existir tem os pontos e não
+     * tem a coluna. Sem a dedução, ele voltaria com a etapa de passagens
+     * dizendo que não há nada a fazer, ao lado de pontos já marcados.
+     */
+    it('deduz a conexão dos pontos quando o rascunho é anterior à coluna', async () => {
+      const store = newStore();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of(rascunhoDeDoisComodos()) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      const [sala, quarto] = store.scenes();
+      expect(sala.connections).toEqual([quarto.id]);
+      expect(quarto.connections).toEqual([sala.id]);
     });
   });
 

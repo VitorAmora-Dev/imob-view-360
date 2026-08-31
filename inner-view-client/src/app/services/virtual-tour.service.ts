@@ -83,6 +83,15 @@ export interface RascunhoPanorama {
   order: number;
   initialPanorama: boolean;
   treatmentStatus: TreatmentStatus;
+  /**
+   * Ids de PANORAMA ligados a este na etapa de ordenação, na ordem da escolha.
+   *
+   * A única parte do wizard que não se deduz do resto — ver
+   * `Panorama.draftConnections` no schema e `passagens/conexoes.ts`. Ausente
+   * em rascunho gravado antes da coluna existir; lê-se como lista vazia, e
+   * `conexoesRetomadas` completa o que os pontos já posicionados provarem.
+   */
+  draftConnections?: string[];
   hotspots: Array<{ id: string; label: string | null; positionX: number; positionY: number; targetId: string }>;
 }
 
@@ -320,7 +329,13 @@ export class VirtualTourService {
    */
   atualizarPanorama(
     id: string,
-    patch: { roomName?: string; order?: number; initialPanorama?: boolean },
+    patch: {
+      roomName?: string;
+      order?: number;
+      initialPanorama?: boolean;
+      /** Lista INTEIRA, na ordem da escolha. Ver `passagens/conexoes.ts`. */
+      draftConnections?: string[];
+    },
   ): Observable<Panorama> {
     return this.http.patch<Panorama>(`${environment.apiUrl}/panoramas/${id}`, patch);
   }

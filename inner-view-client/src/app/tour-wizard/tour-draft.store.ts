@@ -13,6 +13,7 @@ import {
 import { toCreateTourPayload } from './publish-payload';
 import * as grafo from './scene-graph';
 import { desligar, ligar } from './passagens/fila';
+import { conexoesParaServidor, conexoesRetomadas } from './passagens/conexoes';
 import {
   AddressDraft,
   EMPTY_PROPERTY,
@@ -912,13 +913,21 @@ export class TourDraftStore {
       }));
     }
 
+    // As conexões escolhidas, DEPOIS dos hotspots: `conexoesRetomadas` lê os
+    // dois — o que o servidor guardou e o que os pontos já posicionados
+    // provam — e um rascunho gravado antes da coluna `draftConnections`
+    // existir só tem a segunda fonte.
+    const conexoesGuardadas = new Map(
+      rascunho.panoramas.map((p) => [p.id, p.draftConnections ?? []]),
+    );
+
     // `scenes.set(...)`, não `patchScene` cena a cena: o que chega aqui é o
     // estado inteiro vindo do servidor, e nada nele "sumiu" da tela — não há
     // hotspot para `patchScene` empilhar em `hotspotsParaApagar`. E a própria
     // fila é zerada a seguir: um resíduo de sessão anterior (ambiente
     // removido sem salvar, por exemplo) apontaria para um hotspot de um
     // rascunho que este retomar sequer carregou.
-    this.scenes.set(cenas);
+    this.scenes.set(conexoesRetomadas(cenas, conexoesGuardadas));
     this.hotspotsParaApagar.set([]);
     this.selectedSceneId.set(cenas[0]?.id ?? null);
     this.step.set(1);
@@ -1222,6 +1231,11 @@ export class TourDraftStore {
     // Sem `imageData` de propósito: o servidor lê foto nova como refotografia
     // e zera o tratamento junto, jogando fora uma montagem já paga.
     const cenasFinais = this.readyScenes();
+    // Traduz id local para id de panorama. Serve aos DOIS blocos abaixo — as
+    // conexões escolhidas e os hotspots —, que gravam a mesma coisa vista de
+    // dois ângulos: qual ambiente leva a qual.
+    const porCena = new Map(cenasFinais.map((s) => [s.id, s.serverPanoramaId]));
+
     await Promise.all(
       cenasFinais.map((scene, ordem) => {
         const id = scene.serverPanoramaId;
@@ -1234,6 +1248,15 @@ export class TourDraftStore {
             ...nomeDeRascunho(scene),
             order: ordem,
             initialPanorama: ordem === 0,
+            // A ÚNICA parte do wizard que não se deduz do resto. Nome, ordem e
+            // capa são colunas; a passagem posicionada é um `Hotspot`. A
+            // conexão ESCOLHIDA e ainda por posicionar não era nada — e era
+            // ela que o corretor perdia ao retomar: a fila da etapa de
+            // passagens voltava vazia com metade dos cômodos por ligar.
+            //
+            // Lista inteira e sempre, inclusive vazia: desligar o último
+            // ambiente precisa chegar ao banco.
+            draftConnections: conexoesParaServidor(scene, porCena),
           }),
         );
       }),
@@ -1242,7 +1265,6 @@ export class TourDraftStore {
     // Hotspots só agora: eles ligam um ambiente a outro, e o destino precisa
     // existir no servidor. Durante a captura, metade deles apontaria para um
     // cômodo ainda não fotografado.
-    const porCena = new Map(cenasFinais.map((s) => [s.id, s.serverPanoramaId]));
     let descartados = 0;
 
     // Reconciliação incremental, e não apagar-e-recriar.
