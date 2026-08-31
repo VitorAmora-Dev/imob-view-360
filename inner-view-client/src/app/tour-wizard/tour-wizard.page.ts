@@ -6,7 +6,7 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AlertController, IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
@@ -60,6 +60,7 @@ export class TourWizardPage implements OnInit {
   private readonly alertController = inject(AlertController);
   private readonly translate = inject(TranslateService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   /**
    * A etapa de passagens entrega a tela para a foto — e só enquanto há foto.
@@ -100,18 +101,64 @@ export class TourWizardPage implements OnInit {
   }
 
   /**
-   * Entrada pela faixa "Capturas em andamento" da home (Tarefa 13), que
-   * navega para `/tour/novo?rascunho=<tourId>`. Sem o parâmetro, o wizard
-   * começa vazio como sempre começou — é o mesmo caminho do FAB e do "Criar
-   * meu primeiro tour".
-   *
-   * `.catch()` e não deixar propagar: uma falha de rede aqui não pode travar
-   * a tela em branco — o pior caso aceitável é o wizard abrir vazio, do jeito
-   * que abriria se a pessoa tivesse tocado no FAB em vez da faixa.
+   * Entrada pela faixa "Capturas em andamento" da home, que navega para
+   * `/tour/novo?rascunho=<tourId>`. Sem o parâmetro, o wizard começa vazio
+   * como sempre começou — é o mesmo caminho do FAB e do "Criar meu primeiro
+   * tour".
    */
   ngOnInit(): void {
     const rascunho = this.route.snapshot.queryParamMap.get('rascunho');
-    if (rascunho) void this.store.retomarRascunho(rascunho).catch(() => undefined);
+    if (rascunho) void this.retomar(rascunho);
+  }
+
+  /**
+   * Falhou a retomada: PERGUNTA, nunca segue em frente calado.
+   *
+   * O `.catch(() => undefined)` que morava aqui dizia que o pior caso era "o
+   * wizard abrir vazio, como se tivesse tocado no FAB". Não era. Vazio, mas
+   * com `rascunhoTourId` nulo — e a primeira captura chamaria
+   * `garantirRascunho()`, que CRIA imóvel e tour DRAFT novos. O rascunho
+   * original continuava intacto na faixa, e a home passava a mostrar dois
+   * cartões para o que o corretor acha que é uma captura só, com as fotos
+   * repartidas entre eles.
+   *
+   * Ele tocou na faixa exatamente para NÃO recomeçar. Então as duas saídas são
+   * tentar de novo ou voltar para a home — nenhuma delas é "siga como tour
+   * novo". `backdropDismiss: false` pelo mesmo motivo: fechar no toque de fora
+   * devolveria justamente o estado que este alerta existe para impedir.
+   */
+  private async retomar(tourId: string): Promise<void> {
+    try {
+      await this.store.retomarRascunho(tourId);
+    } catch {
+      await this.avisarQueNaoRetomou(tourId);
+    }
+  }
+
+  private async avisarQueNaoRetomou(tourId: string): Promise<void> {
+    const alerta = await this.alertController.create({
+      header: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_TITLE'),
+      message: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_MESSAGE'),
+      backdropDismiss: false,
+      buttons: [
+        {
+          text: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_HOME'),
+          role: 'cancel',
+          handler: () => {
+            void this.router.navigate(['/home']);
+          },
+        },
+        {
+          text: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_RETRY'),
+          handler: () => {
+            // Recursão só avança com gesto do corretor: cada rodada nova custa
+            // um toque, então rede fora não vira laço de tentativas.
+            void this.retomar(tourId);
+          },
+        },
+      ],
+    });
+    await alerta.present();
   }
 
   /** O header encolhe com o scroll e depende do container do ion-content. */

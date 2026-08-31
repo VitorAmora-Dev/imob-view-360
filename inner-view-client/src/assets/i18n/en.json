@@ -236,7 +236,11 @@
       "LEAVE_MESSAGE": "The photos and the AI treatment are already stored. You can pick it up later from the home screen.",
       "LEAVE_KEEP": "Continue later",
       "LEAVE_DISCARD": "Discard capture",
-      "LEAVE_CANCEL": "Stay here"
+      "LEAVE_CANCEL": "Stay here",
+      "RESUME_FAILED_TITLE": "Could not open this capture",
+      "RESUME_FAILED_MESSAGE": "It may have already been published or discarded. If not, it is the connection — try again in a moment.",
+      "RESUME_FAILED_RETRY": "Try again",
+      "RESUME_FAILED_HOME": "Back to home"
     },
     "STEP1": {
       "TITLE": "Start with the 360° images",

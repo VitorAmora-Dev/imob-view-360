@@ -1,7 +1,12 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  convertToParamMap,
+  provideRouter,
+} from '@angular/router';
 import { AlertController } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TourWizardPage } from './tour-wizard.page';
@@ -112,6 +117,15 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
         } as never;
       },
     );
+  }
+
+  /**
+   * `ngOnInit()` é síncrono e dispara a retomada com `void`. Um `await` de
+   * macrotarefa dá tempo à cadeia inteira — rejeição, alerta, `present()` e o
+   * handler do botão — de acontecer antes da asserção.
+   */
+  async function esperarMicrotarefas(): Promise<void> {
+    await new Promise((resolver) => setTimeout(resolver, 0));
   }
 
   describe('aoVoltar', () => {
@@ -371,12 +385,62 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
     });
 
     it('falha ao retomar nao quebra o wizard', () => {
-      // Mesma regra de "sair nao pode travar" que vale em `aoVoltar()`: uma
-      // falha de rede aqui deixa o wizard vazio, nao a tela inteira presa.
       const page = montarPaginaComQuery('t1');
       spyOn(page.store, 'retomarRascunho').and.rejectWith(new Error('rede'));
 
       expect(() => page.ngOnInit()).not.toThrow();
+    });
+
+    /**
+     * O `.catch(() => undefined)` que morava aqui dizia que o pior caso era o
+     * wizard abrir vazio, "como se tivesse tocado no FAB". Não era: vazio, mas
+     * com `rascunhoTourId` nulo — e a primeira captura chamaria
+     * `garantirRascunho()`, que CRIA imóvel e tour DRAFT novos. A home passava
+     * a mostrar DOIS cartões para a mesma captura, com as fotos repartidas
+     * entre eles, e o corretor tocou na faixa exatamente para não recomeçar.
+     */
+    it('falha ao retomar PERGUNTA, em vez de virar um tour novo em silêncio', async () => {
+      const page = montarPaginaComQuery('t1');
+      spyOn(page.store, 'retomarRascunho').and.rejectWith(new Error('rede'));
+      const alerta = spyOn(TestBed.inject(AlertController), 'create').and.resolveTo({
+        present: () => Promise.resolve(),
+      } as never);
+
+      page.ngOnInit();
+      await esperarMicrotarefas();
+
+      expect(alerta).toHaveBeenCalled();
+      // O que o defeito produzia: seguir como captura nova.
+      expect(page.store.rascunhoTourId()).toBeNull();
+      expect(page.store.scenes().length).toBe(0);
+    });
+
+    it('"Tentar de novo" retoma o MESMO rascunho', async () => {
+      const page = montarPaginaComQuery('t1');
+      const retomar = spyOn(page.store, 'retomarRascunho').and.returnValues(
+        Promise.reject(new Error('rede')),
+        Promise.resolve(),
+      );
+      escolherNoAlerta('RESUME_FAILED_RETRY');
+
+      page.ngOnInit();
+      await esperarMicrotarefas();
+
+      expect(retomar.calls.count()).toBe(2);
+      // O mesmo id, e não um rascunho novo.
+      expect(retomar.calls.allArgs()).toEqual([['t1'], ['t1']]);
+    });
+
+    it('"Voltar ao início" tira o corretor da tela quebrada', async () => {
+      const page = montarPaginaComQuery('t1');
+      spyOn(page.store, 'retomarRascunho').and.rejectWith(new Error('rede'));
+      const navegar = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      escolherNoAlerta('RESUME_FAILED_HOME');
+
+      page.ngOnInit();
+      await esperarMicrotarefas();
+
+      expect(navegar).toHaveBeenCalledWith(['/home']);
     });
   });
 });

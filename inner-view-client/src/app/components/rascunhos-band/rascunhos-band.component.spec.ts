@@ -1,14 +1,14 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { Event, NavigationEnd, Router, provideRouter } from '@angular/router';
 import {
   AlertController,
   ToastController,
   provideIonicAngular,
 } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 
 import { RascunhosBandComponent } from './rascunhos-band.component';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
@@ -93,6 +93,18 @@ describe('RascunhosBandComponent', () => {
 
     fixture = TestBed.createComponent(RascunhosBandComponent);
     fixture.detectChanges();
+  }
+
+  /**
+   * Empurra um `NavigationEnd` pelo stream do `Router`.
+   *
+   * `router.events` é um Subject por dentro; num TestBed não há navegação de
+   * verdade para emiti-lo. É o evento que a faixa escuta para saber que a home
+   * voltou à tela — o `ion-router-outlet` mantém a página viva, então o
+   * `ngOnInit` não roda de novo.
+   */
+  function navegarPara(url: string): void {
+    (router.events as unknown as Subject<Event>).next(new NavigationEnd(1, url, url));
   }
 
   afterEach(() => fixture?.destroy());
@@ -297,5 +309,80 @@ describe('RascunhosBandComponent', () => {
       fixture = TestBed.createComponent(RascunhosBandComponent);
       fixture.detectChanges();
     }).not.toThrow();
+  });
+
+  /**
+   * O app usa `<ion-router-outlet>`, que MANTÉM a página na pilha: voltar do
+   * wizard reusa a `HomePage` viva, e o `ngOnInit` da faixa não roda de novo.
+   *
+   * Sem recarregar, a home mentia: publicar uma captura e voltar deixava o
+   * cartão dela ali, dizendo "em andamento" sobre um tour já no ar. E o cartão
+   * era CLICÁVEL — retomar um tour publicado punha "Descartar captura" em cima
+   * dele, que apaga o imóvel em cascata. O servidor agora recusa (o rascunho
+   * só serve `DRAFT`), mas a faixa não pode oferecer o caminho.
+   */
+  it('recarrega quando a home volta à tela', async () => {
+    montar([rascunho({ id: 't1' })]);
+    await fixture.whenStable();
+    const listar = virtualTourService.listarRascunhos as jasmine.Spy;
+    listar.calls.reset();
+    listar.and.returnValue(of([]));
+
+    navegarPara('/tour/novo?rascunho=t1');
+    navegarPara('/home');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(listar).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('.rascunhos')).toBeNull();
+  });
+
+  it('não busca de novo ao SAIR da home', async () => {
+    // A faixa continua viva na página em cache, fora da tela. Recarregar aqui
+    // seria uma requisição e uma rajada de miniaturas que ninguém vai ver.
+    montar([rascunho({ id: 't1' })]);
+    await fixture.whenStable();
+    const listar = virtualTourService.listarRascunhos as jasmine.Spy;
+    listar.calls.reset();
+
+    navegarPara('/tour/novo?rascunho=t1');
+    await fixture.whenStable();
+
+    expect(listar).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Os filtros da `HomePage` moram na query string: cada troca de filtro, chip
+   * removido e busca digitada é uma navegação para `/home`. Comparar só o
+   * destino refazia a busca de rascunhos a cada tecla — e foi assim que este
+   * caso apareceu, derrubando os testes de filtro da `HomePage` com
+   * "Expected no open requests".
+   */
+  it('não busca de novo quando o corretor só mexe nos filtros da home', async () => {
+    montar([rascunho({ id: 't1' })]);
+    await fixture.whenStable();
+    const listar = virtualTourService.listarRascunhos as jasmine.Spy;
+    listar.calls.reset();
+
+    navegarPara('/home?type=HOUSE');
+    navegarPara('/home?type=HOUSE&purpose=SALE');
+    navegarPara('/home');
+    await fixture.whenStable();
+
+    expect(listar).not.toHaveBeenCalled();
+  });
+
+  it('a navegação que cria a faixa não vira uma segunda busca', async () => {
+    // O componente é criado durante a ativação da rota, e o `NavigationEnd`
+    // dessa mesma navegação chega depois. Sem tratá-la, toda abertura da home
+    // custaria duas buscas e duas rajadas de miniatura.
+    montar([rascunho({ id: 't1' })]);
+    await fixture.whenStable();
+    const listar = virtualTourService.listarRascunhos as jasmine.Spy;
+
+    navegarPara('/home');
+    await fixture.whenStable();
+
+    expect(listar).toHaveBeenCalledTimes(1);
   });
 });

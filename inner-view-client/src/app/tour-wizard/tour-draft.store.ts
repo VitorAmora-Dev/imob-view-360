@@ -90,19 +90,54 @@ const LARGURA_DA_MINIATURA = 320;
 const IMOVEL_SEM_DADOS = 'Captura em andamento';
 
 /**
- * Como o estado do servidor vira o estado da tela.
+ * Nome que o salvamento grava num cômodo ainda sem nome.
  *
- * `PENDING` e `PROCESSING` viram a mesma coisa de propósito: para quem espera,
- * "na fila" e "sendo montado" são o mesmo minuto, e separar os dois só daria
- * duas mensagens para o mesmo nada.
+ * Marcador, não dado — irmão de `IMOVEL_SEM_DADOS` e pelo mesmo motivo: o
+ * servidor exige `roomName` e não tem como guardar "ainda sem nome".
+ */
+function nomeMarcadorDeAmbiente(ordem: number): string {
+  return `Ambiente ${ordem + 1}`;
+}
+
+/**
+ * Reconhece o marcador na volta. Precisa concordar com `nomeMarcadorDeAmbiente`
+ * — há teste amarrando as duas pontas.
  *
- * `FAILED` e `SKIPPED` continuam distintos aqui mesmo que a tela trate os dois
- * calando a boca — é a diferença entre "tentamos e não deu" e "olhamos e não
- * havia o que fazer", e ela aparece no suporte.
+ * Sem isto, o portão da etapa 1 parava de proteger quem mais precisa dele:
+ * `Ambiente 1` voltava como nome de verdade, `ambientesSemNome()` ficava vazia,
+ * e dava para publicar um tour cujos cômodos se chamam Ambiente 1 e Ambiente 2
+ * — com as passagens dizendo isso ao visitante.
+ *
+ * Um cômodo que o corretor batizou "Ambiente 3" de propósito é apagado junto.
+ * É falso positivo aceitável e barato: acontece só na retomada, e o que ele
+ * provoca é a etapa 1 pedindo o nome de novo — que é o que ela existe para
+ * fazer.
+ */
+const NOME_MARCADOR_DE_AMBIENTE = /^Ambiente \d+$/;
+
+/**
+ * Como o estado do servidor vira o estado da tela AO RETOMAR.
+ *
+ * Só estado TERMINAL atravessa. `DONE`, `FAILED` e `SKIPPED` são verdade em
+ * qualquer sessão: alguém olhou aquele panorama e o assunto fechou. Os outros
+ * dois viram `idle`, e a razão é dura — nesta tela não existe quem os avance.
+ *
+ * O tratamento por IA saiu do store: hoje ele roda dentro do modal de captura,
+ * aguardado por quem chamou, e o único `acompanharMontagem` vivo está em
+ * `esperarPanorama()`, dentro de `tratarCaptura()`. A retomada não tem poller
+ * nenhum. Um selo "Melhorando com IA…" aceso aqui NUNCA se apagaria.
+ *
+ * E `PENDING` é o `@default` da coluna: toda foto vinda de arquivo nasce
+ * assim e fica assim para sempre, porque não tem fotos originais e ninguém vai
+ * tratá-la. Traduzi-lo como "em curso" pôs o selo em cima justamente do
+ * cômodo que nunca teve tratamento nenhum.
+ *
+ * Captura interrompida de verdade no meio da montagem não perde nada: o
+ * servidor termina sozinho, e a retomada SEGUINTE encontra `DONE`.
  */
 const ESTADO_DA_IA: Record<TreatmentStatus, WizardSceneAiState> = {
-  PENDING: 'processing',
-  PROCESSING: 'processing',
+  PENDING: 'idle',
+  PROCESSING: 'idle',
   DONE: 'done',
   FAILED: 'failed',
   SKIPPED: 'skipped',
@@ -921,7 +956,12 @@ export class TourDraftStore {
       porPanoramaId.set(p.id, idLocal);
       return {
         id: idLocal,
-        room: p.roomName,
+        // Marcador volta como VAZIO, e não como nome. Ver
+        // `NOME_MARCADOR_DE_AMBIENTE`.
+        room: NOME_MARCADOR_DE_AMBIENTE.test(p.roomName) ? '' : p.roomName,
+        // Mas o `fileName` guarda o marcador: `nomeDoAmbiente()` cai nele
+        // quando `room` está vazio, e assim nenhuma tela mostra cômodo sem
+        // nome nenhum enquanto a etapa 1 cobra o nome de verdade.
         fileName: p.roomName,
         fileSize: 0,
         // Vazio de propósito. Ver o comentário do campo no modelo: cena com
@@ -1252,8 +1292,10 @@ export class TourDraftStore {
       if (scene.serverPanoramaId) continue;
       const panorama = await firstValueFrom(
         this.virtualTourService.addPanorama(tourId, {
-          // `Ambiente N` e nunca `fileName`: ver `nomeDeRascunho`.
-          roomName: scene.room.trim() || `Ambiente ${ordem + 1}`,
+          // `Ambiente N` e nunca `fileName`: ver `nomeDeRascunho`. O marcador
+          // sai de `nomeMarcadorDeAmbiente` para a retomada poder reconhecê-lo
+          // — duas grafias da mesma convenção é como uma delas fica para trás.
+          roomName: scene.room.trim() || nomeMarcadorDeAmbiente(ordem),
           imageData: scene.imageData,
           order: ordem,
           initialPanorama: ordem === 0,
