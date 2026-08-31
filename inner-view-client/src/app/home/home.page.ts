@@ -21,6 +21,10 @@ import { HomeNoTourBannerComponent } from '../components/home-no-tour-banner/hom
 import { RascunhosBandComponent } from '../components/rascunhos-band/rascunhos-band.component';
 import { PropertyFiltersBarComponent } from '../components/property-filters-bar/property-filters-bar.component';
 import { ActiveFilterChipsComponent } from '../components/active-filter-chips/active-filter-chips.component';
+import {
+  NavegacaoEntreTelas,
+  ehAHome,
+} from '../services/navegacao-entre-telas.service';
 import { PropertyService } from '../services/property.service';
 import { Property } from '../models/property.model';
 import { HomeStatus, resolveHomeView } from './home-view';
@@ -55,6 +59,7 @@ export class HomePage {
   private readonly propertyService = inject(PropertyService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly navegacao = inject(NavegacaoEntreTelas);
 
   readonly status = signal<HomeStatus>('loading');
   readonly properties = signal<Property[]>([]);
@@ -142,6 +147,24 @@ export class HomePage {
 
   constructor() {
     addIcons({ add, alertCircleOutline, imagesOutline, searchOutline });
+
+    // A lista também envelhece na página em cache.
+    //
+    // O `<ion-router-outlet>` mantém a home viva enquanto o corretor está no
+    // wizard, e o gatilho abaixo só dispara quando FILTRO muda. Voltar de uma
+    // publicação com os mesmos critérios não emitia nada: o corretor acabava de
+    // fazer a coisa mais importante do produto e a tela principal não
+    // reconhecia o imóvel novo até o app ser recarregado do zero.
+    //
+    // `carregar()` e não uma consulta à parte: ele incrementa `tentativa`, que
+    // é o que o `distinctUntilChanged` abaixo aceita como "refaz com os mesmos
+    // critérios". Um segundo caminho até a rede teria de repetir o
+    // `switchMap`, o `catchError` e os estados de tela — e um deles ficaria
+    // para trás.
+    this.navegacao
+      .aoVoltarPara(ehAHome)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.carregar());
 
     const gatilho = computed(() => ({
       filtros: this.filters(),
