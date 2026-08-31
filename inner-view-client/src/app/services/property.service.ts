@@ -4,12 +4,21 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Property, PaginatedProperties, ListPropertiesParams } from '../models/property.model';
 
+/**
+ * Campo do imóvel que o wizard grava como MARCADOR na primeira captura, porque
+ * o servidor os exige e o corretor ainda não informou nenhum. Ver
+ * `Property.draftPlaceholders` no schema.
+ */
+export type CampoMarcador = 'title' | 'type' | 'purpose';
+
 export interface CreatePropertyPayload {
   code: string;
   title: string;
   type: string;
   purpose: string;
   description?: string;
+  /** Lista INTEIRA, recalculada a cada gravacão. Ver `CampoMarcador`. */
+  draftPlaceholders?: CampoMarcador[];
   address?: {
     street: string;
     number?: string;

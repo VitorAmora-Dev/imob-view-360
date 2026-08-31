@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { VirtualTour } from '../models/virtual-tour.model';
 import { CaptureFrameUpload, CaptureGeometry } from '../services/virtual-tour.service';
 import { PanoramaImageCache } from '../services/panorama-image-cache.service';
-import { PropertyService } from '../services/property.service';
+import { CampoMarcador, PropertyService } from '../services/property.service';
 import {
   AndamentoDaMontagem,
   TreatmentStatus,
@@ -529,12 +529,19 @@ export class TourDraftStore {
         await firstValueFrom(
           this.propertyService.createProperty({
             code: `IML-${Date.now().toString(36).toUpperCase()}`,
-            // Marcadores, não dados. A etapa 3 sobrescreve os três por PATCH,
-            // e `retomarRascunho()` usa o título para saber que os OUTROS DOIS
-            // também são marcadores.
+            // Marcadores, não dados: o servidor exige os três e o corretor
+            // ainda não informou nenhum. A última etapa os sobrescreve por
+            // PATCH.
             title: IMOVEL_SEM_DADOS,
             type: 'HOUSE',
             purpose: 'SALE',
+            // E DIZ que são marcadores, em vez de deixar a retomada adivinhar
+            // pelo título. A adivinhação quebrava: o salvamento grava campo a
+            // campo, então digitar o nome e o app ir para segundo plano sobe um
+            // PATCH só com `title` — e na volta `type`/`purpose` reapareciam
+            // como Casa/Venda válidos, publicando um apartamento para alugar
+            // rotulado como casa à venda.
+            draftPlaceholders: ['title', 'type', 'purpose'],
           }),
         )
       ).id;
@@ -972,11 +979,10 @@ export class TourDraftStore {
         hotspots: [],
         state: 'ready',
         serverPanoramaId: p.id,
-        // Pelo mapa, e não por um `=== 'DONE'`: `PENDING`/`PROCESSING` viravam
-        // `idle`, o selo "melhorando" sumia do card e o corretor via como
-        // pronto um cômodo que a IA ainda estava montando. `FAILED`/`SKIPPED`
-        // perdiam a distinção que o comentário do próprio mapa diz que importa
-        // no suporte.
+        // Pelo mapa: ver `ESTADO_DA_IA`. Só estado terminal atravessa, e
+        // `FAILED`/`SKIPPED` chegam distintos porque a diferença entre
+        // "tentamos e não deu" e "olhamos e não havia o que fazer" aparece no
+        // suporte.
         aiState: ESTADO_DA_IA[p.treatmentStatus] ?? 'idle',
       };
     });
@@ -1013,20 +1019,22 @@ export class TourDraftStore {
     this.step.set(1);
 
     const endereco = rascunho.property.address;
-    // `title`, `type` e `purpose` são gravados JUNTOS por `garantirRascunho()`,
-    // os três como marcador e nenhum como escolha do corretor. O servidor não
-    // distingue as duas coisas, então o critério aqui é o único disponível:
-    // enquanto o título ainda é o marcador, os outros dois também são.
+    // Campo marcador volta VAZIO, campo escolhido volta como está — e quem diz
+    // qual é qual é o próprio servidor, em `draftPlaceholders`.
     //
-    // Devolvê-los como escolha abria a etapa 3 com Casa/Venda pré-selecionados,
-    // `invalidFields()` passava, e um apartamento para alugar era publicado
-    // rotulado como casa à venda — sem ninguém ter tocado nos campos.
-    const soMarcadores = rascunho.property.title === IMOVEL_SEM_DADOS;
+    // Antes o critério era adivinhado: "enquanto o título ainda é o marcador,
+    // os outros dois também são". Quebrava, porque o salvamento grava campo a
+    // campo: digitar o nome na última etapa e o app ir para segundo plano sobe
+    // um PATCH só com `title`, e na volta `type`/`purpose` reapareciam como
+    // Casa/Venda válidos. `invalidFields()` passava, e saía publicado um
+    // apartamento para alugar rotulado como casa à venda, sem ninguém ter
+    // tocado nos campos.
+    const marcador = ehMarcador(rascunho.property);
     this.property.set({
       ...EMPTY_PROPERTY,
-      name: soMarcadores ? '' : rascunho.property.title,
-      type: soMarcadores ? '' : (rascunho.property.type as PropertyDraft['type']),
-      purpose: soMarcadores
+      name: marcador('title') ? '' : rascunho.property.title,
+      type: marcador('type') ? '' : (rascunho.property.type as PropertyDraft['type']),
+      purpose: marcador('purpose')
         ? ''
         : (rascunho.property.purpose as PropertyDraft['purpose']),
       ...(endereco
@@ -1227,6 +1235,17 @@ export class TourDraftStore {
    */
   private geracao = 0;
 
+  /**
+   * O último patch de panorama que o servidor CONFIRMOU, por id de panorama.
+   *
+   * Existe para o salvamento não reescrever cômodo que não mudou — ver o laço
+   * de reconciliação. Memória da sessão, e não cache: some com a tela, e um
+   * rascunho retomado começa vazio de propósito. Começar vazio custa um PATCH
+   * por cômodo no primeiro salvamento; começar cheio, com uma suposição sobre o
+   * que o servidor tem, custaria uma edição perdida em silêncio.
+   */
+  private readonly ultimoPanoramaGravado = new Map<string, string>();
+
   /** A promise da gravação em voo agora, ou `null` quando nenhuma está. */
   private salvandoRascunho: Promise<void> | null = null;
 
@@ -1322,25 +1341,54 @@ export class TourDraftStore {
       cenasFinais.map((scene, ordem) => {
         const id = scene.serverPanoramaId;
         if (!id) return Promise.resolve(null);
+
+        const patch = {
+          // Cômodo sem nome não manda `roomName` NENHUM — ver
+          // `nomeDeRascunho`. O servidor fica com o marcador que já tinha, e
+          // o vazio continua vazio de cá.
+          ...nomeDeRascunho(scene),
+          order: ordem,
+          initialPanorama: ordem === 0,
+          // A ÚNICA parte do wizard que não se deduz do resto. Nome, ordem e
+          // capa são colunas; a passagem posicionada é um `Hotspot`. A
+          // conexão ESCOLHIDA e ainda por posicionar não era nada — e era
+          // ela que o corretor perdia ao retomar: a fila da etapa de
+          // passagens voltava vazia com metade dos cômodos por ligar.
+          //
+          // Lista inteira e sempre, inclusive vazia: desligar o último
+          // ambiente precisa chegar ao banco.
+          draftConnections: conexoesParaServidor(scene, porCena),
+        };
+
+        // Só o que MUDOU vai à rede.
+        //
+        // Este laço rodava para TODOS os cômodos a cada salvamento — e o
+        // salvamento roda a cada troca de etapa e a cada `visibilitychange`.
+        // Num tour de seis cômodos, digitar o nome de um deles e trocar de
+        // etapa gastava seis PATCHes para gravar uma string.
+        //
+        // Pior que o tráfego: `Panorama.updatedAt` é `@updatedAt` e é a
+        // IDENTIDADE do cache de imagem (o comentário da coluna diz isso). Um
+        // PATCH sem mudança nenhuma mexia no relógio e invalidava o ETag da
+        // foto de todo cômodo do tour — a sessão seguinte rebaixava seis
+        // equirretangulares por causa de um nome digitado.
+        //
+        // Guardado por id de PANORAMA, e não por id local: é o que identifica a
+        // linha do outro lado, e sobrevive à troca de cena que a retomada faz.
+        const assinatura = JSON.stringify(patch);
+        if (this.ultimoPanoramaGravado.get(id) === assinatura) {
+          return Promise.resolve(null);
+        }
+
         return firstValueFrom(
-          this.virtualTourService.atualizarPanorama(id, {
-            // Cômodo sem nome não manda `roomName` NENHUM — ver
-            // `nomeDeRascunho`. O servidor fica com o marcador que já tinha, e
-            // o vazio continua vazio de cá.
-            ...nomeDeRascunho(scene),
-            order: ordem,
-            initialPanorama: ordem === 0,
-            // A ÚNICA parte do wizard que não se deduz do resto. Nome, ordem e
-            // capa são colunas; a passagem posicionada é um `Hotspot`. A
-            // conexão ESCOLHIDA e ainda por posicionar não era nada — e era
-            // ela que o corretor perdia ao retomar: a fila da etapa de
-            // passagens voltava vazia com metade dos cômodos por ligar.
-            //
-            // Lista inteira e sempre, inclusive vazia: desligar o último
-            // ambiente precisa chegar ao banco.
-            draftConnections: conexoesParaServidor(scene, porCena),
-          }),
-        );
+          this.virtualTourService.atualizarPanorama(id, patch),
+        ).then((resposta) => {
+          // Depois da resposta, nunca antes: marcar como gravado com a chamada
+          // em voo faria uma falha de rede parecer sucesso, e o próximo
+          // salvamento pularia o cômodo que nunca chegou ao banco.
+          this.ultimoPanoramaGravado.set(id, assinatura);
+          return resposta;
+        });
       }),
     );
 
@@ -1481,10 +1529,21 @@ export class TourDraftStore {
 
     if (Object.keys(camposDoImovel).length) {
       await firstValueFrom(
-        this.propertyService.updateProperty(
-          this.rascunhoPropertyId()!,
-          camposDoImovel,
-        ),
+        this.propertyService.updateProperty(this.rascunhoPropertyId()!, {
+          ...camposDoImovel,
+          // Vai no MESMO PATCH dos campos, e só quando há campo a mandar.
+          //
+          // No mesmo PATCH porque não pode existir instante em que o servidor
+          // tenha o valor novo e a lista velha — uma queda de rede entre duas
+          // chamadas devolveria exatamente o defeito que a lista existe para
+          // fechar.
+          //
+          // E só quando há campo porque, sem nada preenchido, a lista gravada
+          // na criação (os três) já é a resposta certa: mandar assim faria toda
+          // troca de etapa disparar um PATCH que a guarda acima existe para
+          // evitar.
+          draftPlaceholders: marcadoresPendentes(p),
+        }),
       );
     }
   }
@@ -1587,6 +1646,11 @@ export class TourDraftStore {
     this.hotspotsParaApagar.set([]);
     this.miniaturas.set({});
     this.miniaturasQueFalharam.clear();
+    // A memória do que já foi gravado morre com o rascunho a que pertencia.
+    // Mantida, o próximo rascunho pularia um PATCH por causa de um panorama de
+    // outro tour — impossível hoje (os ids são uuid), mas a invariante fica
+    // certa por construção e não por sorte.
+    this.ultimoPanoramaGravado.clear();
 
     // A partir daqui, toda gravação PEDIDA antes deste ponto vira no-op: sem
     // isto, uma rodada enfileirada antes de um descarte rodava depois dele,
@@ -1631,6 +1695,45 @@ function publishErrorKey(error: unknown): string {
  * No publicar isso não muda nada: para chegar à etapa 3 é preciso ter passado
  * pelo portão da etapa 1, que só libera com todo ambiente nomeado.
  */
+/**
+ * Diz se um campo do imóvel lido do rascunho ainda é marcador.
+ *
+ * A resposta vem de `draftPlaceholders`, gravado por quem pôs os marcadores lá.
+ *
+ * FALLBACK para rascunho gravado antes daquela coluna existir: aí a lista chega
+ * vazia — indistinguível de "o corretor preencheu tudo" — e vale o critério
+ * antigo, que é o melhor disponível com a informação que existe. Ele erra no
+ * mesmo caso de sempre (só o título preenchido), e só para esses rascunhos
+ * antigos; os novos nascem com a lista.
+ */
+function ehMarcador(imovel: {
+  title: string;
+  draftPlaceholders?: string[];
+}): (campo: CampoMarcador) => boolean {
+  const lista = imovel.draftPlaceholders ?? [];
+  if (lista.length) return (campo) => lista.includes(campo);
+  return () => imovel.title === IMOVEL_SEM_DADOS;
+}
+
+/**
+ * Quais dos três campos do imóvel ainda são marcador.
+ *
+ * Derivado do que está preenchido na tela, e nunca guardado de lado: um
+ * booleano paralelo por campo seria a segunda versão da mesma verdade, e a
+ * primeira delas ficaria para trás no dia em que alguém mexesse só na outra.
+ *
+ * O critério é o MESMO que `invalidFields()` usa para liberar o publicar, e
+ * isso é proposital: campo que basta para publicar não pode continuar contando
+ * como marcador.
+ */
+function marcadoresPendentes(p: PropertyDraft): CampoMarcador[] {
+  const pendentes: CampoMarcador[] = [];
+  if (!p.name.trim()) pendentes.push('title');
+  if (!p.type) pendentes.push('type');
+  if (!p.purpose) pendentes.push('purpose');
+  return pendentes;
+}
+
 function nomeDeRascunho(scene: WizardScene): { roomName?: string } {
   const nome = scene.room.trim();
   return nome ? { roomName: nome } : {};

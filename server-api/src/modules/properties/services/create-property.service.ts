@@ -55,6 +55,10 @@ export class CreatePropertyService {
         status: dto.status,
         agencyId: currentUser.agencyId,
         agentId: dto.agentId,
+        // Campo a campo como o resto deste `data`, e não por spread do dto:
+        // ausente vira `[]` pelo default da coluna, que é a resposta certa para
+        // imóvel de cadastro normal. Ver `Property.draftPlaceholders`.
+        draftPlaceholders: dto.draftPlaceholders,
         ...(dto.address && { address: { create: dto.address } }),
       },
       select: PROPERTY_SELECT,

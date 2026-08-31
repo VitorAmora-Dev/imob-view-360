@@ -96,18 +96,6 @@ export class SceneCardComponent {
   );
 
   /**
-   * A montagem por IA deste ambiente está em curso.
-   *
-   * `uploading` e `processing` juntos: para quem olha, subir as fotos e montar
-   * são o mesmo "estamos trabalhando nisso", e separá-los daria duas mensagens
-   * para o mesmo minuto de espera.
-   */
-  readonly melhorando = computed(() => {
-    const ai = this.scene().aiState;
-    return ai === 'uploading' || ai === 'processing';
-  });
-
-  /**
    * Terminou e ficou melhor. É o único selo que a IA ganha na etapa 1 — o
    * antes e depois de verdade acontece na etapa 2, sobre a imagem grande.
    *

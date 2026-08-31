@@ -116,6 +116,23 @@ model Property {
   agent    User?   @relation(fields: [agentId], references: [id]) // corretor
   agentId  String?
 
+  /// Quais destes campos ainda são MARCADOR, e não escolha do corretor.
+  ///
+  /// O wizard cria o imóvel na primeira foto, para o tour existir e a montagem
+  /// por IA poder rodar durante a captura. Mas `title`, `type` e `purpose` são
+  /// obrigatórios, e nesse instante o corretor não informou nenhum — então
+  /// entram valores de marcador ("Captura em andamento", HOUSE, SALE) que a
+  /// coluna sozinha não distingue de uma escolha de verdade.
+  ///
+  /// A retomada usava o título como discriminador dos três, e isso quebra: o
+  /// salvamento grava campo a campo, então digitar o nome na última etapa e o
+  /// app ir para segundo plano sobe um PATCH só com `title`. Na volta, o título
+  /// já não era marcador e `type`/`purpose` voltavam como Casa/Venda válidos —
+  /// publicando um apartamento para alugar rotulado como casa à venda.
+  ///
+  /// Vazio em imóvel de cadastro normal, que nunca teve marcador nenhum.
+  draftPlaceholders String[] @default([]) // camposMarcador
+
   address     Address? // endereco
   virtualTour VirtualTour? // tourVirtual
 
