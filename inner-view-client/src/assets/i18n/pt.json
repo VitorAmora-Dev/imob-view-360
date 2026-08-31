@@ -236,7 +236,11 @@
       "LEAVE_MESSAGE": "As fotos e o tratamento da IA já estão guardados. Você pode continuar depois pela tela inicial.",
       "LEAVE_KEEP": "Continuar depois",
       "LEAVE_DISCARD": "Descartar captura",
-      "LEAVE_CANCEL": "Ficar aqui"
+      "LEAVE_CANCEL": "Ficar aqui",
+      "RESUME_FAILED_TITLE": "Não deu para abrir esta captura",
+      "RESUME_FAILED_MESSAGE": "Nada foi perdido — ela continua guardada. Pode ser a conexão: tente de novo em instantes.",
+      "RESUME_FAILED_RETRY": "Tentar de novo",
+      "RESUME_FAILED_HOME": "Voltar ao início"
     },
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",

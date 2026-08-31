@@ -2052,20 +2052,18 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     /**
-     * O `Record<TreatmentStatus, WizardSceneAiState>` do topo do store existe
-     * exatamente para esta tradução, e a retomada fazia a sua própria:
-     * `=== 'DONE' ? 'done' : 'idle'`. `PENDING`/`PROCESSING` viravam `idle`,
-     * o selo "melhorando" sumia do card e o corretor via como pronto um cômodo
-     * que a IA ainda estava montando.
+     * Só estado TERMINAL atravessa a retomada. `FAILED` e `SKIPPED` são
+     * verdade em qualquer sessão — alguém olhou aquele panorama e o assunto
+     * fechou —, e a distinção entre os dois é o que aparece no suporte.
      */
-    it('traduz o estado da IA pelo mapa, e não só DONE contra o resto', async () => {
+    it('traz os estados terminais da IA como eles são', async () => {
       const store = newStore();
       const base = rascunhoDeDoisComodos();
       spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
         of({
           ...base,
           panoramas: [
-            { ...base.panoramas[0], treatmentStatus: 'PROCESSING' },
+            { ...base.panoramas[0], treatmentStatus: 'SKIPPED' },
             { ...base.panoramas[1], treatmentStatus: 'FAILED' },
           ],
         }) as never,
@@ -2073,23 +2071,126 @@ describe('TourDraftStore (contrato)', () => {
 
       await store.retomarRascunho('t1');
 
-      expect(store.scenes()[0].aiState).toBe('processing');
+      expect(store.scenes()[0].aiState).toBe('skipped');
       expect(store.scenes()[1].aiState).toBe('failed');
     });
 
-    it('trata PENDING como montagem em curso, e não como cômodo pronto', async () => {
+    /**
+     * O DEFEITO RELATADO: retomar um rascunho de fotos subidas por arquivo
+     * acendia "Melhorando com IA…" em todo cômodo, para sempre.
+     *
+     * `PENDING` é o `@default` da coluna. Foto vinda de arquivo nasce assim e
+     * fica assim, porque não tem fotos originais e ninguém vai tratá-la — o
+     * tratamento hoje só roda dentro do modal de captura. E a retomada não tem
+     * poller nenhum: o selo, uma vez aceso, nunca mais se apagava.
+     */
+    it('não acende o selo de montagem para PENDING nem PROCESSING', async () => {
       const store = newStore();
       const base = rascunhoDeDoisComodos();
       spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
         of({
           ...base,
-          panoramas: [{ ...base.panoramas[0], treatmentStatus: 'PENDING' }],
+          panoramas: [
+            { ...base.panoramas[0], treatmentStatus: 'PENDING' },
+            { ...base.panoramas[1], treatmentStatus: 'PROCESSING' },
+          ],
         }) as never,
       );
 
       await store.retomarRascunho('t1');
 
-      expect(store.scenes()[0].aiState).toBe('processing');
+      expect(store.scenes()[0].aiState).toBe('idle');
+      expect(store.scenes()[1].aiState).toBe('idle');
+    });
+
+    /**
+     * `Ambiente N` é marcador, e não nome — o salvamento o grava porque o
+     * servidor exige `roomName`. Devolvê-lo como nome esvaziava
+     * `ambientesSemNome()`, e o portão da etapa 1 parava de proteger: dava para
+     * publicar um tour cujos cômodos se chamam Ambiente 1 e Ambiente 2, com as
+     * passagens dizendo isso ao visitante.
+     */
+    it('devolve o nome vazio quando o cômodo ainda é só Ambiente N', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [
+            { ...base.panoramas[0], roomName: 'Ambiente 1' },
+            { ...base.panoramas[1], roomName: 'Cozinha' },
+          ],
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.scenes()[0].room).toBe('');
+      expect(store.scenes()[1].room).toBe('Cozinha');
+      // E o portão da etapa 1 volta a cobrar.
+      expect(store.ambientesSemNome().length).toBe(1);
+    });
+
+    /**
+     * O marcador segue em `fileName` para `nomeDoAmbiente()` cair nele: nenhuma
+     * tela mostra cômodo sem nome nenhum enquanto a etapa 1 cobra o de verdade.
+     */
+    it('guarda o marcador no fileName, para as telas terem o que mostrar', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [{ ...base.panoramas[0], roomName: 'Ambiente 1' }],
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.scenes()[0].fileName).toBe('Ambiente 1');
+    });
+
+    /**
+     * As DUAS PONTAS do marcador, amarradas num teste só.
+     *
+     * Quem grava (`nomeMarcadorDeAmbiente`) e quem reconhece
+     * (`NOME_MARCADOR_DE_AMBIENTE`) são duas expressões da mesma convenção, e
+     * privadas do módulo — nenhum teste as alcança direto. Sem amarrá-las
+     * aqui, mudar o formato num lado e não no outro passa verde: o salvamento
+     * grava `Cômodo 1`, a retomada continua procurando `Ambiente 1`, e o
+     * portão da etapa 1 volta a cair — em silêncio.
+     *
+     * Por isso o nome que a retomada recebe NÃO é uma constante escrita aqui:
+     * é exatamente o que o salvamento acabou de mandar ao servidor.
+     */
+    it('reconhece na volta o mesmo marcador que o salvamento gravou', async () => {
+      const store = storeWith(scene('s1', { room: '', fileName: 'foto.jpg' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const subir = spyOn(tours, 'addPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['addPanorama']>,
+      );
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+      const marcadorGravado = subir.calls.mostRecent().args[1].roomName;
+
+      const base = rascunhoDeDoisComodos();
+      spyOn(tours, 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [{ ...base.panoramas[0], roomName: marcadorGravado }],
+        }) as never,
+      );
+
+      await store.retomarRascunho('t1');
+
+      expect(store.scenes()[0].room).toBe('');
     });
 
     it('devolve o nome vazio quando o título é só o marcador de garantirRascunho()', async () => {
