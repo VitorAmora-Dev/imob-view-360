@@ -102,47 +102,328 @@
 }
 
 
-/* -- Lista de ambientes ---------------------------------------------------- */
+/* -- Galeria de ambientes ------------------------------------------------- */
 
+.tw-scenes {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
 
 .tw-scenes__head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 16px;
+
+  h2,
+  p {
+    margin: 0;
+  }
+
+  h2 {
+    font-size: clamp(26px, 4vw, 34px);
+    font-weight: 760;
+    letter-spacing: -0.03em;
+    color: var(--tw-text-strong);
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  p {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--tw-text-muted);
+  }
+
+  @include tw.tw-mobile {
+    align-items: flex-start;
+  }
+}
+
+.tw-scenes__count {
+  flex: 0 0 auto;
+  padding-bottom: 4px;
+  font-size: 13px;
+  color: var(--tw-text-faint);
+  white-space: nowrap;
+}
+
+/* -- Pilha interativa ----------------------------------------------------- */
+
+.tw-deck {
+  width: min(100%, 650px);
+  margin: 0 auto;
+}
+
+.tw-deck__list {
+  position: relative;
+  height: clamp(220px, 44vw, 340px);
+  margin: 0;
+  padding: 0 54px 0 0;
+  list-style: none;
+}
+
+.tw-deck__item {
+  --deck-x: 0;
+  --deck-y: 0;
+  --deck-scale: 1;
+
+  position: absolute;
+  inset: 0 54px 0 0;
+  transform: translate(var(--deck-x), var(--deck-y)) scale(var(--deck-scale));
+  transform-origin: left center;
+  transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 180ms ease;
+
+  &.is-arriving {
+    animation: tw-deck-card-arrive 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  &[data-depth='1'] {
+    --deck-x: 18px;
+    --deck-y: 9px;
+    --deck-scale: 0.975;
+  }
+
+  &[data-depth='2'] {
+    --deck-x: 36px;
+    --deck-y: 18px;
+    --deck-scale: 0.95;
+  }
+
+  &[data-depth='3'] {
+    --deck-x: 54px;
+    --deck-y: 27px;
+    --deck-scale: 0.925;
+  }
+
+  &.is-hidden {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.tw-deck__card {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--tw-border);
+  border-radius: var(--tw-radius-lg);
+  background: var(--tw-surface-track);
+  box-shadow: var(--tw-shadow-card);
+  cursor: pointer;
+
+  &.is-active {
+    border-color: var(--tw-brand);
+    box-shadow: var(--tw-shadow-card), inset 0 0 0 1px var(--tw-brand);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--tw-focus-ring);
+    outline-offset: 3px;
+  }
+}
+
+.tw-deck__photo,
+.tw-deck__scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.tw-deck__photo {
+  display: grid;
+  place-items: center;
+  background-color: var(--tw-surface-track);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  &.is-empty {
+    background: var(--tw-brand-soft);
+  }
+}
+
+.tw-deck__placeholder {
+  color: var(--tw-brand);
+  font-size: clamp(34px, 7vw, 58px);
+  font-weight: 750;
+  letter-spacing: -0.06em;
+}
+
+.tw-deck__scrim {
+  background: linear-gradient(to top, var(--tw-photo-scrim), transparent 72%);
+}
+
+.tw-deck__caption {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--tw-photo-text);
+  text-align: left;
+  text-shadow: var(--tw-shadow-photo-text);
+
+  strong {
+    overflow: hidden;
+    font-size: clamp(20px, 4vw, 30px);
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    overflow: hidden;
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.tw-deck__pagination {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0;
+  margin-top: 8px;
+  overflow-x: auto;
+
+  button {
+    display: grid;
+    place-items: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+
+    span {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--tw-radius-pill);
+      background: var(--tw-text-ghost);
+      transition: width 180ms ease, background 180ms ease;
+    }
+
+    &.is-active span {
+      width: 24px;
+      background: var(--tw-brand);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tw-focus-ring);
+      outline-offset: -4px;
+    }
+
+    &:first-child {
+      margin-left: auto;
+    }
+
+    &:last-child {
+      margin-right: auto;
+    }
+  }
+}
+
+.tw-scenes__editor,
+.tw-scenes__add {
+  width: min(100%, 650px);
+  margin: 0 auto;
+}
+
+.tw-scenes__editor app-scene-card {
+  width: 100%;
+}
+
+.tw-scenes__add {
+  padding-top: 20px;
+  border-top: 1px solid var(--tw-border-subtle);
 
   h3 {
-    margin: 0;
-    font-size: 15px;
+    margin: 0 0 12px;
+    font-size: 18px;
     font-weight: 700;
     color: var(--tw-text-strong);
   }
 }
 
-.tw-scenes__count {
-  font-size: 13px;
-  color: var(--tw-text-faint);
+.tw-scenes__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  .tw-btn {
+    flex: 1 1 230px;
+  }
 }
 
-.tw-scenes__grid {
-  display: grid;
-  // `auto-fill` com piso de 240px: uma coluna no celular, tantas quantas
-  // couberem no desktop, sem breakpoint escrito à mão.
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  // Sem isso, o card que não quebra a linha de metadados fica mais baixo que
-  // os vizinhos e a fileira sai desalinhada. O <li> estica sozinho; quem
-  // precisa de ajuda é o card dentro dele.
-  > li {
-    display: flex;
+@keyframes tw-deck-card-arrive {
+  from {
+    opacity: 0;
+    transform: translate(var(--deck-x), calc(var(--deck-y) + 44px))
+      scale(0.9) rotate(1.5deg);
   }
 
-  app-scene-card {
-    flex: 1;
+  to {
+    opacity: 1;
+    transform: translate(var(--deck-x), var(--deck-y)) scale(var(--deck-scale))
+      rotate(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-deck__item {
+    animation: none;
+    transition: none;
+  }
+
+  .tw-deck__pagination span {
+    transition: none;
+  }
+}
+
+@include tw.tw-mobile {
+  .tw-scenes {
+    gap: 20px;
+  }
+
+  .tw-scenes__head {
+    gap: 10px;
+  }
+
+  .tw-deck__list {
+    padding-right: 42px;
+  }
+
+  .tw-deck__item {
+    right: 42px;
+
+    &[data-depth='1'] {
+      --deck-x: 14px;
+      --deck-y: 8px;
+    }
+
+    &[data-depth='2'] {
+      --deck-x: 28px;
+      --deck-y: 16px;
+    }
+
+    &[data-depth='3'] {
+      --deck-x: 42px;
+      --deck-y: 24px;
+    }
+  }
+
+  .tw-scenes__actions .tw-btn {
+    flex-basis: 100%;
   }
 }

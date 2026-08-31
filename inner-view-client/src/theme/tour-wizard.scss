@@ -94,6 +94,8 @@
   --tw-scrim: rgba(var(--tour-bg-rgb), 0.45); //   scrim do bottom sheet
   --tw-pin-bg: rgba(var(--tour-bg-rgb), 0.78); //  pílula do hotspot
   --tw-hint-bg: rgba(var(--tour-bg-rgb), 0.72); // balão de dica e lixeira
+  --tw-photo-scrim: rgba(var(--tour-bg-rgb), 0.84); // legenda sobre miniatura
+  --tw-photo-text: var(--neutral-white); // texto sobre a foto escurecida
   // A lixeira é ERRO, não marca. Ela era rosa quando a marca era rosa, e lia
   // como "perigo" por acidente: azul não lê. É a mesma regra do botão de
   // excluir do card, que já usa o vermelho de erro e não a marca.
@@ -132,6 +134,8 @@
   --tw-radius-xs: var(--app-radius-sm); //   8px — inputs pequenos (9)
 
   /* -- Sombras ----------------------------------------------------------- */
+  --tw-shadow-card: var(--app-shadow-tier);
+  --tw-shadow-photo-text: 0 1px 3px rgba(var(--tour-bg-rgb), 0.7);
   --tw-shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.22);
   --tw-shadow-pin: 0 3px 12px rgba(0, 0, 0, 0.3);
   --tw-shadow-pin-drag: 0 8px 22px rgba(0, 0, 0, 0.45);

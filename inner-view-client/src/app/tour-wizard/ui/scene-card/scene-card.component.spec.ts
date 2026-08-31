@@ -99,6 +99,13 @@ describe('SceneCardComponent — capa e numeração', () => {
     expect(botao.textContent.trim()).toBe('');
   });
 
+  it('usa o arquivo no nome acessível da lixeira enquanto o ambiente está sem nome', () => {
+    const alvo = scene('sala', { room: '', fileName: 'sala-360.jpg' });
+    const fixture = monta(alvo, [alvo]);
+
+    expect(fixture.componentInstance.accessibleName()).toBe('sala-360.jpg');
+  });
+
   it('mostra o tamanho em unidade legível', () => {
     const fixture = monta(
       scene('a', { fileSize: 9_400_000 }),

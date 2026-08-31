@@ -69,7 +69,12 @@
         avançar, e as ações de lá (copiar link, criar outro) pertencem ao próprio
         conteúdo.
       -->
-      @if (!store.published()) {
+      <!--
+        A primeira tela da etapa 1 é só uma decisão de origem. "Próximo" não
+        tem ação possível ali e competiria com os dois caminhos que realmente
+        fazem a tela avançar. Assim que nasce um card, a barra volta.
+      -->
+      @if (!store.published() && (store.step() !== 1 || store.scenes().length)) {
         <app-wizard-actions />
       }
     </div>
