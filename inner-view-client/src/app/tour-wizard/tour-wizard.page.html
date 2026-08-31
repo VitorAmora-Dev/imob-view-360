@@ -45,6 +45,26 @@
       }
 
       <!--
+        As três portas de salvamento engoliam a falha, e nenhuma tela sabia.
+        O corretor lia "as fotos e o tratamento da IA já estão guardados",
+        saía, e perdia os nomes, os hotspots e as conexões acreditando o
+        contrário.
+
+        `role="status"` e não `alert`: ninguém pediu para salvar aqui — o
+        salvamento é automático —, então isto informa, não interrompe. Some
+        sozinho quando a próxima rodada dá certo, porque ela grava o que está
+        na tela inteiro.
+      -->
+      @if (!store.published() && store.estadoDoSalvamento() === 'falhou') {
+        <p class="tw-shell__error tw-shell__error--acao" role="status">
+          {{ 'TOUR_WIZARD.COMMON.SAVE_FAILED' | translate }}
+          <button type="button" (click)="salvarDeNovo()">
+            {{ 'TOUR_WIZARD.COMMON.SAVE_RETRY' | translate }}
+          </button>
+        </p>
+      }
+
+      <!--
         A barra some por completo no estado publicado: não há mais nada a
         avançar, e as ações de lá (copiar link, criar outro) pertencem ao próprio
         conteúdo.

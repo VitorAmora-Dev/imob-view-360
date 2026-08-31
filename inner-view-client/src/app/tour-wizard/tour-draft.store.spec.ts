@@ -1456,6 +1456,101 @@ describe('TourDraftStore (contrato)', () => {
    * chamada. O teste "borda de saída" abaixo é o que essa segunda rodada
    * pegou.
    */
+  /**
+   * O ÚNICO sinal do salvamento que uma tela pode ler.
+   *
+   * As três portas engoliam a falha com `.catch(() => undefined)`, e
+   * `salvandoRascunho` é privado — não havia como saber que uma gravação
+   * falhou. O corretor lia "as fotos e o tratamento da IA já estão guardados",
+   * saía, e perdia os nomes, os hotspots e as conexões acreditando o contrário.
+   */
+  describe('estadoDoSalvamento', () => {
+    function comPanoramaDublado(store: TourDraftStore): jasmine.Spy {
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      return spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+    }
+
+    it('começa ocioso', () => {
+      expect(newStore().estadoDoSalvamento()).toBe('ocioso');
+    });
+
+    it('volta a ocioso quando a gravação dá certo', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      comPanoramaDublado(store);
+
+      const emVoo = store.salvarRascunho();
+      expect(store.estadoDoSalvamento()).toBe('salvando');
+      await emVoo;
+
+      expect(store.estadoDoSalvamento()).toBe('ocioso');
+    });
+
+    it('marca falhou quando a rede cai', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const patch = comPanoramaDublado(store);
+      patch.and.returnValue(
+        throwError(() => new Error('rede')) as ReturnType<
+          VirtualTourService['atualizarPanorama']
+        >,
+      );
+
+      await expectAsync(store.salvarRascunho()).toBeRejected();
+
+      expect(store.estadoDoSalvamento()).toBe('falhou');
+    });
+
+    /**
+     * O aviso é sobre a última RODADA, não sobre a sessão: uma rodada que dê
+     * certo grava o que está na tela INTEIRO — ela lê o estado atual, não um
+     * diário de mudanças —, então limpar o aviso ali é verdade.
+     */
+    it('uma gravação boa depois de uma ruim limpa o aviso', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const patch = comPanoramaDublado(store);
+      patch.and.returnValue(
+        throwError(() => new Error('rede')) as ReturnType<
+          VirtualTourService['atualizarPanorama']
+        >,
+      );
+      await expectAsync(store.salvarRascunho()).toBeRejected();
+      expect(store.estadoDoSalvamento()).toBe('falhou');
+
+      patch.and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      await store.salvarRascunho();
+
+      expect(store.estadoDoSalvamento()).toBe('ocioso');
+    });
+
+    it('o descarte leva o aviso junto', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      const patch = comPanoramaDublado(store);
+      patch.and.returnValue(
+        throwError(() => new Error('rede')) as ReturnType<
+          VirtualTourService['atualizarPanorama']
+        >,
+      );
+      await expectAsync(store.salvarRascunho()).toBeRejected();
+      spyOn(TestBed.inject(PropertyService), 'deleteProperty').and.returnValue(
+        of(undefined) as ReturnType<PropertyService['deleteProperty']>,
+      );
+
+      await store.descartarRascunho();
+
+      expect(store.estadoDoSalvamento()).toBe('ocioso');
+    });
+  });
+
   describe('salvarRascunho — reentrância', () => {
     function comRede() {
       const property = TestBed.inject(PropertyService);
