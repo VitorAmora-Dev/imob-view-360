@@ -2,7 +2,7 @@ import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { IonCard, IonButton, IonIcon, ToastController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { heartOutline, heart, starOutline, star, shareSocialOutline, homeOutline } from 'ionicons/icons';
+import { heartOutline, heart, shareSocialOutline, homeOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Property } from '../../models/property.model';
 import { environment } from '../../../environments/environment';
@@ -20,11 +20,9 @@ export class InnerViewCardComponent {
   @Input() item!: Property;
 
   @Output() likeChange = new EventEmitter<boolean>();
-  @Output() favoriteChange = new EventEmitter<boolean>();
   @Output() shareClick = new EventEmitter<void>();
 
   liked = false;
-  favorited = false;
 
   private router = inject(Router);
   private intents = inject(NavigationIntentService);
@@ -32,7 +30,7 @@ export class InnerViewCardComponent {
   private translate = inject(TranslateService);
 
   constructor() {
-    addIcons({ heartOutline, heart, starOutline, star, shareSocialOutline, homeOutline });
+    addIcons({ heartOutline, heart, shareSocialOutline, homeOutline });
   }
 
   onCardClick() {
@@ -65,12 +63,6 @@ export class InnerViewCardComponent {
     event.stopPropagation();
     this.liked = !this.liked;
     this.likeChange.emit(this.liked);
-  }
-
-  onFavorite(event: Event) {
-    event.stopPropagation();
-    this.favorited = !this.favorited;
-    this.favoriteChange.emit(this.favorited);
   }
 
   async onShare(event: Event) {

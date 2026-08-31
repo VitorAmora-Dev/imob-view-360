@@ -126,4 +126,52 @@ describe('InnerViewCardComponent', () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
+
+  // O botao de favoritar (estrela) saiu do card — so curtir e compartilhar
+  // ficam.
+  it('nao mostra mais o botao de favoritar', () => {
+    const el = render(imovel({ virtualTour: { id: 't1', status: 'PUBLISHED' } }));
+    expect(el.querySelector('.share-btn ion-icon[name^="star"]')).toBeNull();
+    expect(el.querySelectorAll('ion-button').length).toBe(1);
+  });
+
+  it('o botao de curtir continua, e alterna de estado', () => {
+    const el = render(imovel());
+    const coracao = el.querySelector('.heart-btn') as HTMLButtonElement;
+    expect(coracao).not.toBeNull();
+
+    coracao.click();
+    fixture.detectChanges();
+
+    expect(coracao.classList).toContain('heart-btn--liked');
+  });
+
+  describe('compartilhar', () => {
+    // Sem tour nao ha link de embed nenhum para compartilhar.
+    it('some quando o imovel nao tem tour', () => {
+      const el = render(imovel({ virtualTour: null }));
+      expect(el.querySelector('.share-btn')).toBeNull();
+    });
+
+    // A propria razao do botao: e o link publico do embed, e nao a rota
+    // autenticada — quem recebe o link nao tem conta para abrir /inner-view-page.
+    it('compartilha o link do embed, nao o da pagina interna', async () => {
+      const el = render(imovel({ id: 'p9', virtualTour: { id: 't1', status: 'PUBLISHED' } }));
+      const escrito = spyOn(navigator.clipboard, 'writeText').and.resolveTo();
+      // navigator.share e um metodo comum, nao um getter: spyOnProperty exige
+      // um accessor, entao a unica forma de forcar o ramo sem ele e redefinir
+      // a propriedade e devolve-la depois.
+      const original = navigator.share;
+      Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+
+      try {
+        (el.querySelector('.share-btn') as HTMLElement).click();
+        await fixture.whenStable();
+
+        expect(escrito).toHaveBeenCalledWith(`${window.location.origin}/embed/t1`);
+      } finally {
+        Object.defineProperty(navigator, 'share', { value: original, configurable: true });
+      }
+    });
+  });
 });
