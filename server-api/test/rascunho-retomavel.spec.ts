@@ -66,6 +66,49 @@ describe('rascunho retomável', () => {
       expect(lista[0].capaPanoramaId).toBe(capa.id);
     });
 
+    /**
+     * Teto de 20. A faixa da home dispara UM download de miniatura por cartão,
+     * em paralelo, no `ngOnInit` — sem limite, quem acumulou rascunhos paga a
+     * rajada inteira em toda visita à tela inicial. E ninguém rola um carrossel
+     * horizontal até o vigésimo item para retomar o que parou ontem.
+     */
+    it('não devolve mais de 20, e corta pelos mais antigos', async () => {
+      // 21 rascunhos: `VirtualTour.propertyId` é único, então é um imóvel cada.
+      const criados: string[] = [];
+      for (let i = 0; i < 21; i++) {
+        const imovel = await prisma.property.create({
+          data: {
+            code: `LOTE-${i}`,
+            title: `Captura ${i}`,
+            type: 'HOUSE',
+            purpose: 'SALE',
+            agencyId: tenants.a.agencyId,
+          },
+          select: { id: true },
+        });
+        const tour = await prisma.virtualTour.create({
+          data: { propertyId: imovel.id, status: 'DRAFT' },
+          select: { id: true },
+        });
+        // `updatedAt` explícito e crescente, num UPDATE: é o critério de
+        // ordenação, e deixar o relógio decidir tornaria o corte imprevisível
+        // se dois inserts caíssem no mesmo milissegundo. Mesmo caminho que
+        // `UpdatePanoramaService` usa para tocar o tour.
+        await prisma.virtualTour.update({
+          where: { id: tour.id },
+          data: { updatedAt: new Date(2026, 0, i + 1) },
+        });
+        criados.push(tour.id);
+      }
+
+      const lista = await listarRascunhos.execute(tenants.a.admin);
+
+      expect(lista).toHaveLength(20);
+      // O mais recente é o primeiro, e o mais ANTIGO é o que ficou de fora.
+      expect(lista[0].id).toBe(criados[20]);
+      expect(lista.map((r) => r.id)).not.toContain(criados[0]);
+    });
+
     it('não traz tour publicado', async () => {
       await criarTour.execute(
         { propertyId: tenants.a.propertyId, status: 'PUBLISHED', panoramas: [] },
@@ -219,6 +262,38 @@ describe('rascunho retomável', () => {
       expect(rascunho.panoramas[0].draftConnections).toEqual([]);
     });
 
+    /**
+     * REVERTE uma decisão anterior deste mesmo arquivo. O teste que morava
+     * aqui afirmava o oposto — "serve também o tour já publicado, para o caso
+     * de retomar depois de publicar" —, e o argumento dele era sobre
+     * AUTORIZAÇÃO: filtrar status seria repetir numa rota autenticada a defesa
+     * que a rota pública faz.
+     *
+     * O argumento continua correto e ainda assim leva ao lugar errado, porque
+     * o risco aqui não é quem lê: é o que o wizard FAZ com o que recebe. Ele
+     * trata tudo como rascunho, e a tela de sair oferece "Descartar captura",
+     * que apaga o `Property` em cascata — tour, panoramas, hotspots, frames e
+     * o tratamento de IA já pago. Um cartão velho na faixa da home (o
+     * `ion-router-outlet` mantém a página em cache) bastava para pôr esse
+     * botão em cima de um tour no ar, com o link já mandado ao cliente.
+     *
+     * E o caso de uso que o nome invocava não existe: nada no aplicativo
+     * retoma depois de publicar. A faixa lista só `DRAFT`, e `?rascunho=` é o
+     * único caminho até aqui. Quando editar tour publicado for uma
+     * funcionalidade de verdade, ela pede a sua própria rota — uma que não
+     * entregue o botão de descartar junto.
+     */
+    it('recusa tour publicado — rascunho publicado deixou de ser rascunho', async () => {
+      const tour = await criarTour.execute(
+        { propertyId: tenants.a.propertyId, status: 'PUBLISHED', panoramas: [] },
+        tenants.a.admin,
+      );
+
+      await expect(
+        lerRascunho.execute(tour!.id, tenants.a.admin),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
     it('devolve os dados do imóvel para a etapa 3', async () => {
       const tour = await criarTour.execute(
         { propertyId: tenants.a.propertyId, status: 'DRAFT', panoramas: [] },
@@ -268,19 +343,6 @@ describe('rascunho retomável', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('serve também o tour já publicado, para o caso de retomar depois de publicar', async () => {
-      // Sem filtro de status de propósito: a autorização aqui vem do token e
-      // do escopo por agência, como no `/preview`. Filtrar status seria
-      // repetir a defesa da rota pública numa rota que não é pública.
-      const tour = await criarTour.execute(
-        { propertyId: tenants.a.propertyId, status: 'PUBLISHED', panoramas: [] },
-        tenants.a.admin,
-      );
-
-      const rascunho = await lerRascunho.execute(tour!.id, tenants.a.admin);
-
-      expect(rascunho.status).toBe('PUBLISHED');
-    });
   });
   /**
    * `VirtualTour.updatedAt` é o relógio de "quando esta captura parou de

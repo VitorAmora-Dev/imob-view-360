@@ -33,6 +33,13 @@ export class ListDraftToursService {
       // último. `updatedAt` e não `createdAt` porque uma captura retomada
       // ontem é mais relevante que uma começada hoje de manhã e abandonada.
       orderBy: { updatedAt: 'desc' },
+      // Teto porque a faixa dispara UM download de miniatura por cartão, em
+      // paralelo, no `ngOnInit` da home. Sem limite, quem acumulou rascunhos
+      // paga essa rajada inteira em toda visita à tela inicial — e ninguém
+      // rola um carrossel horizontal até o vigésimo item para retomar o que
+      // parou ontem. O `orderBy` acima garante que os cortados são os mais
+      // antigos, que é também a ordem em que o sweeper os apaga.
+      take: 20,
       select: {
         id: true,
         propertyId: true,

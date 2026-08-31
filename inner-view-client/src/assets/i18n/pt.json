@@ -238,7 +238,7 @@
       "LEAVE_DISCARD": "Descartar captura",
       "LEAVE_CANCEL": "Ficar aqui",
       "RESUME_FAILED_TITLE": "Não deu para abrir esta captura",
-      "RESUME_FAILED_MESSAGE": "Nada foi perdido — ela continua guardada. Pode ser a conexão: tente de novo em instantes.",
+      "RESUME_FAILED_MESSAGE": "Ela pode já ter sido publicada ou descartada. Se não for isso, é a conexão — tente de novo em instantes.",
       "RESUME_FAILED_RETRY": "Tentar de novo",
       "RESUME_FAILED_HOME": "Voltar ao início"
     },

@@ -9,7 +9,21 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
  * `/panoramas/:id/preview` existe separado do `/image`: aquela rota é pública,
  * e por isso filtra `PUBLISHED` — sem o filtro, qualquer um com um uuid leria
  * o rascunho de qualquer imobiliária. Aqui a autorização vem do token e do
- * escopo por agência, e o status deixa de importar.
+ * escopo por agência.
+ *
+ * Mas o status IMPORTA, e no sentido oposto: aqui só passa `DRAFT`.
+ *
+ * Esta rota alimenta o wizard, e o wizard trata o que recebe como rascunho —
+ * a tela de sair oferece "Descartar captura", que apaga o `Property` em
+ * cascata. Servir um tour PUBLICADO por aqui punha esse botão em cima de um
+ * tour no ar: o corretor perderia panoramas, hotspots, o tratamento de IA já
+ * pago e o link que ele mesmo mandou para o cliente.
+ *
+ * O caminho existia: a faixa da home busca no `ngOnInit` e o `ion-router-outlet`
+ * mantém a página em cache, então um cartão continuava clicável depois de
+ * publicado. A trava fica AQUI, e não na faixa, porque uma URL guardada, um
+ * favorito ou dois aparelhos em corrida chegam ao mesmo lugar sem passar por
+ * ela.
  *
  * Nenhuma coluna de imagem, pelo mesmo motivo daquela consulta: elas são TOAST
  * de dezenas de MB e o wizard só precisa da foto do cômodo que está à vista.
@@ -20,7 +34,11 @@ export class FindDraftTourService {
 
   async execute(id: string, currentUser: JwtPayload) {
     const tour = await this.prisma.virtualTour.findFirst({
-      where: { id, property: { agencyId: currentUser.agencyId } },
+      where: {
+        id,
+        status: 'DRAFT',
+        property: { agencyId: currentUser.agencyId },
+      },
       select: {
         id: true,
         propertyId: true,
@@ -69,8 +87,10 @@ export class FindDraftTourService {
         },
       },
     });
-    // 404 e não 403: 403 confirmaria que o id existe em outra imobiliária.
-    if (!tour) throw new NotFoundException('Virtual tour not found');
+    // 404 e não 403: 403 confirmaria que o id existe em outra imobiliária. E
+    // 404 também para tour publicado — do ponto de vista de quem pede um
+    // rascunho, ele deixou de existir quando virou tour.
+    if (!tour) throw new NotFoundException('Draft tour not found');
 
     return {
       ...tour,
