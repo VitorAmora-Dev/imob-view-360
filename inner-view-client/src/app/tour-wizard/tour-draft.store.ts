@@ -359,6 +359,36 @@ export class TourDraftStore {
   // ---- cenas -------------------------------------------------------------
 
   /**
+   * Liga o ambiente recém-pronto ao último que já estava pronto antes dele.
+   *
+   * Um imóvel é percorrido em sequência, e a ordem em que o corretor fotografa
+   * é quase sempre a ordem em que se anda por ele. Deixar isso implícito
+   * obrigava a redesenhar na tela de ordenação um caminho que ele acabou de
+   * andar com o telefone na mão — e, com dois ambientes, a "escolher" a única
+   * ligação possível.
+   *
+   * Corrente, e não estrela: o terceiro ambiente se liga ao SEGUNDO. Ligar
+   * todos ao primeiro desenharia um imóvel em que todo cômodo dá na sala.
+   *
+   * Roda no instante em que a cena fica PRONTA, e só então: um arquivo recusado
+   * no meio da leitura não entra no caminho, e a cena seguinte se liga à última
+   * que de fato virou ambiente.
+   *
+   * E roda uma vez só, no nascimento. Reordenar, conectar à mão ou desligar são
+   * decisões do corretor; um encadeamento que se recalculasse sozinho apagaria
+   * a escolha dele e, junto, os pontos já posicionados nas conexões desfeitas.
+   * É também o que mantém a tela de ordenação sendo uma escolha, e não enfeite.
+   */
+  private encadearComAAnterior(id: string): void {
+    const prontas = this.readyScenes();
+    const i = prontas.findIndex((s) => s.id === id);
+    if (i <= 0) return;
+
+    const anterior = prontas[i - 1].id;
+    this.scenes.update((list) => ligar(list, anterior, id));
+  }
+
+  /**
    * Recebe arquivos do seletor, da câmera ou do drop e cria um ambiente por
    * arquivo, no fim da lista.
    *
@@ -393,6 +423,7 @@ export class TourDraftStore {
           state: 'ready',
           ...(isEquirectangular(ratio) ? {} : { warning: 'ratio' as const }),
         }));
+        this.encadearComAAnterior(scene.id);
         // Só cena válida pode virar a selecionada, e por isso isto está DENTRO
         // do try: fora dele, um arquivo recusado no meio da leitura continuava
         // sendo escolhido, e a etapa 2 abria o editor de hotspots sobre uma cena
@@ -436,7 +467,10 @@ export class TourDraftStore {
       ...(rejeitada ? { rejectedReason: 'size' as const } : {}),
     };
     this.scenes.update((list) => [...list, created]);
-    if (!rejeitada) this.selectedSceneId.update((id) => id ?? created.id);
+    if (!rejeitada) {
+      this.encadearComAAnterior(created.id);
+      this.selectedSceneId.update((id) => id ?? created.id);
+    }
   }
 
   // ---- montagem por IA, durante a captura --------------------------------
