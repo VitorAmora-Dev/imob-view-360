@@ -2679,11 +2679,10 @@ describe('TourDraftStore — quatro etapas', () => {
     expect(store.step()).toBe(1);
   });
 
-  // A regra de ambiente ilhado acompanhou a etapa de passagens, que era a 2 e
-  // agora e a 3. Ficar na 2 travaria a ORDENACAO por um defeito que so a etapa
-  // seguinte pode consertar.
-  it('a trava de ambiente ilhado vale na etapa de passagens, nao na de ordenacao', () => {
-    store.scenes.set([
+  // Cada etapa cobra a alcancabilidade pela fonte que ELA produz. As duas
+  // regras usam o mesmo grafo e dao respostas diferentes de proposito.
+  function duasCenas(connections: [string[], string[]]) {
+    return [
       {
         id: 'sala',
         room: 'Sala',
@@ -2692,7 +2691,8 @@ describe('TourDraftStore — quatro etapas', () => {
         imageData: 'data:image/jpeg;base64,x',
         order: 0,
         hotspots: [],
-        state: 'ready',
+        state: 'ready' as const,
+        connections: connections[0],
       },
       {
         id: 'cozinha',
@@ -2702,9 +2702,16 @@ describe('TourDraftStore — quatro etapas', () => {
         imageData: 'data:image/jpeg;base64,x',
         order: 1,
         hotspots: [],
-        state: 'ready',
+        state: 'ready' as const,
+        connections: connections[1],
       },
-    ]);
+    ];
+  }
+
+  // O que a ordenacao NAO cobra: ponto posicionado. Ali nao ha nenhum ainda, e
+  // exigi-los travaria a tela por um defeito que so a etapa seguinte conserta.
+  it('conectados e sem pontos: a ordenacao segue, as passagens travam', () => {
+    store.scenes.set(duasCenas([['cozinha'], ['sala']]));
 
     store.step.set(2);
     expect(store.canAdvance()).toBeTrue();
@@ -2712,5 +2719,153 @@ describe('TourDraftStore — quatro etapas', () => {
     store.step.set(3);
     expect(store.canAdvance()).toBeFalse();
   });
+
+  // O que a ordenacao COBRA: a conexao. Sem isto o corretor seguia para a etapa
+  // 3 e encontrava um "volte aos ambientes" -- o wizard deixava entrar num
+  // lugar cuja unica instrucao e sair.
+  it('sem conexao nenhuma, a ordenacao nao deixa seguir', () => {
+    store.scenes.set(duasCenas([[], []]));
+
+    store.step.set(2);
+    expect(store.canAdvance()).toBeFalse();
+  });
+
+  // Um ambiente nao tem com quem se conectar: cobrar seria travar por um
+  // defeito que nao existe.
+  it('com um ambiente so, a ordenacao nao cobra conexao', () => {
+    store.scenes.set([duasCenas([[], []])[0]]);
+
+    store.step.set(2);
+    expect(store.canAdvance()).toBeTrue();
+  });
 });
 
+/**
+ * O caminho que a ordem das fotos ja descreve.
+ *
+ * Um imovel e percorrido em sequencia, e a ordem em que o corretor fotografa e
+ * quase sempre a ordem em que se anda por ele. Deixar isso implicito obrigava a
+ * refazer na tela de ordenacao um caminho que ele acabou de andar com o
+ * telefone na mao -- e, com dois ambientes, a "escolher" a unica ligacao
+ * possivel.
+ *
+ * A ligacao nasce COM o ambiente e nunca e refeita depois. Reordenar, conectar
+ * a mao ou remover sao decisoes do corretor, e um encadeamento que se
+ * recalculasse sozinho apagaria a escolha dele -- e junto, os pontos ja
+ * posicionados nas conexoes desfeitas.
+ */
+describe('TourDraftStore — caminho pre-definido pela ordem das fotos', () => {
+  let store: TourDraftStore;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        TourDraftStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    store = TestBed.inject(TourDraftStore);
+  });
+
+  function capturar(room: string, bytes = '123456789'): void {
+    store.addCapturedScene({
+      room,
+      fileName: `${room}.jpg`,
+      imageData: `data:image/jpeg;base64,${btoa(bytes)}`,
+    });
+  }
+
+  const ids = () => store.scenes().map((s) => s.id);
+  const ligacoes = () => store.scenes().map((s) => s.connections ?? []);
+
+  // PNG 2x1 real: a validacao de proporcao decodifica a imagem.
+  const PNG =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAD0lEQVR4nGP8z4AATEQyAAAJAgHz2AsvpAAAAABJRU5ErkJggg==';
+
+  async function arquivo(nome: string): Promise<File> {
+    const blob = await (await fetch(PNG)).blob();
+    return new File([blob], nome, { type: 'image/png' });
+  }
+
+  // O upload e outro caminho de codigo, e o pedido vale igual para ele.
+  it('o upload encadeia na ordem dos arquivos', async () => {
+    await store.addFiles([await arquivo('a.png'), await arquivo('b.png')]);
+
+    const [a, b] = ids();
+    expect(ligacoes()).toEqual([[b], [a]]);
+  });
+
+  // Arquivo recusado nao vira ambiente, entao nao entra no caminho: a foto
+  // seguinte se liga a ultima que de fato virou um.
+  it('arquivo recusado nao entra no caminho', async () => {
+    await store.addFiles([
+      await arquivo('a.png'),
+      new File(['isto nao e uma foto'], 'contrato.pdf', { type: 'application/pdf' }),
+      await arquivo('c.png'),
+    ]);
+
+    const [a, , c] = ids();
+    expect(store.scenes()[1].state).toBe('rejected');
+    expect(ligacoes()).toEqual([[c], [], [a]]);
+  });
+
+  it('a primeira captura nao se liga a ninguem', () => {
+    capturar('Sala');
+    expect(ligacoes()).toEqual([[]]);
+  });
+
+  it('a segunda ja chega ligada a primeira, nos dois sentidos', () => {
+    capturar('Sala');
+    capturar('Cozinha');
+
+    const [sala, cozinha] = ids();
+    expect(ligacoes()).toEqual([[cozinha], [sala]]);
+  });
+
+  // Corrente, nao estrela: a terceira foto se liga a SEGUNDA. Ligar tudo na
+  // primeira desenharia um imovel em que todo comodo da na sala.
+  it('a terceira se liga a segunda, e nao a primeira', () => {
+    capturar('Sala');
+    capturar('Cozinha');
+    capturar('Quarto');
+
+    const [sala, cozinha, quarto] = ids();
+    expect(ligacoes()).toEqual([[cozinha], [sala, quarto], [cozinha]]);
+  });
+
+  // O caminho pronto e o que a etapa 2 passou a cobrar: sem ele, um upload
+  // recem-feito ja abriria travado.
+  it('com o caminho pronto, a ordenacao deixa seguir', () => {
+    capturar('Sala');
+    capturar('Cozinha');
+
+    store.step.set(2);
+    expect(store.canAdvance()).toBeTrue();
+  });
+
+  // Reordenar move o card, nao reescreve o caminho: a corrente segue Sala–
+  // Cozinha, agora com a cozinha na frente.
+  it('reordenar NAO refaz o caminho', () => {
+    capturar('Sala');
+    capturar('Cozinha');
+    const [sala, cozinha] = ids();
+
+    store.moveScene(0, 1);
+
+    expect(ids()).toEqual([cozinha, sala]);
+    expect(ligacoes()).toEqual([[sala], [cozinha]]);
+  });
+
+  // Desfazer a mao tem que valer: um encadeamento que voltasse sozinho tornaria
+  // a tela de ordenacao decorativa.
+  it('desligar a mao nao e desfeito', () => {
+    capturar('Sala');
+    capturar('Cozinha');
+    const [sala, cozinha] = ids();
+
+    store.desligarAmbientes(sala, cozinha);
+
+    expect(ligacoes()).toEqual([[], []]);
+  });
+});

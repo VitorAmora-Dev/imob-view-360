@@ -276,6 +276,7 @@
       "COLLAPSE": "Close {{ambiente}}",
       "ADD_CONNECTION": "Add a connection to this room",
       "NO_TARGETS": "Upload another photo in the previous step to connect.",
+      "NEEDS_LINKS": "Connect every room before moving on",
       "SUMMARY_NONE": "no connections",
       "SUMMARY_ONE": "connects to {{nome}}",
       "SUMMARY_MANY": "connects to {{nomes}} and {{ultimo}}",
@@ -288,11 +289,11 @@
       "REDO": "Redo",
       "CONFIRM": "Confirm passage",
       "BACK": "Back to rooms",
-      "DONE": "All {{n}} passages are placed.",
-      "EMPTY": "No connections chosen. Go back to the rooms and connect them."
+      "DONE": "All {{n}} passages are placed. Tap a point to walk the tour the way visitors will see it.",
+      "EMPTY": "No connections chosen. Go back to the rooms and connect them.",
+      "NEEDS_LINKS": "Place the remaining passages before moving on"
     },
     "STEP2": {
-      "NEEDS_LINKS": "Connect every room before continuing",
       "PICK_TARGET": "Take the visitor to which room?",
       "PICK_LATER": "Choose later",
       "COUNT": "point(s)",

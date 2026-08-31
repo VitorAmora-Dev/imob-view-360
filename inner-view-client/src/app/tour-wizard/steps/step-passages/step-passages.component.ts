@@ -101,6 +101,63 @@ export class StepPassagesComponent {
     () => this.passagens.atual()?.origem.id ?? null,
   );
 
+  /**
+   * O tour inteiro, navegável — a revisão do fim da etapa.
+   *
+   * Os pontos vão como `originHotspots`, que é o que o viewer desenha como
+   * esferas clicáveis fora do modo de edição. É o MESMO caminho do tour
+   * publicado: clicar num ponto troca de ambiente, exatamente como o visitante
+   * fará.
+   *
+   * Existe porque o corretor acabou de marcar os pontos às cegas — ele tocou
+   * onde ACHA que fica a porta. Sem andar pelo resultado, descobrir que o ponto
+   * caiu na parede acontece depois de publicar, na frente do cliente.
+   */
+  readonly tourCompleto = computed<Panorama[]>(
+    () =>
+      this.draft.readyScenes().map((cena, i) => ({
+        id: cena.id,
+        roomName: nomeDoAmbiente(cena),
+        imageUrl: cena.treatedImageUrl ?? cena.imageData,
+        order: cena.order,
+        initialPanorama: i === 0,
+        originHotspots: cena.hotspots
+          .filter((h) => !!h.target)
+          .map((h) => ({
+            id: h.id,
+            label: h.label,
+            positionX: h.u,
+            positionY: h.v,
+            targetId: h.target as string,
+          })),
+        measurements: [],
+      })),
+    {
+      equal: (a, b) =>
+        a.length === b.length &&
+        a.every(
+          (p, i) =>
+            p.id === b[i].id &&
+            p.imageUrl === b[i].imageUrl &&
+            p.originHotspots.length === b[i].originHotspots.length,
+        ),
+    },
+  );
+
+  /**
+   * Todas as fotos em mão.
+   *
+   * A revisão só monta quando a última chega, e a razão é o `ngOnChanges` do
+   * viewer: qualquer mudança em `panoramas` o faz voltar ao ambiente inicial.
+   * Montando cedo, uma foto que chegasse enquanto o corretor estivesse no
+   * terceiro cômodo o jogaria de volta ao primeiro, sem explicação.
+   */
+  readonly tourPronto = computed(() =>
+    this.draft
+      .readyScenes()
+      .every((s) => !!(s.treatedImageUrl || s.imageData)),
+  );
+
   readonly viewerPanoramas = computed<Panorama[]>(
     () => {
       const cena = this.passagens.atual()?.origem;
@@ -144,6 +201,18 @@ export class StepPassagesComponent {
       const cena = this.passagens.atual()?.origem;
       if (!cena || cena.treatedImageUrl || cena.imageData) return;
       void this.draft.garantirImagem(cena.id, 'treated').catch(() => undefined);
+    });
+
+    // Na revisão o corretor anda pelo tour inteiro, então TODAS as fotos
+    // precisam estar em mão — não só a do passo. A dependência é o booleano de
+    // `acabou()`, e não a fila: um `computed` de objeto reagiria a cada ponto
+    // marcado e dispararia o lote a cada toque.
+    effect(() => {
+      if (!this.passagens.acabou()) return;
+      for (const cena of untracked(() => this.draft.readyScenes())) {
+        if (cena.treatedImageUrl || cena.imageData) continue;
+        void this.draft.garantirImagem(cena.id, 'treated').catch(() => undefined);
+      }
     });
   }
 
