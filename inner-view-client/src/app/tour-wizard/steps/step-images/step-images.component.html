@@ -1,13 +1,4 @@
-<header class="tw-step-head">
-  <h2>{{ 'TOUR_WIZARD.STEP1.TITLE' | translate }}</h2>
-</header>
-
-<!--
-  O input NÃO é `display: none`. Escondido assim ele sai da ordem de tabulação,
-  e o dropzone deixa de existir para quem navega por teclado. Fica visualmente
-  oculto porém focável, com o <label> abaixo servindo de nome acessível: Tab
-  chega nele, o leitor anuncia "Enviar arquivos", Espaço abre o seletor.
--->
+<!-- O mesmo input atende à decisão inicial e à ação de adicionar mais. -->
 <input
   #fileInput
   id="tw-files"
@@ -17,62 +8,165 @@
   multiple
   (change)="onFiles($event)" />
 
-<section
-  class="tw-drop"
-  [class.is-over]="isDragOver()"
-  (click)="openFilePicker()"
-  (dragenter)="onDragEnter($event)"
-  (dragover)="onDragOver($event)"
-  (dragleave)="onDragLeave($event)"
-  (drop)="onDrop($event)">
-  <span class="tw-drop__icon" aria-hidden="true">+</span>
-
-  <!--
-    O handoff usa textos diferentes em desktop e mobile ("Arraste suas fotos"
-    não faz sentido num celular). A troca é por CSS, não por JS: media query
-    não obriga a ler a largura da tela no componente.
-  -->
-  <h3 class="tw-drop__title">
-    <span class="tw-only-desktop">{{ 'TOUR_WIZARD.STEP1.DROP_TITLE' | translate }}</span>
-    <span class="tw-only-mobile">{{ 'TOUR_WIZARD.STEP1.DROP_TITLE_MOBILE' | translate }}</span>
-  </h3>
-  <p class="tw-drop__sub tw-only-desktop">{{ 'TOUR_WIZARD.STEP1.DROP_SUB' | translate }}</p>
-
-  <!--
-    `$event.stopPropagation()` nos dois: sem isso o clique sobe até o card e
-    dispara o seletor de arquivos uma segunda vez.
-  -->
-  <div class="tw-drop__actions">
-    <label for="tw-files" class="tw-btn tw-btn--bordered" (click)="$event.stopPropagation()">
-      <span aria-hidden="true">↑</span>
-      {{ 'TOUR_WIZARD.STEP1.UPLOAD_FILES' | translate }}
-    </label>
-
-    <button
-      type="button"
-      class="tw-btn tw-btn--primary"
-      (click)="$event.stopPropagation(); openCapture()">
-      <span aria-hidden="true">◎</span>
-      {{ 'TOUR_WIZARD.STEP1.TAKE_PHOTO' | translate }}
-    </button>
-  </div>
-
-</section>
-
-<!-- A lista só existe depois da primeira imagem: vazia, ela seria só um título. -->
-@if (store.scenes().length) {
-  <section class="tw-scenes">
-    <header class="tw-scenes__head">
-      <h3>{{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}</h3>
-      <span class="tw-scenes__count">{{ countKey() | translate: { n: store.scenes().length } }}</span>
+@if (!store.scenes().length) {
+  <!-- Esta tela só decide a origem. A primeira cena a substitui pela galeria. -->
+  <section class="tw-source" aria-labelledby="tw-source-title">
+    <header class="tw-step-head">
+      <h2 id="tw-source-title">{{ 'TOUR_WIZARD.STEP1.TITLE' | translate }}</h2>
+      <p>{{ 'TOUR_WIZARD.STEP1.SUBTITLE' | translate }}</p>
     </header>
 
-    <ul class="tw-scenes__grid" role="list">
-      @for (scene of store.scenes(); track scene.id) {
-        <li>
-          <app-scene-card [scene]="scene" />
-        </li>
+    <div
+      class="tw-drop"
+      [class.is-over]="isDragOver()"
+      (click)="openFilePicker()"
+      (dragenter)="onDragEnter($event)"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)">
+      <span class="tw-drop__icon" aria-hidden="true">+</span>
+
+      <h3 class="tw-drop__title">
+        <span class="tw-only-desktop">{{ 'TOUR_WIZARD.STEP1.DROP_TITLE' | translate }}</span>
+        <span class="tw-only-mobile">{{ 'TOUR_WIZARD.STEP1.DROP_TITLE_MOBILE' | translate }}</span>
+      </h3>
+      <p class="tw-drop__sub tw-only-desktop">{{ 'TOUR_WIZARD.STEP1.DROP_SUB' | translate }}</p>
+      <p class="tw-drop__sub tw-only-mobile">{{ 'TOUR_WIZARD.STEP1.DROP_SUB_MOBILE' | translate }}</p>
+
+      <div class="tw-drop__actions">
+        <label for="tw-files" class="tw-btn tw-btn--bordered" (click)="$event.stopPropagation()">
+          <span aria-hidden="true">↑</span>
+          {{ 'TOUR_WIZARD.STEP1.UPLOAD_FILES' | translate }}
+        </label>
+
+        <button
+          type="button"
+          class="tw-btn tw-btn--primary"
+          (click)="$event.stopPropagation(); openCapture()">
+          <span aria-hidden="true">◎</span>
+          {{ 'TOUR_WIZARD.STEP1.TAKE_PHOTO' | translate }}
+        </button>
+      </div>
+    </div>
+  </section>
+} @else {
+  <section class="tw-scenes" aria-labelledby="tw-scenes-title">
+    <header class="tw-scenes__head">
+      <div>
+        <h2 id="tw-scenes-title" #galleryHeading tabindex="-1">
+          {{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}
+        </h2>
+        <p>{{ 'TOUR_WIZARD.STEP1.SCENES_HELPER' | translate }}</p>
+      </div>
+      <span class="tw-scenes__count">
+        {{ countKey() | translate: { n: store.scenes().length } }}
+      </span>
+    </header>
+
+    <div class="tw-deck">
+      <ul
+        class="tw-deck__list"
+        role="list"
+        [attr.aria-label]="'TOUR_WIZARD.STEP1.DECK_LABEL' | translate">
+        @for (item of deckItems(); track item.scene.id) {
+          <li
+            class="tw-deck__item"
+            [class.is-hidden]="item.hidden"
+            [class.is-arriving]="item.scene.id === arrivingSceneId()"
+            [attr.data-depth]="item.depth"
+            [style.z-index]="store.scenes().length - item.depth"
+            [attr.inert]="item.depth > 0 ? '' : null"
+            [attr.aria-hidden]="item.depth > 0 ? 'true' : null">
+            <button
+              type="button"
+              class="tw-deck__card"
+              [class.is-active]="item.scene.id === activeScene()?.id"
+              [attr.aria-current]="item.scene.id === activeScene()?.id ? 'true' : null"
+              [attr.tabindex]="item.depth > 0 ? -1 : null"
+              (click)="selectScene(item.scene)">
+              <span
+                class="tw-deck__photo"
+                [class.is-empty]="!item.imageUrl"
+                [style.background-image]="item.imageUrl ? 'url(' + item.imageUrl + ')' : null"
+                aria-hidden="true">
+                @if (!item.imageUrl) {
+                  <span class="tw-deck__placeholder">360°</span>
+                }
+              </span>
+              <span class="tw-deck__scrim" aria-hidden="true"></span>
+
+              <span class="tw-deck__caption">
+                <span class="tw-visually-hidden">
+                  @if (item.number) {
+                    {{ 'TOUR_WIZARD.STEP1.SHOW_SCENE' | translate: { n: item.number } }}
+                  } @else {
+                    {{ item.scene.room.trim() || item.scene.fileName }}
+                  }
+                </span>
+                <strong>
+                  {{
+                    item.scene.room.trim() ||
+                      (item.number
+                        ? ('TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: item.number })
+                        : item.scene.fileName)
+                  }}
+                </strong>
+
+                @if (item.scene.state === 'reading') {
+                  <small>{{ 'TOUR_WIZARD.STEP1.READING' | translate }}</small>
+                } @else if (item.scene.state === 'rejected') {
+                  <small>{{ 'TOUR_WIZARD.STEP1.CARD_REJECTED' | translate }}</small>
+                }
+              </span>
+            </button>
+          </li>
+        }
+      </ul>
+
+      @if (store.scenes().length > 1) {
+        <nav
+          class="tw-deck__pagination"
+          [attr.aria-label]="'TOUR_WIZARD.STEP1.DECK_PAGINATION' | translate">
+          @for (scene of store.scenes(); track scene.id) {
+            <button
+              type="button"
+              [class.is-active]="scene.id === activeScene()?.id"
+              [attr.aria-current]="scene.id === activeScene()?.id ? 'true' : null"
+              [attr.aria-label]="
+                scene.state === 'ready'
+                  ? ('TOUR_WIZARD.STEP1.SHOW_SCENE'
+                    | translate: { n: store.readyScenes().indexOf(scene) + 1 })
+                  : scene.room.trim() || scene.fileName
+              "
+              (click)="selectScene(scene)">
+              <span aria-hidden="true"></span>
+            </button>
+          }
+        </nav>
       }
-    </ul>
+    </div>
+
+    @if (activeScene(); as scene) {
+      <div
+        class="tw-scenes__editor"
+        role="region"
+        [attr.aria-label]="'TOUR_WIZARD.STEP1.EDITOR_LABEL' | translate">
+        <app-scene-card [scene]="scene" />
+      </div>
+    }
+
+    <section class="tw-scenes__add" aria-labelledby="tw-add-more-title">
+      <h3 id="tw-add-more-title">{{ 'TOUR_WIZARD.STEP1.ADD_MORE_TITLE' | translate }}</h3>
+      <div class="tw-scenes__actions">
+        <label for="tw-files" class="tw-btn tw-btn--bordered">
+          <span aria-hidden="true">+</span>
+          {{ 'TOUR_WIZARD.STEP1.ADD_MORE_FILES' | translate }}
+        </label>
+        <button type="button" class="tw-btn tw-btn--primary" (click)="openCapture()">
+          <span aria-hidden="true">◎</span>
+          {{ 'TOUR_WIZARD.STEP1.TAKE_ANOTHER_PHOTO' | translate }}
+        </button>
+      </div>
+    </section>
   </section>
 }

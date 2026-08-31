@@ -74,7 +74,7 @@
 <button
   type="button"
   class="tw-scene__remove"
-  [attr.aria-label]="'TOUR_WIZARD.STEP1.REMOVE' | translate: { room: scene().room }"
+  [attr.aria-label]="'TOUR_WIZARD.STEP1.REMOVE' | translate: { room: accessibleName() }"
   (click)="onRemove()">
   <app-tw-trash-icon />
 </button>

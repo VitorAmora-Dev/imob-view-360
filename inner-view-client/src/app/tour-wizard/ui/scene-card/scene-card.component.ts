@@ -81,6 +81,11 @@ export class SceneCardComponent {
 
   readonly sizeLabel = computed(() => formatBytes(this.scene().fileSize));
 
+  /** Nome da ação destrutiva mesmo antes de o ambiente ser nomeado. */
+  readonly accessibleName = computed(
+    () => this.scene().room.trim() || this.scene().fileName,
+  );
+
   /**
    * Este ambiente está sem nome E a pessoa já tentou avançar.
    *
