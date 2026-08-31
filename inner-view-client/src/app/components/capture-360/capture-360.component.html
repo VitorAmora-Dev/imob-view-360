@@ -1,14 +1,9 @@
 <div class="capture-root">
   <!--
-    One container for both steps, deliberately OUTSIDE the switch below.
-    The preview is a single <video> element that gets moved into whichever
-    container is on screen, and taking it out of the document — which is what
-    destroying the lens step used to do — pauses it. Keeping one container
-    alive across lens → capturing means it is never moved on the transition
-    that matters, so there is no black frame and the camera keeps the exposure
-    it had already settled on.
+    Fora do @switch de proposito: e o mesmo <video> em todo restart() dentro do
+    estado `capturing`, e tira-lo do documento pausaria o stream.
   -->
-  @if (state() === 'lens' || state() === 'capturing') {
+  @if (state() === 'capturing') {
     <div class="preview" #previewContainer></div>
   }
 
@@ -23,55 +18,6 @@
         <ion-button expand="block" fill="clear" class="on-dark" (click)="cancel()">
           {{ 'CAPTURE.CANCEL' | translate }}
         </ion-button>
-      </div>
-    }
-
-    @case ('lens') {
-      <div class="lens-step">
-        <div class="top-bar">
-          <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
-            [attr.aria-label]="'CAPTURE.CANCEL' | translate">
-            <ion-icon name="close-outline"></ion-icon>
-          </button>
-          <span class="count-chip">{{ 'CAPTURE.LENS_TITLE' | translate }}</span>
-          <span class="top-bar-spacer"></span>
-        </div>
-
-        <div class="lens-step-bottom">
-          @if (narrowFrameWarning()) {
-            <span class="warn-pill">
-              {{ 'CAPTURE.NARROW_FRAME_WARNING' | translate: { total: totalCount() } }}
-            </span>
-          }
-
-          <span class="lens-summary">
-            {{ 'CAPTURE.LENS_SUMMARY' | translate: { total: totalCount(), share: activeSoftwareShare() } }}
-          </span>
-
-          @if (lenses().length > 1) {
-            <div class="lens-picker" role="group" [attr.aria-label]="'CAPTURE.LENS' | translate">
-              @for (lens of lenses(); track lens.deviceId) {
-                <button
-                  type="button"
-                  class="lens-chip"
-                  [class.lens-chip--active]="lens.deviceId === activeLensId()"
-                  [attr.aria-pressed]="lens.deviceId === activeLensId()"
-                  [title]="lens.label"
-                  (click)="selectLens(lens)">
-                  <span class="lens-chip-name">{{ lensLabel(lens) }}</span>
-                  <span class="lens-chip-cost" [class]="'lens-chip-cost--' + shareLevel(lens)">
-                    {{ 'CAPTURE.LENS_COST' | translate: { share: shareOf(lens) } }}
-                  </span>
-                </button>
-              }
-            </div>
-            <span class="lens-legend">{{ 'CAPTURE.LENS_COST_LEGEND' | translate }}</span>
-          } @else {
-            <span class="hint-pill">{{ 'CAPTURE.SINGLE_LENS' | translate }}</span>
-          }
-
-          <ion-button (click)="startCapture()">{{ 'CAPTURE.START_RING' | translate }}</ion-button>
-        </div>
       </div>
     }
 
