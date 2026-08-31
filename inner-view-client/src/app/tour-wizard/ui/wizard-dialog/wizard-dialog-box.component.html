@@ -1,0 +1,84 @@
+<header class="tw-dialog__head">
+  <h2 class="tw-dialog__title">{{ pergunta().tituloKey | translate }}</h2>
+
+  <!--
+    O X existe para o toque em voltar que ninguém quis dar. É o PRIMEIRO nó
+    focável de propósito: a tecla que chega antes de qualquer decisão deve ser
+    a que não decide nada.
+
+    Só aparece quando a pergunta é dispensável — um X que não fecha seria pior
+    que nenhum.
+  -->
+  @if (pergunta().dispensavel) {
+    <button
+      type="button"
+      class="tw-dialog__close"
+      [attr.aria-label]="(pergunta().fecharKey ?? fecharPadrao) | translate"
+      (click)="fechou.emit()">
+      <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+    </button>
+  }
+</header>
+
+<p class="tw-dialog__message">{{ pergunta().mensagemKey | translate }}</p>
+
+<!--
+  Uma linha, ordem de leitura. A primeira ação é a segura e vem antes no DOM:
+  é o que o teclado alcança primeiro e o que o leitor de tela anuncia primeiro.
+
+  A aparência dos dois primeiros tons vem das classes globais de
+  `tour-wizard.scss` — os mesmos botões da barra de ação do wizard. O
+  destrutivo é daqui porque aquele arquivo está CONGELADO
+  (SPRINT-3-TOUR-WIZARD.md §4.1) e não tinha variante para ele.
+-->
+<div class="tw-dialog__actions">
+  @for (acao of pergunta().acoes; track acao.id) {
+    <button
+      type="button"
+      class="tw-btn tw-dialog__action"
+      [class.tw-btn--primary]="acao.tom === 'primario'"
+      [class.tw-btn--bordered]="acao.tom === 'neutro'"
+      [class.tw-dialog__action--destrutivo]="acao.tom === 'destrutivo'"
+      [class.is-armada]="armada()?.id === acao.id"
+      (click)="tocar(acao)"
+      (blur)="desarmar()">
+      @if (acao.icone === 'lixeira') {
+        <app-tw-trash-icon class="tw-dialog__icone" />
+      }
+
+      <!--
+        Os dois rótulos ficam SEMPRE no DOM, empilhados na mesma célula de
+        grade, e o que não vale some por `visibility` — que não devolve o
+        espaço. Assim o botão já nasce com a largura do rótulo mais comprido e
+        o primeiro toque não muda o tamanho de nada.
+
+        Isso é segurança, não capricho: crescendo, este botão empurraria o
+        "Continuar depois" para a linha de baixo, e o segundo toque — que o
+        dedo dá no mesmo lugar do primeiro — cairia num botão diferente do que
+        se está confirmando.
+      -->
+      <span class="tw-dialog__rotulos">
+        <span class="tw-dialog__rotulo" [class.is-oculto]="armada()?.id === acao.id">
+          {{ acao.rotuloKey | translate }}
+        </span>
+
+        @if (acao.confirmaKey; as confirma) {
+          <span class="tw-dialog__rotulo" [class.is-oculto]="armada()?.id !== acao.id">
+            {{ confirma | translate }}
+          </span>
+        }
+      </span>
+    </button>
+  }
+</div>
+
+<!--
+  O rótulo do botão muda debaixo do foco, e trocar o texto do elemento focado
+  não é reanunciado de forma confiável por leitor de tela. Esta região diz, em
+  voz alta e só para eles, o que a tela acabou de passar a pedir.
+-->
+<span role="status" class="tw-visually-hidden">
+  @if (armada(); as acao) {
+    {{ acao.confirmaKey! | translate }}
+  }
+</span>

@@ -75,3 +75,17 @@
     </div>
   </div>
 </ion-content>
+
+<!--
+  Fora do `ion-content` de propósito: o diálogo não é conteúdo da página, é uma
+  camada sobre ela — e o `ion-content` rola, o que faria a caixa herdar um
+  contexto de rolagem que ela não deve ter.
+
+  As três ligações são toda a conversa: a página pergunta, o serviço guarda a
+  pergunta, o componente desenha, e a resposta volta pelo mesmo caminho. O
+  componente não conhece o rascunho; o serviço não conhece o DOM.
+-->
+<app-tw-wizard-dialog
+  [pergunta]="dialogo.pergunta()"
+  (escolheu)="dialogo.escolher($event)"
+  (dispensou)="dialogo.dispensar($event)" />
