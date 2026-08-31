@@ -97,12 +97,16 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
    * acontece DEPOIS da escolha, então o dublê devolve um alerta cujo
    * `present()` resolve e já dispara o handler do botão pedido.
    *
-   * `chave` é o sufixo da chave de i18n do botão: LEAVE_KEEP, LEAVE_DISCARD,
-   * LEAVE_CANCEL. O texto vem traduzido; o `TranslateService` nos testes
-   * devolve a própria chave (sem loader configurado), então basta procurar o
-   * sufixo dentro dela.
+   * Cada `chave` é o sufixo da chave de i18n de um botão: LEAVE_KEEP,
+   * LEAVE_DISCARD, LEAVE_CANCEL. O texto vem traduzido; o `TranslateService`
+   * nos testes devolve a própria chave (sem loader configurado), então basta
+   * procurar o sufixo dentro dela.
+   *
+   * Aceita VÁRIAS porque um fluxo pode abrir dois alertas em sequência — sair
+   * pedindo para salvar e, se a rede cair, o alerta que pergunta o que fazer.
+   * Os conjuntos de botões são disjuntos, então um dublê só serve aos dois.
    */
-  function escolherNoAlerta(chave: string): void {
+  function escolherNoAlerta(...chaves: string[]): void {
     spyOn(TestBed.inject(AlertController), 'create').and.callFake(
       async (opts: { buttons?: unknown[] } = {}) => {
         const botoes = (opts.buttons ?? []) as Array<{
@@ -111,7 +115,9 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
         }>;
         return {
           present: async () => {
-            const alvo = botoes.find((b) => (b.text ?? '').includes(chave));
+            const alvo = botoes.find((b) =>
+              chaves.some((chave) => (b.text ?? '').includes(chave)),
+            );
             alvo?.handler?.();
           },
         } as never;
@@ -166,18 +172,65 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       expect(pode).toBe(true);
     });
 
-    it('sai mesmo quando salvar falha', async () => {
-      // Segurar alguém dentro do wizard porque a rede caiu é pior que perder
-      // as edições da última etapa: as fotos e a IA já estão no servidor de
-      // qualquer forma.
+    /**
+     * O DEFEITO: `.catch(() => undefined)` e sai. O corretor acabava de ler
+     * "as fotos e o tratamento da IA já estão guardados", tocava em continuar
+     * depois, a rede caía — e ele saía acreditando, sem os nomes dos
+     * ambientes, os hotspots e as conexões. Exatamente o que esta
+     * funcionalidade existe para guardar.
+     */
+    it('quando salvar falha, PERGUNTA em vez de sair calado', async () => {
       const page = montarPagina();
       spyOn(page.store, 'salvarRascunho').and.rejectWith(new Error('rede'));
       comUmaCena(page);
-      escolherNoAlerta('LEAVE_KEEP');
+      const alerta = spyOn(TestBed.inject(AlertController), 'create').and.callFake(
+        async (opts: { buttons?: unknown[] } = {}) => {
+          const botoes = (opts.buttons ?? []) as Array<{
+            text?: string;
+            handler?: () => void;
+          }>;
+          return {
+            present: async () => {
+              const alvo = botoes.find((b) =>
+                ['LEAVE_KEEP', 'SAVE_FAILED_LEAVE'].some((c) =>
+                  (b.text ?? '').includes(c),
+                ),
+              );
+              alvo?.handler?.();
+            },
+            onDidDismiss: async () => ({ role: 'cancel' }),
+          } as never;
+        },
+      );
+
+      await page.aoVoltar();
+
+      // Dois alertas: o de sair, e o que conta que não salvou.
+      expect(alerta.calls.count()).toBe(2);
+    });
+
+    it('"sair mesmo assim" continua liberando a saída — agora informado', async () => {
+      // Prender alguém no wizard porque a rede caiu é pior. O que deixa de
+      // existir é sair sem saber.
+      const page = montarPagina();
+      spyOn(page.store, 'salvarRascunho').and.rejectWith(new Error('rede'));
+      comUmaCena(page);
+      escolherNoAlerta('LEAVE_KEEP', 'SAVE_FAILED_LEAVE');
 
       const pode = await page.aoVoltar();
 
       expect(pode).toBe(true);
+    });
+
+    it('"tentar de novo" mantém o corretor na tela, com o trabalho', async () => {
+      const page = montarPagina();
+      spyOn(page.store, 'salvarRascunho').and.rejectWith(new Error('rede'));
+      comUmaCena(page);
+      escolherNoAlerta('LEAVE_KEEP', 'SAVE_RETRY');
+
+      const pode = await page.aoVoltar();
+
+      expect(pode).toBe(false);
     });
 
     it('ao escolher "Descartar captura", descarta e libera a saída', async () => {

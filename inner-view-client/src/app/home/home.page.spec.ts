@@ -5,9 +5,10 @@ import {
   TestRequest,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
-import { Router, provideRouter } from '@angular/router';
+import { Event, NavigationEnd, Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { provideTranslateService } from '@ngx-translate/core';
+import { Subject } from 'rxjs';
 
 import { HomePage } from './home.page';
 import { Property } from '../models/property.model';
@@ -304,5 +305,36 @@ describe('HomePage', () => {
     harness.detectChanges();
 
     expect(component.properties().map((p) => p.id)).toEqual(['9']);
+  });
+
+  /**
+   * A lista envelhecia na página em cache.
+   *
+   * O `<ion-router-outlet>` mantém a home VIVA enquanto o corretor está no
+   * wizard, e o gatilho da consulta só dispara quando filtro muda. Voltar de
+   * uma publicação com os mesmos critérios não emitia nada: ele acabava de
+   * criar um imóvel e a tela principal não o reconhecia.
+   *
+   * O evento é empurrado no stream do `Router` em vez de navegar de verdade
+   * porque é a única forma de reproduzir o cache aqui: uma navegação real neste
+   * harness DESTRÓI a `HomePage`, e a seguinte criaria outra — que carrega no
+   * `ngOnInit` de qualquer jeito, e o teste passaria sem exercitar nada.
+   */
+  it('recarrega a lista ao voltar de outra tela', async () => {
+    responder(await abrir(), [imovel('1')]);
+    const eventos = TestBed.inject(Router).events as unknown as Subject<Event>;
+
+    eventos.next(new NavigationEnd(1, '/tour/novo', '/tour/novo'));
+    eventos.next(new NavigationEnd(2, '/home', '/home'));
+    harness.detectChanges();
+    // A faixa de rascunhos volta pelo mesmo caminho, e também pede o dela.
+    flushRascunhos();
+
+    responder(
+      http.expectOne((r) => r.url.endsWith('/properties')),
+      [imovel('1'), imovel('2')],
+    );
+
+    expect(component.properties().map((p) => p.id)).toEqual(['1', '2']);
   });
 });

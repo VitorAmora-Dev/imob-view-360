@@ -232,7 +232,12 @@
       "RESUME_FAILED_TITLE": "Could not open this capture",
       "RESUME_FAILED_MESSAGE": "It may have already been published or discarded. If not, it is the connection — try again in a moment.",
       "RESUME_FAILED_RETRY": "Try again",
-      "RESUME_FAILED_HOME": "Back to home"
+      "RESUME_FAILED_HOME": "Back to home",
+      "SAVE_FAILED": "We could not save your latest changes.",
+      "SAVE_RETRY": "Try again",
+      "SAVE_FAILED_TITLE": "Your latest changes were not saved",
+      "SAVE_FAILED_MESSAGE": "The photos and the AI treatment are stored. What has not been uploaded yet are the room names, the passages and the property details — leaving now loses that part.",
+      "SAVE_FAILED_LEAVE": "Leave anyway"
     },
     "STEP1": {
       "TITLE": "Start with the 360° images",

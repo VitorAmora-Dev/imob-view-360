@@ -1,11 +1,15 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
-import { NavigationEnd, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { AlertController, ToastController } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
-import { filter, firstValueFrom } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 
+import {
+  NavegacaoEntreTelas,
+  ehAHome,
+} from '../../services/navegacao-entre-telas.service';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
@@ -56,6 +60,7 @@ export class RascunhosBandComponent implements OnInit {
   private readonly propertyService = inject(PropertyService);
   private readonly imagens = inject(PanoramaImageCache);
   private readonly router = inject(Router);
+  private readonly navegacao = inject(NavegacaoEntreTelas);
   private readonly alertController = inject(AlertController);
   private readonly toastController = inject(ToastController);
   private readonly translate = inject(TranslateService);
@@ -63,48 +68,26 @@ export class RascunhosBandComponent implements OnInit {
   readonly rascunhos = signal<CartaoDeRascunho[]>([]);
 
   /**
-   * De onde veio a última navegação. Começa na home de propósito — ver o
-   * construtor.
-   */
-  private ultimaRota = '/home';
-
-  /**
    * Recarrega quando a home VOLTA a aparecer, e não só no `ngOnInit`.
    *
-   * O app usa `<ion-router-outlet>`, que MANTÉM a página na pilha: voltar do
-   * wizard reusa a `HomePage` viva e o `ngOnInit` não roda de novo. Publicar
-   * uma captura e voltar deixava o cartão dela na faixa — a home afirmando
-   * "em andamento" sobre um tour que já estava no ar, até o app ser recarregado
-   * do zero. O mesmo valia para descartar dentro do wizard, ou em outro
-   * aparelho.
+   * Publicar uma captura e voltar deixava o cartão dela na faixa — a home
+   * afirmando "em andamento" sobre um tour que já estava no ar, até o app ser
+   * recarregado do zero. O mesmo valia para descartar dentro do wizard, ou em
+   * outro aparelho. A regra de "voltou a aparecer" mora em
+   * `NavegacaoEntreTelas`, junto com a armadilha da query string que ela
+   * resolve.
    *
-   * Pelo `Router`, e não por um método público que a `HomePage` chamasse no
-   * `ionViewWillEnter` dela: esta faixa é dona do próprio dado — busca a
-   * própria lista e decide sozinha se aparece (ver o cabeçalho). Um
-   * `@ViewChild` na `HomePage` só para mandar recarregar obrigaria a página a
-   * conhecer um filho que ela hoje só posiciona.
-   *
-   * O critério é VIR DE FORA, e não "chegar na home": os filtros da `HomePage`
-   * moram na query string, então cada troca de filtro, cada chip removido e
-   * cada busca digitada é uma navegação para `/home` também. Comparar só o
-   * destino refazia a busca de rascunhos a cada uma delas — uma requisição e
-   * uma rajada de miniaturas por tecla.
-   *
-   * `ultimaRota` começa em `/home` porque a navegação que CRIA este componente
-   * ainda vai emitir o `NavigationEnd` dela (a rota ativa o componente antes
-   * de anunciar o fim), e o `ngOnInit` já buscou por essa.
+   * Pelo roteador, e não por um método público que a `HomePage` chamasse: esta
+   * faixa é dona do próprio dado — busca a própria lista e decide sozinha se
+   * aparece (ver o cabeçalho). Um `@ViewChild` na `HomePage` só para mandar
+   * recarregar obrigaria a página a conhecer um filho que ela hoje só
+   * posiciona.
    */
   constructor() {
-    this.router.events
-      .pipe(
-        filter((evento): evento is NavigationEnd => evento instanceof NavigationEnd),
-        takeUntilDestroyed(),
-      )
-      .subscribe((evento) => {
-        const veioDeFora = !ehAHome(this.ultimaRota);
-        this.ultimaRota = evento.urlAfterRedirects;
-        if (veioDeFora && ehAHome(evento.urlAfterRedirects)) void this.carregar();
-      });
+    this.navegacao
+      .aoVoltarPara(ehAHome)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => void this.carregar());
   }
 
   ngOnInit(): void {
@@ -230,14 +213,4 @@ export class RascunhosBandComponent implements OnInit {
   private texto(chave: string): string {
     return this.translate.instant(chave) as string;
   }
-}
-
-/**
- * A home responde por dois caminhos: `/home` e a raiz, que redireciona para
- * ela (`app.routes.ts`). O `urlAfterRedirects` já entrega o destino resolvido,
- * mas a query string e o fragmento vêm junto — por isso o corte antes de
- * comparar, e não um `===` na URL inteira.
- */
-function ehAHome(url: string): boolean {
-  return url.split(/[?#]/)[0] === '/home';
 }

@@ -1246,6 +1246,28 @@ export class TourDraftStore {
    */
   private readonly ultimoPanoramaGravado = new Map<string, string>();
 
+  /**
+   * Como terminou a última tentativa de salvar — o único sinal do salvamento
+   * que a tela pode ler.
+   *
+   * As três portas de salvamento (troca de etapa, `visibilitychange` e
+   * "Continuar depois") engoliam a falha com `.catch(() => undefined)`, e
+   * `salvandoRascunho` é privado: NÃO HAVIA como uma tela saber que uma
+   * gravação falhou. O corretor via o alerta dizendo "as fotos e o tratamento
+   * da IA já estão guardados", tocava em sair, a rede caía, e ele saía
+   * acreditando — sem os nomes, os hotspots, as conexões e os dados do
+   * imóvel, que é exatamente o que esta funcionalidade existe para guardar.
+   *
+   * Um sinal, e não um `@Output` ou um callback por chamador: quem sabe se a
+   * gravação deu certo é quem grava, e cada tela decide sozinha o que fazer
+   * com isso — a barra mostra um aviso, o diálogo de sair pergunta.
+   *
+   * `falhou` é sobre a última RODADA, não sobre a sessão: uma rodada seguinte
+   * que dê certo salva tudo o que está na tela (ela lê o estado atual, não um
+   * diário de mudanças), e por isso limpa o aviso com razão.
+   */
+  readonly estadoDoSalvamento = signal<'ocioso' | 'salvando' | 'falhou'>('ocioso');
+
   /** A promise da gravação em voo agora, ou `null` quando nenhuma está. */
   private salvandoRascunho: Promise<void> | null = null;
 
@@ -1278,13 +1300,19 @@ export class TourDraftStore {
       rejeitar = rej;
     });
     this.salvandoRascunho = promise;
+    this.estadoDoSalvamento.set('salvando');
     this.salvarRascunhoAgora(geracao).then(
       () => {
         if (this.salvandoRascunho === promise) this.salvandoRascunho = null;
+        // Só a rodada mais recente manda no sinal. Com uma próxima já
+        // encadeada, quem responde pelo estado é ela: esta terminou lendo um
+        // estado que a seguinte vai reler inteiro.
+        if (!this.salvandoRascunho) this.estadoDoSalvamento.set('ocioso');
         resolver();
       },
       (erro: unknown) => {
         if (this.salvandoRascunho === promise) this.salvandoRascunho = null;
+        if (!this.salvandoRascunho) this.estadoDoSalvamento.set('falhou');
         rejeitar(erro);
       },
     );
@@ -1651,6 +1679,8 @@ export class TourDraftStore {
     // outro tour — impossível hoje (os ids são uuid), mas a invariante fica
     // certa por construção e não por sorte.
     this.ultimoPanoramaGravado.clear();
+    // O aviso pertencia ao rascunho que acabou de sair de cena.
+    this.estadoDoSalvamento.set('ocioso');
 
     // A partir daqui, toda gravação PEDIDA antes deste ponto vira no-op: sem
     // isto, uma rodada enfileirada antes de um descarte rodava depois dele,

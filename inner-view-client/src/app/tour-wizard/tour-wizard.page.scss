@@ -84,6 +84,29 @@
 }
 
 /*
+  Variante com ação: o aviso de salvamento traz o "tentar de novo" na mesma
+  linha. Botão de texto e não `ion-button` — a linha inteira é um parágrafo, e
+  um botão de bloco aqui empurraria a barra de ação para baixo no celular, que
+  é onde mora o único "Continuar".
+*/
+.tw-shell__error--acao {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  button {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+}
+
+/*
   Etapa de passagens no celular: a foto ocupa a tela.
 
   Some por CSS e nao por `@if`: recriar o stepper e a barra a cada troca de

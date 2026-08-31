@@ -232,7 +232,12 @@
       "RESUME_FAILED_TITLE": "Não deu para abrir esta captura",
       "RESUME_FAILED_MESSAGE": "Ela pode já ter sido publicada ou descartada. Se não for isso, é a conexão — tente de novo em instantes.",
       "RESUME_FAILED_RETRY": "Tentar de novo",
-      "RESUME_FAILED_HOME": "Voltar ao início"
+      "RESUME_FAILED_HOME": "Voltar ao início",
+      "SAVE_FAILED": "Não conseguimos salvar as últimas mudanças.",
+      "SAVE_RETRY": "Tentar de novo",
+      "SAVE_FAILED_TITLE": "As últimas mudanças não foram salvas",
+      "SAVE_FAILED_MESSAGE": "As fotos e o tratamento da IA estão guardados. O que ainda não subiu são os nomes dos ambientes, as passagens e os dados do imóvel — sair agora perde essa parte.",
+      "SAVE_FAILED_LEAVE": "Sair mesmo assim"
     },
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",

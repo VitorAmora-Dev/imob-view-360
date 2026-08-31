@@ -135,6 +135,44 @@ export class TourWizardPage implements OnInit {
     }
   }
 
+  /**
+   * Salvar falhou na saída: pergunta em vez de deixar sair acreditando.
+   *
+   * Resolve `false` (fica) no "tentar de novo" — o guard cancela a saída e o
+   * corretor vê o aviso da barra, com o botão de repetir. Resolve `true` no
+   * "sair mesmo assim", que é escolha informada, e é o que o texto do botão
+   * precisa deixar claro.
+   *
+   * `backdropDismiss: false` porque tocar fora não é resposta: os dois
+   * desfechos aqui são consequentes, e o default silencioso seria justamente o
+   * que este alerta existe para tirar do caminho.
+   */
+  private avisarQueNaoSalvou(): Promise<boolean> {
+    return new Promise<boolean>((decidir) => {
+      void this.alertController
+        .create({
+          header: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_FAILED_TITLE'),
+          message: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_FAILED_MESSAGE'),
+          backdropDismiss: false,
+          buttons: [
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_FAILED_LEAVE'),
+              role: 'destructive',
+              handler: () => decidir(true),
+            },
+            {
+              text: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_RETRY'),
+              handler: () => decidir(false),
+            },
+          ],
+        })
+        .then((alerta) => alerta.present())
+        // Mesma regra da cadeia acima: se o próprio alerta não subir, não dá
+        // para prender ninguém na tela por causa disso.
+        .catch(() => decidir(true));
+    });
+  }
+
   private async avisarQueNaoRetomou(tourId: string): Promise<void> {
     const alerta = await this.alertController.create({
       header: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_TITLE'),
@@ -159,6 +197,17 @@ export class TourWizardPage implements OnInit {
       ],
     });
     await alerta.present();
+  }
+
+  /**
+   * "Tentar de novo" do aviso da barra.
+   *
+   * Fogo-e-esquece de propósito: quem lê o resultado é o próprio
+   * `estadoDoSalvamento`, que a barra observa. Um `await` aqui só serviria
+   * para reescrever no `catch` o que o sinal já vai dizer.
+   */
+  salvarDeNovo(): void {
+    void this.store.salvarRascunho().catch(() => undefined);
   }
 
   /** O header encolhe com o scroll e depende do container do ion-content. */
@@ -247,14 +296,22 @@ export class TourWizardPage implements OnInit {
             {
               text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_KEEP'),
               handler: () => {
-                // Falhar aqui não pode prender ninguém na tela: as fotos e o
-                // tratamento por IA já estão no servidor, e o que se perde é
-                // a edição da última etapa. Segurar alguém dentro do wizard
-                // porque a rede caiu é pior.
-                void this.store
-                  .salvarRascunho()
-                  .catch(() => undefined)
-                  .then(() => resolve(true));
+                // A única das três portas em que o corretor PEDIU para salvar —
+                // e o alerta que ele acabou de ler afirma que está guardado.
+                //
+                // Antes: `.catch(() => undefined)` e sai. A rede caía e ele
+                // saía acreditando, sem os nomes, os hotspots e as conexões.
+                // As fotos e o tratamento por IA de fato estão salvos — eles
+                // sobem durante a captura —, mas o resto é exatamente o que
+                // esta funcionalidade existe para guardar.
+                //
+                // Sair continua sendo opção dele; prender alguém no wizard
+                // porque a rede caiu é pior. O que deixa de existir é sair sem
+                // saber.
+                void this.store.salvarRascunho().then(
+                  () => resolve(true),
+                  () => void this.avisarQueNaoSalvou().then(resolve),
+                );
               },
             },
           ],
