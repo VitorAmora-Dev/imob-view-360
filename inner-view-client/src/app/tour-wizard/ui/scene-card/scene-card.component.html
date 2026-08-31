@@ -8,7 +8,6 @@
 -->
 <span
   class="tw-scene__thumb"
-  [class.is-melhorando]="melhorando()"
   [style.background-image]="thumbUrl() ? 'url(' + thumbUrl() + ')' : null"
   aria-hidden="true"></span>
 
@@ -56,16 +55,7 @@
     Recusa e ressalva ficam no card, não num toast: o toast some antes de a
     pessoa entender qual das oito fotos deu problema.
   -->
-  @if (melhorando()) {
-    <!--
-      A cena segue `ready` durante toda a montagem: ela é utilizável e
-      publicável agora, e o tratamento só a melhora. Por isso este ramo vem
-      antes e é um eixo à parte dos estados do arquivo.
-    -->
-    <p class="tw-scene__note is-ia" role="status">
-      {{ 'TOUR_WIZARD.STEP1.MELHORANDO' | translate }}
-    </p>
-  } @else if (scene().state === 'reading') {
+  @if (scene().state === 'reading') {
     <p class="tw-scene__note">{{ 'TOUR_WIZARD.STEP1.READING' | translate }}</p>
   } @else if (scene().state === 'rejected') {
     <p class="tw-scene__note is-error" role="alert">{{ rejectionKey() | translate }}</p>

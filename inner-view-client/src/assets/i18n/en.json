@@ -265,7 +265,6 @@
       "BADGE_COVER": "Cover",
       "BADGE_ROOM": "Room {{n}}",
       "BADGE_IA": "AI-enhanced",
-      "MELHORANDO": "Enhancing with AI…",
       "REMOVE": "Remove the room {{room}}",
       "READING": "Reading the image…",
       "REJECTED_TYPE": "Not a valid image.",

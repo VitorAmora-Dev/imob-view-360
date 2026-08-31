@@ -92,14 +92,23 @@ export type WizardSceneState = 'reading' | 'ready' | 'rejected';
  * `idle` é o estado de quem nunca vai ser tratado: foto vinda de arquivo, sem
  * as fotos originais que servem de referência ao modelo. Diferente de
  * `skipped`, que é o servidor dizendo que olhou e dispensou.
+ *
+ * SÓ ESTADO TERMINAL. `uploading` e `processing` moravam aqui e saíram: nada
+ * no cliente os produz mais.
+ *
+ * O tratamento deixou de rodar em segundo plano no store e passou a acontecer
+ * DENTRO do modal de captura, aguardado por quem chamou — quando o cômodo
+ * aparece na etapa 1, ele já chegou tratado. O único escritor vivo hoje é o
+ * `step-images`, gravando `done` quando o modal devolve foto tratada; os
+ * demais valores só aparecem numa retomada, traduzidos do `treatmentStatus`.
+ *
+ * Enquanto os dois existiam, a retomada os produzia a partir do `PENDING` que
+ * é o `@default` da coluna — e como nenhuma tela do wizard acompanha montagem,
+ * o selo "Melhorando com IA…" acendia em foto que nunca seria tratada e não
+ * saía mais. Um estado que ninguém alcança e ninguém encerra é onde a mentira
+ * cabe.
  */
-export type WizardSceneAiState =
-  | 'idle'
-  | 'uploading'
-  | 'processing'
-  | 'done'
-  | 'failed'
-  | 'skipped';
+export type WizardSceneAiState = 'idle' | 'done' | 'failed' | 'skipped';
 
 /**
  * Por que o arquivo foi RECUSADO. Só o que é impossível de aproveitar: um PDF

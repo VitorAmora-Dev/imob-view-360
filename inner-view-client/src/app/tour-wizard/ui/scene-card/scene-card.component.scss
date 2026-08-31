@@ -18,47 +18,6 @@
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-
-  // Pulso enquanto a IA monta este cômodo. Sobre a miniatura e não ao lado
-  // dela: o que está mudando é a foto, e é nela que o olho tem que pousar.
-  //
-  // O `position: relative` só existe neste estado — a miniatura é um <span>
-  // vazio no resto do tempo, e criar contexto de empilhamento à toa mexeria
-  // com a lixeira que flutua no card.
-  &.is-melhorando {
-    position: relative;
-    overflow: hidden;
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        100deg,
-        transparent 20%,
-        rgb(255 255 255 / 45%) 50%,
-        transparent 80%
-      );
-      transform: translateX(-100%);
-      animation: tw-scene-brilho 1.6s ease-in-out infinite;
-    }
-  }
-}
-
-// Quem pediu menos movimento não leva um brilho varrendo a tela por minutos a
-// fio. O texto "melhorando com IA" já diz que há algo em curso — mesma regra
-// que valia no anel da tela de espera que este fluxo aposentou.
-@keyframes tw-scene-brilho {
-  to {
-    transform: translateX(100%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tw-scene__thumb.is-melhorando::after {
-    animation: none;
-    background: rgb(255 255 255 / 18%);
-  }
 }
 
 .tw-scene__main {
@@ -156,11 +115,6 @@
     color: var(--tw-warn-text);
   }
 
-  // Não é erro nem ressalva: é trabalho em curso sobre uma cena que já está
-  // boa. Tom de marca, como o selo que ele vira quando termina.
-  &.is-ia {
-    color: var(--tw-brand);
-  }
 }
 
 // Gêmeo do .tw-hp__remove da etapa 2 — mesmas cores, mesma lógica de hover.
