@@ -167,6 +167,56 @@ describe('StepPassagesComponent', () => {
     expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.DONE');
   });
 
+  // A tela do fim nao e um aviso: e a revisao. O corretor marcou os pontos as
+  // cegas, e andar pelo resultado e a unica forma de descobrir que um deles
+  // caiu na parede antes de o cliente descobrir.
+  describe('a revisao do fim', () => {
+    function visor(): PanoramicViewerComponent | null {
+      const de = fixture.debugElement.query(By.directive(PanoramicViewerComponent));
+      return de ? (de.componentInstance as PanoramicViewerComponent) : null;
+    }
+
+    const acabado = () => [
+      cena('sala', ['cozinha'], [ponto('h1', 'cozinha')]),
+      cena('cozinha', ['sala'], [ponto('h2', 'sala')]),
+    ];
+
+    it('mostra o tour inteiro, e nao so a foto do ultimo passo', () => {
+      montar(acabado());
+      expect(visor()?.panoramas.map((p) => p.id)).toEqual(['sala', 'cozinha']);
+    });
+
+    // Sem `originHotspots` o viewer nao desenha esfera nenhuma, e nao ha o
+    // que clicar: a revisao viraria uma foto parada.
+    it('os pontos viram destinos clicaveis', () => {
+      montar(acabado());
+
+      const sala = visor()!.panoramas[0];
+      expect(sala.originHotspots.length).toBe(1);
+      expect(sala.originHotspots[0].targetId).toBe('cozinha');
+      expect(sala.originHotspots[0].positionX).toBe(0.5);
+    });
+
+    // Em edicao um toque na foto CRIA ponto. Na revisao isso seria sabotagem.
+    it('nao esta em modo de edicao', () => {
+      montar(acabado());
+      expect(visor()?.editMode).toBeFalse();
+    });
+
+    // O `ngOnChanges` do viewer volta ao ambiente inicial a cada mudanca de
+    // `panoramas`. Montando antes de todas as fotos chegarem, a que chegasse
+    // enquanto o corretor esta no terceiro comodo o jogaria de volta ao
+    // primeiro, sem explicacao.
+    it('espera as fotos chegarem antes de montar', () => {
+      const semFoto = acabado();
+      semFoto[1] = { ...semFoto[1], imageData: '' };
+      montar(semFoto);
+
+      expect(visor()).toBeNull();
+      expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.DONE');
+    });
+  });
+
   it('sem conexao nenhuma, manda voltar e conectar', () => {
     montar([cena('sala'), cena('cozinha')]);
     expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.EMPTY');

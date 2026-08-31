@@ -3,9 +3,26 @@
     {{ 'TOUR_WIZARD.PASSAGES.EMPTY' | translate }}
   </p>
 } @else if (passagens.acabou()) {
-  <p class="sp__pronto" role="status">
-    {{ 'TOUR_WIZARD.PASSAGES.DONE' | translate: { n: passagens.total() } }}
-  </p>
+  <!--
+    A revisao: o tour inteiro, navegavel, do jeito que o visitante vera. Sem
+    `editMode`, entao um toque na foto nao cria ponto nenhum -- clicar num ponto
+    troca de ambiente. Nao e imersivo de proposito: a barra do wizard fica a
+    vista, porque e por ela que se segue para as informacoes.
+  -->
+  <div class="sp sp--revisao">
+    @if (tourPronto()) {
+      <div class="sp__pano">
+        <app-panoramic-viewer
+          [panoramas]="tourCompleto()"
+          [editMode]="false"
+          [roomNav]="true" />
+      </div>
+    }
+
+    <p class="sp__pronto" role="status">
+      {{ 'TOUR_WIZARD.PASSAGES.DONE' | translate: { n: passagens.total() } }}
+    </p>
+  </div>
 } @else if (passagens.atual(); as passagem) {
   <div class="sp">
     <div class="sp__pano">

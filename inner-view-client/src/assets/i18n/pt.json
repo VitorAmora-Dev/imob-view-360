@@ -288,7 +288,7 @@
       "REDO": "Refazer",
       "CONFIRM": "Confirmar passagem",
       "BACK": "Voltar aos ambientes",
-      "DONE": "As {{n}} passagens estão posicionadas.",
+      "DONE": "As {{n}} passagens estão posicionadas. Toque num ponto para percorrer o tour como o visitante vai ver.",
       "EMPTY": "Nenhuma conexão escolhida. Volte aos ambientes e conecte-os.",
       "NEEDS_LINKS": "Posicione as passagens que faltam antes de seguir"
     },

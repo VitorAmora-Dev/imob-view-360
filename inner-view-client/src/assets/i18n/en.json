@@ -288,7 +288,7 @@
       "REDO": "Redo",
       "CONFIRM": "Confirm passage",
       "BACK": "Back to rooms",
-      "DONE": "All {{n}} passages are placed.",
+      "DONE": "All {{n}} passages are placed. Tap a point to walk the tour the way visitors will see it.",
       "EMPTY": "No connections chosen. Go back to the rooms and connect them.",
       "NEEDS_LINKS": "Place the remaining passages before moving on"
     },

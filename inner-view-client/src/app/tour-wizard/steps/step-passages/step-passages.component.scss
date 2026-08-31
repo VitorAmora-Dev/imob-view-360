@@ -27,6 +27,14 @@ app-passagens-sheet {
   margin-top: -20px;
 }
 
+/*
+  Na revisao a barra do wizard esta a vista (ver `imersivo` na pagina), entao a
+  foto NAO toma a tela: ela precisa caber junto do rodape.
+*/
+.sp--revisao {
+  gap: 12px;
+}
+
 .sp__vazio,
 .sp__pronto {
   margin: 0;
@@ -52,5 +60,16 @@ app-passagens-sheet {
     flex: 1 1 auto;
     height: auto;
     border-radius: 0;
+  }
+
+  /* A revisao e a excecao: ver o comentario de `.sp--revisao`. */
+  .sp--revisao {
+    height: auto;
+  }
+
+  .sp--revisao .sp__pano {
+    flex: none;
+    height: 320px;
+    border-radius: var(--tw-radius-md);
   }
 }
