@@ -144,7 +144,7 @@ ion-card.property-card {
   margin-left: auto;
 }
 
-ion-button.meta-action {
+ion-button.share-btn {
   --color: var(--app-muted);
   --padding-start: 6px;
   --padding-end: 6px;
@@ -154,11 +154,6 @@ ion-button.meta-action {
 
   ion-icon {
     font-size: 18px;
-  }
-
-  // Star rating renders in ink — never yellow (DESIGN.md)
-  &.meta-action--active {
-    --color: var(--app-ink);
   }
 }
 

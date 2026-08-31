@@ -51,21 +51,13 @@
           {{ 'HOME.CARD_CREATE_TOUR' | translate }}
         </button>
       }
-      <div class="meta-actions">
-        <ion-button
-          fill="clear"
-          size="small"
-          class="meta-action"
-          [class.meta-action--active]="favorited"
-          (click)="onFavorite($event)">
-          <ion-icon slot="icon-only" [name]="favorited ? 'star' : 'star-outline'"></ion-icon>
-        </ion-button>
-        @if (item.virtualTour) {
-          <ion-button fill="clear" size="small" class="meta-action" (click)="onShare($event)">
+      @if (item.virtualTour) {
+        <div class="meta-actions">
+          <ion-button fill="clear" size="small" class="share-btn" (click)="onShare($event)">
             <ion-icon slot="icon-only" name="share-social-outline"></ion-icon>
           </ion-button>
-        }
-      </div>
+        </div>
+      }
     </div>
   </div>
 </ion-card>
