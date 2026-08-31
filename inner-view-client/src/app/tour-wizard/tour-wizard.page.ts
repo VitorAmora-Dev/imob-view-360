@@ -7,8 +7,8 @@ import {
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AlertController, IonContent } from '@ionic/angular/standalone';
-import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { IonContent } from '@ionic/angular/standalone';
+import { TranslatePipe } from '@ngx-translate/core';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { filaDePassagens } from './passagens/fila';
 import { TourPublishedComponent } from './published/tour-published.component';
@@ -19,6 +19,104 @@ import { StepInfoComponent } from './steps/step-info/step-info.component';
 import { TourDraftStore } from './tour-draft.store';
 import { WizardActionsComponent } from './ui/wizard-actions/wizard-actions.component';
 import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.component';
+import { DialogoDoWizard } from './ui/wizard-dialog/dialogo-do-wizard.service';
+import { WizardDialogComponent } from './ui/wizard-dialog/wizard-dialog.component';
+import { PerguntaDoWizard } from './ui/wizard-dialog/wizard-dialog.model';
+
+/**
+ * As perguntas que esta tela faz, e as respostas que ela sabe interpretar.
+ *
+ * Fora da classe porque não dependem de nada dela: são dados. Os `id` viram
+ * constantes para o `switch` lá embaixo comparar com a MESMA string que a
+ * pergunta declara — literal solto nos dois lugares é como um renomear
+ * silencioso vira "nenhuma ação foi escolhida".
+ */
+const SAIR_SALVANDO = 'continuar-depois';
+const SAIR_DESCARTANDO = 'descartar';
+const SAIR_SEM_SALVAR = 'sair-mesmo-assim';
+const TENTAR_DE_NOVO = 'tentar-de-novo';
+
+/**
+ * Duas saídas, e a segura vem primeiro — na leitura, no foco e na largura.
+ *
+ * `dispensavel` porque a terceira saída do alerta antigo ("Ficar aqui") virou
+ * o X, o toque fora e o Esc: tocar em voltar sem querer é o caso comum, e o
+ * caso comum não merece um botão do mesmo tamanho das duas decisões reais.
+ * Dispensar responde `null`, que esta tela lê como "fica".
+ */
+const PERGUNTA_DE_SAIDA: PerguntaDoWizard = {
+  tituloKey: 'TOUR_WIZARD.COMMON.LEAVE_TITLE',
+  mensagemKey: 'TOUR_WIZARD.COMMON.LEAVE_MESSAGE',
+  dispensavel: true,
+  // "Fechar" descreveria o gesto; aqui o X quer dizer "ficar aqui", que e' o
+  // que o leitor de tela precisa anunciar.
+  fecharKey: 'TOUR_WIZARD.COMMON.LEAVE_CANCEL',
+  acoes: [
+    {
+      id: SAIR_SALVANDO,
+      rotuloKey: 'TOUR_WIZARD.COMMON.LEAVE_KEEP',
+      tom: 'primario',
+    },
+    {
+      id: SAIR_DESCARTANDO,
+      rotuloKey: 'TOUR_WIZARD.COMMON.LEAVE_DISCARD',
+      tom: 'destrutivo',
+      icone: 'lixeira',
+      // Dois toques. `descartarRascunho()` apaga o imóvel em cascata — as
+      // fotos e o tratamento por IA que já subiram vão junto, e não voltam. Com
+      // o alerta de três botões, este ficava protegido por estar no meio da
+      // pilha; com dois botões grandes ele passou a ser metade da tela, do lado
+      // em que o polegar descansa. A confirmação devolve o custo que a
+      // simplificação tirou.
+      confirmaKey: 'TOUR_WIZARD.COMMON.LEAVE_DISCARD_CONFIRM',
+    },
+  ],
+};
+
+/**
+ * `dispensavel: false` porque tocar fora não é resposta: os dois desfechos
+ * aqui são consequentes, e o default silencioso seria justamente o que este
+ * aviso existe para tirar do caminho.
+ *
+ * Sem lixeira no "Sair mesmo assim": ele não apaga nada — deixa para trás o
+ * que ainda não subiu. A lixeira é do descarte, e só dele.
+ */
+const PERGUNTA_DE_SALVAMENTO_FALHO: PerguntaDoWizard = {
+  tituloKey: 'TOUR_WIZARD.COMMON.SAVE_FAILED_TITLE',
+  mensagemKey: 'TOUR_WIZARD.COMMON.SAVE_FAILED_MESSAGE',
+  dispensavel: false,
+  acoes: [
+    {
+      id: TENTAR_DE_NOVO,
+      rotuloKey: 'TOUR_WIZARD.COMMON.SAVE_RETRY',
+      tom: 'primario',
+    },
+    {
+      id: SAIR_SEM_SALVAR,
+      rotuloKey: 'TOUR_WIZARD.COMMON.SAVE_FAILED_LEAVE',
+      tom: 'destrutivo',
+    },
+  ],
+};
+
+/** Ver `retomar()` para o motivo de "siga como tour novo" não estar aqui. */
+const PERGUNTA_DE_RETOMADA_FALHA: PerguntaDoWizard = {
+  tituloKey: 'TOUR_WIZARD.COMMON.RESUME_FAILED_TITLE',
+  mensagemKey: 'TOUR_WIZARD.COMMON.RESUME_FAILED_MESSAGE',
+  dispensavel: false,
+  acoes: [
+    {
+      id: TENTAR_DE_NOVO,
+      rotuloKey: 'TOUR_WIZARD.COMMON.RESUME_FAILED_RETRY',
+      tom: 'primario',
+    },
+    {
+      id: 'voltar-ao-inicio',
+      rotuloKey: 'TOUR_WIZARD.COMMON.RESUME_FAILED_HOME',
+      tom: 'neutro',
+    },
+  ],
+};
 
 /**
  * Wizard de criação de tour: topbar, stepper, corpo da etapa e barra de ação.
@@ -38,7 +136,7 @@ import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.compo
   templateUrl: './tour-wizard.page.html',
   styleUrls: ['./tour-wizard.page.scss'],
   standalone: true,
-  providers: [TourDraftStore],
+  providers: [TourDraftStore, DialogoDoWizard],
   imports: [
     IonContent,
     TranslatePipe,
@@ -50,6 +148,7 @@ import { WizardStepperComponent } from './ui/wizard-stepper/wizard-stepper.compo
     StepPassagesComponent,
     StepInfoComponent,
     TourPublishedComponent,
+    WizardDialogComponent,
   ],
 })
 export class TourWizardPage implements OnInit {
@@ -57,8 +156,13 @@ export class TourWizardPage implements OnInit {
 
   @ViewChild(AppHeaderComponent) private header?: AppHeaderComponent;
 
-  private readonly alertController = inject(AlertController);
-  private readonly translate = inject(TranslateService);
+  /**
+   * Público porque o template o liga no `<app-tw-wizard-dialog>`: quem abre e
+   * fecha o diálogo é o serviço, e a página só faz a pergunta e lê a
+   * resposta.
+   */
+  readonly dialogo = inject(DialogoDoWizard);
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -124,15 +228,26 @@ export class TourWizardPage implements OnInit {
    *
    * Ele tocou na faixa exatamente para NÃO recomeçar. Então as duas saídas são
    * tentar de novo ou voltar para a home — nenhuma delas é "siga como tour
-   * novo". `backdropDismiss: false` pelo mesmo motivo: fechar no toque de fora
-   * devolveria justamente o estado que este alerta existe para impedir.
+   * novo". `dispensavel: false` na pergunta pelo mesmo motivo: fechar no
+   * toque de fora devolveria justamente o estado que ela existe para impedir.
    */
   private async retomar(tourId: string): Promise<void> {
     try {
       await this.store.retomarRascunho(tourId);
+      return;
     } catch {
-      await this.avisarQueNaoRetomou(tourId);
+      // Segue abaixo: a pergunta não pode acontecer dentro do `catch`, senão
+      // uma falha DELA viraria uma segunda entrada neste mesmo bloco.
     }
+
+    if ((await this.dialogo.perguntar(PERGUNTA_DE_RETOMADA_FALHA)) === TENTAR_DE_NOVO) {
+      // Recursão só avança com gesto do corretor: cada rodada nova custa um
+      // toque, então rede fora não vira laço de tentativas.
+      await this.retomar(tourId);
+      return;
+    }
+
+    void this.router.navigate(['/home']);
   }
 
   /**
@@ -143,60 +258,12 @@ export class TourWizardPage implements OnInit {
    * "sair mesmo assim", que é escolha informada, e é o que o texto do botão
    * precisa deixar claro.
    *
-   * `backdropDismiss: false` porque tocar fora não é resposta: os dois
-   * desfechos aqui são consequentes, e o default silencioso seria justamente o
-   * que este alerta existe para tirar do caminho.
+   * A pergunta não é dispensável (ver `PERGUNTA_DE_SALVAMENTO_FALHO`), então
+   * `null` aqui só chegaria se ela fosse substituída por outra — caso em que
+   * ficar é a resposta segura.
    */
-  private avisarQueNaoSalvou(): Promise<boolean> {
-    return new Promise<boolean>((decidir) => {
-      void this.alertController
-        .create({
-          header: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_FAILED_TITLE'),
-          message: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_FAILED_MESSAGE'),
-          backdropDismiss: false,
-          buttons: [
-            {
-              text: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_FAILED_LEAVE'),
-              role: 'destructive',
-              handler: () => decidir(true),
-            },
-            {
-              text: this.translate.instant('TOUR_WIZARD.COMMON.SAVE_RETRY'),
-              handler: () => decidir(false),
-            },
-          ],
-        })
-        .then((alerta) => alerta.present())
-        // Mesma regra da cadeia acima: se o próprio alerta não subir, não dá
-        // para prender ninguém na tela por causa disso.
-        .catch(() => decidir(true));
-    });
-  }
-
-  private async avisarQueNaoRetomou(tourId: string): Promise<void> {
-    const alerta = await this.alertController.create({
-      header: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_TITLE'),
-      message: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_MESSAGE'),
-      backdropDismiss: false,
-      buttons: [
-        {
-          text: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_HOME'),
-          role: 'cancel',
-          handler: () => {
-            void this.router.navigate(['/home']);
-          },
-        },
-        {
-          text: this.translate.instant('TOUR_WIZARD.COMMON.RESUME_FAILED_RETRY'),
-          handler: () => {
-            // Recursão só avança com gesto do corretor: cada rodada nova custa
-            // um toque, então rede fora não vira laço de tentativas.
-            void this.retomar(tourId);
-          },
-        },
-      ],
-    });
-    await alerta.present();
+  private async avisarQueNaoSalvou(): Promise<boolean> {
+    return (await this.dialogo.perguntar(PERGUNTA_DE_SALVAMENTO_FALHO)) === SAIR_SEM_SALVAR;
   }
 
   /**
@@ -222,7 +289,7 @@ export class TourWizardPage implements OnInit {
    * `canDeactivate` de novo — então o botão físico do Android, um duplo
    * toque no header ou o voltar do navegador em sequência chamam
    * `aoVoltar()` mais de uma vez antes da primeira responder. Sem esta
-   * trava, a segunda chamada abriria um SEGUNDO alerta por cima do primeiro;
+   * trava, a segunda chamada abriria um SEGUNDO diálogo por cima do primeiro;
    * se os dois botões escolhidos divergissem ("Descartar" em cima,
    * "Continuar depois" embaixo), `salvarRascunho()` rodaria DEPOIS do
    * `reset()` do descarte e recriaria um imóvel "Captura em andamento" vazio
@@ -263,65 +330,39 @@ export class TourWizardPage implements OnInit {
    * não: o tour já está no ar, e oferecer "descartar" ali apagaria um imóvel
    * que deixou de ser rascunho.
    */
-  private decidirSaida(): Promise<boolean> {
+  private async decidirSaida(): Promise<boolean> {
     if (this.store.published() || !this.store.readyScenes().length) {
-      return Promise.resolve(true);
+      return true;
     }
 
-    return new Promise<boolean>((resolve) => {
-      void this.alertController
-        .create({
-          header: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_TITLE'),
-          message: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_MESSAGE'),
-          // Sem escolha explícita a promise nunca resolveria, e o guard
-          // ficaria pendurado — por isso o toque fora do alerta não conta
-          // como resposta.
-          backdropDismiss: false,
-          buttons: [
-            {
-              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_CANCEL'),
-              role: 'cancel',
-              handler: () => resolve(false),
-            },
-            {
-              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_DISCARD'),
-              role: 'destructive',
-              handler: () => {
-                void this.store
-                  .descartarRascunho()
-                  .catch(() => undefined)
-                  .then(() => resolve(true));
-              },
-            },
-            {
-              text: this.translate.instant('TOUR_WIZARD.COMMON.LEAVE_KEEP'),
-              handler: () => {
-                // A única das três portas em que o corretor PEDIU para salvar —
-                // e o alerta que ele acabou de ler afirma que está guardado.
-                //
-                // Antes: `.catch(() => undefined)` e sai. A rede caía e ele
-                // saía acreditando, sem os nomes, os hotspots e as conexões.
-                // As fotos e o tratamento por IA de fato estão salvos — eles
-                // sobem durante a captura —, mas o resto é exatamente o que
-                // esta funcionalidade existe para guardar.
-                //
-                // Sair continua sendo opção dele; prender alguém no wizard
-                // porque a rede caiu é pior. O que deixa de existir é sair sem
-                // saber.
-                void this.store.salvarRascunho().then(
-                  () => resolve(true),
-                  () => void this.avisarQueNaoSalvou().then(resolve),
-                );
-              },
-            },
-          ],
-        })
-        .then((alerta) => alerta.present())
-        // Mesma regra de "sair não pode travar" que já vale para a rede,
-        // acima: se o próprio `create()`/`present()` falhar (raro, mas
-        // existe — overlay sem host, por exemplo), sem isto a promise nunca
-        // resolveria e a pessoa não conseguiria mais sair do wizard, nunca.
-        .catch(() => resolve(true));
-    });
+    switch (await this.dialogo.perguntar(PERGUNTA_DE_SAIDA)) {
+      case SAIR_DESCARTANDO:
+        await this.store.descartarRascunho().catch(() => undefined);
+        return true;
+
+      case SAIR_SALVANDO:
+        // A única das saídas em que o corretor PEDIU para salvar — e o
+        // diálogo que ele acabou de ler afirma que está guardado.
+        //
+        // Antes: engolir a falha e sair. A rede caía e ele saía acreditando,
+        // sem os nomes, os hotspots e as conexões. As fotos e o tratamento por
+        // IA de fato estão salvos — eles sobem durante a captura —, mas o
+        // resto é exatamente o que esta funcionalidade existe para guardar.
+        //
+        // Sair continua sendo opção dele; prender alguém no wizard porque a
+        // rede caiu é pior. O que deixa de existir é sair sem saber.
+        try {
+          await this.store.salvarRascunho();
+          return true;
+        } catch {
+          return this.avisarQueNaoSalvou();
+        }
+
+      default:
+        // O X, o toque fora e o Esc. Dispensar É "ficar aqui" — foi o botão
+        // que eles substituíram, e é a resposta segura para o toque em voltar
+        // que ninguém quis dar.
+        return false;
+    }
   }
 }

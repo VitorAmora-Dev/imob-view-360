@@ -1,0 +1,37 @@
+// O `ion-modal` nasce tela cheia. Estes valores são o que o transforma numa
+// caixa centralizada — repassados dos tokens do wizard, como no `hotspot-sheet`,
+// para o diálogo não destoar do resto da tela.
+ion-modal.tw-dialog {
+  // A margem lateral é apertada no telefone de propósito: com "Apagar mesmo?"
+  // reservando largura no botão de descartar (ver `.tw-dialog__rotulos`), a
+  // sobra de 40px deixava os dois botões 1px acima do que a linha comporta a
+  // 390 — e 1px é o bastante para o flex quebrar a linha. Medido no navegador.
+  --width: min(420px, calc(100vw - 32px));
+  --height: auto;
+  --max-height: calc(100vh - 48px);
+  --border-radius: var(--tw-radius-lg);
+  --box-shadow: 0 18px 48px rgba(var(--tour-bg-rgb), 0.28);
+  --backdrop-opacity: 1;
+  --background: var(--tw-surface);
+}
+
+// O scrim do Ionic é preto puro com opacidade; o token do wizard já é a cor
+// final, então a opacidade acima vai a 1 e a cor vem inteira daqui.
+ion-modal.tw-dialog::part(backdrop) {
+  background: var(--tw-scrim);
+}
+
+// `--height: auto` só chega ao conteúdo se a página que o Ionic monta em volta
+// dele parar de exigir 100% de altura. É a receita oficial do modal de altura
+// automática.
+//
+// `::ng-deep` porque `.ion-page` é criada pelo Ionic em tempo de execução e não
+// carrega o atributo `_ngcontent` — sem ele a regra encapsulada não casaria com
+// nada. Ancorada em `ion-modal.tw-dialog`, que É deste componente, o alcance
+// para dentro deste diálogo.
+ion-modal.tw-dialog ::ng-deep .ion-page {
+  position: relative;
+  display: block;
+  contain: content;
+  overflow-y: auto;
+}

@@ -7,9 +7,9 @@ import {
   convertToParamMap,
   provideRouter,
 } from '@angular/router';
-import { AlertController } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TourWizardPage } from './tour-wizard.page';
+import { PerguntaDoWizard } from './ui/wizard-dialog/wizard-dialog.model';
 import { WizardScene } from './tour-wizard.model';
 
 /**
@@ -51,17 +51,6 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
         // para o `routerLink` do logotipo do `app-header` (filho estático,
         // montado já na criação da fixture) achar um `ActivatedRoute`.
         provideRouter([]),
-        // Dublê mínimo: só precisa existir como função para o `spyOn` de cada
-        // teste assumir o controle — mesmo padrão do `ToastController` em
-        // `inner-view-page.download.spec.ts` (`{ create: umaFn }`), e não o
-        // objeto vazio usado ali para o `AlertController`, que nunca chega a
-        // ser chamado naquele spec.
-        {
-          provide: AlertController,
-          useValue: {
-            create: () => Promise.resolve({ present: () => Promise.resolve() }),
-          },
-        },
       ],
     });
   }
@@ -90,39 +79,37 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
   }
 
   /**
-   * Faz o `AlertController` "abrir" e o usuário tocar num botão.
+   * Faz o diálogo "aparecer" e o corretor tocar num botão.
    *
-   * O `AlertController` real monta um overlay fora da árvore do componente e
-   * não termina dentro de um `whenStable`. O que interessa testar é o que
-   * acontece DEPOIS da escolha, então o dublê devolve um alerta cujo
-   * `present()` resolve e já dispara o handler do botão pedido.
+   * Dubla o `DialogoDoWizard`, e não o componente: o que interessa testar aqui
+   * é a POLÍTICA — que pergunta a página faz e o que ela conclui de cada
+   * resposta. Como o diálogo desenha, como ele prende o foco e o que o X faz
+   * são do componente, e têm spec próprio.
    *
    * Cada `chave` é o sufixo da chave de i18n de um botão: LEAVE_KEEP,
-   * LEAVE_DISCARD, LEAVE_CANCEL. O texto vem traduzido; o `TranslateService`
-   * nos testes devolve a própria chave (sem loader configurado), então basta
-   * procurar o sufixo dentro dela.
+   * LEAVE_DISCARD, SAVE_RETRY… Procurar pelo RÓTULO, e não pelo `id`, é de
+   * propósito: o teste passa a falar do que o corretor lê na tela, e uma troca
+   * de rótulo que mude o sentido do botão aparece aqui.
    *
-   * Aceita VÁRIAS porque um fluxo pode abrir dois alertas em sequência — sair
-   * pedindo para salvar e, se a rede cair, o alerta que pergunta o que fazer.
-   * Os conjuntos de botões são disjuntos, então um dublê só serve aos dois.
+   * Sem chave que case, devolve `null` — que é exatamente o que dispensar o
+   * diálogo devolve. Ver `dispensandoODialogo`.
+   *
+   * Aceita VÁRIAS porque um fluxo pode abrir dois diálogos em sequência — sair
+   * pedindo para salvar e, se a rede cair, o que pergunta o que fazer. Os
+   * conjuntos de ações são disjuntos, então um dublê só serve aos dois.
    */
-  function escolherNoAlerta(...chaves: string[]): void {
-    spyOn(TestBed.inject(AlertController), 'create').and.callFake(
-      async (opts: { buttons?: unknown[] } = {}) => {
-        const botoes = (opts.buttons ?? []) as Array<{
-          text?: string;
-          handler?: () => void;
-        }>;
-        return {
-          present: async () => {
-            const alvo = botoes.find((b) =>
-              chaves.some((chave) => (b.text ?? '').includes(chave)),
-            );
-            alvo?.handler?.();
-          },
-        } as never;
-      },
+  function escolherNoDialogo(page: TourWizardPage, ...chaves: string[]): jasmine.Spy {
+    return spyOn(page.dialogo, 'perguntar').and.callFake(
+      async (pergunta: PerguntaDoWizard) =>
+        pergunta.acoes.find((acao) =>
+          chaves.some((chave) => acao.rotuloKey.includes(chave)),
+        )?.id ?? null,
     );
+  }
+
+  /** O X, o toque fora e o Esc — todos chegam à página como `null`. */
+  function dispensandoODialogo(page: TourWizardPage): jasmine.Spy {
+    return spyOn(page.dialogo, 'perguntar').and.resolveTo(null);
   }
 
   /**
@@ -137,11 +124,11 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
   describe('aoVoltar', () => {
     it('não pergunta nada quando não há o que perder', async () => {
       const page = montarPagina();
-      const alerta = spyOn(TestBed.inject(AlertController), 'create');
+      const perguntar = spyOn(page.dialogo, 'perguntar');
 
       const pode = await page.aoVoltar();
 
-      expect(alerta).not.toHaveBeenCalled();
+      expect(perguntar).not.toHaveBeenCalled();
       expect(pode).toBe(true);
     });
 
@@ -152,11 +139,11 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPagina();
       comUmaCena(page);
       page.store.published.set(true);
-      const alerta = spyOn(TestBed.inject(AlertController), 'create');
+      const perguntar = spyOn(page.dialogo, 'perguntar');
 
       const pode = await page.aoVoltar();
 
-      expect(alerta).not.toHaveBeenCalled();
+      expect(perguntar).not.toHaveBeenCalled();
       expect(pode).toBe(true);
     });
 
@@ -164,7 +151,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPagina();
       const salvar = spyOn(page.store, 'salvarRascunho').and.resolveTo();
       comUmaCena(page);
-      escolherNoAlerta('LEAVE_KEEP');
+      escolherNoDialogo(page, 'LEAVE_KEEP');
 
       const pode = await page.aoVoltar();
 
@@ -183,30 +170,15 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPagina();
       spyOn(page.store, 'salvarRascunho').and.rejectWith(new Error('rede'));
       comUmaCena(page);
-      const alerta = spyOn(TestBed.inject(AlertController), 'create').and.callFake(
-        async (opts: { buttons?: unknown[] } = {}) => {
-          const botoes = (opts.buttons ?? []) as Array<{
-            text?: string;
-            handler?: () => void;
-          }>;
-          return {
-            present: async () => {
-              const alvo = botoes.find((b) =>
-                ['LEAVE_KEEP', 'SAVE_FAILED_LEAVE'].some((c) =>
-                  (b.text ?? '').includes(c),
-                ),
-              );
-              alvo?.handler?.();
-            },
-            onDidDismiss: async () => ({ role: 'cancel' }),
-          } as never;
-        },
-      );
+      const perguntar = escolherNoDialogo(page, 'LEAVE_KEEP', 'SAVE_FAILED_LEAVE');
 
       await page.aoVoltar();
 
-      // Dois alertas: o de sair, e o que conta que não salvou.
-      expect(alerta.calls.count()).toBe(2);
+      // Dois diálogos: o de sair, e o que conta que não salvou.
+      expect(perguntar.calls.count()).toBe(2);
+      expect(perguntar.calls.mostRecent().args[0].tituloKey).toContain(
+        'SAVE_FAILED_TITLE',
+      );
     });
 
     it('"sair mesmo assim" continua liberando a saída — agora informado', async () => {
@@ -215,7 +187,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPagina();
       spyOn(page.store, 'salvarRascunho').and.rejectWith(new Error('rede'));
       comUmaCena(page);
-      escolherNoAlerta('LEAVE_KEEP', 'SAVE_FAILED_LEAVE');
+      escolherNoDialogo(page, 'LEAVE_KEEP', 'SAVE_FAILED_LEAVE');
 
       const pode = await page.aoVoltar();
 
@@ -226,7 +198,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPagina();
       spyOn(page.store, 'salvarRascunho').and.rejectWith(new Error('rede'));
       comUmaCena(page);
-      escolherNoAlerta('LEAVE_KEEP', 'SAVE_RETRY');
+      escolherNoDialogo(page, 'LEAVE_KEEP', 'SAVE_RETRY');
 
       const pode = await page.aoVoltar();
 
@@ -237,7 +209,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPagina();
       const descartar = spyOn(page.store, 'descartarRascunho').and.resolveTo();
       comUmaCena(page);
-      escolherNoAlerta('LEAVE_DISCARD');
+      escolherNoDialogo(page, 'LEAVE_DISCARD');
 
       const pode = await page.aoVoltar();
 
@@ -249,19 +221,27 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPagina();
       spyOn(page.store, 'descartarRascunho').and.rejectWith(new Error('rede'));
       comUmaCena(page);
-      escolherNoAlerta('LEAVE_DISCARD');
+      escolherNoDialogo(page, 'LEAVE_DISCARD');
 
       const pode = await page.aoVoltar();
 
       expect(pode).toBe(true);
     });
 
-    it('ao escolher "Ficar aqui", não sai e não mexe no rascunho', async () => {
+    /**
+     * "Ficar aqui" deixou de ser um terceiro botão e virou o X, o toque fora e
+     * o Esc — todos chegam aqui como `null`.
+     *
+     * Este é o caso que motivou a mudança: tocar em voltar sem querer. A saída
+     * mais provável do diálogo é a que NÃO decide nada, e ela não precisa
+     * disputar espaço com as duas que decidem.
+     */
+    it('dispensar o diálogo não sai e não mexe no rascunho', async () => {
       const page = montarPagina();
       const salvar = spyOn(page.store, 'salvarRascunho').and.resolveTo();
       const descartar = spyOn(page.store, 'descartarRascunho').and.resolveTo();
       comUmaCena(page);
-      escolherNoAlerta('LEAVE_CANCEL');
+      dispensandoODialogo(page);
 
       const pode = await page.aoVoltar();
 
@@ -271,47 +251,86 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
     });
 
     /**
+     * A forma da pergunta É a decisão de produto, então ela fica travada aqui.
+     *
+     * Duas ações e não três; a segura PRIMEIRO (é o que o teclado alcança
+     * antes e o leitor de tela anuncia antes); a destrutiva com peso visual
+     * menor e a lixeira, porque ela é a única que apaga foto. Inverter a ordem
+     * ou promover a destrutiva a `primario` passaria despercebido numa
+     * revisão e transformaria um toque errado numa exclusão.
+     */
+    it('a pergunta de saída oferece duas saídas, a segura à frente', async () => {
+      const page = montarPagina();
+      comUmaCena(page);
+      const perguntar = dispensandoODialogo(page);
+
+      await page.aoVoltar();
+
+      const pergunta = perguntar.calls.mostRecent().args[0] as PerguntaDoWizard;
+      expect(pergunta.acoes.map((acao) => acao.rotuloKey)).toEqual([
+        'TOUR_WIZARD.COMMON.LEAVE_KEEP',
+        'TOUR_WIZARD.COMMON.LEAVE_DISCARD',
+      ]);
+      expect(pergunta.acoes.map((acao) => acao.tom)).toEqual([
+        'primario',
+        'destrutivo',
+      ]);
+      expect(pergunta.acoes[1].icone).toBe('lixeira');
+      // Sem isto o X some e o toque fora deixa de responder — e a saída do
+      // toque em voltar acidental volta a custar uma decisão.
+      expect(pergunta.dispensavel).toBeTrue();
+    });
+
+    /**
      * Achado da revisão da Tarefa 12: o Router cancela uma navegação em
      * curso quando outra chega e roda o `canDeactivate` de novo — o botão
      * físico do Android, um duplo toque no header ou o voltar do navegador
      * em sequência chamam `aoVoltar()` mais de uma vez antes da primeira
-     * responder. Sem a trava, a segunda chamada abriria um SEGUNDO alerta
+     * responder. Sem a trava, a segunda chamada abriria um SEGUNDO diálogo
      * por cima do primeiro; se as escolhas divergissem ("Descartar" em cima,
      * "Continuar depois" embaixo), `salvarRascunho()` rodaria DEPOIS do
      * `reset()` do descarte e recriaria um imóvel fantasma.
      */
-    it('duas solicitações de saída concorrentes não abrem um segundo alerta', async () => {
+    it('duas solicitações de saída concorrentes não abrem um segundo diálogo', async () => {
       const page = montarPagina();
       comUmaCena(page);
       const descartar = spyOn(page.store, 'descartarRascunho').and.resolveTo();
-      escolherNoAlerta('LEAVE_DISCARD');
-      const create = TestBed.inject(AlertController).create as jasmine.Spy;
+      const perguntar = escolherNoDialogo(page, 'LEAVE_DISCARD');
 
       const primeira = page.aoVoltar();
       const segunda = page.aoVoltar();
 
-      // Só um alerta é aberto — a segunda chamada compartilha a MESMA
+      // Só um diálogo é aberto — a segunda chamada compartilha a MESMA
       // decisão da primeira, em vez de perguntar de novo.
-      expect(create).toHaveBeenCalledTimes(1);
+      expect(perguntar).toHaveBeenCalledTimes(1);
       expect(await primeira).toBe(true);
       expect(await segunda).toBe(true);
       expect(descartar).toHaveBeenCalledTimes(1);
     });
 
-    it('sai mesmo quando o próprio alerta falha ao abrir', async () => {
-      // Mesma regra de "sair não pode travar" que já vale para a rede: sem
-      // o `.catch` no fim da cadeia do alerta, um `present()` que rejeita
-      // deixaria a promise do guard pendurada para sempre, e a pessoa não
-      // conseguiria mais sair do wizard.
+    /**
+     * O que sobrou do "sai mesmo quando o próprio alerta falha ao abrir".
+     *
+     * Aquele teste guardava um `.catch` no fim da cadeia `create().present()`:
+     * um `present()` que rejeitasse deixaria a promise do guard pendurada para
+     * sempre, e a pessoa não conseguiria mais sair do wizard. A cadeia não
+     * existe mais — o diálogo é um componente do template, ligado a um signal,
+     * e não há promise de abertura para rejeitar.
+     *
+     * O que precisa continuar valendo é a regra por trás dele: a decisão em
+     * voo é sempre liberada, para uma saída recusada não trancar a próxima.
+     */
+    it('a decisão de saída não fica presa depois de respondida', async () => {
       const page = montarPagina();
       comUmaCena(page);
-      spyOn(TestBed.inject(AlertController), 'create').and.resolveTo({
-        present: () => Promise.reject(new Error('sem overlay')),
-      } as never);
+      const perguntar = dispensandoODialogo(page);
 
-      const pode = await page.aoVoltar();
+      expect(await page.aoVoltar()).toBe(false);
+      expect(await page.aoVoltar()).toBe(false);
 
-      expect(pode).toBe(true);
+      // Duas perguntas, e não uma decisão velha reaproveitada: o corretor que
+      // tocou em voltar de novo tem direito a decidir de novo.
+      expect(perguntar).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -396,13 +415,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
           provideHttpClientTesting(),
           provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
           provideRouter([]),
-          {
-            provide: AlertController,
-            useValue: {
-              create: () => Promise.resolve({ present: () => Promise.resolve() }),
-            },
-          },
-          // Dublê mínimo, como o `AlertController` acima: só precisa devolver
+          // Dublê mínimo: só precisa devolver
           // o `queryParamMap` que o `ngOnInit` lê no `snapshot`. Navegar de
           // verdade pediria uma rota configurada para `/tour/novo`, que nada
           // aqui além deste parâmetro usa.
@@ -455,14 +468,15 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
     it('falha ao retomar PERGUNTA, em vez de virar um tour novo em silêncio', async () => {
       const page = montarPaginaComQuery('t1');
       spyOn(page.store, 'retomarRascunho').and.rejectWith(new Error('rede'));
-      const alerta = spyOn(TestBed.inject(AlertController), 'create').and.resolveTo({
-        present: () => Promise.resolve(),
-      } as never);
+      const perguntar = spyOn(page.dialogo, 'perguntar').and.resolveTo(null);
 
       page.ngOnInit();
       await esperarMicrotarefas();
 
-      expect(alerta).toHaveBeenCalled();
+      expect(perguntar).toHaveBeenCalled();
+      // Não dispensável: as duas saídas daqui são consequentes, e "nada" não
+      // pode ser a resposta que devolve o estado de tour novo.
+      expect(perguntar.calls.mostRecent().args[0].dispensavel).toBeFalse();
       // O que o defeito produzia: seguir como captura nova.
       expect(page.store.rascunhoTourId()).toBeNull();
       expect(page.store.scenes().length).toBe(0);
@@ -474,7 +488,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
         Promise.reject(new Error('rede')),
         Promise.resolve(),
       );
-      escolherNoAlerta('RESUME_FAILED_RETRY');
+      escolherNoDialogo(page, 'RESUME_FAILED_RETRY');
 
       page.ngOnInit();
       await esperarMicrotarefas();
@@ -488,7 +502,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       const page = montarPaginaComQuery('t1');
       spyOn(page.store, 'retomarRascunho').and.rejectWith(new Error('rede'));
       const navegar = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
-      escolherNoAlerta('RESUME_FAILED_HOME');
+      escolherNoDialogo(page, 'RESUME_FAILED_HOME');
 
       page.ngOnInit();
       await esperarMicrotarefas();
@@ -515,12 +529,6 @@ describe('TourWizardPage — modo imersivo da etapa de passagens', () => {
         provideHttpClientTesting(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
         provideRouter([]),
-        {
-          provide: AlertController,
-          useValue: {
-            create: () => Promise.resolve({ present: () => Promise.resolve() }),
-          },
-        },
       ],
     });
     return TestBed.createComponent(TourWizardPage).componentInstance;

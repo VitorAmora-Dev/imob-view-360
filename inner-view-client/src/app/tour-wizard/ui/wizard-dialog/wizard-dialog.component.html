@@ -1,0 +1,24 @@
+<!--
+  `[isOpen]` ligado direto na existência da pergunta: quem abre e fecha é o
+  `DialogoDoWizard`, e não um segundo estado aqui dentro que pudesse divergir
+  dele.
+
+  `backdropDismiss` responde pela pergunta e não é constante: no Ionic ele
+  governa o toque fora E o Esc. Numa pergunta em que "nada" não é resposta, os
+  dois precisam ficar mudos juntos.
+-->
+<ion-modal
+  class="tw-dialog"
+  [isOpen]="!!pergunta()"
+  [backdropDismiss]="pergunta()?.dispensavel ?? false"
+  (didPresent)="aoApresentar($event)"
+  (didDismiss)="aoDispensar()">
+  <ng-template>
+    @if (pergunta(); as p) {
+      <app-tw-wizard-dialog-box
+        [pergunta]="p"
+        (escolheu)="escolher($event)"
+        (fechou)="fechar()" />
+    }
+  </ng-template>
+</ion-modal>
