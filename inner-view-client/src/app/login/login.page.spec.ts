@@ -63,6 +63,15 @@ describe('LoginPage', () => {
     expect(tagline?.textContent?.trim()).toBe('AUTH.TAGLINE');
   });
 
+  // A logo se esconde sozinha via [decorative]="true" (checado no teste do
+  // simbolo, acima). Se o painel INTEIRO ganhasse aria-hidden de volta, essa
+  // tagline -- texto real, nao decoracao -- sumiria de leitor de tela sem
+  // que nenhum outro teste denunciasse.
+  it('nao esconde a tagline do painel visual de leitor de tela', () => {
+    const painel = el().querySelector('.login-visual');
+    expect(painel!.getAttribute('aria-hidden')).toBeNull();
+  });
+
   it('os campos, o botao e o link de criar conta vem do ngx-translate', () => {
     const emailInput = el().querySelector('ion-input[name="email"]') as unknown as {
       label: string;

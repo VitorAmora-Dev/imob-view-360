@@ -26,8 +26,8 @@ export class LoginPage {
   errorMessage = '';
   showToast = false;
 
-  private authService = inject(AuthService);
-  private router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
 
   submit() {
