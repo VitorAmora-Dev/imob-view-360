@@ -119,3 +119,69 @@
     outline-offset: -2px;
   }
 }
+
+/* -- Modo lista: a mesma faixa, na aba de Rascunhos ------------------------ */
+
+// Na home a lista rola para os lados porque disputa a tela com o catálogo. Na
+// aba ela É a tela: vira grade, os cartões param de ter largura fixa e a
+// rolagem horizontal — que aqui seria uma armadilha, escondendo itens fora de
+// vista sem nada indicando — desliga.
+.rascunhos--lista {
+  margin-top: 0;
+
+  .rascunhos__lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    padding: 4px 16px 24px;
+    overflow-x: visible;
+    scroll-snap-type: none;
+  }
+
+  .rascunhos__card {
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+/* -- Estado vazio: só existe no modo lista --------------------------------- */
+
+.rascunhos--vazio {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.rascunhos__vazio-titulo {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--app-ink);
+}
+
+.rascunhos__vazio-dica {
+  margin: 0 auto 20px;
+  max-width: 34ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--app-muted);
+  text-wrap: pretty;
+}
+
+.rascunhos__vazio-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: var(--app-radius-sm);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}

@@ -1,6 +1,14 @@
+<!--
+  Lista vazia não desenha NADA na faixa: na home ela é um empurrão em contexto,
+  e uma seção vazia no topo da tela inicial seria ruído. Na aba, quem veio
+  procurar merece uma resposta — ver o `@else if` no fim.
+-->
 @if (rascunhos().length) {
-  <section class="rascunhos">
-    <h2 class="rascunhos__titulo">{{ 'HOME.DRAFTS_TITLE' | translate }}</h2>
+  <section class="rascunhos" [class.rascunhos--lista]="layout() === 'lista'">
+    <!-- Na aba o título é da página; repeti-lo aqui seria dizer duas vezes. -->
+    @if (layout() === 'faixa') {
+      <h2 class="rascunhos__titulo">{{ 'HOME.DRAFTS_TITLE' | translate }}</h2>
+    }
 
     <ul class="rascunhos__lista">
       @for (r of rascunhos(); track r.id) {
@@ -37,6 +45,18 @@
         </li>
       }
     </ul>
+  </section>
+} @else if (layout() === 'lista') {
+  <!--
+    Só na aba. Quem foi até lá procurar merece uma resposta; na home, a mesma
+    lista vazia não desenha nada.
+  -->
+  <section class="rascunhos rascunhos--vazio">
+    <h2 class="rascunhos__vazio-titulo">{{ 'DRAFTS.EMPTY_TITLE' | translate }}</h2>
+    <p class="rascunhos__vazio-dica">{{ 'DRAFTS.EMPTY_HINT' | translate }}</p>
+    <a class="rascunhos__vazio-cta" routerLink="/tour/novo">
+      {{ 'DRAFTS.EMPTY_CTA' | translate }}
+    </a>
   </section>
 }
 

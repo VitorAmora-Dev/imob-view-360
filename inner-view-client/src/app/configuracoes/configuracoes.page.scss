@@ -1,0 +1,119 @@
+// Tokens da camada L1 (--app-*, --ion-color-*). Nada de `--tw-*`, que é o
+// domínio do wizard, nem de `--brand-*`, que é primitivo e não vai em
+// componente.
+.cfg {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 8px 20px 24px;
+}
+
+.cfg__titulo {
+  margin: 0 0 20px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--app-ink);
+}
+
+.cfg__grupo {
+  margin: 24px 0;
+}
+
+.cfg__grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-muted);
+}
+
+// Uma linha de ajuste: link, opção ou ação. O piso de 56px é de dedo, não de
+// mouse — esta tela é a que mais vai ser usada no celular.
+.cfg__linha {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-radius-md);
+  margin-bottom: 10px;
+  background: var(--ion-background-color);
+  color: var(--app-ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+
+  &:hover {
+    background: var(--app-surface-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.cfg__icone {
+  flex: 0 0 auto;
+  font-size: 22px;
+  color: var(--app-muted);
+}
+
+.cfg__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // Sem isto um rótulo comprido empurra o ✓ para fora da linha.
+  min-width: 0;
+  flex: 1;
+}
+
+.cfg__rotulo {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cfg__dica {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--app-muted);
+  text-wrap: pretty;
+}
+
+.cfg__linha--opcao.is-ativo {
+  border-color: var(--ion-color-primary);
+  color: var(--ion-color-primary);
+}
+
+.cfg__check {
+  flex: 0 0 auto;
+  font-size: 20px;
+  color: var(--ion-color-primary);
+}
+
+// Sair é destrutivo o bastante para não se parecer com as outras linhas, e leve
+// o bastante para não competir com elas: cor no texto e no ícone, sem
+// preenchimento.
+.cfg__linha--sair {
+  margin-top: 24px;
+  // `--ion-color-danger` e não o primitivo `--status-error-*`: componente
+  // consome a camada semântica, nunca a paleta crua. Dá 4,83:1 sobre branco,
+  // que passa como texto.
+  color: var(--ion-color-danger);
+
+  .cfg__icone {
+    color: var(--ion-color-danger);
+  }
+
+  &:hover {
+    background: rgba(var(--ion-color-danger-rgb), 0.08);
+  }
+}

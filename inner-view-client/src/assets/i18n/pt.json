@@ -49,6 +49,25 @@
     "MENU": "Menu",
     "BACK": "Voltar"
   },
+  "TABS": {
+    "TOURS": "Tours",
+    "DRAFTS": "Rascunhos",
+    "NEW": "Novo tour",
+    "SETTINGS": "Ajustes"
+  },
+  "SETTINGS": {
+    "TITLE": "Configurações",
+    "MY_PROPERTIES": "Meus imóveis",
+    "MY_PROPERTIES_HINT": "Seus tours publicados, com o código de embed",
+    "LANGUAGE": "Idioma",
+    "SIGNOUT": "Sair da conta"
+  },
+  "DRAFTS": {
+    "TITLE": "Capturas em andamento",
+    "EMPTY_TITLE": "Nenhuma captura em andamento",
+    "EMPTY_HINT": "As capturas que você deixar pela metade aparecem aqui, prontas para continuar.",
+    "EMPTY_CTA": "Começar uma captura"
+  },
   "CARD": {
     "EMBED": "Embed de {{title}}"
   },

@@ -77,7 +77,7 @@ describe('RascunhosBandComponent', () => {
     } as unknown as HTMLIonToastElement);
   }
 
-  function montar(rascunhos: RascunhoResumo[]): void {
+  function montar(rascunhos: RascunhoResumo[], layout: 'faixa' | 'lista' = 'faixa'): void {
     TestBed.configureTestingModule({
       imports: [RascunhosBandComponent],
       providers: [
@@ -101,6 +101,7 @@ describe('RascunhosBandComponent', () => {
     spyOn(imagens, 'obter').and.returnValue(new Promise(() => {}));
 
     fixture = TestBed.createComponent(RascunhosBandComponent);
+    fixture.componentRef.setInput('layout', layout);
     fixture.detectChanges();
   }
 
@@ -423,5 +424,55 @@ describe('RascunhosBandComponent', () => {
     await fixture.whenStable();
 
     expect(listar).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * O mesmo componente serve a faixa da home e a aba de Rascunhos.
+   *
+   * Um input e não dois componentes: buscar, baixar miniatura, retomar e
+   * descartar — este último com diálogo de confirmação e a regra de que o
+   * cartão só some se o DELETE deu certo — são idênticos nos dois. Duplicar
+   * daria duas cópias que divergem na primeira correção.
+   */
+  describe('layout', () => {
+    it('na faixa, lista vazia nao desenha nada', async () => {
+      montar([], 'faixa');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // Na home ela é um empurrão em contexto: uma seção vazia no topo da tela
+      // inicial seria ruído.
+      expect(fixture.nativeElement.querySelector('.rascunhos')).toBeNull();
+    });
+
+    it('na lista, vazia responde em vez de sumir', async () => {
+      montar([], 'lista');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      // Quem foi até a aba procurar merece uma resposta, não uma tela branca.
+      const vazio = fixture.nativeElement.querySelector('.rascunhos--vazio');
+      expect(vazio).not.toBeNull();
+      expect(vazio.querySelector('.rascunhos__vazio-cta')).not.toBeNull();
+    });
+
+    it('na lista, o titulo da secao sai — quem tem titulo e a pagina', async () => {
+      montar([rascunho()], 'lista');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('.rascunhos__titulo')).toBeNull();
+      expect(el.querySelector('.rascunhos--lista')).not.toBeNull();
+      expect(el.querySelectorAll('.rascunhos__card').length).toBe(1);
+    });
+
+    it('na faixa, o titulo fica', async () => {
+      montar([rascunho()], 'faixa');
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.rascunhos__titulo')).not.toBeNull();
+    });
   });
 });

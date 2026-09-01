@@ -1,0 +1,12 @@
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <app-header [pageTitle]="'DRAFTS.TITLE' | translate"></app-header>
+
+  <h1 class="rascunhos-pagina__titulo">{{ 'DRAFTS.TITLE' | translate }}</h1>
+
+  <!--
+    O mesmo componente da faixa da home, em modo lista: ele traz consigo a
+    busca, a miniatura, o retomar e o descarte com confirmação. A página só
+    escolhe a forma.
+  -->
+  <app-rascunhos-band layout="lista" />
+</ion-content>

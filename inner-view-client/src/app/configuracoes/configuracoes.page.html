@@ -1,0 +1,54 @@
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <app-header [pageTitle]="'SETTINGS.TITLE' | translate"></app-header>
+
+  <div class="cfg">
+    <h1 class="cfg__titulo">{{ 'SETTINGS.TITLE' | translate }}</h1>
+
+    <!--
+      "Meus imóveis" é um LINK e não um botão: é navegação, e quem navega tem
+      direito a abrir em outra aba e a ver o destino na barra de status.
+    -->
+    <a class="cfg__linha" routerLink="/profile">
+      <ion-icon class="cfg__icone" name="business-outline" aria-hidden="true"></ion-icon>
+      <span class="cfg__texto">
+        <span class="cfg__rotulo">{{ 'SETTINGS.MY_PROPERTIES' | translate }}</span>
+        <span class="cfg__dica">{{ 'SETTINGS.MY_PROPERTIES_HINT' | translate }}</span>
+      </span>
+    </a>
+
+    <!--
+      Os dois idiomas à vista, e não um popover: numa lista de ajustes o valor
+      atual deve ser legível sem abrir nada. O `aria-pressed` é o que conta ao
+      leitor de tela qual está valendo — o ✓ sozinho é só desenho.
+    -->
+    <section class="cfg__grupo" [attr.aria-label]="'SETTINGS.LANGUAGE' | translate">
+      <h2 class="cfg__grupo-titulo">
+        <ion-icon class="cfg__icone" name="globe-outline" aria-hidden="true"></ion-icon>
+        {{ 'SETTINGS.LANGUAGE' | translate }}
+      </h2>
+
+      @for (opcao of idiomas; track opcao.codigo) {
+        <button
+          type="button"
+          class="cfg__linha cfg__linha--opcao"
+          [class.is-ativo]="idioma.currentLang() === opcao.codigo"
+          [attr.aria-pressed]="idioma.currentLang() === opcao.codigo"
+          (click)="escolherIdioma(opcao.codigo)">
+          <span class="cfg__texto">
+            <span class="cfg__rotulo">{{ opcao.rotulo }}</span>
+          </span>
+          @if (idioma.currentLang() === opcao.codigo) {
+            <ion-icon class="cfg__check" name="checkmark-outline" aria-hidden="true"></ion-icon>
+          }
+        </button>
+      }
+    </section>
+
+    <button type="button" class="cfg__linha cfg__linha--sair" (click)="sair()">
+      <ion-icon class="cfg__icone" name="log-out-outline" aria-hidden="true"></ion-icon>
+      <span class="cfg__texto">
+        <span class="cfg__rotulo">{{ 'SETTINGS.SIGNOUT' | translate }}</span>
+      </span>
+    </button>
+  </div>
+</ion-content>

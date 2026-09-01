@@ -49,6 +49,25 @@
     "MENU": "Menu",
     "BACK": "Back"
   },
+  "TABS": {
+    "TOURS": "Tours",
+    "DRAFTS": "Drafts",
+    "NEW": "New tour",
+    "SETTINGS": "Settings"
+  },
+  "SETTINGS": {
+    "TITLE": "Settings",
+    "MY_PROPERTIES": "My properties",
+    "MY_PROPERTIES_HINT": "Your published tours, with the embed code",
+    "LANGUAGE": "Language",
+    "SIGNOUT": "Sign out"
+  },
+  "DRAFTS": {
+    "TITLE": "Captures in progress",
+    "EMPTY_TITLE": "No captures in progress",
+    "EMPTY_HINT": "Captures you leave unfinished show up here, ready to continue.",
+    "EMPTY_CTA": "Start a capture"
+  },
   "CARD": {
     "EMBED": "Embed {{title}}"
   },

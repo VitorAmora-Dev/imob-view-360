@@ -1,7 +1,7 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ToastController } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -93,10 +93,28 @@ interface CartaoDeRascunho extends RascunhoResumo {
   standalone: true,
   templateUrl: './rascunhos-band.component.html',
   styleUrls: ['./rascunhos-band.component.scss'],
-  imports: [DatePipe, TranslatePipe, WizardDialogComponent],
+  imports: [DatePipe, RouterLink, TranslatePipe, WizardDialogComponent],
   providers: [DialogoDoWizard],
 })
 export class RascunhosBandComponent implements OnInit {
+  /**
+   * Como a mesma lista se apresenta.
+   *
+   * `faixa` é a home: carrossel horizontal com título, e NADA quando não há
+   * rascunho — ali ele é um empurrão em contexto, e uma seção vazia no topo da
+   * tela inicial seria ruído.
+   *
+   * `lista` é a aba: grade vertical, sem o título (a página tem o próprio) e
+   * COM estado vazio — quem foi até a aba procurar merece uma resposta, e não
+   * uma tela em branco.
+   *
+   * Um input e não dois componentes: carregar, buscar miniatura, retomar e
+   * descartar são idênticos nos dois, e o descarte em especial carrega um
+   * diálogo e uma regra de "só some se o DELETE deu certo" que não se duplica
+   * sem divergir depois.
+   */
+  readonly layout = input<'faixa' | 'lista'>('faixa');
+
   private readonly virtualTourService = inject(VirtualTourService);
   private readonly propertyService = inject(PropertyService);
   private readonly imagens = inject(PanoramaImageCache);
