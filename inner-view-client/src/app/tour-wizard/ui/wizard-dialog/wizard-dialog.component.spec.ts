@@ -50,11 +50,22 @@ describe('WizardDialogComponent', () => {
 
   /**
    * Um modal apresentado prende o foco no DOCUMENTO, que é um só para a suíte
-   * inteira, e a apresentação do Ionic é assíncrona: sem esta limpeza um modal
-   * sobrevive ao teardown do TestBed com o foco em cima e derruba um teste de
-   * arquivo alheio. O levantamento está em `hotspot-sheet.component.spec.ts`.
+   * inteira. O levantamento está em `hotspot-sheet.component.spec.ts`.
+   *
+   * O `await` vem ANTES do `destroy()`, e é a parte que faltava: a apresentação
+   * do Ionic é assíncrona, e destruir a fixture no meio dela não a cancela — o
+   * `present()` termina depois, devolve o modal ao documento e põe o foco nele,
+   * agora fora do alcance da limpeza. Aconteceu uma vez em cinco execuções, e a
+   * falha saiu num spec de OUTRO arquivo (`StepImagesComponent`, que confere
+   * `document.activeElement`), que é o pior lugar para procurar.
+   *
+   * O custo só existe quando há mesmo um modal na tela — a maioria dos casos
+   * daqui não apresenta nenhum.
    */
-  afterEach(() => {
+  afterEach(async () => {
+    if (document.querySelector('ion-modal.tw-dialog')) {
+      await new Promise((resolver) => setTimeout(resolver, 400));
+    }
     while (montados.length) montados.pop()!.destroy();
     document.querySelectorAll('ion-modal').forEach((modal) => modal.remove());
     (document.activeElement as HTMLElement | null)?.blur();
