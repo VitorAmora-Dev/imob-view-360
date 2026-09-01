@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
 import { TOTAL_ETAPAS } from '../../tour-wizard.model';
@@ -19,8 +19,10 @@ import { TOTAL_ETAPAS } from '../../tour-wizard.model';
   templateUrl: './wizard-actions.component.html',
   styleUrls: ['./wizard-actions.component.scss'],
 })
-export class WizardActionsComponent {
+export class WizardActionsComponent implements OnDestroy {
   readonly store = inject(TourDraftStore);
+  readonly blockedFeedback = signal<string | null>(null);
+  private feedbackTimer: number | null = null;
 
   /**
    * Quem publica é a ÚLTIMA etapa, hoje a 4.
@@ -29,11 +31,12 @@ export class WizardActionsComponent {
    * "Publicar tour" num botão que só avançava. Prometer a ação final e entregar
    * outra tela é pior do que um rótulo feio: quem aperta acha que terminou.
    */
-  readonly primaryLabelKey = computed(() =>
-    this.store.step() === TOTAL_ETAPAS
+  readonly primaryLabelKey = computed(() => {
+    if (this.store.step() === 1) return 'TOUR_WIZARD.COMMON.DONE';
+    return this.store.step() === TOTAL_ETAPAS
       ? 'TOUR_WIZARD.COMMON.PUBLISH'
-      : 'TOUR_WIZARD.COMMON.NEXT',
-  );
+      : 'TOUR_WIZARD.COMMON.NEXT';
+  });
 
   /**
    * "Pular" só existe na etapa de PASSAGENS, e só enquanto ela é de fato
@@ -83,4 +86,36 @@ export class WizardActionsComponent {
     }
     return null;
   });
+
+  onPrimaryClick(): void {
+    if (this.store.publishing()) return;
+
+    if (!this.store.canAdvance()) {
+      // `next()` marca os campos que precisam de correção. Na etapa de
+      // imagens somamos uma explicação breve e temporária, porque ali o botão
+      // apagado continua tocável justamente para responder "por quê?".
+      this.store.next();
+      if (this.store.step() === 1) this.showBlockedFeedback();
+      return;
+    }
+
+    this.blockedFeedback.set(null);
+    this.store.next();
+  }
+
+  ngOnDestroy(): void {
+    if (this.feedbackTimer !== null) window.clearTimeout(this.feedbackTimer);
+  }
+
+  private showBlockedFeedback(): void {
+    const key = this.motivoBloqueio();
+    if (!key) return;
+
+    this.blockedFeedback.set(key);
+    if (this.feedbackTimer !== null) window.clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = window.setTimeout(() => {
+      this.blockedFeedback.set(null);
+      this.feedbackTimer = null;
+    }, 2800);
+  }
 }

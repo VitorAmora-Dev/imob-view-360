@@ -1,12 +1,151 @@
-.login-container {
+// Duas colunas a partir de 744px: painel de marca a esquerda (gradiente da
+// cor primaria), formulario a direita. Abaixo disso, so o formulario -- o
+// painel de marca sai por CSS (mesmo padrao de .header-desktop em
+// app-header.component.scss), nao por @if, entao ele continua no DOM e so
+// alterna visibilidade.
+
+.login-shell {
   display: flex;
+  min-height: 100dvh;
+}
+
+.login-visual {
+  display: none;
+}
+
+.login-form-panel {
+  display: flex;
+  flex: 1 1 100%;
   flex-direction: column;
   justify-content: center;
-  min-height: 80vh;
+  padding: 24px;
+  // O <app-header> saiu da pagina, e era ele quem absorvia o topo com
+  // recorte (notch). Sem ele, o painel precisa fazer isso sozinho.
+  padding-top: calc(24px + var(--ion-safe-area-top, 0px));
+}
+
+.login-form-panel form,
+.login-form-panel > ion-button {
+  width: 100%;
   max-width: 400px;
-  margin: 0 auto;
+  margin-inline: auto;
 }
 
 .login-btn {
   margin-top: 8px;
+}
+
+// Sao DUAS corujas, e nunca as duas na tela ao mesmo tempo: a do painel azul
+// a partir de 744px, a do .auth-intro abaixo disso. Quem alterna e' o display
+// em cada media query; o gesto abaixo vale para as duas, sem media query
+// nenhuma, porque e' o mesmo gesto.
+.login-visual__mark {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+// O pivo fica nos pes, nao no centro. Girando pela base, a CABECA percorre o
+// arco e as garras ficam plantadas -- e' isso que le como coruja inclinando a
+// cabeca. Pelo centro, o corpo balancaria junto e viraria pendulo.
+.login-visual__mark app-brand-logo,
+.login-form-panel .auth-intro app-brand-logo {
+  transform-origin: 50% 88%;
+  animation: owl-tilt 7s ease-in-out infinite;
+}
+
+// Painel azul: a coruja e' o assunto, e tem a coluna inteira para ocupar. O
+// simbolo so existe em azul; tone="white" o inverte por filtro. O clamp
+// evita que ela estoure o padding num notebook baixo e que vire um selo
+// perdido num monitor grande.
+.login-visual__mark app-brand-logo {
+  --brand-logo-symbol-height: clamp(200px, 46vh, 460px);
+}
+
+// Mobile: sem painel azul, quem carrega a marca e' esta -- azul sobre branco,
+// como ja era. Cresce bem menos que a outra porque divide a altura com o
+// formulario inteiro, e o teclado do celular ainda vai comer metade da tela.
+.login-form-panel .auth-intro app-brand-logo {
+  --brand-logo-symbol-height: clamp(120px, 22vh, 190px);
+}
+
+// A pausa em cada extremo e' o que transforma um balanco continuo num gesto
+// de curiosidade: olha pra um lado, segura, olha pro outro, volta.
+@keyframes owl-tilt {
+  0%,
+  18% {
+    transform: rotate(0deg);
+  }
+
+  30%,
+  48% {
+    transform: rotate(-7deg);
+  }
+
+  60%,
+  78% {
+    transform: rotate(7deg);
+  }
+
+  90%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-visual__mark app-brand-logo,
+  .login-form-panel .auth-intro app-brand-logo {
+    animation: none;
+  }
+}
+
+@media (min-width: 744px) {
+  .login-visual {
+    display: flex;
+    flex: 1 1 45%;
+    flex-direction: column;
+    justify-content: flex-end;
+    max-width: 560px;
+    // A coruja inclinada varre alguns pixels para os lados; o corte impede
+    // que isso vire barra de rolagem horizontal na pagina.
+    overflow: hidden;
+    padding: 64px;
+    // --ion-color-primary/-shade sao os alias de L1 para
+    // --brand-primary/--brand-primary-dark (variables.scss). Nunca o
+    // primitivo de L0 direto aqui -- e' a regra do proprio _palette.scss.
+    background: linear-gradient(
+      135deg,
+      var(--ion-color-primary),
+      var(--ion-color-primary-shade)
+    );
+  }
+
+  .login-visual__tagline {
+    max-width: 320px;
+    margin-top: 16px;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #ffffff;
+  }
+
+  .login-form-panel {
+    flex: 1 1 55%;
+    padding: 64px;
+    padding-top: calc(64px + var(--ion-safe-area-top, 0px));
+  }
+
+  // A tagline ja aparece no painel visual -- repeti-la aqui tambem soaria
+  // como eco. So esconde a partir daqui; a marcacao continua no DOM porque
+  // no mobile o painel visual nem existe, e o auth-intro precisa dela.
+  //
+  // O simbolo pequeno sai pela mesma razao, agora que a coruja grande domina
+  // o painel ao lado: duas vezes a mesma marca na mesma tela sao dois pedidos
+  // de atencao para a mesma coisa.
+  .login-form-panel .auth-intro app-brand-logo,
+  .login-form-panel .auth-intro .brand-tagline {
+    display: none;
+  }
 }

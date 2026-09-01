@@ -38,9 +38,3 @@
   [attr.aria-valuetext]="'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step(), total: total }">
   <div class="tw-progress__fill" [style.width.%]="store.progressPct()"></div>
 </div>
-
-<p class="tw-progress__meta">
-  <span>{{ 'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step(), total: total } }}</span>
-  <!-- A chave vem do store: na etapa 2 ela depende de haver segundo ambiente. -->
-  <span>{{ store.hintKey() | translate }}</span>
-</p>

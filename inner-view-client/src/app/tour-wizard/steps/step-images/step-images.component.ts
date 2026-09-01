@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  OnDestroy,
   computed,
   effect,
   inject,
@@ -17,14 +18,23 @@ import {
 } from '../../../services/virtual-tour.service';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
-import { SceneCardComponent } from '../../ui/scene-card/scene-card.component';
+import { TrashIconComponent } from '../../ui/trash-icon/trash-icon.component';
 
 interface SceneDeckItem {
   scene: WizardScene;
   depth: number;
+  offset: number;
   hidden: boolean;
+  dragX: number;
+  liveScale: number;
+  lift: number;
+  tilt: number;
   number: number | null;
   imageUrl: string | null;
+  displayName: string;
+  accessibleName: string;
+  isCover: boolean;
+  rejectionKey: string;
 }
 
 /**
@@ -39,36 +49,33 @@ interface SceneDeckItem {
 @Component({
   selector: 'app-tour-step-images',
   standalone: true,
-  imports: [TranslatePipe, SceneCardComponent],
+  imports: [TranslatePipe, TrashIconComponent],
   templateUrl: './step-images.component.html',
   styleUrls: ['./step-images.component.scss'],
 })
-export class StepImagesComponent {
+export class StepImagesComponent implements OnDestroy {
   readonly store = inject(TourDraftStore);
 
-  /**
-   * ngx-translate não tem plural, e "1 imagens" é o tipo de detalhe que faz o
-   * app parecer mal-acabado. Duas chaves resolvem — português e inglês
-   * concordam na regra do singular.
-   */
-  readonly countKey = computed(() =>
-    this.store.scenes().length === 1
-      ? 'TOUR_WIZARD.STEP1.SCENES_COUNT_ONE'
-      : 'TOUR_WIZARD.STEP1.SCENES_COUNT',
-  );
   private readonly modalController = inject(ModalController);
 
   private readonly fileInput =
     viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private readonly galleryHeading =
     viewChild<ElementRef<HTMLHeadingElement>>('galleryHeading');
+  private readonly roomInput = viewChild<ElementRef<HTMLInputElement>>('roomInput');
 
   readonly isDragOver = signal(false);
   private readonly focusedSceneId = signal<string | null>(null);
   readonly arrivingSceneId = signal<string | null>(null);
+  readonly editingSceneId = signal<string | null>(null);
+  readonly dragOffset = signal(0);
+  readonly isDragging = signal(false);
   private knownSceneIds = new Set<string>();
   private pendingFileAdditions = 0;
   private arrivalTimer: number | null = null;
+  private dragPointerId: number | null = null;
+  private dragStartX = 0;
+  private suppressCardClick = false;
 
   /**
    * O card em primeiro plano pertence só à tela de imagens.
@@ -87,14 +94,23 @@ export class StepImagesComponent {
     return focused ?? selected ?? scenes[0] ?? null;
   });
 
+  readonly environmentCountKey = computed(() =>
+    this.store.scenes().length === 1
+      ? 'TOUR_WIZARD.STEP1.ENVIRONMENTS_COUNT_ONE'
+      : 'TOUR_WIZARD.STEP1.ENVIRONMENTS_COUNT',
+  );
+
   /**
-   * A cena ativa vem primeiro e as três seguintes ficam visíveis atrás dela.
-   * As demais continuam disponíveis nos seletores de página, sem deixar
-   * controles encobertos na ordem de tabulação.
+   * A cena ativa fica na frente e até cinco seguintes formam uma pilha leve.
+   * Durante o gesto, a ativa inclina e cede profundidade enquanto a próxima
+   * se aproxima — o movimento acompanha o dedo/mouse, não é uma animação
+   * decorativa disparada depois do toque.
    */
   readonly deckItems = computed<SceneDeckItem[]>(() => {
     const scenes = this.store.scenes();
     const readyScenes = this.store.readyScenes();
+    const drag = this.dragOffset();
+    const dragProgress = Math.min(Math.abs(drag) / 96, 1);
     const activeId = this.activeScene()?.id;
     const activeIndex = Math.max(
       0,
@@ -105,16 +121,44 @@ export class StepImagesComponent {
       ...scenes.slice(0, activeIndex),
     ];
 
-    return ordered.map((scene, depth) => ({
-      scene,
-      depth: Math.min(depth, 3),
-      hidden: depth > 3,
-      number:
-        scene.state === 'ready'
-          ? readyScenes.findIndex((candidate) => candidate.id === scene.id) + 1
-          : null,
-      imageUrl: this.imageUrl(scene),
-    }));
+    return ordered.map((scene, offset) => {
+      const depth = Math.min(offset, 5);
+      const isActive = offset === 0;
+      const isIncoming = offset === 1;
+      const incomingShift = drag < 0 ? 18 * dragProgress : 0;
+
+      const readyIndex = readyScenes.findIndex(
+        (candidate) => candidate.id === scene.id,
+      );
+      const number = scene.state === 'ready' ? readyIndex + 1 : null;
+      return {
+        scene,
+        depth,
+        offset,
+        hidden: offset > 5,
+        dragX: isActive ? drag : isIncoming ? incomingShift : 0,
+        liveScale: isActive
+          ? 1 - 0.025 * dragProgress
+          : isIncoming
+            ? 0.985 + 0.01 * dragProgress
+            : depth === 2
+              ? 0.97
+              : depth === 3
+                ? 0.955
+                : depth === 4
+                  ? 0.94
+                  : 0.925,
+        lift: isIncoming ? -8 * dragProgress : 0,
+        tilt: isActive ? drag / 32 : isIncoming ? -drag / 120 : 0,
+        number,
+        imageUrl: this.imageUrl(scene),
+        displayName: scene.room.trim() || scene.fileName,
+        accessibleName: scene.room.trim() || scene.fileName,
+        isCover: this.store.coverScene()?.id === scene.id,
+        rejectionKey:
+          `TOUR_WIZARD.STEP1.REJECTED_${(scene.rejectedReason ?? 'type').toUpperCase()}`,
+      };
+    });
   });
 
   /**
@@ -137,11 +181,9 @@ export class StepImagesComponent {
      * já usa, sem baixar uma equirretangular inteira para cada item.
     */
     effect(() => {
-      const activeId = this.activeScene()?.id;
       for (const scene of this.store.scenes()) {
-        // O SceneCard já pede a miniatura ativa. Evita dois downloads iguais
-        // antes de a primeira promise conseguir preencher o cache.
-        if (scene.id === activeId) continue;
+        // O deck substituiu o SceneCard nesta tela, então ele próprio garante
+        // tanto a miniatura ativa quanto as que aparecem nas laterais.
         if (this.imageUrl(scene) || !scene.serverPanoramaId) continue;
         void this.store.garantirMiniatura(scene.id);
       }
@@ -233,7 +275,111 @@ export class StepImagesComponent {
 
   /** Traz um ambiente para a frente sem oferecer cena recusada ao viewer. */
   selectScene(scene: WizardScene): void {
+    if (this.suppressCardClick) return;
     this.focusScene(scene);
+  }
+
+  previousScene(): void {
+    this.moveScene(-1);
+  }
+
+  nextScene(): void {
+    this.moveScene(1);
+  }
+
+  onDeckKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.previousScene();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.nextScene();
+    }
+  }
+
+  onPointerDown(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('.tw-deck__control')
+    ) {
+      return;
+    }
+
+    this.dragPointerId = event.pointerId;
+    this.dragStartX = event.clientX;
+    this.dragOffset.set(0);
+    this.isDragging.set(false);
+    const host = event.currentTarget as HTMLElement | null;
+    try {
+      host?.setPointerCapture(event.pointerId);
+    } catch {
+      // O gesto continua sem captura em navegadores que não a implementam.
+    }
+  }
+
+  onPointerMove(event: PointerEvent): void {
+    if (event.pointerId !== this.dragPointerId) return;
+    const distance = event.clientX - this.dragStartX;
+    this.dragOffset.set(Math.max(-96, Math.min(96, distance)));
+    if (Math.abs(distance) > 8) this.isDragging.set(true);
+  }
+
+  onPointerEnd(event: PointerEvent): void {
+    if (event.pointerId !== this.dragPointerId) return;
+
+    const distance = event.clientX - this.dragStartX;
+    this.dragPointerId = null;
+    this.dragOffset.set(0);
+
+    if (Math.abs(distance) >= 48) {
+      this.suppressCardClick = true;
+      window.setTimeout(() => (this.suppressCardClick = false));
+      distance < 0 ? this.nextScene() : this.previousScene();
+    }
+    this.isDragging.set(false);
+    this.releasePointer(event);
+  }
+
+  onPointerCancel(event: PointerEvent): void {
+    if (event.pointerId !== this.dragPointerId) return;
+    this.dragPointerId = null;
+    this.dragOffset.set(0);
+    this.isDragging.set(false);
+    this.releasePointer(event);
+  }
+
+  startRename(event: Event, scene: WizardScene): void {
+    event.stopPropagation();
+    this.editingSceneId.set(scene.id);
+    window.setTimeout(() => {
+      const input = this.roomInput()?.nativeElement;
+      input?.focus();
+      input?.select();
+    });
+  }
+
+  finishRename(): void {
+    this.editingSceneId.set(null);
+  }
+
+  onRename(scene: WizardScene, event: Event): void {
+    this.store.renameScene(
+      scene.id,
+      (event.target as HTMLInputElement).value,
+    );
+  }
+
+  onRenameKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' && event.key !== 'Escape') return;
+    event.preventDefault();
+    (event.target as HTMLInputElement).blur();
+  }
+
+  removeScene(event: Event, scene: WizardScene): void {
+    event.stopPropagation();
+    this.editingSceneId.set(null);
+    this.store.removeScene(scene.id);
   }
 
   // ---- captura pela câmera ------------------------------------------------
@@ -321,6 +467,7 @@ export class StepImagesComponent {
   }
 
   private focusScene(scene: WizardScene, arriving = false): void {
+    this.editingSceneId.set(null);
     this.focusedSceneId.set(scene.id);
     if (scene.state === 'ready') this.store.selectScene(scene.id);
     if (!arriving) return;
@@ -347,5 +494,32 @@ export class StepImagesComponent {
    */
   private focusGallery(): void {
     window.setTimeout(() => this.galleryHeading()?.nativeElement.focus());
+  }
+
+  ngOnDestroy(): void {
+    if (this.arrivalTimer !== null) window.clearTimeout(this.arrivalTimer);
+  }
+
+  private moveScene(direction: -1 | 1): void {
+    const scenes = this.store.scenes();
+    if (scenes.length < 2) return;
+
+    const currentIndex = Math.max(
+      0,
+      scenes.findIndex((scene) => scene.id === this.activeScene()?.id),
+    );
+    const nextIndex = (currentIndex + direction + scenes.length) % scenes.length;
+    this.focusScene(scenes[nextIndex]);
+  }
+
+  private releasePointer(event: PointerEvent): void {
+    const host = event.currentTarget as HTMLElement | null;
+    try {
+      if (host?.hasPointerCapture(event.pointerId)) {
+        host.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // O gesto já terminou; não há recuperação necessária.
+    }
   }
 }

@@ -16,6 +16,57 @@
   background: var(--tw-surface-body);
 }
 
+.tw-shell__stepper-row {
+  display: flex;
+  align-items: flex-start;
+
+  app-wizard-stepper {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.tw-shell__wizard-back {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  margin: 17px 0 0 8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tw-radius-xs);
+  background: transparent;
+  color: var(--tw-text-strong);
+  cursor: pointer;
+  transition: box-shadow 160ms ease;
+
+  svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+  }
+
+  &:hover {
+    box-shadow: var(--tw-shadow-card);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--tw-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-shell__wizard-back {
+    transition: none;
+  }
+}
+
 .tw-body {
   flex: 1;
   padding: 26px 28px 34px;
@@ -109,14 +160,14 @@
 /*
   Etapa de passagens no celular: a foto ocupa a tela.
 
-  Some por CSS e nao por `@if`: recriar o stepper e a barra a cada troca de
-  etapa derrubaria o foco de quem navega por teclado, e faria a tela saltar.
+  A barra some por CSS e nao por `@if`: recria-la a cada troca de etapa
+  derrubaria o foco de quem navega por teclado, e faria a tela saltar. O
+  stepper permanece para manter o contexto do fluxo.
 
   So no celular -- no desktop ha largura de sobra e o stepper e orientacao util.
 */
 @include tw.tw-mobile {
   .tw-shell.is-imersivo {
-    app-wizard-stepper,
     .tw-shell__foot {
       display: none;
     }

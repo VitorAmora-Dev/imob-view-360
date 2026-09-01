@@ -7,6 +7,7 @@ import {
   convertToParamMap,
   provideRouter,
 } from '@angular/router';
+import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TourWizardPage } from './tour-wizard.page';
 import { PerguntaDoWizard } from './ui/wizard-dialog/wizard-dialog.model';
@@ -22,23 +23,14 @@ import { WizardScene } from './tour-wizard.model';
  * qualquer momento depois disso). Este spec cobre as duas.
  *
  * `aoVoltar()` é chamado pelo `tourWizardLeaveGuard` — um `CanDeactivate` da
- * rota `tour/novo` (`app.routes.ts`), não por um `@Output` do `app-header`.
- * O header é compartilhado por toda a tela (§7 do SPRINT-3-TOUR-WIZARD.md,
- * "consumido como está") e ele mesmo navega via `backHref`, sem emitir
- * evento. Um guard de rota também pega o voltar do navegador e o botão físico
- * do Android, que um `@Output` no header nunca veria — por isso os testes
- * chamam `page.aoVoltar()` diretamente, do jeito que o guard chamaria.
+ * rota `tour/novo` (`app.routes.ts`). Um guard de rota também pega o voltar do
+ * navegador e o botão físico do Android — por isso os testes chamam
+ * `page.aoVoltar()` diretamente, do jeito que o guard chamaria.
  *
  * Sem `detectChanges()` de propósito — mesma técnica de
  * `inner-view-page/inner-view-page.download.spec.ts`: o `ngOnInit` de cada
- * etapa não roda, e o `@switch`/`@if` que decide qual etapa aparecer nunca
- * chega a avaliar. O `<app-header>`, porém, é filho ESTÁTICO do template (não
- * mora dentro de `@if`), e o Ivy monta a árvore estática de um componente já
- * na criação da fixture, antes de qualquer `detectChanges()` — por isso ele é
- * construído de verdade, e com ele o `routerLink` do logotipo. É o mesmo
- * motivo pelo qual `inner-view-page.download.spec.ts` dubla `Router` e
- * `ActivatedRoute`; aqui basta uma rota vazia de verdade (`provideRouter([])`)
- * porque `AppHeaderComponent` não é dublado, é o real.
+ * etapa não roda. O router continua provido porque a seta compacta navega para
+ * a home em qualquer etapa do wizard.
  */
 describe('TourWizardPage — sair sem perder trabalho', () => {
   function configurarTestBed(): void {
@@ -46,10 +38,9 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
-        // Vazia mesmo: nenhum teste navega de verdade. Só precisa existir
-        // para o `routerLink` do logotipo do `app-header` (filho estático,
-        // montado já na criação da fixture) achar um `ActivatedRoute`.
+        // Vazia mesmo: nenhum teste navega de verdade.
         provideRouter([]),
       ],
     });
@@ -77,6 +68,35 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
   function comUmaCena(page: TourWizardPage): void {
     page.store.scenes.set([cena('a')]);
   }
+
+  it('substitui o header pela seta e pelo stepper durante todo o wizard', () => {
+    configurarTestBed();
+    const fixture = TestBed.createComponent(TourWizardPage);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-header')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-shell__wizard-back')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-wizard-stepper')).not.toBeNull();
+
+    comUmaCena(fixture.componentInstance);
+    fixture.componentInstance.store.step.set(2);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-header')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-shell__wizard-back')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-wizard-stepper')).not.toBeNull();
+  });
+
+  it('o voltar compacto do wizard navega para a home pelo guard da rota', () => {
+    configurarTestBed();
+    const fixture = TestBed.createComponent(TourWizardPage);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    comUmaCena(fixture.componentInstance);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.tw-shell__wizard-back').click();
+
+    expect(navigate).toHaveBeenCalledOnceWith(['/home']);
+  });
 
   /**
    * Faz o diálogo "aparecer" e o corretor tocar num botão.

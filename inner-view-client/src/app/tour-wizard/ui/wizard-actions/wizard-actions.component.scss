@@ -52,6 +52,20 @@
   @include tw.tw-mobile {
     flex: 1;
   }
+
+  // Na etapa 1 o estado visualmente bloqueado ainda recebe toque para explicar
+  // o que falta. Nas demais etapas o atributo `disabled` continua nativo.
+  &.is-disabled,
+  &.is-disabled:hover {
+    background: var(--tw-brand-disabled);
+    cursor: help;
+  }
+
+  &.is-compact {
+    flex: 0 0 auto;
+    min-width: 112px;
+    margin-left: auto;
+  }
 }
 
 // "Voltar" e "Pular" são curtos e não devem ceder espaço: quem encolhe quando
@@ -72,4 +86,45 @@
   line-height: 1.4;
   color: var(--tw-error-text);
   text-wrap: pretty;
+}
+
+.tw-actions__feedback {
+  position: absolute;
+  right: 20px;
+  bottom: calc(100% + 8px);
+  max-width: min(360px, calc(100vw - 40px));
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--tw-border-subtle);
+  border-radius: var(--tw-radius-md);
+  background: var(--tw-surface);
+  box-shadow: var(--tw-shadow-card);
+  color: var(--tw-text);
+  font-size: 13px;
+  line-height: 1.4;
+  text-wrap: pretty;
+  animation: tw-actions-feedback-in 180ms ease-out both;
+
+  @include tw.tw-mobile {
+    right: 16px;
+    max-width: calc(100vw - 32px);
+  }
+}
+
+@keyframes tw-actions-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-actions__feedback {
+    animation: none;
+  }
 }

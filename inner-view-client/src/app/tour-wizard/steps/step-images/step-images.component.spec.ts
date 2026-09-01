@@ -103,7 +103,8 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(fixture.nativeElement.querySelector('.tw-source')).toBeNull();
     expect(fixture.nativeElement.querySelector('.tw-scenes')).not.toBeNull();
     expect(fixture.nativeElement.querySelectorAll('.tw-deck__card').length).toBe(1);
-    expect(fixture.nativeElement.querySelector('app-scene-card')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-scene-card')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-deck__rename')).not.toBeNull();
     expect(document.activeElement).toBe(
       fixture.nativeElement.querySelector('#tw-scenes-title'),
     );
@@ -119,6 +120,17 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(fixture.nativeElement.querySelector('.tw-source')).toBeNull();
     expect(fixture.nativeElement.querySelector('.tw-scenes')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.tw-deck__item.is-arriving')).toBeNull();
+  });
+
+  it('carrega a miniatura do card ativo ao retomar um rascunho', () => {
+    const garantirMiniatura = spyOn(store, 'garantirMiniatura').and.resolveTo();
+
+    store.scenes.set([
+      scene('retomada', { imageData: '', serverPanoramaId: 'panorama-1' }),
+    ]);
+    render();
+
+    expect(garantirMiniatura).toHaveBeenCalledOnceWith('retomada');
   });
 
   it('sincroniza a etapa seguinte quando o card escolhido termina a leitura', () => {
@@ -231,8 +243,8 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(modalController.create).not.toHaveBeenCalled();
   });
 
-  it('mantém todos os ambientes acessíveis pela paginação e só expõe quatro cards sobrepostos', () => {
-    const scenes = Array.from({ length: 5 }, (_, index) =>
+  it('mantém todos os ambientes acessíveis e empilha o ativo com até cinco seguintes', () => {
+    const scenes = Array.from({ length: 7 }, (_, index) =>
       scene(String(index + 1), { order: index }),
     );
     store.scenes.set(scenes);
@@ -245,7 +257,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     const selectors: HTMLButtonElement[] = Array.from(
       fixture.nativeElement.querySelectorAll('.tw-deck__pagination button'),
     );
-    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(4);
+    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(6);
     expect(cards.filter((card) => card.getAttribute('aria-hidden') !== 'true').length).toBe(1);
     expect(
       cards.filter(
@@ -253,16 +265,16 @@ describe('StepImagesComponent — escolha e galeria', () => {
           card.querySelector('.tw-deck__card')?.getAttribute('tabindex') !== '-1',
       ).length,
     ).toBe(1);
-    expect(selectors.length).toBe(5);
+    expect(selectors.length).toBe(7);
 
-    selectors[4].click();
+    selectors[6].click();
     render();
 
-    expect(component.activeScene()?.id).toBe('5');
-    expect(store.selectedSceneId()).toBe('5');
+    expect(component.activeScene()?.id).toBe('7');
+    expect(store.selectedSceneId()).toBe('7');
     expect(
-      fixture.nativeElement.querySelector('.tw-deck__card.is-active strong').textContent,
-    ).toContain('Ambiente 5');
+      fixture.nativeElement.querySelector('.tw-deck__rename strong').textContent,
+    ).toContain('Ambiente 7');
   });
 
   it('numera o deck somente entre ambientes válidos', () => {
@@ -292,7 +304,139 @@ describe('StepImagesComponent — escolha e galeria', () => {
 
     expect(fixture.nativeElement.querySelector('.tw-source')).toBeNull();
     expect(fixture.nativeElement.querySelector('.tw-scenes__add')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('label[for="tw-files"]')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.tw-scenes__actions button')).not.toBeNull();
+    const actions: HTMLElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('.tw-scene-action'),
+    );
+    expect(actions.length).toBe(2);
+    expect(actions[0].classList).toContain('tw-scene-action--gallery');
+    expect(actions[1].classList).toContain('tw-scene-action--camera');
+  });
+
+  it('navega pelas setas e pelo teclado mantendo a selecao sincronizada', () => {
+    const scenes = [scene('1'), scene('2'), scene('3')];
+    store.scenes.set(scenes);
+    store.selectedSceneId.set('1');
+    render();
+
+    fixture.nativeElement.querySelectorAll('.tw-deck__arrow')[1].click();
+    render();
+    expect(component.activeScene()?.id).toBe('2');
+    expect(store.selectedSceneId()).toBe('2');
+
+    component.onDeckKeydown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    render();
+    expect(component.activeScene()?.id).toBe('1');
+  });
+
+  it('troca o ambiente ao arrastar com ponteiro para a esquerda', fakeAsync(() => {
+    const scenes = [scene('1'), scene('2'), scene('3')];
+    store.scenes.set(scenes);
+    store.selectedSceneId.set('1');
+    render();
+
+    component.onPointerDown(
+      new PointerEvent('pointerdown', {
+        pointerId: 7,
+        pointerType: 'touch',
+        clientX: 220,
+      }),
+    );
+    component.onPointerMove(
+      new PointerEvent('pointermove', {
+        pointerId: 7,
+        pointerType: 'touch',
+        clientX: 140,
+      }),
+    );
+
+    expect(component.dragOffset()).toBe(-80);
+    expect(component.deckItems()[0].tilt).toBeLessThan(0);
+    expect(component.deckItems()[1].liveScale).toBeGreaterThan(0.975);
+
+    component.onPointerEnd(
+      new PointerEvent('pointerup', {
+        pointerId: 7,
+        pointerType: 'touch',
+        clientX: 140,
+      }),
+    );
+    render();
+
+    expect(component.activeScene()?.id).toBe('2');
+    expect(store.selectedSceneId()).toBe('2');
+    expect(component.dragOffset()).toBe(0);
+    tick();
+  }));
+
+  it('edita o nome diretamente no card pelo botao de lapis', fakeAsync(() => {
+    store.scenes.set([scene('sala', { room: '' })]);
+    store.selectedSceneId.set('sala');
+    render();
+
+    fixture.nativeElement.querySelector('.tw-deck__rename').click();
+    render();
+    tick();
+
+    const input: HTMLInputElement = fixture.nativeElement.querySelector(
+      '.tw-deck__name-input',
+    );
+    input.value = 'Sala de estar';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('blur'));
+    render();
+
+    expect(store.scenes()[0].room).toBe('Sala de estar');
+    expect(fixture.nativeElement.querySelector('.tw-deck__name-input')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__rename strong').textContent,
+    ).toContain('Sala de estar');
+  }));
+
+  it('mostra a capa e remove o ambiente pelo icone sobre a imagem', () => {
+    store.scenes.set([scene('capa'), scene('outra')]);
+    store.selectedSceneId.set('capa');
+    render();
+
+    expect(fixture.nativeElement.querySelector('.tw-deck__cover')).not.toBeNull();
+    fixture.nativeElement.querySelector('.tw-deck__remove').click();
+    render();
+
+    expect(store.scenes().map((item) => item.id)).toEqual(['outra']);
+    expect(fixture.nativeElement.querySelector('.tw-scenes__editor')).toBeNull();
+  });
+
+  it('troca o titulo visivel por um contador discreto de ambientes', () => {
+    store.scenes.set([scene('sala'), scene('cozinha')]);
+    store.selectedSceneId.set('sala');
+    render();
+
+    const title: HTMLElement = fixture.nativeElement.querySelector('#tw-scenes-title');
+    expect(title.classList).toContain('tw-visually-hidden');
+    expect(component.environmentCountKey()).toBe(
+      'TOUR_WIZARD.STEP1.ENVIRONMENTS_COUNT',
+    );
+    expect(fixture.nativeElement.querySelector('.tw-scenes__count')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-deck__hint')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck').getAttribute('aria-label'),
+    ).toBeTruthy();
+  });
+
+  it('usa o singular no contador quando existe somente um ambiente', () => {
+    store.scenes.set([scene('sala')]);
+    render();
+
+    expect(component.environmentCountKey()).toBe(
+      'TOUR_WIZARD.STEP1.ENVIRONMENTS_COUNT_ONE',
+    );
+  });
+
+  it('nao exibe o peso do arquivo no card', () => {
+    store.scenes.set([scene('sala', { fileSize: 2_200_000 })]);
+    store.selectedSceneId.set('sala');
+    render();
+
+    expect(fixture.nativeElement.querySelector('.tw-deck__details span')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('2.2 MB');
   });
 });

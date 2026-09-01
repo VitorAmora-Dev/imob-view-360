@@ -35,7 +35,20 @@
 
       <div class="tw-drop__actions">
         <label for="tw-files" class="tw-btn tw-btn--bordered" (click)="$event.stopPropagation()">
-          <span aria-hidden="true">↑</span>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+            aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <circle cx="8.5" cy="10" r="1.5" />
+            <path d="m4 17 5-4 3 2 3-3 5 4" />
+          </svg>
           {{ 'TOUR_WIZARD.STEP1.UPLOAD_FILES' | translate }}
         </label>
 
@@ -43,7 +56,19 @@
           type="button"
           class="tw-btn tw-btn--primary"
           (click)="$event.stopPropagation(); openCapture()">
-          <span aria-hidden="true">◎</span>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.8"
+            aria-hidden="true">
+            <path d="M8.5 5 10 3h4l1.5 2H19a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+            <circle cx="12" cy="12.5" r="4" />
+          </svg>
           {{ 'TOUR_WIZARD.STEP1.TAKE_PHOTO' | translate }}
         </button>
       </div>
@@ -52,20 +77,27 @@
 } @else {
   <section class="tw-scenes" aria-labelledby="tw-scenes-title">
     <header class="tw-scenes__head">
-      <div>
-        <h2 id="tw-scenes-title" #galleryHeading tabindex="-1">
-          {{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}
-        </h2>
-        <p>{{ 'TOUR_WIZARD.STEP1.SCENES_HELPER' | translate }}</p>
-      </div>
-      <span class="tw-scenes__count">
-        {{ countKey() | translate: { n: store.scenes().length } }}
-      </span>
+      <h2 id="tw-scenes-title" #galleryHeading class="tw-visually-hidden" tabindex="-1">
+        {{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}
+      </h2>
+      <p class="tw-scenes__count" aria-live="polite">
+        {{ environmentCountKey() | translate: { n: store.scenes().length } }}
+      </p>
     </header>
 
-    <div class="tw-deck">
+    <div
+      class="tw-deck"
+      role="group"
+      tabindex="0"
+      [attr.aria-label]="'TOUR_WIZARD.STEP1.DECK_HINT' | translate"
+      (keydown)="onDeckKeydown($event)"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerEnd($event)"
+      (pointercancel)="onPointerCancel($event)">
       <ul
         class="tw-deck__list"
+        [class.is-dragging]="isDragging()"
         role="list"
         [attr.aria-label]="'TOUR_WIZARD.STEP1.DECK_LABEL' | translate">
         @for (item of deckItems(); track item.scene.id) {
@@ -74,15 +106,26 @@
             [class.is-hidden]="item.hidden"
             [class.is-arriving]="item.scene.id === arrivingSceneId()"
             [attr.data-depth]="item.depth"
-            [style.z-index]="store.scenes().length - item.depth"
-            [attr.inert]="item.depth > 0 ? '' : null"
-            [attr.aria-hidden]="item.depth > 0 ? 'true' : null">
+            [attr.data-offset]="item.offset"
+            [style.--deck-drag]="item.dragX + 'px'"
+            [style.--deck-live-scale]="item.liveScale"
+            [style.--deck-lift]="item.lift + 'px'"
+            [style.--deck-tilt]="item.tilt + 'deg'"
+            [style.z-index]="10 - item.depth"
+            [attr.inert]="item.offset !== 0 ? '' : null"
+            [attr.aria-hidden]="item.offset !== 0 ? 'true' : null">
             <button
               type="button"
               class="tw-deck__card"
               [class.is-active]="item.scene.id === activeScene()?.id"
               [attr.aria-current]="item.scene.id === activeScene()?.id ? 'true' : null"
-              [attr.tabindex]="item.depth > 0 ? -1 : null"
+              [attr.tabindex]="item.offset !== 0 ? -1 : null"
+              [attr.aria-label]="
+                item.number
+                  ? ('TOUR_WIZARD.STEP1.SHOW_SCENE' | translate: { n: item.number })
+                  : item.accessibleName
+              "
+              (dragstart)="$event.preventDefault()"
               (click)="selectScene(item.scene)">
               <span
                 class="tw-deck__photo"
@@ -94,77 +137,214 @@
                 }
               </span>
               <span class="tw-deck__scrim" aria-hidden="true"></span>
-
-              <span class="tw-deck__caption">
-                <span class="tw-visually-hidden">
-                  @if (item.number) {
-                    {{ 'TOUR_WIZARD.STEP1.SHOW_SCENE' | translate: { n: item.number } }}
-                  } @else {
-                    {{ item.scene.room.trim() || item.scene.fileName }}
-                  }
-                </span>
-                <strong>
-                  {{
-                    item.scene.room.trim() ||
-                      (item.number
-                        ? ('TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: item.number })
-                        : item.scene.fileName)
-                  }}
-                </strong>
-
-                @if (item.scene.state === 'reading') {
-                  <small>{{ 'TOUR_WIZARD.STEP1.READING' | translate }}</small>
-                } @else if (item.scene.state === 'rejected') {
-                  <small>{{ 'TOUR_WIZARD.STEP1.CARD_REJECTED' | translate }}</small>
-                }
-              </span>
             </button>
+
+            @if (item.offset === 0) {
+              <div class="tw-deck__overlay">
+                <div class="tw-deck__topline">
+                  @if (item.isCover) {
+                    <span class="tw-deck__cover">
+                      <span aria-hidden="true">&#9733;</span>
+                      {{ 'TOUR_WIZARD.STEP1.BADGE_COVER' | translate }}
+                    </span>
+                  }
+
+                  <div class="tw-deck__status">
+                    @if (item.scene.state === 'reading') {
+                      <span
+                        class="tw-deck__status-icon is-reading"
+                        [attr.aria-label]="'TOUR_WIZARD.STEP1.READING' | translate"
+                        [attr.title]="'TOUR_WIZARD.STEP1.READING' | translate">&#8635;</span>
+                    } @else if (item.scene.state === 'rejected') {
+                      <span
+                        class="tw-deck__status-icon is-error"
+                        role="img"
+                        [attr.aria-label]="item.rejectionKey | translate"
+                        [attr.title]="item.rejectionKey | translate">!</span>
+                    } @else {
+                      @if (item.scene.warning === 'ratio') {
+                        <span
+                          class="tw-deck__status-icon is-warning"
+                          role="img"
+                          [attr.aria-label]="'TOUR_WIZARD.STEP1.WARN_RATIO' | translate"
+                          [attr.title]="'TOUR_WIZARD.STEP1.WARN_RATIO' | translate">!</span>
+                      }
+                      @if (item.scene.aiState === 'done') {
+                        <span
+                          class="tw-deck__status-icon is-enhanced"
+                          role="img"
+                          [attr.aria-label]="'TOUR_WIZARD.STEP1.BADGE_IA' | translate"
+                          [attr.title]="'TOUR_WIZARD.STEP1.BADGE_IA' | translate">&#10022;</span>
+                      }
+                    }
+
+                    <button
+                      type="button"
+                      class="tw-deck__control tw-deck__remove"
+                      [attr.aria-label]="
+                        'TOUR_WIZARD.STEP1.REMOVE' | translate: { room: item.accessibleName }
+                      "
+                      (click)="removeScene($event, item.scene)">
+                      <app-tw-trash-icon />
+                    </button>
+                  </div>
+                </div>
+
+                <div class="tw-deck__caption">
+                  @if (editingSceneId() === item.scene.id) {
+                    <label class="tw-visually-hidden" [attr.for]="'deck-room-' + item.scene.id">
+                      {{ 'TOUR_WIZARD.STEP1.ROOM_PLACEHOLDER' | translate }}
+                    </label>
+                    <input
+                      #roomInput
+                      class="tw-deck__control tw-deck__name-input"
+                      type="text"
+                      [id]="'deck-room-' + item.scene.id"
+                      [value]="item.scene.room"
+                      [placeholder]="'TOUR_WIZARD.STEP1.ROOM_PLACEHOLDER' | translate"
+                      [attr.aria-invalid]="
+                        store.showErrors() && !item.scene.room.trim() ? 'true' : null
+                      "
+                      (input)="onRename(item.scene, $event)"
+                      (keydown)="onRenameKeydown($event)"
+                      (blur)="finishRename()" />
+                  } @else {
+                    <button
+                      type="button"
+                      class="tw-deck__control tw-deck__rename"
+                      [class.is-placeholder]="!item.scene.room.trim()"
+                      [attr.aria-label]="
+                        'TOUR_WIZARD.STEP1.EDIT_NAME'
+                          | translate: { room: item.accessibleName }
+                      "
+                      (click)="startRename($event, item.scene)">
+                      <strong>
+                        @if (!item.scene.room.trim() && item.number) {
+                          {{ 'TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: item.number } }}
+                        } @else {
+                          {{ item.displayName }}
+                        }
+                      </strong>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+                      </svg>
+                    </button>
+                  }
+
+                  <div class="tw-deck__details">
+                    @if (store.showErrors() && item.scene.state === 'ready' && !item.scene.room.trim()) {
+                      <small role="alert">{{ 'TOUR_WIZARD.STEP1.NAME_REQUIRED' | translate }}</small>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
           </li>
         }
       </ul>
 
       @if (store.scenes().length > 1) {
-        <nav
-          class="tw-deck__pagination"
-          [attr.aria-label]="'TOUR_WIZARD.STEP1.DECK_PAGINATION' | translate">
-          @for (scene of store.scenes(); track scene.id) {
-            <button
-              type="button"
-              [class.is-active]="scene.id === activeScene()?.id"
-              [attr.aria-current]="scene.id === activeScene()?.id ? 'true' : null"
-              [attr.aria-label]="
-                scene.state === 'ready'
-                  ? ('TOUR_WIZARD.STEP1.SHOW_SCENE'
-                    | translate: { n: store.readyScenes().indexOf(scene) + 1 })
-                  : scene.room.trim() || scene.fileName
-              "
-              (click)="selectScene(scene)">
-              <span aria-hidden="true"></span>
-            </button>
-          }
+        <nav class="tw-deck__navigation" [attr.aria-label]="'TOUR_WIZARD.STEP1.DECK_PAGINATION' | translate">
+          <button
+            type="button"
+            class="tw-deck__control tw-deck__arrow"
+            [attr.aria-label]="'TOUR_WIZARD.STEP1.PREVIOUS_SCENE' | translate"
+            (click)="previousScene()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+
+          <div class="tw-deck__pagination">
+            @for (scene of store.scenes(); track scene.id) {
+              <button
+                type="button"
+                class="tw-deck__control"
+                [class.is-active]="scene.id === activeScene()?.id"
+                [attr.aria-current]="scene.id === activeScene()?.id ? 'true' : null"
+                [attr.aria-label]="
+                  scene.state === 'ready'
+                    ? ('TOUR_WIZARD.STEP1.SHOW_SCENE'
+                      | translate: { n: store.readyScenes().indexOf(scene) + 1 })
+                    : scene.room.trim() || scene.fileName
+                "
+                (click)="selectScene(scene)">
+                <span aria-hidden="true"></span>
+              </button>
+            }
+          </div>
+
+          <button
+            type="button"
+            class="tw-deck__control tw-deck__arrow"
+            [attr.aria-label]="'TOUR_WIZARD.STEP1.NEXT_SCENE' | translate"
+            (click)="nextScene()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </button>
         </nav>
       }
     </div>
 
-    @if (activeScene(); as scene) {
-      <div
-        class="tw-scenes__editor"
-        role="region"
-        [attr.aria-label]="'TOUR_WIZARD.STEP1.EDITOR_LABEL' | translate">
-        <app-scene-card [scene]="scene" />
-      </div>
-    }
-
-    <section class="tw-scenes__add" aria-labelledby="tw-add-more-title">
-      <h3 id="tw-add-more-title">{{ 'TOUR_WIZARD.STEP1.ADD_MORE_TITLE' | translate }}</h3>
+    <section
+      class="tw-scenes__add"
+      [attr.aria-label]="'TOUR_WIZARD.STEP1.ADD_MORE_TITLE' | translate">
       <div class="tw-scenes__actions">
-        <label for="tw-files" class="tw-btn tw-btn--bordered">
-          <span aria-hidden="true">+</span>
-          {{ 'TOUR_WIZARD.STEP1.ADD_MORE_FILES' | translate }}
-        </label>
-        <button type="button" class="tw-btn tw-btn--primary" (click)="openCapture()">
-          <span aria-hidden="true">◎</span>
-          {{ 'TOUR_WIZARD.STEP1.TAKE_ANOTHER_PHOTO' | translate }}
+        <button
+          type="button"
+          class="tw-scene-action tw-scene-action--gallery"
+          (click)="openFilePicker()">
+          <span class="tw-scene-action__eyebrow">
+            {{ 'TOUR_WIZARD.STEP1.ADD_FILES_EYEBROW' | translate }}
+          </span>
+          <strong>{{ 'TOUR_WIZARD.STEP1.ADD_MORE_FILES' | translate }}</strong>
+          <span class="tw-scene-action__icon" aria-hidden="true">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <circle cx="8.5" cy="10" r="1.5" />
+              <path d="m4 17 5-4 3 2 3-3 5 4" />
+            </svg>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="tw-scene-action tw-scene-action--camera"
+          (click)="openCapture()">
+          <span class="tw-scene-action__eyebrow">
+            {{ 'TOUR_WIZARD.STEP1.CAPTURE_EYEBROW' | translate }}
+          </span>
+          <strong>{{ 'TOUR_WIZARD.STEP1.TAKE_ANOTHER_PHOTO' | translate }}</strong>
+          <span class="tw-scene-action__icon" aria-hidden="true">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8">
+              <path d="M8.5 5 10 3h4l1.5 2H19a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+              <circle cx="12" cy="12.5" r="4" />
+            </svg>
+          </span>
         </button>
       </div>
     </section>

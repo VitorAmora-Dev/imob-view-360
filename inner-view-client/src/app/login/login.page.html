@@ -1,51 +1,65 @@
-<ion-content class="ion-padding">
-  <app-header></app-header>
+<ion-content [fullscreen]="true">
+  <div class="login-shell">
+    <div class="login-visual">
+      <div class="login-visual__mark">
+        <app-brand-logo kind="symbol" tone="white" [decorative]="true"></app-brand-logo>
+      </div>
 
-  <div class="login-container">
-    <div class="auth-intro">
-      <app-brand-logo kind="symbol" [decorative]="true"></app-brand-logo>
-      <h1>Entrar</h1>
-      <p class="brand-tagline">Tour virtual de imóveis 360°</p>
+      <app-brand-logo
+        class="login-visual__wordmark"
+        kind="horizontal"
+        tone="white"
+        [decorative]="true">
+      </app-brand-logo>
+      <p class="login-visual__tagline">{{ 'AUTH.TAGLINE' | translate }}</p>
     </div>
 
-    <form (ngSubmit)="submit()">
-      <ion-input
-        label="E-mail"
-        labelPlacement="floating"
-        fill="outline"
-        type="email"
-        [(ngModel)]="email"
-        name="email"
-        autocomplete="email"
-        required>
-      </ion-input>
+    <div class="login-form-panel">
+      <div class="auth-intro">
+        <app-brand-logo kind="symbol" [decorative]="true"></app-brand-logo>
+        <h1>{{ 'AUTH.LOGIN_TITLE' | translate }}</h1>
+        <p class="brand-tagline">{{ 'AUTH.TAGLINE' | translate }}</p>
+      </div>
 
-      <ion-input
-        label="Senha"
-        labelPlacement="floating"
-        fill="outline"
-        type="password"
-        [(ngModel)]="password"
-        name="password"
-        autocomplete="current-password"
-        required>
-      </ion-input>
+      <form (ngSubmit)="submit()">
+        <ion-input
+          [label]="'AUTH.EMAIL_LABEL' | translate"
+          labelPlacement="floating"
+          fill="outline"
+          type="email"
+          [(ngModel)]="email"
+          name="email"
+          autocomplete="email"
+          required>
+        </ion-input>
 
-      <ion-button
-        expand="block"
-        type="submit"
-        class="login-btn"
-        [disabled]="loading || !email || !password">
-        @if (loading) {
-          <ion-spinner name="crescent" slot="start"></ion-spinner>
-        }
-        Entrar
+        <ion-input
+          [label]="'AUTH.PASSWORD_LABEL' | translate"
+          labelPlacement="floating"
+          fill="outline"
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          autocomplete="current-password"
+          required>
+        </ion-input>
+
+        <ion-button
+          expand="block"
+          type="submit"
+          class="login-btn"
+          [disabled]="loading || !email || !password">
+          @if (loading) {
+            <ion-spinner name="crescent" slot="start"></ion-spinner>
+          }
+          {{ 'AUTH.SUBMIT' | translate }}
+        </ion-button>
+      </form>
+
+      <ion-button fill="clear" expand="block" routerLink="/register">
+        {{ 'AUTH.NO_ACCOUNT' | translate }}
       </ion-button>
-    </form>
-
-    <ion-button fill="clear" expand="block" routerLink="/register">
-      Não tem uma conta? Criar conta
-    </ion-button>
+    </div>
   </div>
 </ion-content>
 

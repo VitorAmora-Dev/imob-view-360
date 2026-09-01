@@ -12,8 +12,13 @@
   que é onde se conserta; aqui fica por que não dá para seguir, que é o que se
   pergunta ao ver o botão.
 -->
-@if (motivoBloqueio()) {
+<!-- Na etapa 1 o erro fica junto ao nome, dentro do card ativo. -->
+@if (motivoBloqueio() && store.step() !== 1) {
   <p class="tw-actions__motivo" role="status">{{ motivoBloqueio()! | translate }}</p>
+}
+
+@if (blockedFeedback(); as feedbackKey) {
+  <p class="tw-actions__feedback" role="status">{{ feedbackKey | translate }}</p>
 }
 
 <!--
@@ -50,9 +55,11 @@
 <button
   type="button"
   class="tw-btn tw-btn--primary"
-  [disabled]="primaryDisabled()"
+  [class.is-compact]="store.step() === 1"
+  [disabled]="primaryDisabled() && store.step() !== 1"
+  [class.is-disabled]="primaryDisabled()"
   [attr.aria-disabled]="primaryDisabled() ? 'true' : null"
   [attr.title]="motivoBloqueio() ? (motivoBloqueio()! | translate) : null"
-  (click)="store.next()">
+  (click)="onPrimaryClick()">
   {{ primaryLabelKey() | translate }}
 </button>

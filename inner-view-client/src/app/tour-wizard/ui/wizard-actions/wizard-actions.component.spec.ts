@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
@@ -15,7 +15,7 @@ import { WizardActionsComponent } from './wizard-actions.component';
  * sem explicacao nenhuma na etapa seguinte.
  */
 describe('WizardActionsComponent', () => {
-  function montar(): { barra: WizardActionsComponent; store: TourDraftStore } {
+  function montar() {
     TestBed.configureTestingModule({
       providers: [
         TourDraftStore,
@@ -26,7 +26,11 @@ describe('WizardActionsComponent', () => {
       ],
     });
     const fixture = TestBed.createComponent(WizardActionsComponent);
-    return { barra: fixture.componentInstance, store: TestBed.inject(TourDraftStore) };
+    return {
+      barra: fixture.componentInstance,
+      store: TestBed.inject(TourDraftStore),
+      fixture,
+    };
   }
 
   afterEach(() => TestBed.resetTestingModule());
@@ -54,15 +58,25 @@ describe('WizardActionsComponent', () => {
   }
 
   function em(etapa: WizardStep, cenas: WizardScene[]) {
-    const { barra, store } = montar();
+    const { barra, store, fixture } = montar();
     store.scenes.set(cenas);
     store.step.set(etapa);
-    return { barra, store };
+    return { barra, store, fixture };
   }
 
   const LIGADAS = () => [cena('sala', ['cozinha']), cena('cozinha', ['sala'])];
 
   describe('rotulo do primario', () => {
+    it('a galeria da etapa 1 termina com "Pronto"', () => {
+      const { barra, fixture } = em(1, [cena('sala')]);
+      fixture.detectChanges();
+
+      expect(barra.primaryLabelKey()).toBe('TOUR_WIZARD.COMMON.DONE');
+      expect(
+        fixture.nativeElement.querySelector('.tw-btn--primary').classList,
+      ).toContain('is-compact');
+    });
+
     // O defeito da foto: a etapa 3 anunciava "Publicar tour" e so avancava.
     it('a etapa de passagens ainda e "proximo"', () => {
       const { barra } = em(3, LIGADAS());
@@ -148,4 +162,40 @@ describe('WizardActionsComponent', () => {
       expect(barra.showSkip()).toBeFalse();
     });
   });
+
+  it('oculta a explicacao longa na etapa 1 e preserva o motivo no botao', () => {
+    const semNome = { ...cena('sala'), room: '' };
+    const { barra, fixture } = em(1, [semNome]);
+
+    fixture.detectChanges();
+
+    expect(barra.motivoBloqueio()).toBe('TOUR_WIZARD.STEP1.NEEDS_NAMES');
+    expect(fixture.nativeElement.querySelector('.tw-actions__motivo')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.tw-btn--primary').getAttribute('title'),
+    ).toBeTruthy();
+  });
+
+  it('explica suavemente o bloqueio quando o primario da etapa 1 recebe toque', fakeAsync(() => {
+    const semNome = { ...cena('sala'), room: '' };
+    const { barra, store, fixture } = em(1, [semNome]);
+    fixture.detectChanges();
+
+    const primary: HTMLButtonElement =
+      fixture.nativeElement.querySelector('.tw-btn--primary');
+    expect(primary.disabled).toBeFalse();
+    expect(primary.getAttribute('aria-disabled')).toBe('true');
+
+    primary.click();
+    fixture.detectChanges();
+
+    expect(store.step()).toBe(1);
+    expect(store.showErrors()).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.tw-actions__feedback')).not.toBeNull();
+
+    tick(2800);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.tw-actions__feedback')).toBeNull();
+    barra.ngOnDestroy();
+  }));
 });

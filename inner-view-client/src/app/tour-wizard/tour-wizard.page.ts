@@ -2,14 +2,12 @@ import {
   Component,
   DestroyRef,
   OnInit,
-  ViewChild,
   computed,
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
-import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { filaDePassagens } from './passagens/fila';
 import { TourPublishedComponent } from './published/tour-published.component';
 import { StepOrderingComponent } from './steps/step-ordering/step-ordering.component';
@@ -140,7 +138,6 @@ const PERGUNTA_DE_RETOMADA_FALHA: PerguntaDoWizard = {
   imports: [
     IonContent,
     TranslatePipe,
-    AppHeaderComponent,
     WizardStepperComponent,
     WizardActionsComponent,
     StepImagesComponent,
@@ -153,8 +150,6 @@ const PERGUNTA_DE_RETOMADA_FALHA: PerguntaDoWizard = {
 })
 export class TourWizardPage implements OnInit {
   readonly store = inject(TourDraftStore);
-
-  @ViewChild(AppHeaderComponent) private header?: AppHeaderComponent;
 
   /**
    * Público porque o template o liga no `<app-tw-wizard-dialog>`: quem abre e
@@ -277,9 +272,9 @@ export class TourWizardPage implements OnInit {
     void this.store.salvarRascunho().catch(() => undefined);
   }
 
-  /** O header encolhe com o scroll e depende do container do ion-content. */
-  onScroll(event: CustomEvent<{ scrollTop: number }>): void {
-    this.header?.onContentScroll(event.detail.scrollTop);
+  /** Voltar compacto da galeria; o guard da rota preserva a decisÃ£o de saÃ­da. */
+  voltarParaHome(): void {
+    void this.router.navigate(['/home']);
   }
 
   /**
