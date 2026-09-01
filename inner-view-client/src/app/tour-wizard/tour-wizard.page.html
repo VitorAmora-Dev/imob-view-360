@@ -1,5 +1,8 @@
 <ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
-  <app-header backHref="/home" [pageTitle]="'TOUR_WIZARD.COMMON.TITLE' | translate"></app-header>
+  <!-- Na galeria da etapa 1 o stepper assume a navegação e libera a altura do header. -->
+  @if (store.step() !== 1 || !store.scenes().length) {
+    <app-header backHref="/home" [pageTitle]="'TOUR_WIZARD.COMMON.TITLE' | translate"></app-header>
+  }
 
   <!--
     `is-imersivo` enquanto ha foto na etapa de passagens: no celular ela ocupa

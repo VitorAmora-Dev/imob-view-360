@@ -209,7 +209,6 @@
                   }
 
                   <div class="tw-deck__details">
-                    <span>{{ item.sizeLabel }}</span>
                     @if (store.showErrors() && item.scene.state === 'ready' && !item.scene.room.trim()) {
                       <small role="alert">{{ 'TOUR_WIZARD.STEP1.NAME_REQUIRED' | translate }}</small>
                     }

@@ -7,6 +7,7 @@ import {
   convertToParamMap,
   provideRouter,
 } from '@angular/router';
+import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TourWizardPage } from './tour-wizard.page';
 import { PerguntaDoWizard } from './ui/wizard-dialog/wizard-dialog.model';
@@ -31,14 +32,9 @@ import { WizardScene } from './tour-wizard.model';
  *
  * Sem `detectChanges()` de propósito — mesma técnica de
  * `inner-view-page/inner-view-page.download.spec.ts`: o `ngOnInit` de cada
- * etapa não roda, e o `@switch`/`@if` que decide qual etapa aparecer nunca
- * chega a avaliar. O `<app-header>`, porém, é filho ESTÁTICO do template (não
- * mora dentro de `@if`), e o Ivy monta a árvore estática de um componente já
- * na criação da fixture, antes de qualquer `detectChanges()` — por isso ele é
- * construído de verdade, e com ele o `routerLink` do logotipo. É o mesmo
- * motivo pelo qual `inner-view-page.download.spec.ts` dubla `Router` e
- * `ActivatedRoute`; aqui basta uma rota vazia de verdade (`provideRouter([])`)
- * porque `AppHeaderComponent` não é dublado, é o real.
+ * etapa não roda. O router continua provido porque o header real aparece na
+ * tela de escolha inicial e nas demais etapas; ele só some na galeria da
+ * etapa 1 para devolver altura ao conteúdo no celular.
  */
 describe('TourWizardPage — sair sem perder trabalho', () => {
   function configurarTestBed(): void {
@@ -46,10 +42,11 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
         // Vazia mesmo: nenhum teste navega de verdade. Só precisa existir
-        // para o `routerLink` do logotipo do `app-header` (filho estático,
-        // montado já na criação da fixture) achar um `ActivatedRoute`.
+        // para o `routerLink` do logotipo do `app-header` achar um
+        // `ActivatedRoute` quando o template for renderizado.
         provideRouter([]),
       ],
     });
@@ -77,6 +74,22 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
   function comUmaCena(page: TourWizardPage): void {
     page.store.scenes.set([cena('a')]);
   }
+
+  it('oculta o header somente quando a etapa 1 ja mostra a galeria', () => {
+    configurarTestBed();
+    const fixture = TestBed.createComponent(TourWizardPage);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-header')).not.toBeNull();
+
+    comUmaCena(fixture.componentInstance);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-header')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-wizard-stepper')).not.toBeNull();
+
+    fixture.componentInstance.store.step.set(2);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-header')).not.toBeNull();
+  });
 
   /**
    * Faz o diálogo "aparecer" e o corretor tocar num botão.
