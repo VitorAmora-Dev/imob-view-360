@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import {
   IonContent, IonInput, IonButton, IonToast, IonSpinner
 } from '@ionic/angular/standalone';
-import { AppHeaderComponent } from '../components/app-header/app-header.component';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { BrandLogoComponent } from '../components/brand-logo/brand-logo.component';
 import { AuthService } from '../services/auth.service';
 
@@ -16,7 +16,7 @@ import { AuthService } from '../services/auth.service';
   imports: [
     FormsModule, RouterLink,
     IonContent, IonInput, IonButton, IonToast, IonSpinner,
-    AppHeaderComponent, BrandLogoComponent,
+    TranslatePipe, BrandLogoComponent,
   ],
 })
 export class LoginPage {
@@ -28,6 +28,7 @@ export class LoginPage {
 
   private authService = inject(AuthService);
   private router = inject(Router);
+  private translate = inject(TranslateService);
 
   submit() {
     if (!this.email || !this.password) return;
@@ -39,7 +40,7 @@ export class LoginPage {
       },
       error: () => {
         this.loading = false;
-        this.errorMessage = 'E-mail ou senha inválidos.';
+        this.errorMessage = this.translate.instant('AUTH.INVALID_CREDENTIALS');
         this.showToast = true;
       },
     });

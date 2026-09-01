@@ -1,12 +1,75 @@
-.login-container {
+// Duas colunas a partir de 744px: painel de marca a esquerda (gradiente da
+// cor primaria), formulario a direita. Abaixo disso, so o formulario -- o
+// painel de marca sai por CSS (mesmo padrao de .header-desktop em
+// app-header.component.scss), nao por @if, entao ele continua no DOM e so
+// alterna visibilidade.
+
+.login-shell {
   display: flex;
+  min-height: 100dvh;
+}
+
+.login-visual {
+  display: none;
+}
+
+.login-form-panel {
+  display: flex;
+  flex: 1 1 100%;
   flex-direction: column;
   justify-content: center;
-  min-height: 80vh;
+  padding: 24px;
+  // O <app-header> saiu da pagina, e era ele quem absorvia o topo com
+  // recorte (notch). Sem ele, o painel precisa fazer isso sozinho.
+  padding-top: calc(24px + var(--ion-safe-area-top, 0px));
+}
+
+.login-form-panel form,
+.login-form-panel > ion-button {
+  width: 100%;
   max-width: 400px;
-  margin: 0 auto;
+  margin-inline: auto;
 }
 
 .login-btn {
   margin-top: 8px;
+}
+
+@media (min-width: 744px) {
+  .login-visual {
+    display: flex;
+    flex: 1 1 45%;
+    flex-direction: column;
+    justify-content: flex-end;
+    max-width: 560px;
+    padding: 64px;
+    // --ion-color-primary/-shade sao os alias de L1 para
+    // --brand-primary/--brand-primary-dark (variables.scss). Nunca o
+    // primitivo de L0 direto aqui -- e' a regra do proprio _palette.scss.
+    background: linear-gradient(
+      135deg,
+      var(--ion-color-primary),
+      var(--ion-color-primary-shade)
+    );
+  }
+
+  .login-visual__tagline {
+    max-width: 320px;
+    margin-top: 16px;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #ffffff;
+  }
+
+  .login-form-panel {
+    flex: 1 1 55%;
+    padding: 64px;
+  }
+
+  // A tagline ja aparece no painel visual -- repeti-la aqui tambem soaria
+  // como eco. So esconde a partir daqui; a marcacao continua no DOM porque
+  // no mobile o painel visual nem existe, e o auth-intro precisa dela.
+  .login-form-panel .auth-intro .brand-tagline {
+    display: none;
+  }
 }
