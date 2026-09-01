@@ -1,4 +1,13 @@
 {
+  "AUTH": {
+    "TAGLINE": "Tour virtual de imóveis 360°",
+    "LOGIN_TITLE": "Entrar",
+    "EMAIL_LABEL": "E-mail",
+    "PASSWORD_LABEL": "Senha",
+    "SUBMIT": "Entrar",
+    "NO_ACCOUNT": "Não tem uma conta? Criar conta",
+    "INVALID_CREDENTIALS": "E-mail ou senha inválidos."
+  },
   "HOME": {
     "SEARCH_PLACEHOLDER": "Buscar lugares...",
     "LOADING": "Carregando seus imóveis...",

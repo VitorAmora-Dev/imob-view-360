@@ -1,4 +1,13 @@
 {
+  "AUTH": {
+    "TAGLINE": "360° virtual property tours",
+    "LOGIN_TITLE": "Log in",
+    "EMAIL_LABEL": "Email",
+    "PASSWORD_LABEL": "Password",
+    "SUBMIT": "Log in",
+    "NO_ACCOUNT": "Don't have an account? Sign up",
+    "INVALID_CREDENTIALS": "Invalid email or password."
+  },
   "HOME": {
     "SEARCH_PLACEHOLDER": "Search places...",
     "LOADING": "Loading your properties...",
