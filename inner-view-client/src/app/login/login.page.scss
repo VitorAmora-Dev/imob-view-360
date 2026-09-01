@@ -35,10 +35,10 @@
   margin-top: 8px;
 }
 
-// A coruja e' o assunto do painel azul: ocupa o espaco livre acima do
-// letreiro, que fica ancorado embaixo. Estas regras ficam fora da media
-// query de proposito -- abaixo de 744px o painel inteiro e' display:none, e
-// animacao dentro de subarvore nao renderizada nao roda, entao nao ha custo.
+// Sao DUAS corujas, e nunca as duas na tela ao mesmo tempo: a do painel azul
+// a partir de 744px, a do .auth-intro abaixo disso. Quem alterna e' o display
+// em cada media query; o gesto abaixo vale para as duas, sem media query
+// nenhuma, porque e' o mesmo gesto.
 .login-visual__mark {
   display: flex;
   flex: 1 1 auto;
@@ -47,18 +47,28 @@
   min-height: 0;
 }
 
-.login-visual__mark app-brand-logo {
-  // O simbolo so existe em azul; tone="white" o inverte por filtro. A altura
-  // acompanha a janela: o clamp evita que ele estoure o padding do painel num
-  // notebook baixo e que vire um selo perdido num monitor grande.
-  --brand-logo-symbol-height: clamp(200px, 46vh, 460px);
-
-  // O pivo fica nos pes, nao no centro. Girando pela base, a CABECA percorre
-  // o arco e as garras ficam plantadas -- e' isso que le como coruja
-  // inclinando a cabeca. Pelo centro, o corpo balancaria junto e viraria
-  // pendulo.
+// O pivo fica nos pes, nao no centro. Girando pela base, a CABECA percorre o
+// arco e as garras ficam plantadas -- e' isso que le como coruja inclinando a
+// cabeca. Pelo centro, o corpo balancaria junto e viraria pendulo.
+.login-visual__mark app-brand-logo,
+.login-form-panel .auth-intro app-brand-logo {
   transform-origin: 50% 88%;
   animation: owl-tilt 7s ease-in-out infinite;
+}
+
+// Painel azul: a coruja e' o assunto, e tem a coluna inteira para ocupar. O
+// simbolo so existe em azul; tone="white" o inverte por filtro. O clamp
+// evita que ela estoure o padding num notebook baixo e que vire um selo
+// perdido num monitor grande.
+.login-visual__mark app-brand-logo {
+  --brand-logo-symbol-height: clamp(200px, 46vh, 460px);
+}
+
+// Mobile: sem painel azul, quem carrega a marca e' esta -- azul sobre branco,
+// como ja era. Cresce bem menos que a outra porque divide a altura com o
+// formulario inteiro, e o teclado do celular ainda vai comer metade da tela.
+.login-form-panel .auth-intro app-brand-logo {
+  --brand-logo-symbol-height: clamp(120px, 22vh, 190px);
 }
 
 // A pausa em cada extremo e' o que transforma um balanco continuo num gesto
@@ -86,7 +96,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .login-visual__mark app-brand-logo {
+  .login-visual__mark app-brand-logo,
+  .login-form-panel .auth-intro app-brand-logo {
     animation: none;
   }
 }
