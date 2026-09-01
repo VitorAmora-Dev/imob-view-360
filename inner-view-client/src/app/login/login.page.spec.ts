@@ -56,11 +56,46 @@ describe('LoginPage', () => {
     const painel = el().querySelector('.login-visual');
     expect(painel).not.toBeNull();
 
-    const logoBranca = painel!.querySelector('app-brand-logo img') as HTMLImageElement;
+    // Escopado pela classe de proposito: o painel tem DUAS marcas agora (o
+    // simbolo grande e este letreiro). Um 'app-brand-logo img' solto pegaria
+    // a primeira do DOM e passaria a testar outra coisa sem avisar.
+    const logoBranca = painel!.querySelector(
+      '.login-visual__wordmark img',
+    ) as HTMLImageElement;
     expect(logoBranca.getAttribute('src')).toContain('arp-vision-horizontal-white.svg');
 
     const tagline = painel!.querySelector('.login-visual__tagline');
     expect(tagline?.textContent?.trim()).toBe('AUTH.TAGLINE');
+  });
+
+  // A coruja e' o assunto do painel azul. Ela e' a arte AZUL invertida por
+  // filtro (nao existe SVG branco do simbolo), entao o que prova que ela
+  // aparece sobre o gradiente e' a classe, nao o src.
+  it('o painel visual traz o simbolo grande da coruja, branco e decorativo', () => {
+    const coruja = el().querySelector('.login-visual__mark img') as HTMLImageElement;
+    expect(coruja).not.toBeNull();
+    expect(coruja.classList).toContain('brand-logo--white-symbol');
+    expect(coruja.getAttribute('alt')).toBe('');
+    expect(coruja.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  // A inclinacao e' o unico pedaco desta tela que so existe em CSS -- nenhum
+  // outro teste percebe se a regra sumir. Aqui a folha do componente ja esta
+  // aplicada, entao da' pra cobrar a declaracao. Quem roda a suite com
+  // movimento reduzido ligado ve 'none', e isso tambem esta certo.
+  //
+  // toContain, e nao toBe: a encapsulacao do Angular prefixa a @keyframes com
+  // o hash do componente (_ngcontent-a-cNNN_owl-tilt), e esse hash muda a
+  // cada build. Prender o nome exato seria um teste quebrando sozinho.
+  it('a coruja tem a animacao de inclinar, salvo movimento reduzido', () => {
+    const host = el().querySelector('.login-visual__mark app-brand-logo')!;
+    const animacao = getComputedStyle(host).animationName;
+
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      expect(animacao).toBe('none');
+    } else {
+      expect(animacao).toContain('owl-tilt');
+    }
   });
 
   // A logo se esconde sozinha via [decorative]="true" (checado no teste do

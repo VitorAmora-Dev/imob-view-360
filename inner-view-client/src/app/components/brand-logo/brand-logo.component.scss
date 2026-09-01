@@ -17,9 +17,13 @@
   height: 26px;
 }
 
+// A altura sai por custom property porque a imagem vive dentro deste
+// componente: quem usa o simbolo nao alcanca a .brand-logo de fora sem
+// ::ng-deep. A variavel atravessa a encapsulacao por heranca, o ::ng-deep
+// nao -- e ainda deixa o padrao de 72px valendo para quem nao pedir nada.
 .brand-logo--symbol {
   width: auto;
-  height: 72px;
+  height: var(--brand-logo-symbol-height, 72px);
 }
 
 .brand-logo--white-symbol {
