@@ -277,6 +277,11 @@ export class TourWizardPage implements OnInit {
     void this.store.salvarRascunho().catch(() => undefined);
   }
 
+  /** Voltar compacto da galeria; o guard da rota preserva a decisÃ£o de saÃ­da. */
+  voltarParaHome(): void {
+    void this.router.navigate(['/home']);
+  }
+
   /** O header encolhe com o scroll e depende do container do ion-content. */
   onScroll(event: CustomEvent<{ scrollTop: number }>): void {
     this.header?.onContentScroll(event.detail.scrollTop);

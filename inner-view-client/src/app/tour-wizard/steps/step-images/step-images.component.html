@@ -52,9 +52,12 @@
 } @else {
   <section class="tw-scenes" aria-labelledby="tw-scenes-title">
     <header class="tw-scenes__head">
-      <h2 id="tw-scenes-title" #galleryHeading tabindex="-1">
+      <h2 id="tw-scenes-title" #galleryHeading class="tw-visually-hidden" tabindex="-1">
         {{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}
       </h2>
+      <p class="tw-scenes__count" aria-live="polite">
+        {{ environmentCountKey() | translate: { n: store.scenes().length } }}
+      </p>
     </header>
 
     <div
@@ -79,7 +82,10 @@
             [class.is-arriving]="item.scene.id === arrivingSceneId()"
             [attr.data-depth]="item.depth"
             [attr.data-offset]="item.offset"
-            [style.--deck-drag]="item.offset === 0 ? dragOffset() + 'px' : '0px'"
+            [style.--deck-drag]="item.dragX + 'px'"
+            [style.--deck-live-scale]="item.liveScale"
+            [style.--deck-lift]="item.lift + 'px'"
+            [style.--deck-tilt]="item.tilt + 'deg'"
             [style.z-index]="10 - item.depth"
             [attr.inert]="item.offset !== 0 ? '' : null"
             [attr.aria-hidden]="item.offset !== 0 ? 'true' : null">
@@ -264,16 +270,23 @@
       }
     </div>
 
-    <section class="tw-scenes__add" aria-labelledby="tw-add-more-title">
-      <h3 id="tw-add-more-title">{{ 'TOUR_WIZARD.STEP1.ADD_MORE_TITLE' | translate }}</h3>
+    <section
+      class="tw-scenes__add"
+      [attr.aria-label]="'TOUR_WIZARD.STEP1.ADD_MORE_TITLE' | translate">
       <div class="tw-scenes__actions">
-        <label for="tw-files" class="tw-btn tw-btn--bordered">
-          <span aria-hidden="true">+</span>
-          {{ 'TOUR_WIZARD.STEP1.ADD_MORE_FILES' | translate }}
-        </label>
-        <button type="button" class="tw-btn tw-btn--primary" (click)="openCapture()">
-          <span aria-hidden="true">◎</span>
-          {{ 'TOUR_WIZARD.STEP1.TAKE_ANOTHER_PHOTO' | translate }}
+        <button type="button" class="tw-scene-action" (click)="openFilePicker()">
+          <span class="tw-scene-action__eyebrow">
+            {{ 'TOUR_WIZARD.STEP1.ADD_FILES_EYEBROW' | translate }}
+          </span>
+          <strong>{{ 'TOUR_WIZARD.STEP1.ADD_MORE_FILES' | translate }}</strong>
+          <span class="tw-scene-action__icon" aria-hidden="true">+</span>
+        </button>
+        <button type="button" class="tw-scene-action" (click)="openCapture()">
+          <span class="tw-scene-action__eyebrow">
+            {{ 'TOUR_WIZARD.STEP1.CAPTURE_EYEBROW' | translate }}
+          </span>
+          <strong>{{ 'TOUR_WIZARD.STEP1.TAKE_ANOTHER_PHOTO' | translate }}</strong>
+          <span class="tw-scene-action__icon" aria-hidden="true">◎</span>
         </button>
       </div>
     </section>

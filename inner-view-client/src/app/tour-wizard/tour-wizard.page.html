@@ -11,7 +11,20 @@
     fila a barra volta, porque e la que mora o "Continuar" -- ver `imersivo`.
   -->
   <div class="tw-shell" [class.is-imersivo]="imersivo()">
-    <app-wizard-stepper />
+    <div class="tw-shell__stepper-row">
+      @if (store.step() === 1 && store.scenes().length) {
+        <button
+          type="button"
+          class="tw-shell__gallery-back"
+          [attr.aria-label]="'TOUR_WIZARD.COMMON.BACK' | translate"
+          (click)="voltarParaHome()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 5 8 12l7 7" />
+          </svg>
+        </button>
+      }
+      <app-wizard-stepper />
+    </div>
 
     <div class="tw-body">
       <!--

@@ -55,6 +55,7 @@
 <button
   type="button"
   class="tw-btn tw-btn--primary"
+  [class.is-compact]="store.step() === 1"
   [disabled]="primaryDisabled() && store.step() !== 1"
   [class.is-disabled]="primaryDisabled()"
   [attr.aria-disabled]="primaryDisabled() ? 'true' : null"

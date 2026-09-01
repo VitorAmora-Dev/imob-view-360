@@ -67,6 +67,16 @@ describe('WizardActionsComponent', () => {
   const LIGADAS = () => [cena('sala', ['cozinha']), cena('cozinha', ['sala'])];
 
   describe('rotulo do primario', () => {
+    it('a galeria da etapa 1 termina com "Pronto"', () => {
+      const { barra, fixture } = em(1, [cena('sala')]);
+      fixture.detectChanges();
+
+      expect(barra.primaryLabelKey()).toBe('TOUR_WIZARD.COMMON.DONE');
+      expect(
+        fixture.nativeElement.querySelector('.tw-btn--primary').classList,
+      ).toContain('is-compact');
+    });
+
     // O defeito da foto: a etapa 3 anunciava "Publicar tour" e so avancava.
     it('a etapa de passagens ainda e "proximo"', () => {
       const { barra } = em(3, LIGADAS());

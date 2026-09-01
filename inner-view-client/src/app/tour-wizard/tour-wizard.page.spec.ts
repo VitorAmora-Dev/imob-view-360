@@ -80,15 +80,31 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
     const fixture = TestBed.createComponent(TourWizardPage);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-header')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-shell__gallery-back')).toBeNull();
 
     comUmaCena(fixture.componentInstance);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-header')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-wizard-stepper')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-shell__gallery-back')).not.toBeNull();
 
     fixture.componentInstance.store.step.set(2);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-header')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-shell__gallery-back')).toBeNull();
+  });
+
+  it('o voltar compacto da galeria navega para a home pelo guard da rota', () => {
+    configurarTestBed();
+    const fixture = TestBed.createComponent(TourWizardPage);
+    const router = TestBed.inject(Router);
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    comUmaCena(fixture.componentInstance);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.tw-shell__gallery-back').click();
+
+    expect(navigate).toHaveBeenCalledOnceWith(['/home']);
   });
 
   /**
