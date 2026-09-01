@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
@@ -165,4 +165,27 @@ describe('WizardActionsComponent', () => {
       fixture.nativeElement.querySelector('.tw-btn--primary').getAttribute('title'),
     ).toBeTruthy();
   });
+
+  it('explica suavemente o bloqueio quando o primario da etapa 1 recebe toque', fakeAsync(() => {
+    const semNome = { ...cena('sala'), room: '' };
+    const { barra, store, fixture } = em(1, [semNome]);
+    fixture.detectChanges();
+
+    const primary: HTMLButtonElement =
+      fixture.nativeElement.querySelector('.tw-btn--primary');
+    expect(primary.disabled).toBeFalse();
+    expect(primary.getAttribute('aria-disabled')).toBe('true');
+
+    primary.click();
+    fixture.detectChanges();
+
+    expect(store.step()).toBe(1);
+    expect(store.showErrors()).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.tw-actions__feedback')).not.toBeNull();
+
+    tick(2800);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.tw-actions__feedback')).toBeNull();
+    barra.ngOnDestroy();
+  }));
 });

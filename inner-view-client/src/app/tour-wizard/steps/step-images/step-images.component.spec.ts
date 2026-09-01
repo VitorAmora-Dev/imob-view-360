@@ -243,7 +243,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(modalController.create).not.toHaveBeenCalled();
   });
 
-  it('mantém todos os ambientes acessíveis pela paginação e só expõe quatro cards sobrepostos', () => {
+  it('mantém todos os ambientes acessíveis pela paginação e expõe anterior, ativo e próximo', () => {
     const scenes = Array.from({ length: 5 }, (_, index) =>
       scene(String(index + 1), { order: index }),
     );
@@ -257,7 +257,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     const selectors: HTMLButtonElement[] = Array.from(
       fixture.nativeElement.querySelectorAll('.tw-deck__pagination button'),
     );
-    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(4);
+    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(3);
     expect(cards.filter((card) => card.getAttribute('aria-hidden') !== 'true').length).toBe(1);
     expect(
       cards.filter(
@@ -407,5 +407,14 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(
       fixture.nativeElement.querySelector('.tw-deck').getAttribute('aria-label'),
     ).toBeTruthy();
+  });
+
+  it('nao exibe o peso do arquivo no card', () => {
+    store.scenes.set([scene('sala', { fileSize: 2_200_000 })]);
+    store.selectedSceneId.set('sala');
+    render();
+
+    expect(fixture.nativeElement.querySelector('.tw-deck__details span')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('2.2 MB');
   });
 });

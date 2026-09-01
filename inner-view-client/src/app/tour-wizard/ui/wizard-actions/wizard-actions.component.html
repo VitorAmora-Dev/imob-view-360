@@ -17,6 +17,10 @@
   <p class="tw-actions__motivo" role="status">{{ motivoBloqueio()! | translate }}</p>
 }
 
+@if (blockedFeedback(); as feedbackKey) {
+  <p class="tw-actions__feedback" role="status">{{ feedbackKey | translate }}</p>
+}
+
 <!--
   `visibility` e não `@if`: na etapa 1 o espaço do "Voltar" é preservado para o
   botão primário não pular de posição ao mudar de etapa. Um alvo que se move
@@ -51,9 +55,10 @@
 <button
   type="button"
   class="tw-btn tw-btn--primary"
-  [disabled]="primaryDisabled()"
+  [disabled]="primaryDisabled() && store.step() !== 1"
+  [class.is-disabled]="primaryDisabled()"
   [attr.aria-disabled]="primaryDisabled() ? 'true' : null"
   [attr.title]="motivoBloqueio() ? (motivoBloqueio()! | translate) : null"
-  (click)="store.next()">
+  (click)="onPrimaryClick()">
   {{ primaryLabelKey() | translate }}
 </button>

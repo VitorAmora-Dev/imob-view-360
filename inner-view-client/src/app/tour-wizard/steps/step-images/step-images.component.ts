@@ -29,7 +29,6 @@ interface SceneDeckItem {
   imageUrl: string | null;
   displayName: string;
   accessibleName: string;
-  sizeLabel: string;
   isCover: boolean;
   rejectionKey: string;
 }
@@ -92,9 +91,9 @@ export class StepImagesComponent implements OnDestroy {
   });
 
   /**
-   * A cena ativa fica na frente e as três seguintes formam a pilha atrás.
-   * As demais continuam disponíveis na paginação sem deixar controles
-   * encobertos na ordem de tabulação.
+   * A cena ativa fica ao centro; anterior e próxima aparecem recuadas nas
+   * laterais. As demais continuam disponíveis na paginação sem deixar
+   * controles encobertos na ordem de tabulação.
    */
   readonly deckItems = computed<SceneDeckItem[]>(() => {
     const scenes = this.store.scenes();
@@ -104,26 +103,24 @@ export class StepImagesComponent implements OnDestroy {
       0,
       scenes.findIndex((scene) => scene.id === activeId),
     );
-    const ordered = [
-      ...scenes.slice(activeIndex),
-      ...scenes.slice(0, activeIndex),
-    ];
+    return scenes.map((scene, index) => {
+      let offset = index - activeIndex;
+      if (offset > scenes.length / 2) offset -= scenes.length;
+      if (offset < -scenes.length / 2) offset += scenes.length;
 
-    return ordered.map((scene, offset) => {
       const readyIndex = readyScenes.findIndex(
         (candidate) => candidate.id === scene.id,
       );
       const number = scene.state === 'ready' ? readyIndex + 1 : null;
       return {
         scene,
-        depth: Math.min(offset, 3),
+        depth: Math.abs(offset),
         offset,
-        hidden: offset > 3,
+        hidden: Math.abs(offset) > 1,
         number,
         imageUrl: this.imageUrl(scene),
         displayName: scene.room.trim() || scene.fileName,
         accessibleName: scene.room.trim() || scene.fileName,
-        sizeLabel: formatBytes(scene.fileSize),
         isCover: this.store.coverScene()?.id === scene.id,
         rejectionKey:
           `TOUR_WIZARD.STEP1.REJECTED_${(scene.rejectedReason ?? 'type').toUpperCase()}`,
@@ -492,10 +489,4 @@ export class StepImagesComponent implements OnDestroy {
       // O gesto já terminou; não há recuperação necessária.
     }
   }
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1000) return `${bytes} B`;
-  if (bytes < 1_000_000) return `${Math.round(bytes / 1000)} KB`;
-  return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
