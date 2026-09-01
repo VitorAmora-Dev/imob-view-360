@@ -1,0 +1,48 @@
+<div class="busca">
+  <button type="button" class="busca__alvo" data-acao="abrir" (click)="aberta.set(true)">
+    <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
+
+    <!--
+      O rótulo da ação para quem não vê a lupa. Fica ANTES do resumo, e não num
+      `aria-label`: o atributo substituiria o conteúdo, e quem usa leitor de
+      tela perderia justamente os critérios ativos que a barra existe para
+      mostrar.
+    -->
+    <span class="busca__sr">{{ 'HOME.SEARCH.OPEN' | translate }}</span>
+
+    @if (resumo().length) {
+      <span class="busca__resumo">
+        @for (criterio of resumo(); track criterio.key; let ultimo = $last) {
+          <span class="busca__parte">
+            {{ criterio.labelKey ? (criterio.labelKey | translate) : criterio.labelText }}
+          </span>
+          @if (!ultimo) {
+            <span class="busca__ponto" aria-hidden="true">·</span>
+          }
+        }
+      </span>
+    } @else {
+      <span class="busca__convite">{{ 'HOME.SEARCH_PLACEHOLDER' | translate }}</span>
+    }
+  </button>
+
+  @if (resumo().length) {
+    <button
+      type="button"
+      class="busca__limpar"
+      data-acao="limpar"
+      (click)="limpar()"
+      [attr.aria-label]="'HOME.SEARCH.CLEAR_ALL' | translate">
+      <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+    </button>
+  }
+</div>
+
+<ion-modal class="busca-overlay" [isOpen]="aberta()" (didDismiss)="aberta.set(false)">
+  <ng-template>
+    <app-painel-de-busca
+      [filters]="filters()"
+      (buscar)="aplicar($event)"
+      (fechou)="aberta.set(false)" />
+  </ng-template>
+</ion-modal>

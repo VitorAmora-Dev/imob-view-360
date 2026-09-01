@@ -1,15 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ToastController } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 
-import {
-  NavegacaoEntreTelas,
-  ehAHome,
-} from '../../services/navegacao-entre-telas.service';
+import { NavegacaoEntreTelas } from '../../services/navegacao-entre-telas.service';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
@@ -18,12 +15,20 @@ import { WizardDialogComponent } from '../../tour-wizard/ui/wizard-dialog/wizard
 import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.model';
 
 /**
+ * A tela onde esta lista vive.
+ *
+ * Recebe o caminho já sem query string nem fragmento — ver `aoVoltarPara`, no
+ * construtor, e a armadilha que `NavegacaoEntreTelas` documenta.
+ */
+const EH_A_TELA_DE_RASCUNHOS = (caminho: string): boolean => caminho === '/rascunhos';
+
+/**
  * Largura da capa que o cartão pede ao servidor.
  *
- * O cartão desenha 196×110. Sem o `w`, a rota de preview devolve a
- * equirretangular inteira — e esta faixa dispara um download por rascunho, em
- * paralelo, no `ngOnInit` da home. Eram dezenas de MB no 4G a cada visita à
- * tela inicial para preencher um punhado de selos.
+ * O cartão desenha 110 de altura de capa. Sem o `w`, a rota de preview
+ * devolve a equirretangular inteira — e esta lista dispara um download por
+ * rascunho, em paralelo, no `ngOnInit`. Eram dezenas de MB no 4G a cada
+ * abertura da tela para preencher um punhado de selos.
  */
 const LARGURA_DA_CAPA = 320;
 
@@ -40,7 +45,7 @@ const APAGAR = 'descartar';
  * dentro de uma confirmação vira ruído, e ruído é o que se aprende a ignorar.
  *
  * `dispensavel` porque desistir é a resposta segura, e é o que o toque errado
- * no botão de 44px do carrossel merece encontrar.
+ * no botão de 44px encostado no cartão merece encontrar.
  */
 const PERGUNTA_DE_DESCARTE: PerguntaDoWizard = {
   tituloKey: 'HOME.DRAFTS_DISCARD_TITLE',
@@ -71,32 +76,34 @@ interface CartaoDeRascunho extends RascunhoResumo {
 }
 
 /**
- * As capturas que ficaram pela metade, no topo da home.
+ * As capturas que ficaram pela metade, na tela de Rascunhos.
  *
  * As fotos e o tratamento por IA nunca se perderam — sobem durante a própria
  * captura —, mas até esta tarefa não havia nada no aplicativo que levasse o
  * corretor de volta a elas: a listagem de imóveis esconde rascunho de
  * propósito (imóvel sem título apareceria como linha vazia no lugar mais
- * visível do sistema). Esta faixa é o caminho de volta.
+ * visível do sistema). Esta lista é o caminho de volta.
  *
- * Diferente do `HomeNoTourBannerComponent` — cujo comentário deixa explícito
- * que quem decide SE ele aparece é a `HomePage`, não ele mesmo —, esta faixa
- * busca os PRÓPRIOS dados (`listarRascunhos()`, uma consulta que a `HomePage`
- * não faz e não tem por que conhecer) e por isso decide sozinha se aparece:
- * sem rascunho, o `@if` do template não desenha nada. Quem é dono do dado é
- * quem tem informação para decidir; empurrar a decisão para a `HomePage`
- * obrigaria ela a duplicar esta mesma consulta só para saber se deve reservar
- * espaço.
+ * **Só aqui, e não mais numa faixa no topo da home.** Enquanto Rascunhos não
+ * era um destino, a faixa era o único jeito de reencontrar uma captura pela
+ * metade, e pagava por isso ocupando o topo da tela mais visitada do sistema
+ * — inclusive para quem nunca deixou nada pela metade. Agora a aba está fixa
+ * no rodapé do celular, sempre à mão, e o topo da home volta a ser do
+ * catálogo, que é o que o corretor foi ver.
+ *
+ * Busca os PRÓPRIOS dados (`listarRascunhos()`) e decide sozinha o que
+ * desenhar: com rascunho, os cartões; sem nenhum, o estado vazio — quem veio
+ * até aqui procurar merece uma resposta, e não uma tela em branco.
  */
 @Component({
-  selector: 'app-rascunhos-band',
+  selector: 'app-lista-de-rascunhos',
   standalone: true,
-  templateUrl: './rascunhos-band.component.html',
-  styleUrls: ['./rascunhos-band.component.scss'],
-  imports: [DatePipe, TranslatePipe, WizardDialogComponent],
+  templateUrl: './lista-de-rascunhos.component.html',
+  styleUrls: ['./lista-de-rascunhos.component.scss'],
+  imports: [DatePipe, RouterLink, TranslatePipe, WizardDialogComponent],
   providers: [DialogoDoWizard],
 })
-export class RascunhosBandComponent implements OnInit {
+export class ListaDeRascunhosComponent implements OnInit {
   private readonly virtualTourService = inject(VirtualTourService);
   private readonly propertyService = inject(PropertyService);
   private readonly imagens = inject(PanoramaImageCache);
@@ -106,7 +113,7 @@ export class RascunhosBandComponent implements OnInit {
    * Público porque o template o liga no `<app-tw-wizard-dialog>`.
    *
    * Fornecido por ESTE componente, e não em `root`: a pergunta pertence a esta
-   * faixa e morre com ela. O wizard tem a sua própria instância, pelo mesmo
+   * lista e morre com ela. O wizard tem a sua própria instância, pelo mesmo
    * motivo.
    */
   readonly dialogo = inject(DialogoDoWizard);
@@ -116,24 +123,24 @@ export class RascunhosBandComponent implements OnInit {
   readonly rascunhos = signal<CartaoDeRascunho[]>([]);
 
   /**
-   * Recarrega quando a home VOLTA a aparecer, e não só no `ngOnInit`.
+   * Recarrega quando a tela de Rascunhos VOLTA a aparecer, e não só no
+   * `ngOnInit`.
    *
-   * Publicar uma captura e voltar deixava o cartão dela na faixa — a home
+   * Publicar uma captura e voltar deixava o cartão dela na lista — a tela
    * afirmando "em andamento" sobre um tour que já estava no ar, até o app ser
    * recarregado do zero. O mesmo valia para descartar dentro do wizard, ou em
    * outro aparelho. A regra de "voltou a aparecer" mora em
    * `NavegacaoEntreTelas`, junto com a armadilha da query string que ela
    * resolve.
    *
-   * Pelo roteador, e não por um método público que a `HomePage` chamasse: esta
-   * faixa é dona do próprio dado — busca a própria lista e decide sozinha se
-   * aparece (ver o cabeçalho). Um `@ViewChild` na `HomePage` só para mandar
-   * recarregar obrigaria a página a conhecer um filho que ela hoje só
-   * posiciona.
+   * Pelo roteador, e não por um método público que a `RascunhosPage`
+   * chamasse: esta lista é dona do próprio dado (ver o cabeçalho). Um
+   * `@ViewChild` na página só para mandar recarregar obrigaria ela a conhecer
+   * um filho que hoje só posiciona.
    */
   constructor() {
     this.navegacao
-      .aoVoltarPara(ehAHome)
+      .aoVoltarPara(EH_A_TELA_DE_RASCUNHOS)
       .pipe(takeUntilDestroyed())
       .subscribe(() => void this.carregar());
   }
@@ -143,8 +150,9 @@ export class RascunhosBandComponent implements OnInit {
   }
 
   /**
-   * Best-effort de propósito: falhar aqui não pode derrubar a home. A faixa é
-   * um atalho por cima do catálogo, e é o catálogo que o corretor veio ver.
+   * Best-effort de propósito: falhar aqui não pode derrubar a tela. O
+   * resultado é o mesmo estado vazio de quem não tem rascunho nenhum, e o
+   * cabeçalho e a barra continuam servindo para sair daqui.
    *
    * O `try`/`catch` também segura uma falha SÍNCRONA de `listarRascunhos()`
    * (ex.: interceptor que lança antes de devolver o observable) — um `.catch`
@@ -206,10 +214,9 @@ export class RascunhosBandComponent implements OnInit {
    * catálogo como a linha vazia que aquele filtro existe para evitar. Mesma
    * regra de `TourDraftStore.descartarRascunho()`.
    *
-   * Por isso a confirmação, no mesmo diálogo da saída do wizard: o
-   * botão tem 44px, encosta no cartão e vive dentro de um carrossel de rolagem
-   * horizontal — um toque errado apagava, sem pergunta e sem desfazer, as
-   * fotos, os hotspots e o tratamento por IA já pago.
+   * Por isso a confirmação, no mesmo diálogo da saída do wizard: o botão tem
+   * 44px e encosta no cartão — um toque errado apagava, sem pergunta e sem
+   * desfazer, as fotos, os hotspots e o tratamento por IA já pago.
    *
    * E o cartão só some se o DELETE tiver dado certo. Engolir a falha e remover
    * o cartão mesmo assim fazia um descarte que não aconteceu parecer concluído

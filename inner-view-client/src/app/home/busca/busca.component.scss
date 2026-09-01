@@ -1,0 +1,162 @@
+:host {
+  display: block;
+}
+
+// A pílula centrada que a searchbar antiga desenhava, com o mesmo teto de
+// largura — o que muda é que agora ela é UM alvo, e não um campo.
+.busca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 660px;
+  margin-inline: auto;
+}
+
+.busca__alvo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  // Piso de toque com folga: é o caminho único para busca e filtros, e errá-lo
+  // é não achar o imóvel.
+  min-height: 52px;
+  min-width: 0;
+  padding: 0 20px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 9999px;
+  background: var(--ion-background-color);
+  box-shadow: var(--app-shadow-tier);
+  color: var(--app-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  ion-icon {
+    flex: 0 0 auto;
+    font-size: 20px;
+    color: var(--app-muted);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+// Existe para o leitor de tela, não para a tela. Mesma técnica do
+// `.home-anuncio` da home.
+.busca__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Uma linha só: com três critérios longos ("Apartamento", "Venda ou Aluguel"),
+// quebrar faria a barra mudar de altura conforme a busca — e a página inteira
+// pular junto.
+.busca__resumo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+// Só a PRIMEIRA parte encolhe. É o texto que a pessoa escreveu, o único de
+// tamanho imprevisível; finalidade e tipo são valores fechados e curtos, e
+// cortá-los ("Apartame…") não economiza nada que valha a leitura.
+.busca__parte {
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:first-of-type {
+    flex: 0 1 auto;
+  }
+}
+
+.busca__ponto {
+  flex: 0 0 auto;
+  color: var(--app-muted);
+}
+
+.busca__convite {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--app-muted);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.busca__limpar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 9999px;
+  background: var(--ion-background-color);
+  color: var(--app-ink);
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:hover {
+    background: var(--app-surface-soft);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* O overlay                                                                  */
+/* -------------------------------------------------------------------------- */
+
+// Folha inteira no telefone; cartão centrado a partir de 768px. É o mesmo corte
+// que separa o resto do app, e é onde a tela deixa de ser uma coluna só.
+ion-modal.busca-overlay {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+  --background: var(--app-surface-soft);
+
+  @media (min-width: 768px) {
+    --width: min(560px, calc(100vw - 48px));
+    --height: min(680px, calc(100vh - 96px));
+    --border-radius: var(--app-radius-md);
+  }
+
+  // Sem `ion-content` dentro: o painel controla a própria rolagem, para o
+  // rodapé com o "Buscar" ficar fixo. Então a `.ion-page` precisa virar a
+  // coluna flex que o painel espera encontrar.
+  &::part(content) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  ::ng-deep .ion-page {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    contain: content;
+  }
+}

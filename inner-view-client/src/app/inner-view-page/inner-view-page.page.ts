@@ -24,8 +24,6 @@ import { Capture360Component } from '../components/capture-360/capture-360.compo
 import { captureSupported } from '../components/capture-360/capture-support';
 import { panoramaFilename } from './panorama-download.util';
 import { urlDaImagem } from '../models/panorama-image.util';
-import { ADD_TOUR_INTENT } from '../models/navigation-intent';
-import { NavigationIntentService } from '../services/navigation-intent.service';
 
 @Component({
   selector: 'app-inner-view-page',
@@ -53,7 +51,6 @@ export class InnerViewPagePage implements OnInit {
   editingHotspots = false;
 
   private router = inject(Router);
-  private intents = inject(NavigationIntentService);
   private route = inject(ActivatedRoute);
   private propertyService = inject(PropertyService);
   private virtualTourService = inject(VirtualTourService);
@@ -111,12 +108,6 @@ export class InnerViewPagePage implements OnInit {
         }
       });
     }
-
-    // Do serviço, e não de `nav.extras.state`: o Angular re-hidrata
-    // `history.state` dentro de `extras.state` a cada bootstrap, então a
-    // intenção sobreviveria ao refresh e reabriria o seletor para sempre.
-    // Medido em navegador. Ver NavigationIntentService.
-    this.aplicarIntencao(this.intents.consume(id));
   }
 
   onPanoramaChange(panorama: Panorama) {
@@ -224,21 +215,6 @@ export class InnerViewPagePage implements OnInit {
 
   openFilePicker() {
     this.fileInput.nativeElement.click();
-  }
-
-  /**
-   * A home manda quem clicou em "Criar tour" para cá já querendo enviar a
-   * primeira imagem. Sem isto a página abriria e ficaria parada, esperando um
-   * segundo clique que nada na tela pede.
-   *
-   * Público e separado do ngOnInit para ser testável sem simular navegação.
-   */
-  aplicarIntencao(action: unknown): void {
-    if (action !== ADD_TOUR_INTENT) return;
-    // Fire-and-forget de propósito: abrir o seletor é efeito de interface, e
-    // nada no ngOnInit depende do que a pessoa vai escolher. O `void` é para o
-    // eslint não acusar promessa solta.
-    void this.addImage();
   }
 
   async addImage() {

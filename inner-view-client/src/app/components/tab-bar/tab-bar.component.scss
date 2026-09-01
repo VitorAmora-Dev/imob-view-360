@@ -1,0 +1,126 @@
+// Só no telefone. No desktop a nav do topo já resolve, e uma barra inferior em
+// 1280px seria mobiliário sem função. Mesmo ponto de corte do resto do app.
+:host {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  :host {
+    display: block;
+  }
+}
+
+.tabs {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  // Acima do conteúdo e do FAB, abaixo dos overlays do Ionic (que começam em
+  // 20000) — um modal aberto tem de cobrir a barra.
+  z-index: 100;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--app-hairline);
+  // `env()` e não um número: no iPhone a faixa do home indicator é do sistema,
+  // e sem esta folga o rótulo fica embaixo dela. O `viewport-fit=cover` que
+  // torna isso possível já está no index.html.
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--ion-background-color);
+}
+
+.tabs__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  // 56px é piso de dedo, e é o que separa tocar a aba certa de tocar a vizinha.
+  min-height: 56px;
+  padding: 6px 4px;
+  color: var(--app-muted);
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: -2px;
+  }
+}
+
+.tabs__item--ativo {
+  color: var(--ion-color-primary);
+}
+
+.tabs__icone {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  font-size: 24px;
+}
+
+.tabs__rotulo {
+  // O rótulo é pequeno mas EXISTE: ícone sozinho é adivinhação, e "Rascunhos"
+  // não tem desenho universal. Corta com reticências em vez de vazar da célula.
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// O "+" sobe: é a ação primária, e a única célula da barra que CRIA alguma
+// coisa — as outras duas apenas levam a algum lugar. Botão elevado no centro é
+// o vocabulário que o celular já usa para "o que este app faz", e ele lê como
+// ação antes de ser lido como rótulo.
+//
+// A elevação só é possível porque as células são TRÊS: o centro é o meio da
+// célula do meio. Com quatro ele caía a 62,5% da largura, e um botão "central"
+// fora do centro parece torto — era esse o impedimento, não a elevação em si.
+//
+// Ela transborda a barra em 30px, e isso se paga em dois lugares:
+//
+//   - a folga que `body.com-barra-inferior` põe no `ion-content`
+//     (`global.scss`) conta o círculo, e não só a barra — senão o último
+//     cartão da home fica embaixo dele;
+//   - o anel da cor do fundo recorta a barra em volta do círculo, para a
+//     borda superior não passar por trás dele como um risco atravessado.
+.tabs__item--acao {
+  position: relative;
+  // O rótulo desce e fica na mesma linha de base de "Tours" e "Rascunhos" — é
+  // o que ancora o círculo à barra em vez de deixá-lo solto no ar. O círculo
+  // sai do fluxo e sobe sozinho.
+  justify-content: flex-end;
+  padding-bottom: 7px;
+  color: var(--ion-color-primary);
+
+  .tabs__icone {
+    position: absolute;
+    left: 50%;
+    // Medido do pé da célula, que tem 56px: 56 de círculo a partir de 30
+    // deixam 30px acima da barra — pouco mais da metade, que é o bastante
+    // para ler como elevado sem descolar.
+    bottom: 30px;
+    width: 56px;
+    height: 56px;
+    transform: translateX(-50%);
+    border: 4px solid var(--ion-background-color);
+    border-radius: 50%;
+    background: var(--ion-color-primary);
+    box-shadow: 0 6px 16px rgba(var(--ion-color-primary-rgb), 0.34);
+    color: var(--ion-color-primary-contrast);
+    font-size: 26px;
+  }
+
+  // O contorno de foco segue o botão, e não a célula: quem navega por teclado
+  // precisa ver o que vai acionar, e o alvo visível aqui é o círculo.
+  &:focus-visible {
+    outline: none;
+
+    .tabs__icone {
+      outline: 2px solid var(--ion-color-primary);
+      outline-offset: 3px;
+    }
+  }
+}

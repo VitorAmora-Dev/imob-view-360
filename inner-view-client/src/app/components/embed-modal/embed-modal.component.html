@@ -1,0 +1,59 @@
+<!--
+  `isOpen` sai direto da existência do tour: quem abre e fecha é a página, e um
+  segundo estado aqui dentro poderia divergir dela.
+-->
+<ion-modal [isOpen]="!!tourId()" (didDismiss)="fechar()">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>{{ 'PROFILE.MODAL.TITLE' | translate }}</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="fechar()" [attr.aria-label]="'PROFILE.MODAL.CLOSE' | translate">
+            <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <div class="embed-section">
+        <h3>{{ 'PROFILE.MODAL.DIRECT_LINK' | translate }}</h3>
+        <ion-textarea
+          fill="outline"
+          [value]="link()"
+          [readonly]="true"
+          rows="2"
+          autoGrow="false"></ion-textarea>
+        <ion-button expand="block" fill="outline" (click)="copiar(link())">
+          <ion-icon name="copy-outline" slot="start"></ion-icon>
+          {{ 'PROFILE.MODAL.COPY_LINK' | translate }}
+        </ion-button>
+      </div>
+
+      <div class="embed-section">
+        <h3>{{ 'PROFILE.MODAL.EMBED_CODE' | translate }}</h3>
+        <ion-textarea
+          fill="outline"
+          [value]="codigo()"
+          [readonly]="true"
+          rows="4"
+          autoGrow="false"></ion-textarea>
+        <ion-button expand="block" fill="outline" (click)="copiar(codigo())">
+          <ion-icon name="copy-outline" slot="start"></ion-icon>
+          {{ 'PROFILE.MODAL.COPY_CODE' | translate }}
+        </ion-button>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<!--
+  Fora do `ng-template` de propósito: dentro dele o toast só existiria enquanto
+  o modal estivesse apresentado, e some junto com ele no meio da animação.
+-->
+<ion-toast
+  [isOpen]="copiou()"
+  [message]="'PROFILE.TOAST.COPIED' | translate"
+  [duration]="2000"
+  position="bottom"
+  (didDismiss)="copiou.set(false)"></ion-toast>

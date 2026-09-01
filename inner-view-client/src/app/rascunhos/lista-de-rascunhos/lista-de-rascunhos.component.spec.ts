@@ -6,7 +6,7 @@ import { ToastController, provideIonicAngular } from '@ionic/angular/standalone'
 import { provideTranslateService } from '@ngx-translate/core';
 import { Subject, of, throwError } from 'rxjs';
 
-import { RascunhosBandComponent } from './rascunhos-band.component';
+import { ListaDeRascunhosComponent } from './lista-de-rascunhos.component';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
@@ -14,21 +14,26 @@ import { DialogoDoWizard } from '../../tour-wizard/ui/wizard-dialog/dialogo-do-w
 import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.model';
 
 /**
- * A faixa "Capturas em andamento" da home (Tarefa 13).
+ * A lista de capturas em andamento, na tela de Rascunhos (Tarefa 13).
  *
  * As outras nove peças do rascunho retomável (salvar, retomar, descartar,
  * salvamento automático) já existem e estão testadas — o que faltava era um
  * jeito de VOLTAR a um rascunho depois de sair. Este componente é esse jeito.
  *
+ * Ele já foi uma faixa no topo da home além de ser esta tela. Deixou de ser
+ * quando Rascunhos virou uma aba fixa no rodapé: com um destino permanente, a
+ * faixa passou a cobrar o topo da tela mais visitada do sistema para repetir
+ * um caminho que já estava sempre à mão.
+ *
  * Sem dicionário de tradução carregado nos testes, `TranslatePipe` devolve a
  * própria chave (mesma convenção de `scene-card.component.spec.ts` e
- * `property-filters-bar.component.spec.ts`) — por isso as asserções abaixo
+ * `inner-view-card.component.spec.ts`) — por isso as asserções abaixo
  * procuram a CHAVE (`HOME.DRAFTS_ROOMS`, `HOME.DRAFTS_EMPTY_ROOMS`), não o
  * texto interpolado. `{{count}}` só vira número de verdade em produção, com o
  * catálogo de `pt.json`/`en.json` carregado.
  */
-describe('RascunhosBandComponent', () => {
-  let fixture: ComponentFixture<RascunhosBandComponent>;
+describe('ListaDeRascunhosComponent', () => {
+  let fixture: ComponentFixture<ListaDeRascunhosComponent>;
   let virtualTourService: VirtualTourService;
   let propertyService: PropertyService;
   let imagens: PanoramaImageCache;
@@ -79,7 +84,7 @@ describe('RascunhosBandComponent', () => {
 
   function montar(rascunhos: RascunhoResumo[]): void {
     TestBed.configureTestingModule({
-      imports: [RascunhosBandComponent],
+      imports: [ListaDeRascunhosComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -97,10 +102,10 @@ describe('RascunhosBandComponent', () => {
     spyOn(virtualTourService, 'listarRascunhos').and.returnValue(of(rascunhos));
     // O download da miniatura é assunto de outro teste (abaixo). Por padrão
     // ele fica pendurado (nunca resolve), para as asserções de estrutura da
-    // faixa não dependerem de uma promise que elas não pediram.
+    // lista não dependerem de uma promise que elas não pediram.
     spyOn(imagens, 'obter').and.returnValue(new Promise(() => {}));
 
-    fixture = TestBed.createComponent(RascunhosBandComponent);
+    fixture = TestBed.createComponent(ListaDeRascunhosComponent);
     fixture.detectChanges();
   }
 
@@ -108,8 +113,8 @@ describe('RascunhosBandComponent', () => {
    * Empurra um `NavigationEnd` pelo stream do `Router`.
    *
    * `router.events` é um Subject por dentro; num TestBed não há navegação de
-   * verdade para emiti-lo. É o evento que a faixa escuta para saber que a home
-   * voltou à tela — o `ion-router-outlet` mantém a página viva, então o
+   * verdade para emiti-lo. É o evento que esta lista escuta para saber que a
+   * tela voltou — o `ion-router-outlet` mantém a página viva, então o
    * `ngOnInit` não roda de novo.
    */
   function navegarPara(url: string): void {
@@ -118,16 +123,32 @@ describe('RascunhosBandComponent', () => {
 
   afterEach(() => fixture?.destroy());
 
-  it('não desenha nada quando não há rascunho', async () => {
-    // A faixa não pode ocupar espaço permanente na home: quem nunca deixou
-    // captura pela metade não deve ver um vazio explicando isso. Diferente do
-    // `home-no-tour-banner`, ninguém de fora decide isto por ela — ela é quem
-    // busca `listarRascunhos()`, então é ela quem sabe se há o que mostrar.
+  it('sem rascunho, responde em vez de sumir', async () => {
+    // Enquanto isto era uma faixa no topo da home, a lista vazia não desenhava
+    // NADA: ali ela disputava espaço com o catálogo, e quem nunca deixou uma
+    // captura pela metade não deveria ver um vazio explicando isso. Aqui é o
+    // contrário — quem tocou a aba veio procurar, e tela em branco não é
+    // resposta.
     montar([]);
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.rascunhos')).toBeNull();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('.rascunhos__card').length).toBe(0);
+
+    const vazio = el.querySelector('.rascunhos--vazio');
+    expect(vazio).not.toBeNull();
+    // Com um caminho para sair do vazio: a resposta é o que fazer a seguir.
+    expect(vazio?.querySelector('.rascunhos__vazio-cta')).not.toBeNull();
+  });
+
+  /** Quem tem título é a página. Repeti-lo aqui seria dizer duas vezes. */
+  it('não desenha título de seção', async () => {
+    montar([rascunho()]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.rascunhos__titulo')).toBeNull();
   });
 
   it('desenha um cartão por rascunho, com a contagem de ambientes', async () => {
@@ -169,7 +190,7 @@ describe('RascunhosBandComponent', () => {
    */
   it('busca a miniatura pelo cache, na variante tratada e REDUZIDA, e não por src direto', async () => {
     TestBed.configureTestingModule({
-      imports: [RascunhosBandComponent],
+      imports: [ListaDeRascunhosComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -185,7 +206,7 @@ describe('RascunhosBandComponent', () => {
     );
     const obter = spyOn(imagens, 'obter').and.resolveTo('blob:xyz');
 
-    fixture = TestBed.createComponent(RascunhosBandComponent);
+    fixture = TestBed.createComponent(ListaDeRascunhosComponent);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -220,7 +241,7 @@ describe('RascunhosBandComponent', () => {
    * listagem, que é exatamente a linha vazia que o filtro de lá existe para
    * evitar.
    */
-  it('descartar apaga o imóvel, não o tour, e some da faixa', async () => {
+  it('descartar apaga o imóvel, não o tour, e some da lista', async () => {
     montar([rascunho({ id: 't1', propertyId: 'i1' })]);
     dublarDialogo('DISCARD_CONFIRM');
     await fixture.whenStable();
@@ -331,9 +352,9 @@ describe('RascunhosBandComponent', () => {
     expect(TestBed.inject(ToastController).create).toHaveBeenCalled();
   });
 
-  it('não derruba a home quando listarRascunhos falha — a faixa é um atalho, não o catálogo', async () => {
+  it('não derruba a tela quando listarRascunhos falha', async () => {
     TestBed.configureTestingModule({
-      imports: [RascunhosBandComponent],
+      imports: [ListaDeRascunhosComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -345,22 +366,23 @@ describe('RascunhosBandComponent', () => {
     spyOn(TestBed.inject(VirtualTourService), 'listarRascunhos').and.throwError('rede');
 
     expect(() => {
-      fixture = TestBed.createComponent(RascunhosBandComponent);
+      fixture = TestBed.createComponent(ListaDeRascunhosComponent);
       fixture.detectChanges();
     }).not.toThrow();
   });
 
   /**
-   * O app usa `<ion-router-outlet>`, que MANTÉM a página na pilha: voltar do
-   * wizard reusa a `HomePage` viva, e o `ngOnInit` da faixa não roda de novo.
+   * O app usa `<ion-router-outlet>`, que MANTÉM a página na pilha: retomar um
+   * rascunho e voltar reusa a `RascunhosPage` viva, e o `ngOnInit` não roda de
+   * novo.
    *
-   * Sem recarregar, a home mentia: publicar uma captura e voltar deixava o
+   * Sem recarregar, a tela mentia: publicar uma captura e voltar deixava o
    * cartão dela ali, dizendo "em andamento" sobre um tour já no ar. E o cartão
    * era CLICÁVEL — retomar um tour publicado punha "Descartar captura" em cima
    * dele, que apaga o imóvel em cascata. O servidor agora recusa (o rascunho
-   * só serve `DRAFT`), mas a faixa não pode oferecer o caminho.
+   * só serve `DRAFT`), mas esta lista não pode oferecer o caminho.
    */
-  it('recarrega quando a home volta à tela', async () => {
+  it('recarrega quando a tela de Rascunhos volta', async () => {
     montar([rascunho({ id: 't1' })]);
     await fixture.whenStable();
     const listar = virtualTourService.listarRascunhos as jasmine.Spy;
@@ -368,16 +390,16 @@ describe('RascunhosBandComponent', () => {
     listar.and.returnValue(of([]));
 
     navegarPara('/tour/novo?rascunho=t1');
-    navegarPara('/home');
+    navegarPara('/rascunhos');
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(listar).toHaveBeenCalledTimes(1);
-    expect(fixture.nativeElement.querySelector('.rascunhos')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.rascunhos__card').length).toBe(0);
   });
 
-  it('não busca de novo ao SAIR da home', async () => {
-    // A faixa continua viva na página em cache, fora da tela. Recarregar aqui
+  it('não busca de novo ao SAIR da tela', async () => {
+    // A lista continua viva na página em cache, fora da tela. Recarregar aqui
     // seria uma requisição e uma rajada de miniaturas que ninguém vai ver.
     montar([rascunho({ id: 't1' })]);
     await fixture.whenStable();
@@ -391,35 +413,40 @@ describe('RascunhosBandComponent', () => {
   });
 
   /**
-   * Os filtros da `HomePage` moram na query string: cada troca de filtro, chip
-   * removido e busca digitada é uma navegação para `/home`. Comparar só o
-   * destino refazia a busca de rascunhos a cada tecla — e foi assim que este
-   * caso apareceu, derrubando os testes de filtro da `HomePage` com
-   * "Expected no open requests".
+   * Query string e fragmento não são outra tela.
+   *
+   * A armadilha custou uma rodada de correção quando esta lista morava na
+   * home, cujos filtros vivem na query string: cada tecla digitada na busca
+   * era uma navegação para `/home`, e comparar a URL inteira refazia a busca
+   * de rascunhos a cada uma delas — os testes de filtro da `HomePage` caíram
+   * com "Expected no open requests". A home não passa mais por aqui; o
+   * critério continua sendo o de `caminhoDe`, e este caso é o que impede
+   * alguém de reintroduzir a comparação ingênua ao dar um parâmetro a esta
+   * rota.
    */
-  it('não busca de novo quando o corretor só mexe nos filtros da home', async () => {
+  it('parâmetro na própria rota não vira nova busca', async () => {
     montar([rascunho({ id: 't1' })]);
     await fixture.whenStable();
     const listar = virtualTourService.listarRascunhos as jasmine.Spy;
     listar.calls.reset();
 
-    navegarPara('/home?type=HOUSE');
-    navegarPara('/home?type=HOUSE&purpose=SALE');
-    navegarPara('/home');
+    navegarPara('/rascunhos?ordem=recentes');
+    navegarPara('/rascunhos#lista');
+    navegarPara('/rascunhos');
     await fixture.whenStable();
 
     expect(listar).not.toHaveBeenCalled();
   });
 
-  it('a navegação que cria a faixa não vira uma segunda busca', async () => {
+  it('a navegação que cria a lista não vira uma segunda busca', async () => {
     // O componente é criado durante a ativação da rota, e o `NavigationEnd`
-    // dessa mesma navegação chega depois. Sem tratá-la, toda abertura da home
+    // dessa mesma navegação chega depois. Sem tratá-la, toda abertura da tela
     // custaria duas buscas e duas rajadas de miniatura.
     montar([rascunho({ id: 't1' })]);
     await fixture.whenStable();
     const listar = virtualTourService.listarRascunhos as jasmine.Spy;
 
-    navegarPara('/home');
+    navegarPara('/rascunhos');
     await fixture.whenStable();
 
     expect(listar).toHaveBeenCalledTimes(1);

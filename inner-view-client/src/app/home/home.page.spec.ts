@@ -59,22 +59,10 @@ describe('HomePage', () => {
   // proposito — e' contrato, nao vazamento.
   afterEach(() => http.verify({ ignoreCancelled: true }));
 
-  /**
-   * A faixa de rascunhos (Tarefa 13) dispara a propria chamada assim que
-   * `HomePage` e' criada — nenhum destes testes fala dela, so' precisam
-   * drenar a requisicao para `http.verify()` nao acusar pedido em aberto.
-   * So' dispara uma vez: com `IonicRouteStrategy`, `refiltrar()` reusa o
-   * mesmo componente e nao recria `app-rascunhos-band`.
-   */
-  function flushRascunhos(): void {
-    http.match((r) => r.url.endsWith('/virtual-tours')).forEach((r) => r.flush([]));
-  }
-
   /** Abre a home na URL dada e devolve a requisicao pendente. */
   async function abrir(url = '/home'): Promise<TestRequest> {
     component = await harness.navigateByUrl(url, HomePage);
     harness.detectChanges();
-    flushRascunhos();
     return http.expectOne((r) => r.url.endsWith('/properties'));
   }
 
@@ -108,8 +96,7 @@ describe('HomePage', () => {
 
   function moldura() {
     return {
-      busca: el().querySelector('ion-searchbar') !== null,
-      filtros: el().querySelector('app-property-filters-bar') !== null,
+      busca: el().querySelector('app-busca') !== null,
       fab: el().querySelector('ion-fab') !== null,
     };
   }
@@ -140,7 +127,7 @@ describe('HomePage', () => {
     responder(await abrir('/home?type=LAND'), []);
     expect(component.view()).toBe('no-results');
     expect(texto()).toContain('HOME.FILTERS.NO_RESULTS_FILTERS');
-    expect(texto()).toContain('HOME.FILTERS.CLEAR');
+    expect(texto()).toContain('HOME.SEARCH.CLEAR_ALL');
     expect(texto()).not.toContain('HOME.EMPTY_TITLE');
   });
 
@@ -152,14 +139,24 @@ describe('HomePage', () => {
   });
 
   it('os criterios da URL viram parametros da requisicao', async () => {
-    const req = await abrir('/home?type=APARTMENT&purpose=RENT&location=Centro&q=cobertura');
+    const req = await abrir('/home?type=APARTMENT&purpose=RENT&q=Canoas');
 
     expect(req.request.params.get('type')).toBe('APARTMENT');
     expect(req.request.params.get('purpose')).toBe('RENT');
-    expect(req.request.params.get('location')).toBe('Centro');
     // `q` na URL vira `search` na API.
-    expect(req.request.params.get('search')).toBe('cobertura');
+    expect(req.request.params.get('search')).toBe('Canoas');
 
+    responder(req, [imovel('1')]);
+  });
+
+  /**
+   * O passo "Onde?" e uma caixa so, e ela escreve em `q`. Um `?location=` de
+   * link antigo — favorito, historico, conversa — nao pode virar um filtro
+   * invisivel, que a barra fechada nao mostraria em lugar nenhum.
+   */
+  it('location de link antigo nao chega na API', async () => {
+    const req = await abrir('/home?location=Centro');
+    expect(req.request.params.get('location')).toBeNull();
     responder(req, [imovel('1')]);
   });
 
@@ -182,13 +179,13 @@ describe('HomePage', () => {
   // sumir, e digitar na busca destruiria o campo em foco no meio da digitacao.
   it('a moldura fica de pe enquanto refiltra', async () => {
     responder(await abrir(), [imovel('1')]);
-    expect(moldura()).toEqual({ busca: true, filtros: true, fab: true });
+    expect(moldura()).toEqual({ busca: true, fab: true });
 
     const req = await refiltrar('/home?type=HOUSE');
 
     expect(component.view()).toBe('list');
     expect(component.refiltrando()).toBeTrue();
-    expect(moldura()).toEqual({ busca: true, filtros: true, fab: true });
+    expect(moldura()).toEqual({ busca: true, fab: true });
     expect(el().querySelector('ion-progress-bar')).not.toBeNull();
 
     responder(req, [imovel('1')]);
@@ -205,15 +202,15 @@ describe('HomePage', () => {
     expect(button?.textContent).toContain('HOME.NEW_TOUR_CTA');
   });
 
-  it('busca, filtros e FAB somem em carregando e em erro', async () => {
+  it('busca e FAB somem em carregando e em erro', async () => {
     const req = await abrir();
     expect(component.view()).toBe('loading');
-    expect(moldura()).toEqual({ busca: false, filtros: false, fab: false });
+    expect(moldura()).toEqual({ busca: false, fab: false });
 
     falhar(req);
 
     expect(component.view()).toBe('error');
-    expect(moldura()).toEqual({ busca: false, filtros: false, fab: false });
+    expect(moldura()).toEqual({ busca: false, fab: false });
   });
 
   // A faixa fala do acervo. Com o servidor filtrando, `properties()` e' a
@@ -240,14 +237,25 @@ describe('HomePage', () => {
     expect(component.mostrarFaixa()).toBeFalse();
   });
 
-  it('a busca mostra o texto que veio da URL', async () => {
-    responder(await abrir('/home?q=cobertura'), [imovel('1')]);
-    const busca = el().querySelector('ion-searchbar') as HTMLIonSearchbarElement;
-    expect(busca.value).toBe('cobertura');
+  /** A barra fechada e o que sobrou de tres mecanicas: ela resume os tres. */
+  it('a barra mostra os criterios que vieram da URL', async () => {
+    responder(await abrir('/home?q=Canoas&purpose=RENT&type=HOUSE'), [imovel('1')]);
+
+    const partes = Array.from(
+      el().querySelectorAll('app-busca .busca__parte'),
+    ).map((n) => n.textContent!.trim());
+
+    expect(partes).toEqual(['Canoas', 'UPLOAD.PURPOSE.RENT', 'UPLOAD.TYPE.HOUSE']);
   });
 
-  // "Limpar filtros" limpa filtros. O texto tem caixa propria, visivel.
-  it('limpar filtros mantem o texto da busca', async () => {
+  /**
+   * "Limpar tudo" limpa TUDO, inclusive o texto.
+   *
+   * Antes o texto sobrevivia, porque tinha caixa propria visivel na tela e
+   * apaga-lo por tabela seria apagar o que a pessoa esta vendo e nao pediu
+   * para apagar. Agora ele e o primeiro passo da mesma busca.
+   */
+  it('limpar tira todos os criterios da URL', async () => {
     responder(await abrir('/home?type=LAND&q=abc'), [imovel('1')]);
 
     component.limpar();
@@ -256,21 +264,7 @@ describe('HomePage', () => {
 
     const url = TestBed.inject(Router).url;
     expect(url).not.toContain('type=');
-    expect(url).toContain('q=abc');
-
-    responder(http.expectOne((r) => r.url.endsWith('/properties')), [imovel('1')]);
-  });
-
-  it('remover um chip tira so aquele filtro da URL', async () => {
-    responder(await abrir('/home?type=LAND&purpose=SALE'), [imovel('1')]);
-
-    component.removerChip('type');
-    await harness.fixture.whenStable();
-    harness.detectChanges();
-
-    const url = TestBed.inject(Router).url;
-    expect(url).not.toContain('type=');
-    expect(url).toContain('purpose=SALE');
+    expect(url).not.toContain('q=');
 
     responder(http.expectOne((r) => r.url.endsWith('/properties')), [imovel('1')]);
   });
@@ -327,8 +321,6 @@ describe('HomePage', () => {
     eventos.next(new NavigationEnd(1, '/tour/novo', '/tour/novo'));
     eventos.next(new NavigationEnd(2, '/home', '/home'));
     harness.detectChanges();
-    // A faixa de rascunhos volta pelo mesmo caminho, e também pede o dela.
-    flushRascunhos();
 
     responder(
       http.expectOne((r) => r.url.endsWith('/properties')),

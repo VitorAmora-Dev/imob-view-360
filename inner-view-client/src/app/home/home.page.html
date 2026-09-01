@@ -1,45 +1,19 @@
 <ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
   <app-header></app-header>
 
-  <!--
-    Fora do `@if (mostrarMoldura())` de propósito: ela decide sozinha se
-    aparece (ver o comentário do componente) e sua condição não tem nada a
-    ver com busca/filtros/FAB — um rascunho pode existir em qualquer `view()`,
-    inclusive 'loading' e 'error' do catálogo principal.
-  -->
-  <app-rascunhos-band />
-
   @if (mostrarMoldura()) {
     <div class="search-band">
       <!--
-        `[value]` ligado a URL: o texto pode vir preenchido no primeiro render,
-        de um link compartilhado ou de um refresh, e um campo vazio sob
-        "nenhum resultado para zzz" seria uma tela que se contradiz.
+        Um alvo só, no lugar de tres mecanicas: a busca por texto, o bloco de
+        filtros e os chips do que estava ativo. `[filters]` vem da URL, que
+        continua sendo a fonte de verdade — a barra so a mostra e a reabre.
       -->
-      <ion-searchbar
-        class="home-search has-search-orb"
-        [value]="filters().query"
-        [debounce]="400"
-        [placeholder]="'HOME.SEARCH_PLACEHOLDER' | translate"
-        (ionInput)="onSearch($event)"
-        animated="true">
-      </ion-searchbar>
-    </div>
-
-    <app-property-filters-bar
-      [filters]="filters()"
-      (filtersChange)="aplicarFiltros($event)" />
-
-    <div class="filters-band">
-      <app-active-filter-chips
-        [chips]="chips()"
-        (remove)="removerChip($event)"
-        (clear)="limpar()" />
+      <app-busca [filters]="filters()" (filtersChange)="aplicarFiltros($event)" />
 
       <!--
-        Refiltrar nao devolve o placeholder de tela cheia: a barra e a busca
-        vivem dentro da moldura, e destrui-las tiraria o campo em foco de quem
-        esta digitando. O progresso entra por cima.
+        Refiltrar nao devolve o placeholder de tela cheia: a barra vive dentro
+        da moldura, e destrui-la tiraria o foco de quem acabou de tocar nela.
+        O progresso entra por cima.
       -->
       @if (refiltrando()) {
         <ion-progress-bar type="indeterminate" class="home-refiltrando"></ion-progress-bar>
@@ -75,7 +49,7 @@
         <app-home-placeholder
           icon="search-outline"
           text="HOME.FILTERS.NO_RESULTS_FILTERS"
-          actionLabel="HOME.FILTERS.CLEAR"
+          actionLabel="HOME.SEARCH.CLEAR_ALL"
           (action)="limpar()" />
       } @else {
         <app-home-placeholder
@@ -99,12 +73,21 @@
       }
       <app-inner-view-list
         [items]="properties()"
+        (embedClick)="embedTourId.set($event)"
         [attr.aria-busy]="refiltrando() || null"></app-inner-view-list>
     }
   }
 
+  <!--
+    O FAB "Novo tour 360" virou o "+" da barra inferior no celular. No desktop,
+    onde a barra não existe, ele continua sendo o atalho da tela.
+
+    Empilhado com a barra ele custaria uma terceira camada de rodapé — FAB,
+    barra e a do Safari —, e é o botão que gera receita: ele tem de estar no
+    caminho, não em cima de outra coisa.
+  -->
   @if (mostrarMoldura()) {
-    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab class="home-fab" slot="fixed" vertical="bottom" horizontal="end">
       <ion-fab-button class="home-new-tour" routerLink="/tour/novo">
         <ion-icon name="add" aria-hidden="true"></ion-icon>
         <span>{{ 'HOME.NEW_TOUR_CTA' | translate }}</span>
@@ -112,3 +95,9 @@
     </ion-fab>
   }
 </ion-content>
+
+<!--
+  UM modal para a grade inteira. O card só diz qual tour quer divulgar; quem
+  abre é aqui — ver `InnerViewListComponent.embedClick`.
+-->
+<app-embed-modal [tourId]="embedTourId()" (closed)="embedTourId.set(null)" />

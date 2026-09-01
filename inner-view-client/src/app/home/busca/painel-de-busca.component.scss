@@ -1,0 +1,236 @@
+// A folha inteira no celular, cartão centrado no desktop — quem decide isso é o
+// `ion-modal` da casca. Aqui só se organiza a coluna: topo fixo, passos
+// roláveis, rodapé fixo.
+// O `.ion-page` que o Ionic põe em volta é uma coluna flex; o painel é o item
+// que cresce dentro dela. `min-height: 0` porque sem ele um filho rolável
+// dentro de um item flex não encolhe, e a rolagem vai parar na página inteira
+// em vez de ficar no miolo dos passos.
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--app-surface-soft);
+}
+
+.painel__topo {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  padding: 12px 16px 4px;
+}
+
+.painel__fechar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // Piso de toque de 44px, e aqui ele importa: é o botão de "errei, sai daqui".
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 9999px;
+  background: var(--ion-background-color);
+  color: var(--app-ink);
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 22px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+// Rola só o miolo. Com o rodapé junto na rolagem, "Buscar" sairia da tela no
+// passo de tipo — que tem sete opções e é o mais alto dos três.
+.painel__passos {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 4px 16px 16px;
+  overflow-y: auto;
+}
+
+.passo {
+  border-radius: var(--app-radius-md);
+  background: var(--ion-background-color);
+  box-shadow: var(--app-shadow-tier);
+}
+
+.passo--aberto {
+  padding: 20px;
+}
+
+.passo__titulo {
+  margin: 0 0 16px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--app-ink);
+}
+
+// A linha do passo fechado: rótulo à esquerda, valor à direita. O botão é a
+// linha INTEIRA — num telefone, mirar só o texto do valor é errar.
+.passo__resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: -2px;
+  }
+}
+
+.passo__rotulo {
+  flex: 0 0 auto;
+  font-size: 14px;
+  color: var(--app-muted);
+}
+
+.passo__valor {
+  // O texto que a pessoa escreveu pode ser longo; corta com reticências em vez
+  // de empurrar o rótulo para fora da linha.
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--app-ink);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.passo__texto {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-radius-sm);
+  background: var(--ion-background-color);
+  color: var(--app-ink);
+  font: inherit;
+  font-size: 16px;
+
+  &::placeholder {
+    color: var(--app-muted);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: -1px;
+  }
+}
+
+// Pastilhas que quebram linha. Grade de colunas fixas deixaria "Venda ou
+// Aluguel" cortado ao lado de "Venda"; aqui cada uma ocupa o que precisa.
+.opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.opcao {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 9999px;
+  background: var(--ion-background-color);
+  color: var(--app-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+// A escolhida inverte, e não só muda a borda: numa fila de sete pastilhas, uma
+// borda mais escura se perde.
+.opcao--ativa {
+  border-color: var(--ion-color-primary);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+}
+
+.painel__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--app-hairline);
+  background: var(--ion-background-color);
+}
+
+.painel__limpar {
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--app-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+.painel__seguir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}

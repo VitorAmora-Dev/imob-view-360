@@ -1,0 +1,11 @@
+<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
+  <app-header [pageTitle]="'DRAFTS.TITLE' | translate"></app-header>
+
+  <h1 class="rascunhos-pagina__titulo">{{ 'DRAFTS.TITLE' | translate }}</h1>
+
+  <!--
+    A lista traz consigo a busca, a miniatura, o retomar e o descarte com
+    confirmação — inclusive o estado vazio. A página só lhe dá o título.
+  -->
+  <app-lista-de-rascunhos />
+</ion-content>
