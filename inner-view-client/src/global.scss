@@ -472,8 +472,15 @@ ion-badge {
  * Aqui e não no componente porque `ion-content` pertence às páginas: estilo
  * encapsulado da barra não alcança o conteúdo de ninguém.
  */
+// A barra é `position: fixed` e cobre o pé da tela; sem esta folga o último
+// cartão da home fica embaixo dela, e o "Descartar" de um rascunho vira
+// inalcançável.
+//
+// A conta inclui o "+" ELEVADO, não só a barra: 56 de altura + 1 de borda + os
+// 30 que o círculo transborda, e o resto é respiro. Ver `.tabs__item--acao` em
+// `tab-bar.component.scss` — mexer na elevação de lá pede mexer aqui.
 @media (max-width: 767px) {
   body.com-barra-inferior ion-content {
-    --padding-bottom: calc(64px + env(safe-area-inset-bottom));
+    --padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 }
