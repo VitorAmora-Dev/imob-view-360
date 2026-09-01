@@ -27,7 +27,7 @@ import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dial
  *
  * Sem dicionário de tradução carregado nos testes, `TranslatePipe` devolve a
  * própria chave (mesma convenção de `scene-card.component.spec.ts` e
- * `property-filters-bar.component.spec.ts`) — por isso as asserções abaixo
+ * `inner-view-card.component.spec.ts`) — por isso as asserções abaixo
  * procuram a CHAVE (`HOME.DRAFTS_ROOMS`, `HOME.DRAFTS_EMPTY_ROOMS`), não o
  * texto interpolado. `{{count}}` só vira número de verdade em produção, com o
  * catálogo de `pt.json`/`en.json` carregado.

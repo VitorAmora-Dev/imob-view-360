@@ -1,6 +1,22 @@
 {
   "HOME": {
-    "SEARCH_PLACEHOLDER": "Buscar lugares...",
+    "SEARCH_PLACEHOLDER": "Buscar imóveis",
+    "SEARCH": {
+      "OPEN": "Abrir a busca",
+      "WHERE_TITLE": "Onde?",
+      "WHERE_LABEL": "Onde",
+      "WHERE_HINT": "Cidade, bairro, código ou título",
+      "PURPOSE_TITLE": "Finalidade?",
+      "PURPOSE_LABEL": "Finalidade",
+      "TYPE_TITLE": "Tipo?",
+      "TYPE_LABEL": "Tipo",
+      "ANY": "Tanto faz",
+      "EMPTY_VALUE": "Qualquer",
+      "CLEAR_ALL": "Limpar tudo",
+      "NEXT": "Próximo",
+      "SUBMIT": "Buscar",
+      "CLOSE": "Fechar a busca"
+    },
     "LOADING": "Carregando seus imóveis...",
     "ERROR_TEXT": "Não foi possível carregar seus imóveis.",
     "ERROR_RETRY": "Tentar de novo",
@@ -12,19 +28,6 @@
     "NO_TOUR_BANNER_ONE": "1 imóvel ainda não possui imagens 360°.",
     "NO_RESULTS": "Nenhum imóvel encontrado para \"{{query}}\".",
     "FILTERS": {
-      "TOGGLE": "Filtros",
-      "TOGGLE_COUNT": "Filtros ({{n}})",
-      "TYPE_LABEL": "Tipo",
-      "PURPOSE_LABEL": "Finalidade",
-      "LOCATION_LABEL": "Localização",
-      "LOCATION_PLACEHOLDER": "Cidade, bairro ou estado",
-      "ALL_TYPES": "Todos os tipos",
-      "ALL_PURPOSES": "Todas as finalidades",
-      "CLEAR": "Limpar filtros",
-      "ACTIVE_TITLE": "Filtros ativos",
-      "REMOVE_CHIP": "Remover filtro {{label}}",
-      "SHEET_TITLE": "Filtrar imóveis",
-      "SHEET_DONE": "Ver resultados",
       "RESULT_COUNT": "{{n}} imóveis encontrados.",
       "RESULT_COUNT_ONE": "1 imóvel encontrado.",
       "NO_RESULTS_FILTERS": "Nenhum imóvel corresponde aos filtros selecionados."

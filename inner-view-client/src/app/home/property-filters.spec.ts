@@ -3,12 +3,9 @@ import { convertToParamMap } from '@angular/router';
 import {
   FILTROS_VAZIOS,
   PropertyFilters,
-  chipsAtivos,
-  contarFiltros,
-  limparTodos,
+  criteriosAtivos,
   mesmosFiltros,
   parseFilters,
-  removerFiltro,
   temCriterios,
   temFiltros,
   toListParams,
@@ -24,17 +21,15 @@ describe('parseFilters', () => {
     expect(parseFilters(mapa({}))).toEqual(FILTROS_VAZIOS);
   });
 
-  it('le os quatro criterios', () => {
+  it('le os tres criterios', () => {
     expect(parseFilters(mapa({
-      type: 'APARTMENT',
-      purpose: 'RENT',
-      location: 'Centro',
       q: 'cobertura',
-    }))).toEqual({
-      type: 'APARTMENT',
       purpose: 'RENT',
-      location: 'Centro',
+      type: 'APARTMENT',
+    }))).toEqual({
       query: 'cobertura',
+      purpose: 'RENT',
+      type: 'APARTMENT',
     });
   });
 
@@ -50,24 +45,31 @@ describe('parseFilters', () => {
   });
 
   it('espaco em branco conta como ausente', () => {
-    const filtros = parseFilters(mapa({ location: '   ', q: '  ' }));
-    expect(filtros.location).toBe('');
-    expect(filtros.query).toBe('');
+    expect(parseFilters(mapa({ q: '  ' })).query).toBe('');
+  });
+
+  /**
+   * O passo "Onde?" e uma caixa so, e ela escreve em `q`. Um link antigo com
+   * `?location=` chega de favorito, de histórico ou de conversa — ele nao pode
+   * quebrar a tela, e tambem nao pode filtrar por um criterio que a busca de
+   * hoje nao mostra em lugar nenhum.
+   */
+  it('ignora um location de link antigo', () => {
+    expect(parseFilters(mapa({ location: 'Centro' }))).toEqual(FILTROS_VAZIOS);
   });
 });
 
 describe('toQueryParams', () => {
   it('criterio ausente vira null, para sair da URL', () => {
     expect(toQueryParams(FILTROS_VAZIOS)).toEqual({
-      type: null,
-      purpose: null,
-      location: null,
       q: null,
+      purpose: null,
+      type: null,
     });
   });
 
   it('ida e volta preserva os criterios', () => {
-    const params = { type: 'HOUSE', purpose: 'SALE', location: 'Centro', q: 'casa' };
+    const params = { q: 'casa', purpose: 'SALE', type: 'HOUSE' };
     expect(toQueryParams(parseFilters(mapa(params)))).toEqual(params);
   });
 });
@@ -75,8 +77,8 @@ describe('toQueryParams', () => {
 describe('temFiltros e temCriterios', () => {
   const soTexto: PropertyFilters = { ...FILTROS_VAZIOS, query: 'casa' };
 
-  // A diferenca entre os dois decide duas coisas: se a faixa de "sem tour"
-  // aparece (criterios) e se o botao "Limpar filtros" aparece (filtros).
+  // A diferenca entre os dois decide o que a tela de zero resultados diz:
+  // "nenhum imovel para 'zzz'" ou "nenhum corresponde aos filtros".
   it('texto de busca e criterio, mas nao e filtro', () => {
     expect(temCriterios(soTexto)).toBeTrue();
     expect(temFiltros(soTexto)).toBeFalse();
@@ -87,59 +89,45 @@ describe('temFiltros e temCriterios', () => {
     expect(temFiltros(FILTROS_VAZIOS)).toBeFalse();
   });
 
-  it('localizacao e filtro', () => {
-    const comLocal = { ...FILTROS_VAZIOS, location: 'Centro' };
-    expect(temFiltros(comLocal)).toBeTrue();
-    expect(temCriterios(comLocal)).toBeTrue();
+  it('finalidade e tipo sao filtros', () => {
+    for (const filtros of [
+      { ...FILTROS_VAZIOS, purpose: 'RENT' as const },
+      { ...FILTROS_VAZIOS, type: 'HOUSE' as const },
+    ]) {
+      expect(temFiltros(filtros)).toBeTrue();
+      expect(temCriterios(filtros)).toBeTrue();
+    }
   });
 });
 
-describe('limparTodos', () => {
-  // O texto tem caixa propria, visivel, com botao de limpar do proprio
-  // searchbar. Apaga-lo por tabela seria apagar algo que a pessoa nao pediu
-  // para apagar e que ela esta vendo.
-  it('mantem o texto da busca', () => {
-    const antes: PropertyFilters = {
-      type: 'HOUSE', purpose: 'SALE', location: 'Centro', query: 'casa',
-    };
-
-    expect(limparTodos(antes)).toEqual({ ...FILTROS_VAZIOS, query: 'casa' });
-  });
-});
-
-describe('removerFiltro', () => {
-  const cheio: PropertyFilters = {
-    type: 'HOUSE', purpose: 'SALE', location: 'Centro', query: 'casa',
-  };
-
-  it('tira so o que foi pedido', () => {
-    expect(removerFiltro(cheio, 'type')).toEqual({ ...cheio, type: null });
-    expect(removerFiltro(cheio, 'purpose')).toEqual({ ...cheio, purpose: null });
-    expect(removerFiltro(cheio, 'location')).toEqual({ ...cheio, location: '' });
-  });
-});
-
-describe('chipsAtivos', () => {
-  it('sem filtro, nenhum chip', () => {
-    expect(chipsAtivos(FILTROS_VAZIOS)).toEqual([]);
-    expect(contarFiltros(FILTROS_VAZIOS)).toBe(0);
+describe('criteriosAtivos', () => {
+  it('sem criterio, lista vazia', () => {
+    expect(criteriosAtivos(FILTROS_VAZIOS)).toEqual([]);
   });
 
-  it('o texto da busca nao vira chip', () => {
-    expect(chipsAtivos({ ...FILTROS_VAZIOS, query: 'casa' })).toEqual([]);
-  });
-
-  it('tipo e finalidade viram chave de traducao; localizacao vira texto cru', () => {
+  /**
+   * A ordem e a dos passos — onde, finalidade, tipo — porque e ela que monta o
+   * resumo da barra fechada. Ler "Canoas · Aluguel · Casa" tem de ser a mesma
+   * experiencia de ter preenchido o painel de cima para baixo.
+   */
+  it('devolve na ordem dos passos, com o texto da busca na frente', () => {
     const cheio: PropertyFilters = {
-      type: 'APARTMENT', purpose: 'RENT', location: 'Centro', query: '',
+      query: 'Canoas',
+      purpose: 'RENT',
+      type: 'APARTMENT',
     };
 
-    expect(chipsAtivos(cheio)).toEqual([
-      { key: 'type', labelKey: 'UPLOAD.TYPE.APARTMENT', labelText: '' },
+    expect(criteriosAtivos(cheio)).toEqual([
+      { key: 'query', labelKey: null, labelText: 'Canoas' },
       { key: 'purpose', labelKey: 'UPLOAD.PURPOSE.RENT', labelText: '' },
-      { key: 'location', labelKey: null, labelText: 'Centro' },
+      { key: 'type', labelKey: 'UPLOAD.TYPE.APARTMENT', labelText: '' },
     ]);
-    expect(contarFiltros(cheio)).toBe(3);
+  });
+
+  it('so o que existe entra', () => {
+    expect(criteriosAtivos({ ...FILTROS_VAZIOS, type: 'LAND' })).toEqual([
+      { key: 'type', labelKey: 'UPLOAD.TYPE.LAND', labelText: '' },
+    ]);
   });
 });
 
@@ -155,10 +143,10 @@ describe('toListParams', () => {
       .toEqual({ limit: 100, search: 'cobertura' });
   });
 
-  it('manda os tres filtros', () => {
+  it('manda os tres criterios', () => {
     expect(toListParams({
-      type: 'HOUSE', purpose: 'RENT', location: 'Centro', query: '',
-    })).toEqual({ limit: 100, type: 'HOUSE', purpose: 'RENT', location: 'Centro' });
+      query: 'Canoas', purpose: 'RENT', type: 'HOUSE',
+    })).toEqual({ limit: 100, search: 'Canoas', purpose: 'RENT', type: 'HOUSE' });
   });
 });
 
@@ -168,9 +156,8 @@ describe('mesmosFiltros', () => {
   });
 
   it('qualquer campo diferente e diferente', () => {
-    expect(mesmosFiltros(FILTROS_VAZIOS, { ...FILTROS_VAZIOS, type: 'HOUSE' })).toBeFalse();
-    expect(mesmosFiltros(FILTROS_VAZIOS, { ...FILTROS_VAZIOS, purpose: 'SALE' })).toBeFalse();
-    expect(mesmosFiltros(FILTROS_VAZIOS, { ...FILTROS_VAZIOS, location: 'x' })).toBeFalse();
     expect(mesmosFiltros(FILTROS_VAZIOS, { ...FILTROS_VAZIOS, query: 'x' })).toBeFalse();
+    expect(mesmosFiltros(FILTROS_VAZIOS, { ...FILTROS_VAZIOS, purpose: 'SALE' })).toBeFalse();
+    expect(mesmosFiltros(FILTROS_VAZIOS, { ...FILTROS_VAZIOS, type: 'HOUSE' })).toBeFalse();
   });
 });

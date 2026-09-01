@@ -12,37 +12,43 @@ import {
  * Os critérios da home.
  *
  * A fonte de verdade deles é a URL — este tipo é a forma que eles tomam depois
- * de lidos. `query` é a busca por texto; os outros três são os filtros.
- * A distinção importa: "limpar filtros" não apaga o texto, e a faixa de
- * "imóveis sem tour" some com qualquer um dos quatro.
+ * de lidos, e a ordem dos campos é a ordem dos passos da busca: onde,
+ * finalidade, tipo.
+ *
+ * **Não há mais um critério de localização separado.** O passo "Onde?" é uma
+ * caixa só, e ela escreve em `query` — que a API casa contra código, título,
+ * descrição, rua, bairro, cidade, estado e CEP, um superconjunto do que o
+ * antigo `location` alcançava. O parâmetro continua existindo na API (é
+ * contrato público, e o DTO de lá diz isso); o que saiu foi a segunda caixa
+ * que perguntava a mesma coisa de um jeito mais estreito.
  */
 export interface PropertyFilters {
-  readonly type: PropertyType | null;
-  readonly purpose: PropertyPurpose | null;
-  readonly location: string;
   readonly query: string;
+  readonly purpose: PropertyPurpose | null;
+  readonly type: PropertyType | null;
 }
 
 export const FILTROS_VAZIOS: PropertyFilters = {
-  type: null,
-  purpose: null,
-  location: '',
   query: '',
+  purpose: null,
+  type: null,
 };
 
 /** Teto de itens da home. Paginação continua fora de escopo. */
 export const LIMITE_DA_HOME = 100;
 
+export type ChaveDoCriterio = 'query' | 'purpose' | 'type';
+
 /**
- * Um filtro ativo, pronto para virar chip.
+ * Um critério ativo, pronto para virar rótulo.
  *
- * Dois formatos de rótulo porque são duas naturezas: tipo e finalidade são
- * valores fechados, e o rótulo deles é uma chave de tradução; localização é
- * texto que a pessoa escreveu, e traduzir não faz sentido.
+ * Dois formatos porque são duas naturezas: finalidade e tipo são valores
+ * fechados, e o rótulo deles é uma chave de tradução; o texto da busca é o que
+ * o corretor escreveu, e traduzir não faz sentido.
  */
-export interface FilterChip {
-  readonly key: 'type' | 'purpose' | 'location';
-  /** Chave de tradução, ou `null` quando o rótulo é texto do usuário. */
+export interface CriterioAtivo {
+  readonly key: ChaveDoCriterio;
+  /** Chave de tradução, ou `null` quando o rótulo é texto do corretor. */
   readonly labelKey: string | null;
   /** Texto pronto — usado quando `labelKey` é nulo. */
   readonly labelText: string;
@@ -61,13 +67,15 @@ function valorValido<T extends string>(
  * Valor fora do enum é DESCARTADO, não repassado: um `?type=CASTELO` de link
  * colado ou editado à mão faria o zod da API devolver 400, e a home mostraria
  * erro de servidor por causa de um erro de digitação.
+ *
+ * Um `?location=` de link antigo é simplesmente ignorado — a URL de hoje não
+ * tem esse parâmetro, e ler o que não se sabe usar é pior do que não ler.
  */
 export function parseFilters(params: ParamMap): PropertyFilters {
   return {
-    type: valorValido(params.get('type'), PROPERTY_TYPES),
-    purpose: valorValido(params.get('purpose'), PROPERTY_PURPOSES),
-    location: (params.get('location') ?? '').trim(),
     query: (params.get('q') ?? '').trim(),
+    purpose: valorValido(params.get('purpose'), PROPERTY_PURPOSES),
+    type: valorValido(params.get('type'), PROPERTY_TYPES),
   };
 }
 
@@ -80,18 +88,15 @@ export function parseFilters(params: ParamMap): PropertyFilters {
  */
 export function toQueryParams(filtros: PropertyFilters): Params {
   return {
-    type: filtros.type ?? null,
-    purpose: filtros.purpose ?? null,
-    location: filtros.location || null,
     q: filtros.query || null,
+    purpose: filtros.purpose ?? null,
+    type: filtros.type ?? null,
   };
 }
 
-/** Há tipo, finalidade ou localização — o que o "Limpar filtros" apaga. */
+/** Há finalidade ou tipo — o que distingue "sem resultado" de "filtro demais". */
 export function temFiltros(filtros: PropertyFilters): boolean {
-  return (
-    filtros.type !== null || filtros.purpose !== null || filtros.location !== ''
-  );
+  return filtros.purpose !== null || filtros.type !== null;
 }
 
 /** Há filtro OU texto de busca — o que distingue "sem resultado" de "conta vazia". */
@@ -99,60 +104,49 @@ export function temCriterios(filtros: PropertyFilters): boolean {
   return temFiltros(filtros) || filtros.query !== '';
 }
 
-export function limparTodos(filtros: PropertyFilters): PropertyFilters {
-  return { ...FILTROS_VAZIOS, query: filtros.query };
-}
+/**
+ * Os critérios ativos, na ORDEM DOS PASSOS da busca.
+ *
+ * A ordem não é decoração: é ela que monta o resumo da barra fechada
+ * ("Canoas · Aluguel · Casa"), e ler o resumo tem de ser a mesma experiência de
+ * ter preenchido o painel.
+ *
+ * O texto da busca entra aqui — diferente do que valia quando isto alimentava
+ * chips de filtro, onde ele ficava de fora porque tinha caixa própria na tela.
+ * Agora ele é o primeiro passo, e omiti-lo faria a barra dizer "Aluguel · Casa"
+ * escondendo o "Canoas" que produziu o resultado.
+ */
+export function criteriosAtivos(filtros: PropertyFilters): CriterioAtivo[] {
+  const criterios: CriterioAtivo[] = [];
 
-export function removerFiltro(
-  filtros: PropertyFilters,
-  key: FilterChip['key'],
-): PropertyFilters {
-  switch (key) {
-    case 'type':
-      return { ...filtros, type: null };
-    case 'purpose':
-      return { ...filtros, purpose: null };
-    case 'location':
-      return { ...filtros, location: '' };
-  }
-}
-
-export function chipsAtivos(filtros: PropertyFilters): FilterChip[] {
-  const chips: FilterChip[] = [];
-
-  if (filtros.type) {
-    chips.push({
-      key: 'type',
-      labelKey: 'UPLOAD.TYPE.' + filtros.type,
-      labelText: '',
-    });
+  if (filtros.query) {
+    criterios.push({ key: 'query', labelKey: null, labelText: filtros.query });
   }
   if (filtros.purpose) {
-    chips.push({
+    criterios.push({
       key: 'purpose',
       labelKey: 'UPLOAD.PURPOSE.' + filtros.purpose,
       labelText: '',
     });
   }
-  if (filtros.location) {
-    chips.push({ key: 'location', labelKey: null, labelText: filtros.location });
+  if (filtros.type) {
+    criterios.push({
+      key: 'type',
+      labelKey: 'UPLOAD.TYPE.' + filtros.type,
+      labelText: '',
+    });
   }
 
-  return chips;
-}
-
-export function contarFiltros(filtros: PropertyFilters): number {
-  return chipsAtivos(filtros).length;
+  return criterios;
 }
 
 /** O que vai para o `PropertyService`. `q` da URL vira `search` da API. */
 export function toListParams(filtros: PropertyFilters): ListPropertiesParams {
   return {
     limit: LIMITE_DA_HOME,
-    ...(filtros.type && { type: filtros.type }),
-    ...(filtros.purpose && { purpose: filtros.purpose }),
-    ...(filtros.location && { location: filtros.location }),
     ...(filtros.query && { search: filtros.query }),
+    ...(filtros.purpose && { purpose: filtros.purpose }),
+    ...(filtros.type && { type: filtros.type }),
   };
 }
 
@@ -165,9 +159,6 @@ export function toListParams(filtros: PropertyFilters): ListPropertiesParams {
  */
 export function mesmosFiltros(a: PropertyFilters, b: PropertyFilters): boolean {
   return (
-    a.type === b.type &&
-    a.purpose === b.purpose &&
-    a.location === b.location &&
-    a.query === b.query
+    a.query === b.query && a.purpose === b.purpose && a.type === b.type
   );
 }

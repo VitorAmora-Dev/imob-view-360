@@ -1,6 +1,22 @@
 {
   "HOME": {
-    "SEARCH_PLACEHOLDER": "Search places...",
+    "SEARCH_PLACEHOLDER": "Search properties",
+    "SEARCH": {
+      "OPEN": "Open search",
+      "WHERE_TITLE": "Where?",
+      "WHERE_LABEL": "Where",
+      "WHERE_HINT": "City, district, code or title",
+      "PURPOSE_TITLE": "Purpose?",
+      "PURPOSE_LABEL": "Purpose",
+      "TYPE_TITLE": "Type?",
+      "TYPE_LABEL": "Type",
+      "ANY": "Any",
+      "EMPTY_VALUE": "Any",
+      "CLEAR_ALL": "Clear all",
+      "NEXT": "Next",
+      "SUBMIT": "Search",
+      "CLOSE": "Close search"
+    },
     "LOADING": "Loading your properties...",
     "ERROR_TEXT": "We could not load your properties.",
     "ERROR_RETRY": "Try again",
@@ -12,19 +28,6 @@
     "NO_TOUR_BANNER_ONE": "1 property does not have 360° images yet.",
     "NO_RESULTS": "No property found for \"{{query}}\".",
     "FILTERS": {
-      "TOGGLE": "Filters",
-      "TOGGLE_COUNT": "Filters ({{n}})",
-      "TYPE_LABEL": "Type",
-      "PURPOSE_LABEL": "Purpose",
-      "LOCATION_LABEL": "Location",
-      "LOCATION_PLACEHOLDER": "City, district or state",
-      "ALL_TYPES": "All types",
-      "ALL_PURPOSES": "All purposes",
-      "CLEAR": "Clear filters",
-      "ACTIVE_TITLE": "Active filters",
-      "REMOVE_CHIP": "Remove filter {{label}}",
-      "SHEET_TITLE": "Filter properties",
-      "SHEET_DONE": "See results",
       "RESULT_COUNT": "{{n}} properties found.",
       "RESULT_COUNT_ONE": "1 property found.",
       "NO_RESULTS_FILTERS": "No property matches the selected filters."

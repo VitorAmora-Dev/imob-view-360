@@ -4,34 +4,16 @@
   @if (mostrarMoldura()) {
     <div class="search-band">
       <!--
-        `[value]` ligado a URL: o texto pode vir preenchido no primeiro render,
-        de um link compartilhado ou de um refresh, e um campo vazio sob
-        "nenhum resultado para zzz" seria uma tela que se contradiz.
+        Um alvo só, no lugar de tres mecanicas: a busca por texto, o bloco de
+        filtros e os chips do que estava ativo. `[filters]` vem da URL, que
+        continua sendo a fonte de verdade — a barra so a mostra e a reabre.
       -->
-      <ion-searchbar
-        class="home-search has-search-orb"
-        [value]="filters().query"
-        [debounce]="400"
-        [placeholder]="'HOME.SEARCH_PLACEHOLDER' | translate"
-        (ionInput)="onSearch($event)"
-        animated="true">
-      </ion-searchbar>
-    </div>
-
-    <app-property-filters-bar
-      [filters]="filters()"
-      (filtersChange)="aplicarFiltros($event)" />
-
-    <div class="filters-band">
-      <app-active-filter-chips
-        [chips]="chips()"
-        (remove)="removerChip($event)"
-        (clear)="limpar()" />
+      <app-busca [filters]="filters()" (filtersChange)="aplicarFiltros($event)" />
 
       <!--
-        Refiltrar nao devolve o placeholder de tela cheia: a barra e a busca
-        vivem dentro da moldura, e destrui-las tiraria o campo em foco de quem
-        esta digitando. O progresso entra por cima.
+        Refiltrar nao devolve o placeholder de tela cheia: a barra vive dentro
+        da moldura, e destrui-la tiraria o foco de quem acabou de tocar nela.
+        O progresso entra por cima.
       -->
       @if (refiltrando()) {
         <ion-progress-bar type="indeterminate" class="home-refiltrando"></ion-progress-bar>
@@ -67,7 +49,7 @@
         <app-home-placeholder
           icon="search-outline"
           text="HOME.FILTERS.NO_RESULTS_FILTERS"
-          actionLabel="HOME.FILTERS.CLEAR"
+          actionLabel="HOME.SEARCH.CLEAR_ALL"
           (action)="limpar()" />
       } @else {
         <app-home-placeholder

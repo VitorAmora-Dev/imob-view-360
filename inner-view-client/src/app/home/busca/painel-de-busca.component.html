@@ -1,0 +1,134 @@
+<div class="painel">
+  <header class="painel__topo">
+    <button
+      type="button"
+      class="painel__fechar"
+      data-acao="fechar"
+      (click)="fechou.emit()"
+      [attr.aria-label]="'HOME.SEARCH.CLOSE' | translate">
+      <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+    </button>
+  </header>
+
+  <div class="painel__passos">
+    @for (p of passos; track p.id) {
+      @let aberto = passo() === p.id;
+      @let valor = valorDe(p.id);
+
+      <section class="passo" [class.passo--aberto]="aberto" [attr.data-passo]="p.id">
+        @if (aberto) {
+          <h2 class="passo__titulo">{{ p.tituloKey | translate }}</h2>
+
+          @switch (p.id) {
+            @case ('query') {
+              <!--
+                Sem `debounce`: nada dispara enquanto se digita, então não há o
+                que atrasar. O temporizador de 400 ms que a searchbar da home
+                precisava existia para não navegar a cada tecla — aqui a
+                navegação só acontece no "Buscar".
+              -->
+              <input
+                class="passo__texto"
+                type="search"
+                data-campo="query"
+                autocomplete="off"
+                [value]="rascunho().query"
+                [placeholder]="'HOME.SEARCH.WHERE_HINT' | translate"
+                [attr.aria-label]="'HOME.SEARCH.WHERE_LABEL' | translate"
+                (input)="escreverTexto($event)" />
+            }
+
+            @case ('purpose') {
+              <ul class="opcoes">
+                <li>
+                  <!--
+                    "Tanto faz" é o que permite PULAR o passo sem sair do
+                    fluxo — e é diferente de não ter tocado em nada: aqui a
+                    pessoa disse que não importa.
+                  -->
+                  <button
+                    type="button"
+                    class="opcao"
+                    data-opcao="purpose:"
+                    [class.opcao--ativa]="!rascunho().purpose"
+                    (click)="escolherFinalidade(null)">
+                    {{ 'HOME.SEARCH.ANY' | translate }}
+                  </button>
+                </li>
+                @for (f of finalidades; track f) {
+                  <li>
+                    <button
+                      type="button"
+                      class="opcao"
+                      [attr.data-opcao]="'purpose:' + f"
+                      [class.opcao--ativa]="rascunho().purpose === f"
+                      [attr.aria-pressed]="rascunho().purpose === f"
+                      (click)="escolherFinalidade(f)">
+                      {{ 'UPLOAD.PURPOSE.' + f | translate }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+
+            @case ('type') {
+              <ul class="opcoes">
+                <li>
+                  <button
+                    type="button"
+                    class="opcao"
+                    data-opcao="type:"
+                    [class.opcao--ativa]="!rascunho().type"
+                    (click)="escolherTipo(null)">
+                    {{ 'HOME.SEARCH.ANY' | translate }}
+                  </button>
+                </li>
+                @for (t of tipos; track t) {
+                  <li>
+                    <button
+                      type="button"
+                      class="opcao"
+                      [attr.data-opcao]="'type:' + t"
+                      [class.opcao--ativa]="rascunho().type === t"
+                      [attr.aria-pressed]="rascunho().type === t"
+                      (click)="escolherTipo(t)">
+                      {{ 'UPLOAD.TYPE.' + t | translate }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        } @else {
+          <button type="button" class="passo__resumo" (click)="abrir(p.id)">
+            <span class="passo__rotulo">{{ p.rotuloKey | translate }}</span>
+            <span class="passo__valor">
+              {{ valor.labelKey ? (valor.labelKey | translate) : valor.labelText }}
+            </span>
+          </button>
+        }
+      </section>
+    }
+  </div>
+
+  <footer class="painel__rodape">
+    <button
+      type="button"
+      class="painel__limpar"
+      data-acao="limpar"
+      (click)="limparTudo()">
+      {{ 'HOME.SEARCH.CLEAR_ALL' | translate }}
+    </button>
+
+    <button
+      type="button"
+      class="painel__seguir"
+      data-acao="seguir"
+      (click)="seguir()">
+      @if (noUltimo()) {
+        <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
+      }
+      {{ (noUltimo() ? 'HOME.SEARCH.SUBMIT' : 'HOME.SEARCH.NEXT') | translate }}
+    </button>
+  </footer>
+</div>

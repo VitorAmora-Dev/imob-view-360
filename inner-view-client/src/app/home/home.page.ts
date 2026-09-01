@@ -2,7 +2,6 @@ import { Component, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import {
   IonContent,
-  IonSearchbar,
   IonIcon,
   IonFab,
   IonFabButton,
@@ -19,23 +18,19 @@ import { EmbedModalComponent } from '../components/embed-modal/embed-modal.compo
 import { InnerViewListComponent } from '../components/inner-view-list/inner-view-list.component';
 import { HomePlaceholderComponent } from '../components/home-placeholder/home-placeholder.component';
 import { HomeNoTourBannerComponent } from '../components/home-no-tour-banner/home-no-tour-banner.component';
-import { PropertyFiltersBarComponent } from '../components/property-filters-bar/property-filters-bar.component';
-import { ActiveFilterChipsComponent } from '../components/active-filter-chips/active-filter-chips.component';
 import {
   NavegacaoEntreTelas,
   ehAHome,
 } from '../services/navegacao-entre-telas.service';
 import { PropertyService } from '../services/property.service';
 import { Property } from '../models/property.model';
+import { BuscaComponent } from './busca/busca.component';
 import { HomeStatus, resolveHomeView } from './home-view';
 import {
-  FilterChip,
+  FILTROS_VAZIOS,
   PropertyFilters,
-  chipsAtivos,
-  limparTodos,
   mesmosFiltros,
   parseFilters,
-  removerFiltro,
   temCriterios,
   temFiltros,
   toListParams,
@@ -47,11 +42,10 @@ import {
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
   imports: [
-    IonContent, IonSearchbar, IonIcon, IonFab, IonFabButton, IonProgressBar,
+    IonContent, IonIcon, IonFab, IonFabButton, IonProgressBar,
     AppHeaderComponent, InnerViewListComponent, HomePlaceholderComponent,
-    HomeNoTourBannerComponent, PropertyFiltersBarComponent,
-    EmbedModalComponent,
-    ActiveFilterChipsComponent, RouterLink, TranslatePipe,
+    HomeNoTourBannerComponent, BuscaComponent, EmbedModalComponent,
+    RouterLink, TranslatePipe,
   ],
 })
 export class HomePage {
@@ -95,7 +89,6 @@ export class HomePage {
 
   readonly comCriterios = computed(() => temCriterios(this.filters()));
   readonly comFiltros = computed(() => temFiltros(this.filters()));
-  readonly chips = computed(() => chipsAtivos(this.filters()));
 
   readonly view = computed(() =>
     resolveHomeView({
@@ -228,19 +221,16 @@ export class HomePage {
     });
   }
 
-  onSearch(event: CustomEvent<{ value?: string | null }>): void {
-    this.aplicarFiltros({
-      ...this.filters(),
-      query: (event.detail.value ?? '').trim(),
-    });
-  }
-
-  removerChip(key: FilterChip['key']): void {
-    this.aplicarFiltros(removerFiltro(this.filters(), key));
-  }
-
+  /**
+   * Zera TUDO, inclusive o texto.
+   *
+   * Antes o texto sobrevivia a um "limpar filtros", porque tinha caixa
+   * propria na tela e apaga-lo por tabela seria apagar o que a pessoa esta
+   * vendo e nao pediu para apagar. Agora ele e o primeiro PASSO da mesma
+   * busca, e "limpar tudo" que deixasse um criterio de pe seria mentira.
+   */
   limpar(): void {
-    this.aplicarFiltros(limparTodos(this.filters()));
+    this.aplicarFiltros(FILTROS_VAZIOS);
   }
 
   /** "Tentar de novo": mesmos critérios, consulta refeita. */
