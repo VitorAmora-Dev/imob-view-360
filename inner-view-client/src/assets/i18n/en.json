@@ -58,7 +58,6 @@
   "CAPTURE": {
     "TRATANDO_TITULO": "Enhancing your panorama",
     "TRATANDO": "AI is fixing the seams and parallax. This takes about a minute.",
-    "SEGUIR_SEM_MELHORAR": "Continue without enhancing",
     "NAO_MELHOROU": "Could not enhance this time — the panorama below is straight from the camera.",
     "ADD_METHOD_TITLE": "Add 360° image",
     "WITH_CAMERA": "Capture with camera",

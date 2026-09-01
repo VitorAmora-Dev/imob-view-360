@@ -572,7 +572,6 @@ export class TourDraftStore {
     imageData: string;
     frames: CaptureFrameUpload[];
     geometry: CaptureGeometry | null;
-    sinal?: AbortSignal;
   }): Promise<{ panoramaId: string; treatedUrl: string } | null> {
     try {
       const tourId = await this.garantirRascunho();
@@ -601,7 +600,7 @@ export class TourDraftStore {
 
       await firstValueFrom(this.virtualTourService.montarTour(tourId));
 
-      const pronto = await this.esperarPanorama(tourId, panorama.id, captura.sinal);
+      const pronto = await this.esperarPanorama(tourId, panorama.id);
       if (!pronto) return { panoramaId: panorama.id, treatedUrl: '' };
 
       const blob = await firstValueFrom(
@@ -624,18 +623,12 @@ export class TourDraftStore {
    * parado olhando: passado o limite, é melhor entregar o panorama costurado do
    * que continuar segurando a tela.
    */
-  private async esperarPanorama(
-    tourId: string,
-    panoramaId: string,
-    sinal?: AbortSignal,
-  ): Promise<boolean> {
+  private async esperarPanorama(tourId: string, panoramaId: string): Promise<boolean> {
     // Controlador próprio para poder encerrar o laço no instante em que ESTE
-    // cômodo termina, sem esperar os outros do tour. Ele também repassa a
-    // desistência de quem chamou — o botão de seguir sem melhorar, ou a tela
-    // morrendo.
+    // cômodo termina, sem esperar os outros do tour. Também repassa a tela
+    // morrendo, via `this.abortar`.
     const controle = new AbortController();
     const encerrar = () => controle.abort();
-    sinal?.addEventListener('abort', encerrar, { once: true });
     this.abortar.signal.addEventListener('abort', encerrar, { once: true });
 
     let terminou = false;
@@ -654,7 +647,6 @@ export class TourDraftStore {
         { sinal: controle.signal, limiteMs: LIMITE_DA_ESPERA_MS },
       );
     } finally {
-      sinal?.removeEventListener('abort', encerrar);
       this.abortar.signal.removeEventListener('abort', encerrar);
     }
     return terminou;

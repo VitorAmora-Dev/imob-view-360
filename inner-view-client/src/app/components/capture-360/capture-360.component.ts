@@ -174,9 +174,6 @@ export class Capture360Component implements OnDestroy {
   private serverPanoramaId: string | null = null;
   private treatedUrl = '';
 
-  /** Deixa o corretor sair do loader sem esperar a IA terminar. */
-  private esperaDaIa: AbortController | null = null;
-
   /**
    * A IA não melhorou este cômodo — rede fora, tempo estourado ou dispensa do
    * servidor. O preview mostra o costurado e diz isso, em vez de calar: uma
@@ -197,7 +194,6 @@ export class Capture360Component implements OnDestroy {
     imageData: string;
     frames: CaptureFrameUpload[];
     geometry: CaptureGeometry | null;
-    sinal?: AbortSignal;
   }) => Promise<TratamentoDaCaptura | null>;
   private candidates: Candidate[] = [];
   private lastCandidateMs = 0;
@@ -507,20 +503,16 @@ export class Capture360Component implements OnDestroy {
     }
 
     this.zone.run(() => this.state.set('treating'));
-    this.esperaDaIa = new AbortController();
     try {
       const r = await this.tratar({
         imageData: costurado,
         frames,
         geometry: this.geometry,
-        sinal: this.esperaDaIa.signal,
       });
       this.serverPanoramaId = r?.panoramaId ?? null;
       this.treatedUrl = r?.treatedUrl ?? '';
     } catch {
       this.treatedUrl = '';
-    } finally {
-      this.esperaDaIa = null;
     }
 
     this.zone.run(() => {
@@ -529,11 +521,6 @@ export class Capture360Component implements OnDestroy {
       // guardado em `originalImageData` de qualquer forma.
       this.mostrarPreview(this.treatedUrl || costurado);
     });
-  }
-
-  /** Desiste da espera e segue com o panorama costurado. */
-  seguirSemMelhorar(): void {
-    this.esperaDaIa?.abort();
   }
 
   private mostrarPreview(imageUrl: string): void {
