@@ -1,9 +1,8 @@
 import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { IonCard, IonButton, IonIcon } from '@ionic/angular/standalone';
+import { IonCard, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { heartOutline, heart, codeSlashOutline, homeOutline } from 'ionicons/icons';
-import { TranslatePipe } from '@ngx-translate/core';
+import { heartOutline, heart, homeOutline } from 'ionicons/icons';
 import { Property } from '../../models/property.model';
 import { environment } from '../../../environments/environment';
 
@@ -12,25 +11,19 @@ import { environment } from '../../../environments/environment';
   templateUrl: './inner-view-card.component.html',
   styleUrls: ['./inner-view-card.component.scss'],
   standalone: true,
-  imports: [IonCard, IonButton, IonIcon, TranslatePipe]
+  imports: [IonCard, IonIcon]
 })
 export class InnerViewCardComponent {
   @Input() item!: Property;
 
   @Output() likeChange = new EventEmitter<boolean>();
 
-  /**
-   * O tour a divulgar. Quem abre o modal é a página — ver
-   * `InnerViewListComponent.embedClick`.
-   */
-  @Output() embedClick = new EventEmitter<string>();
-
   liked = false;
 
   private router = inject(Router);
 
   constructor() {
-    addIcons({ heartOutline, heart, codeSlashOutline, homeOutline });
+    addIcons({ heartOutline, heart, homeOutline });
   }
 
   onCardClick() {
@@ -45,20 +38,6 @@ export class InnerViewCardComponent {
     this.likeChange.emit(this.liked);
   }
 
-  /**
-   * Pede o painel de embed para a página, em vez de compartilhar daqui.
-   *
-   * O que havia antes era `navigator.share` com fallback para copiar o link.
-   * Funcionava, mas entregava só metade: o código de `<iframe>` — que é como um
-   * corretor põe o tour no próprio site — só existia dentro de "Meus imóveis".
-   * O painel completo já existia e agora atende as duas telas.
-   */
-  onEmbed(event: Event) {
-    event.stopPropagation();
-
-    const tourId = this.item.virtualTour?.id;
-    if (tourId) this.embedClick.emit(tourId);
-  }
 
   get thumbnailUrl(): string {
     return `${environment.apiUrl}/virtual-tours/${this.item.virtualTour!.id}/thumbnail`;

@@ -78,9 +78,6 @@
     "EMPTY_HINT": "As capturas que você deixar pela metade aparecem aqui, prontas para continuar.",
     "EMPTY_CTA": "Começar uma captura"
   },
-  "CARD": {
-    "EMBED": "Embed de {{title}}"
-  },
   "CAPTURE": {
     "TRATANDO_TITULO": "Melhorando seu panorama",
     "TRATANDO": "A IA está corrigindo as emendas e a paralaxe. Leva cerca de um minuto.",
