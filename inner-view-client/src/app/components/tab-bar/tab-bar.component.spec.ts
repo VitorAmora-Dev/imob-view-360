@@ -87,15 +87,26 @@ describe('TabBarComponent', () => {
     expect(temBarra()).toBeTrue();
   });
 
-  it('oferece as quatro celulas, na ordem', () => {
+  /**
+   * Tres, e o "+" no MEIO. Configuracoes saiu para a engrenagem do cabecalho,
+   * e a ordem e o que poe a acao no centro exato — o teste guarda as duas
+   * coisas, porque tirar a celula sem reordenar deixaria o "+" na ponta.
+   */
+  it('oferece as tres celulas, com a acao no meio', () => {
     navegarPara('/home');
 
     expect(abas().map((a) => a.getAttribute('href'))).toEqual([
       '/home',
-      '/rascunhos',
       '/tour/novo',
-      '/configuracoes',
+      '/rascunhos',
     ]);
+  });
+
+  /** A engrenagem esta no `app-header`; aqui ela nao pode reaparecer. */
+  it('nao oferece Configuracoes', () => {
+    navegarPara('/home');
+
+    expect(abas().map((a) => a.getAttribute('href'))).not.toContain('/configuracoes');
   });
 
   /** O ativo pinta cheio; os demais, contorno. Convenção do iOS. */
@@ -109,7 +120,7 @@ describe('TabBarComponent', () => {
       (a) => (a.querySelector('ion-icon') as unknown as { name: string }).name,
     );
 
-    expect(icones).toEqual(['home-outline', 'time', 'add', 'settings-outline']);
+    expect(icones).toEqual(['home-outline', 'add', 'time']);
 
     const ativas = abas().filter((a) => a.classList.contains('tabs__item--ativo'));
     expect(ativas.length).toBe(1);
@@ -122,7 +133,7 @@ describe('TabBarComponent', () => {
    */
   it('o "+" nunca fica marcado como tela atual', () => {
     navegarPara('/home');
-    const maisMais = abas()[2];
+    const maisMais = abas()[1];
 
     expect(maisMais.classList).toContain('tabs__item--acao');
     expect(maisMais.classList).not.toContain('tabs__item--ativo');

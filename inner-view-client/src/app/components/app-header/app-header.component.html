@@ -57,6 +57,22 @@
           <ion-icon name="log-out-outline"></ion-icon>
         </button>
       </div>
+
+      <!--
+        A engrenagem é o `.header-desktop` do telefone, e só isso: abaixo de
+        744px aquele bloco é `display: none`, e com ele somem idioma, perfil e
+        sair. Ela leva à tela que reúne os três. Os dois nunca aparecem juntos
+        — o mesmo @media governa quem entra e quem sai.
+
+        Aqui, e não numa quarta aba da barra de baixo: configuração é destino
+        de visita rara, e o rodapé é o espaço dos destinos de todo dia.
+      -->
+      <a
+        class="circle-control icon-action header-config"
+        routerLink="/configuracoes"
+        [attr.aria-label]="'SETTINGS.TITLE' | translate">
+        <ion-icon name="settings-outline"></ion-icon>
+      </a>
     }
   </nav>
 

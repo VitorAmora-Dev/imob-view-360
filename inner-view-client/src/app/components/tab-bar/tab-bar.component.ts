@@ -4,15 +4,7 @@ import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
 import { addIcons } from 'ionicons';
-import {
-  add,
-  home,
-  homeOutline,
-  settings,
-  settingsOutline,
-  time,
-  timeOutline,
-} from 'ionicons/icons';
+import { add, home, homeOutline, time, timeOutline } from 'ionicons/icons';
 import { filter, map } from 'rxjs';
 
 import { caminhoDe } from '../../services/navegacao-entre-telas.service';
@@ -40,18 +32,21 @@ interface Aba {
   readonly acao?: boolean;
 }
 
+/**
+ * Tres celulas: os dois destinos do dia a dia, e no meio a acao que os alimenta.
+ *
+ * Configuracoes NAO esta aqui — mora na engrenagem do cabecalho. E destino de
+ * visita rara (idioma, sair, "Meus imoveis"), e uma aba permanente para o que
+ * se abre uma vez por mes custaria um quarto de uma barra cujo trabalho e
+ * levar ao que se usa todo dia. Fora ela, o "+" cai no centro EXATO, que e
+ * onde o polegar ja o procura.
+ */
 const ABAS: readonly Aba[] = [
   {
     rotuloKey: 'TABS.TOURS',
     rota: '/home',
     icone: 'home-outline',
     iconeAtivo: 'home',
-  },
-  {
-    rotuloKey: 'TABS.DRAFTS',
-    rota: '/rascunhos',
-    icone: 'time-outline',
-    iconeAtivo: 'time',
   },
   {
     rotuloKey: 'TABS.NEW',
@@ -61,10 +56,10 @@ const ABAS: readonly Aba[] = [
     acao: true,
   },
   {
-    rotuloKey: 'TABS.SETTINGS',
-    rota: '/configuracoes',
-    icone: 'settings-outline',
-    iconeAtivo: 'settings',
+    rotuloKey: 'TABS.DRAFTS',
+    rota: '/rascunhos',
+    icone: 'time-outline',
+    iconeAtivo: 'time',
   },
 ];
 
@@ -78,6 +73,9 @@ const ABAS: readonly Aba[] = [
  * para qualquer tela. Menu escondido é navegação que não acontece — "Meus
  * imóveis" custava dois toques e nenhuma visibilidade, num app cujo uso
  * principal é o telefone dentro do imóvel.
+ *
+ * O que ela oferece são os DESTINOS DE TODO DIA. Configurações fica de fora,
+ * na engrenagem do `app-header` — ver `ABAS` logo abaixo.
  *
  * **Componente próprio e não `ion-tabs`.** O `IonTabs` exige reestruturar as
  * rotas como filhas de uma rota-pai, e login, wizard, visualizador e embed
@@ -121,7 +119,7 @@ export class TabBarComponent {
   readonly visivel = computed(() => COM_BARRA.includes(this.caminho()));
 
   constructor() {
-    addIcons({ home, homeOutline, time, timeOutline, add, settings, settingsOutline });
+    addIcons({ home, homeOutline, time, timeOutline, add });
 
     // A barra é `position: fixed` e cobre o pé da tela: sem folga no conteúdo,
     // o último cartão da home fica embaixo dela. A folga é UMA regra em

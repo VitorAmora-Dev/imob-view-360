@@ -4,6 +4,7 @@ import { IonIcon, IonPopover, IonList, IonItem, IonLabel } from '@ionic/angular/
 import { addIcons } from 'ionicons';
 import {
   globeOutline, personCircleOutline, logOutOutline, checkmarkOutline, arrowBackOutline,
+  settingsOutline,
 } from 'ionicons/icons';
 import { TranslatePipe } from '@ngx-translate/core';
 import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
@@ -19,11 +20,13 @@ export interface HeaderNavLink {
  * Sticky app header. Collapses to a floating rounded bar once the page is
  * scrolled.
  *
- * The hamburguer and its full-screen sheet are gone: on the phone, navigation
- * now lives in `TabBarComponent` at the bottom of the screen, and language and
- * sign-out moved to the settings screen it points at. Two competing navigations
- * on the same screen is what confuses people — and a menu nobody opens is
- * navigation that does not happen.
+ * The hamburguer and its full-screen sheet are gone: on the phone, the everyday
+ * destinations live in `TabBarComponent` at the bottom of the screen, and
+ * language, sign-out and "My properties" moved to the settings screen — reached
+ * from the gear on the right of this header, which stands in for the desktop
+ * cluster below 744px. Two competing navigations on the same screen is what
+ * confuses people — and a menu nobody opens is navigation that does not
+ * happen.
  *
  * Sits inside the page's <ion-content> rather than in an <ion-header> because
  * the shrink-on-scroll effect needs the content scroll container. As a
@@ -68,7 +71,10 @@ export class AppHeaderComponent {
   isAuthenticated = computed(() => this.authService.isAuthenticated());
 
   constructor() {
-    addIcons({ globeOutline, personCircleOutline, logOutOutline, checkmarkOutline, arrowBackOutline });
+    addIcons({
+      globeOutline, personCircleOutline, logOutOutline, checkmarkOutline, arrowBackOutline,
+      settingsOutline,
+    });
   }
 
   /**

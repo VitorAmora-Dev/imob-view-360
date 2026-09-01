@@ -19,7 +19,7 @@
   // 20000) — um modal aberto tem de cobrir a barra.
   z-index: 100;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   border-top: 1px solid var(--app-hairline);
   // `env()` e não um número: no iPhone a faixa do home indicator é do sistema,
   // e sem esta folga o rótulo fica embaixo dela. O `viewport-fit=cover` que
@@ -73,9 +73,11 @@
 // O "+" é uma célula do mesmo tamanho das outras, distinguida pela COR e não
 // pela elevação.
 //
-// Elevado, ele precisaria estar no centro para não parecer torto — e com QUATRO
-// células o centro cai entre a segunda e a terceira, então um botão "central"
-// ficaria a 62,5% da largura. Cor separa igualmente bem e não cria o problema.
+// Com três células ele CAI no centro, então a elevação virou possível — e segue
+// fora de propósito: um botão elevado transborda a barra e cobre o conteúdo que
+// rola por baixo, e no iPhone a `env(safe-area-inset-bottom)` já empurra a
+// barra para cima, somando ao transbordo. A cor separa igualmente bem e não
+// cobra nada disso.
 .tabs__item--acao {
   color: var(--ion-color-primary);
 

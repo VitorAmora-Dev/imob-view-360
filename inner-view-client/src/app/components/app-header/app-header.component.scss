@@ -174,6 +174,28 @@
 // utility in global.scss.
 
 /* -------------------------------------------------------------------------- */
+/* Mobile settings shortcut — the phone's stand-in for the desktop cluster     */
+/* -------------------------------------------------------------------------- */
+
+.header-config {
+  position: relative;
+
+  // O círculo é o de 40px do `.circle-control`, mas o ALVO cresce para os 44px
+  // de piso, pelo mesmo pseudo-elemento sem peso no arranjo que o `.back-btn`
+  // usa. É o canto da tela e é o único caminho para idioma e sair; a folga de
+  // 2px por lado não chega às ações da página, cujo `gap` é 4px.
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
 /* Overlay variant — used over the immersive 360 viewer (dark canvas)         */
 /* -------------------------------------------------------------------------- */
 
@@ -243,6 +265,13 @@
 
   .header-desktop {
     display: flex;
+  }
+
+  // A troca é exata: entra o bloco do desktop, sai a engrenagem. Um único
+  // @media governa os dois para que não exista largura com ambos, nem com
+  // nenhum.
+  .header-config {
+    display: none;
   }
 
   .app-header--scrolled {
