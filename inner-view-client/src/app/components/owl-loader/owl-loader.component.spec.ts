@@ -17,6 +17,22 @@ describe('OwlLoaderComponent', () => {
     expect(OWL_LOADER_COLOR).toMatch(/^#[\dA-F]{6}$/i);
   });
 
+  // A tela de login precisa da coruja sobre o gradiente azul, onde o
+  // #0454ED some. A constante continua sendo o padrão -- quem não pedir cor
+  // nenhuma (a tela de montagem) fica exatamente como estava.
+  it('aceita uma cor pedida de fora, mantendo a constante como padrão', () => {
+    const padrao = TestBed.createComponent(OwlLoaderComponent);
+    padrao.detectChanges();
+    expect(padrao.componentInstance['owlColor'].getHexString())
+      .toBe(new THREE.Color(OWL_LOADER_COLOR).getHexString());
+    padrao.destroy();
+
+    fixture = TestBed.createComponent(OwlLoaderComponent);
+    fixture.componentInstance.color = '#FFFFFF';
+    fixture.detectChanges();
+    expect(fixture.componentInstance['owlColor'].getHexString()).toBe('ffffff');
+  });
+
   it('carrega, anima, reduz o movimento e libera o modelo real', async () => {
     let reducedMotion = false;
     let notifyMotionChange: (() => void) | undefined;

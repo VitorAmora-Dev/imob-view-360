@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Input,
   NgZone,
   OnDestroy,
   ViewChild,
@@ -52,12 +53,20 @@ interface HeadSideMaterialState {
   },
 })
 export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
+  /**
+   * Cor de todo o modelo, penas inclusas. O padrão é a constante, e é ele
+   * que a tela de montagem usa; quem desenha a coruja sobre fundo escuro
+   * (a tela de login, no painel azul) pede claro, senão ela some no fundo.
+   * Lido uma vez, no ngAfterViewInit — trocar depois não recolore.
+   */
+  @Input() color: string = OWL_LOADER_COLOR;
+
   @ViewChild('canvasHost', { static: true })
   private canvasHost!: ElementRef<HTMLDivElement>;
 
   private readonly zone = inject(NgZone);
   private readonly clock = new THREE.Clock(false);
-  private readonly owlColor = new THREE.Color(OWL_LOADER_COLOR);
+  private readonly owlColor = new THREE.Color();
   private readonly seamForward = new THREE.Vector3(0, 0, 1);
 
   private scene?: THREE.Scene;
@@ -129,6 +138,8 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
 
   private initializeThree(): void {
     const host = this.canvasHost.nativeElement;
+
+    this.owlColor.set(this.color);
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
@@ -327,7 +338,7 @@ export class OwlLoaderComponent implements AfterViewInit, OnDestroy {
 
     for (let index = 0; index < 3; index += 1) {
       const material = new THREE.MeshBasicMaterial({
-        color: OWL_LOADER_COLOR,
+        color: this.owlColor,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0,

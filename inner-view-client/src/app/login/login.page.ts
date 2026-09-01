@@ -6,6 +6,7 @@ import {
 } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { BrandLogoComponent } from '../components/brand-logo/brand-logo.component';
+import { OwlLoaderComponent } from '../components/owl-loader/owl-loader.component';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -16,7 +17,10 @@ import { AuthService } from '../services/auth.service';
   imports: [
     FormsModule, RouterLink,
     IonContent, IonInput, IonButton, IonToast, IonSpinner,
-    TranslatePipe, BrandLogoComponent,
+    // OwlLoaderComponent so aparece dentro do @defer do template: o
+    // compilador transforma este import em dinamico sozinho, e o three.js
+    // fica fora do chunk do login.
+    TranslatePipe, BrandLogoComponent, OwlLoaderComponent,
   ],
 })
 export class LoginPage {
