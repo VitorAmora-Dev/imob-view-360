@@ -53,16 +53,6 @@ interface SceneDeckItem {
 export class StepImagesComponent implements OnDestroy {
   readonly store = inject(TourDraftStore);
 
-  /**
-   * ngx-translate não tem plural, e "1 imagens" é o tipo de detalhe que faz o
-   * app parecer mal-acabado. Duas chaves resolvem — português e inglês
-   * concordam na regra do singular.
-   */
-  readonly countKey = computed(() =>
-    this.store.scenes().length === 1
-      ? 'TOUR_WIZARD.STEP1.SCENES_COUNT_ONE'
-      : 'TOUR_WIZARD.STEP1.SCENES_COUNT',
-  );
   private readonly modalController = inject(ModalController);
 
   private readonly fileInput =
@@ -102,9 +92,9 @@ export class StepImagesComponent implements OnDestroy {
   });
 
   /**
-   * A cena ativa fica ao centro; anterior e próxima aparecem recuadas nas
-   * laterais. As demais continuam disponíveis na paginação sem deixar
-   * controles encobertos na ordem de tabulação.
+   * A cena ativa fica na frente e as três seguintes formam a pilha atrás.
+   * As demais continuam disponíveis na paginação sem deixar controles
+   * encobertos na ordem de tabulação.
    */
   readonly deckItems = computed<SceneDeckItem[]>(() => {
     const scenes = this.store.scenes();
@@ -114,20 +104,21 @@ export class StepImagesComponent implements OnDestroy {
       0,
       scenes.findIndex((scene) => scene.id === activeId),
     );
-    return scenes.map((scene, index) => {
-      let offset = index - activeIndex;
-      if (offset > scenes.length / 2) offset -= scenes.length;
-      if (offset < -scenes.length / 2) offset += scenes.length;
+    const ordered = [
+      ...scenes.slice(activeIndex),
+      ...scenes.slice(0, activeIndex),
+    ];
 
+    return ordered.map((scene, offset) => {
       const readyIndex = readyScenes.findIndex(
         (candidate) => candidate.id === scene.id,
       );
       const number = scene.state === 'ready' ? readyIndex + 1 : null;
       return {
         scene,
-        depth: Math.abs(offset),
+        depth: Math.min(offset, 3),
         offset,
-        hidden: Math.abs(offset) > 1,
+        hidden: offset > 3,
         number,
         imageUrl: this.imageUrl(scene),
         displayName: scene.room.trim() || scene.fileName,

@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { provideTranslateService } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
 import { ChipState, WizardStepperComponent } from './wizard-stepper.component';
@@ -26,7 +27,12 @@ describe('WizardStepperComponent', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [TourDraftStore, provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        TourDraftStore,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+      ],
     });
   });
 
@@ -111,5 +117,17 @@ describe('WizardStepperComponent', () => {
     stepper.onChip(1);
 
     expect(store.step()).toBe(1);
+  });
+
+  it('oculta os metadados textuais somente na etapa de imagens', () => {
+    const { store } = makeStepper(true);
+    const fixture = TestBed.createComponent(WizardStepperComponent);
+
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.tw-progress__meta')).toBeNull();
+
+    store.step.set(2);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.tw-progress__meta')).not.toBeNull();
   });
 });

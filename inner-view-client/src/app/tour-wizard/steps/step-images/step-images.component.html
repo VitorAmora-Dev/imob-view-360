@@ -52,15 +52,9 @@
 } @else {
   <section class="tw-scenes" aria-labelledby="tw-scenes-title">
     <header class="tw-scenes__head">
-      <div>
-        <h2 id="tw-scenes-title" #galleryHeading tabindex="-1">
-          {{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}
-        </h2>
-        <p>{{ 'TOUR_WIZARD.STEP1.SCENES_HELPER' | translate }}</p>
-      </div>
-      <span class="tw-scenes__count">
-        {{ countKey() | translate: { n: store.scenes().length } }}
-      </span>
+      <h2 id="tw-scenes-title" #galleryHeading tabindex="-1">
+        {{ 'TOUR_WIZARD.STEP1.SCENES_TITLE' | translate }}
+      </h2>
     </header>
 
     <div
@@ -268,7 +262,6 @@
             </svg>
           </button>
         </nav>
-        <p class="tw-deck__hint">{{ 'TOUR_WIZARD.STEP1.DECK_HINT' | translate }}</p>
       }
     </div>
 
