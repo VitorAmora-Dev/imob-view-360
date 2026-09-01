@@ -96,14 +96,14 @@ interface CartaoDeRascunho extends RascunhoResumo {
  * até aqui procurar merece uma resposta, e não uma tela em branco.
  */
 @Component({
-  selector: 'app-rascunhos-band',
+  selector: 'app-lista-de-rascunhos',
   standalone: true,
-  templateUrl: './rascunhos-band.component.html',
-  styleUrls: ['./rascunhos-band.component.scss'],
+  templateUrl: './lista-de-rascunhos.component.html',
+  styleUrls: ['./lista-de-rascunhos.component.scss'],
   imports: [DatePipe, RouterLink, TranslatePipe, WizardDialogComponent],
   providers: [DialogoDoWizard],
 })
-export class RascunhosBandComponent implements OnInit {
+export class ListaDeRascunhosComponent implements OnInit {
   private readonly virtualTourService = inject(VirtualTourService);
   private readonly propertyService = inject(PropertyService);
   private readonly imagens = inject(PanoramaImageCache);

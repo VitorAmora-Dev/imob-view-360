@@ -3,25 +3,28 @@ import { IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
-import { RascunhosBandComponent } from '../components/rascunhos-band/rascunhos-band.component';
+import { ListaDeRascunhosComponent } from './lista-de-rascunhos/lista-de-rascunhos.component';
 
 /**
  * A aba Rascunhos: as capturas em andamento com a tela inteira.
  *
  * DONO: Frente A.
  *
- * Casca fina de propósito. Buscar a lista, baixar miniatura, retomar e
- * descartar já vivem no `RascunhosBandComponent`, que a home usa como faixa —
- * inclusive o diálogo de descarte e a regra de que o cartão só some quando o
- * DELETE dá certo. Duplicar isso aqui daria duas cópias que divergem na
- * primeira correção; o que muda entre as duas telas é só o `layout`.
+ * Casca fina de propósito: buscar a lista, baixar miniatura, retomar e
+ * descartar vivem no `ListaDeRascunhosComponent` ao lado — inclusive o diálogo
+ * de descarte e a regra de que o cartão só some quando o DELETE dá certo. À
+ * página cabe o título e o cabeçalho.
+ *
+ * Componente separado, e não tudo aqui: ele decide sozinho o que desenhar a
+ * partir do próprio dado (cartões ou estado vazio), e essa decisão precisa da
+ * consulta que ele mesmo faz.
  */
 @Component({
   selector: 'app-rascunhos',
   templateUrl: './rascunhos.page.html',
   styleUrls: ['./rascunhos.page.scss'],
   standalone: true,
-  imports: [IonContent, TranslatePipe, AppHeaderComponent, RascunhosBandComponent],
+  imports: [IonContent, TranslatePipe, AppHeaderComponent, ListaDeRascunhosComponent],
 })
 export class RascunhosPage {
   @ViewChild(AppHeaderComponent) private header?: AppHeaderComponent;

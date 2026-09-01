@@ -6,7 +6,7 @@ import { ToastController, provideIonicAngular } from '@ionic/angular/standalone'
 import { provideTranslateService } from '@ngx-translate/core';
 import { Subject, of, throwError } from 'rxjs';
 
-import { RascunhosBandComponent } from './rascunhos-band.component';
+import { ListaDeRascunhosComponent } from './lista-de-rascunhos.component';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
@@ -32,8 +32,8 @@ import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dial
  * texto interpolado. `{{count}}` só vira número de verdade em produção, com o
  * catálogo de `pt.json`/`en.json` carregado.
  */
-describe('RascunhosBandComponent', () => {
-  let fixture: ComponentFixture<RascunhosBandComponent>;
+describe('ListaDeRascunhosComponent', () => {
+  let fixture: ComponentFixture<ListaDeRascunhosComponent>;
   let virtualTourService: VirtualTourService;
   let propertyService: PropertyService;
   let imagens: PanoramaImageCache;
@@ -84,7 +84,7 @@ describe('RascunhosBandComponent', () => {
 
   function montar(rascunhos: RascunhoResumo[]): void {
     TestBed.configureTestingModule({
-      imports: [RascunhosBandComponent],
+      imports: [ListaDeRascunhosComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -105,7 +105,7 @@ describe('RascunhosBandComponent', () => {
     // lista não dependerem de uma promise que elas não pediram.
     spyOn(imagens, 'obter').and.returnValue(new Promise(() => {}));
 
-    fixture = TestBed.createComponent(RascunhosBandComponent);
+    fixture = TestBed.createComponent(ListaDeRascunhosComponent);
     fixture.detectChanges();
   }
 
@@ -190,7 +190,7 @@ describe('RascunhosBandComponent', () => {
    */
   it('busca a miniatura pelo cache, na variante tratada e REDUZIDA, e não por src direto', async () => {
     TestBed.configureTestingModule({
-      imports: [RascunhosBandComponent],
+      imports: [ListaDeRascunhosComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -206,7 +206,7 @@ describe('RascunhosBandComponent', () => {
     );
     const obter = spyOn(imagens, 'obter').and.resolveTo('blob:xyz');
 
-    fixture = TestBed.createComponent(RascunhosBandComponent);
+    fixture = TestBed.createComponent(ListaDeRascunhosComponent);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -354,7 +354,7 @@ describe('RascunhosBandComponent', () => {
 
   it('não derruba a tela quando listarRascunhos falha', async () => {
     TestBed.configureTestingModule({
-      imports: [RascunhosBandComponent],
+      imports: [ListaDeRascunhosComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -366,7 +366,7 @@ describe('RascunhosBandComponent', () => {
     spyOn(TestBed.inject(VirtualTourService), 'listarRascunhos').and.throwError('rede');
 
     expect(() => {
-      fixture = TestBed.createComponent(RascunhosBandComponent);
+      fixture = TestBed.createComponent(ListaDeRascunhosComponent);
       fixture.detectChanges();
     }).not.toThrow();
   });
