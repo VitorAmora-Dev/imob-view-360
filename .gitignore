@@ -109,4 +109,5 @@ $RECYCLE.BIN/
 # --------------------------------------------------------------------------
 .claude/
 .superpowers/
+.worktrees/
 MIGRATION.md
