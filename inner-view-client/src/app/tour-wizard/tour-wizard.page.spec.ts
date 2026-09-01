@@ -23,18 +23,14 @@ import { WizardScene } from './tour-wizard.model';
  * qualquer momento depois disso). Este spec cobre as duas.
  *
  * `aoVoltar()` é chamado pelo `tourWizardLeaveGuard` — um `CanDeactivate` da
- * rota `tour/novo` (`app.routes.ts`), não por um `@Output` do `app-header`.
- * O header é compartilhado por toda a tela (§7 do SPRINT-3-TOUR-WIZARD.md,
- * "consumido como está") e ele mesmo navega via `backHref`, sem emitir
- * evento. Um guard de rota também pega o voltar do navegador e o botão físico
- * do Android, que um `@Output` no header nunca veria — por isso os testes
- * chamam `page.aoVoltar()` diretamente, do jeito que o guard chamaria.
+ * rota `tour/novo` (`app.routes.ts`). Um guard de rota também pega o voltar do
+ * navegador e o botão físico do Android — por isso os testes chamam
+ * `page.aoVoltar()` diretamente, do jeito que o guard chamaria.
  *
  * Sem `detectChanges()` de propósito — mesma técnica de
  * `inner-view-page/inner-view-page.download.spec.ts`: o `ngOnInit` de cada
- * etapa não roda. O router continua provido porque o header real aparece na
- * tela de escolha inicial e nas demais etapas; ele só some na galeria da
- * etapa 1 para devolver altura ao conteúdo no celular.
+ * etapa não roda. O router continua provido porque a seta compacta navega para
+ * a home em qualquer etapa do wizard.
  */
 describe('TourWizardPage — sair sem perder trabalho', () => {
   function configurarTestBed(): void {
@@ -44,9 +40,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
         provideHttpClientTesting(),
         provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
-        // Vazia mesmo: nenhum teste navega de verdade. Só precisa existir
-        // para o `routerLink` do logotipo do `app-header` achar um
-        // `ActivatedRoute` quando o template for renderizado.
+        // Vazia mesmo: nenhum teste navega de verdade.
         provideRouter([]),
       ],
     });
@@ -75,26 +69,23 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
     page.store.scenes.set([cena('a')]);
   }
 
-  it('oculta o header somente quando a etapa 1 ja mostra a galeria', () => {
+  it('substitui o header pela seta e pelo stepper durante todo o wizard', () => {
     configurarTestBed();
     const fixture = TestBed.createComponent(TourWizardPage);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-header')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.tw-shell__gallery-back')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-header')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-shell__wizard-back')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-wizard-stepper')).not.toBeNull();
 
     comUmaCena(fixture.componentInstance);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-header')).toBeNull();
-    expect(fixture.nativeElement.querySelector('app-wizard-stepper')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.tw-shell__gallery-back')).not.toBeNull();
-
     fixture.componentInstance.store.step.set(2);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-header')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.tw-shell__gallery-back')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-header')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-shell__wizard-back')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-wizard-stepper')).not.toBeNull();
   });
 
-  it('o voltar compacto da galeria navega para a home pelo guard da rota', () => {
+  it('o voltar compacto do wizard navega para a home pelo guard da rota', () => {
     configurarTestBed();
     const fixture = TestBed.createComponent(TourWizardPage);
     const router = TestBed.inject(Router);
@@ -102,7 +93,7 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
     comUmaCena(fixture.componentInstance);
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector('.tw-shell__gallery-back').click();
+    fixture.nativeElement.querySelector('.tw-shell__wizard-back').click();
 
     expect(navigate).toHaveBeenCalledOnceWith(['/home']);
   });

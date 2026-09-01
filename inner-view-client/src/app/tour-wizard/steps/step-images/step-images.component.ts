@@ -125,7 +125,7 @@ export class StepImagesComponent implements OnDestroy {
       const depth = Math.min(offset, 3);
       const isActive = offset === 0;
       const isIncoming = offset === 1;
-      const incomingShift = drag < 0 ? -18 * dragProgress : 0;
+      const incomingShift = drag < 0 ? 18 * dragProgress : 0;
 
       const readyIndex = readyScenes.findIndex(
         (candidate) => candidate.id === scene.id,
@@ -140,10 +140,10 @@ export class StepImagesComponent implements OnDestroy {
         liveScale: isActive
           ? 1 - 0.025 * dragProgress
           : isIncoming
-            ? 0.975 + 0.02 * dragProgress
+            ? 0.96 + 0.035 * dragProgress
             : depth === 2
-              ? 0.95
-              : 0.925,
+              ? 0.925
+              : 0.895,
         lift: isIncoming ? -8 * dragProgress : 0,
         tilt: isActive ? drag / 32 : isIncoming ? -drag / 120 : 0,
         number,

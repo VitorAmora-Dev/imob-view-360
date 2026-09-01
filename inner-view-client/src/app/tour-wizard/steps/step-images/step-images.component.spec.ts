@@ -304,7 +304,12 @@ describe('StepImagesComponent — escolha e galeria', () => {
 
     expect(fixture.nativeElement.querySelector('.tw-source')).toBeNull();
     expect(fixture.nativeElement.querySelector('.tw-scenes__add')).not.toBeNull();
-    expect(fixture.nativeElement.querySelectorAll('.tw-scene-action').length).toBe(2);
+    const actions: HTMLElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('.tw-scene-action'),
+    );
+    expect(actions.length).toBe(2);
+    expect(actions[0].classList).toContain('tw-scene-action--camera');
+    expect(actions[1].classList).toContain('tw-scene-action--gallery');
   });
 
   it('navega pelas setas e pelo teclado mantendo a selecao sincronizada', () => {
