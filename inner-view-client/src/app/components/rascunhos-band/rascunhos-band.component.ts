@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
-import { AlertController, ToastController } from '@ionic/angular/standalone';
+import { ToastController } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -13,6 +13,9 @@ import {
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
+import { DialogoDoWizard } from '../../tour-wizard/ui/wizard-dialog/dialogo-do-wizard.service';
+import { WizardDialogComponent } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.component';
+import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.model';
 
 /**
  * Largura da capa que o cartão pede ao servidor.
@@ -23,6 +26,43 @@ import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.
  * tela inicial para preencher um punhado de selos.
  */
 const LARGURA_DA_CAPA = 320;
+
+/** O que `perguntar()` devolve quando o corretor confirma. */
+const APAGAR = 'descartar';
+
+/**
+ * A confirmação do descarte, no mesmo diálogo do wizard.
+ *
+ * SEM `confirmaKey`, e a diferença com o wizard é de contexto, não de
+ * descuido: lá o diálogo pergunta COMO sair, e "Descartar" é uma saída lateral
+ * dele — por isso o segundo toque. Aqui o corretor já tocou em "Descartar" no
+ * cartão, e este diálogo existe só para confirmar aquilo. Uma confirmação
+ * dentro de uma confirmação vira ruído, e ruído é o que se aprende a ignorar.
+ *
+ * `dispensavel` porque desistir é a resposta segura, e é o que o toque errado
+ * no botão de 44px do carrossel merece encontrar.
+ */
+const PERGUNTA_DE_DESCARTE: PerguntaDoWizard = {
+  tituloKey: 'HOME.DRAFTS_DISCARD_TITLE',
+  mensagemKey: 'HOME.DRAFTS_DISCARD_MESSAGE',
+  dispensavel: true,
+  // "Manter", e não "Fechar": o X aqui tem a mesma consequência do botão azul
+  // ao lado, e é isso que o leitor de tela deve anunciar.
+  fecharKey: 'HOME.DRAFTS_DISCARD_CANCEL',
+  acoes: [
+    {
+      id: 'manter',
+      rotuloKey: 'HOME.DRAFTS_DISCARD_CANCEL',
+      tom: 'primario',
+    },
+    {
+      id: APAGAR,
+      rotuloKey: 'HOME.DRAFTS_DISCARD_CONFIRM',
+      tom: 'destrutivo',
+      icone: 'lixeira',
+    },
+  ],
+};
 
 /** Uma linha de `listarRascunhos()`, mais a miniatura quando ela já chegou. */
 interface CartaoDeRascunho extends RascunhoResumo {
@@ -53,7 +93,8 @@ interface CartaoDeRascunho extends RascunhoResumo {
   standalone: true,
   templateUrl: './rascunhos-band.component.html',
   styleUrls: ['./rascunhos-band.component.scss'],
-  imports: [DatePipe, TranslatePipe],
+  imports: [DatePipe, TranslatePipe, WizardDialogComponent],
+  providers: [DialogoDoWizard],
 })
 export class RascunhosBandComponent implements OnInit {
   private readonly virtualTourService = inject(VirtualTourService);
@@ -61,7 +102,14 @@ export class RascunhosBandComponent implements OnInit {
   private readonly imagens = inject(PanoramaImageCache);
   private readonly router = inject(Router);
   private readonly navegacao = inject(NavegacaoEntreTelas);
-  private readonly alertController = inject(AlertController);
+  /**
+   * Público porque o template o liga no `<app-tw-wizard-dialog>`.
+   *
+   * Fornecido por ESTE componente, e não em `root`: a pergunta pertence a esta
+   * faixa e morre com ela. O wizard tem a sua própria instância, pelo mesmo
+   * motivo.
+   */
+  readonly dialogo = inject(DialogoDoWizard);
   private readonly toastController = inject(ToastController);
   private readonly translate = inject(TranslateService);
 
@@ -158,7 +206,7 @@ export class RascunhosBandComponent implements OnInit {
    * catálogo como a linha vazia que aquele filtro existe para evitar. Mesma
    * regra de `TourDraftStore.descartarRascunho()`.
    *
-   * Por isso a confirmação, no mesmo padrão do alerta de saída do wizard: o
+   * Por isso a confirmação, no mesmo diálogo da saída do wizard: o
    * botão tem 44px, encosta no cartão e vive dentro de um carrossel de rolagem
    * horizontal — um toque errado apagava, sem pergunta e sem desfazer, as
    * fotos, os hotspots e o tratamento por IA já pago.
@@ -182,22 +230,11 @@ export class RascunhosBandComponent implements OnInit {
   }
 
   /**
-   * Decide pelo papel do botão devolvido em `onDidDismiss()`, e não por
-   * `handler`: assim tocar fora do alerta — que não chama handler nenhum —
-   * conta como desistir, em vez de deixar a promise pendurada para sempre.
+   * Só a ação destrutiva confirma. Qualquer outra resposta — "Manter", o X, o
+   * toque fora, o Esc — desiste, e nenhuma delas deixa a promise pendurada.
    */
   private async confirmarDescarte(): Promise<boolean> {
-    const alerta = await this.alertController.create({
-      header: this.texto('HOME.DRAFTS_DISCARD_TITLE'),
-      message: this.texto('HOME.DRAFTS_DISCARD_MESSAGE'),
-      buttons: [
-        { text: this.texto('HOME.DRAFTS_DISCARD_CANCEL'), role: 'cancel' },
-        { text: this.texto('HOME.DRAFTS_DISCARD_CONFIRM'), role: 'destructive' },
-      ],
-    });
-    await alerta.present();
-    const { role } = await alerta.onDidDismiss();
-    return role === 'destructive';
+    return (await this.dialogo.perguntar(PERGUNTA_DE_DESCARTE)) === APAGAR;
   }
 
   private async avisar(mensagem: string): Promise<void> {

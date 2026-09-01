@@ -92,14 +92,6 @@
   // uma caixa de no máximo 420px.
   padding: 0 18px;
 
-  // A folga que sobra depois de reservar a largura do rótulo de confirmação:
-  // no telefone os dois botões cabem lado a lado com ~17px de sobra, medidos.
-  @include tw.tw-mobile {
-    padding: 0 12px;
-    gap: 6px;
-    font-size: 14px;
-  }
-
   // Desfaz o `min-width: 0` de `.tw-btn` — lá ele existe para um rótulo
   // comprido encolher em vez de vazar da BARRA, que não quebra linha. Aqui a
   // linha quebra, e encolher primeiro dava "Continuar depo…" no telefone de
@@ -109,14 +101,22 @@
   min-width: fit-content;
   max-width: 100%;
 
+  // A folga que sobra depois de reservar a largura do rótulo de confirmação:
+  // no telefone os dois botões cabem lado a lado com ~17px de sobra, medidos.
+  @include tw.tw-mobile {
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 14px;
+  }
+
   &:focus-visible {
     outline: 2px solid var(--tw-focus-ring);
     outline-offset: 1px;
   }
 
   // A ação segura ocupa a sobra; a destrutiva fica do tamanho do próprio
-  // rótulo. A diferença de largura é intencional e faz metade do trabalho de
-  // hierarquia — a outra metade é a cor.
+  // rótulo. Com "Apagar mesmo?" reservando largura, a diferença some no
+  // telefone — o que separa as duas ali é a cor e o segundo toque.
   &.tw-btn--primary {
     flex: 1 1 auto;
   }
