@@ -1,41 +1,29 @@
 .rascunhos {
   max-width: 1280px;
-  margin: 12px auto 0;
+  margin-inline: auto;
   padding-top: 4px;
 }
 
-.rascunhos__titulo {
-  margin: 0 0 8px;
-  padding-inline: 14px;
-  font-size: 15px;
-  font-weight: 650;
-  color: var(--app-ink);
-}
-
-// Horizontal e rolável: com vários rascunhos, a faixa cresce para os lados,
-// não para baixo — o catálogo de imóveis continua logo abaixo, sempre na
-// mesma posição.
+// Grade, e não o carrossel horizontal que esta lista era quando morava no topo
+// da home: lá ela crescia para os lados para não empurrar o catálogo tela
+// abaixo. Aqui ela É a tela, e rolagem horizontal seria uma armadilha —
+// esconde itens fora de vista sem nada que indique que existem.
 .rascunhos__lista {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
   margin: 0;
-  padding: 2px 14px 10px;
+  padding: 4px 16px 24px;
   list-style: none;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
 }
 
 .rascunhos__card {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
-  width: 196px;
   border: 1px solid var(--app-hairline);
   border-radius: var(--app-radius-md);
   background: var(--app-surface-soft);
   overflow: hidden;
-  scroll-snap-align: start;
 }
 
 .rascunhos__abrir {
@@ -120,31 +108,7 @@
   }
 }
 
-/* -- Modo lista: a mesma faixa, na aba de Rascunhos ------------------------ */
-
-// Na home a lista rola para os lados porque disputa a tela com o catálogo. Na
-// aba ela É a tela: vira grade, os cartões param de ter largura fixa e a
-// rolagem horizontal — que aqui seria uma armadilha, escondendo itens fora de
-// vista sem nada indicando — desliga.
-.rascunhos--lista {
-  margin-top: 0;
-
-  .rascunhos__lista {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
-    padding: 4px 16px 24px;
-    overflow-x: visible;
-    scroll-snap-type: none;
-  }
-
-  .rascunhos__card {
-    flex: 1 1 auto;
-    width: auto;
-  }
-}
-
-/* -- Estado vazio: só existe no modo lista --------------------------------- */
+/* -- Estado vazio ---------------------------------------------------------- */
 
 .rascunhos--vazio {
   padding: 48px 24px;

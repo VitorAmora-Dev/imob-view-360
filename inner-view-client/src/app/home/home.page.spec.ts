@@ -59,22 +59,10 @@ describe('HomePage', () => {
   // proposito — e' contrato, nao vazamento.
   afterEach(() => http.verify({ ignoreCancelled: true }));
 
-  /**
-   * A faixa de rascunhos (Tarefa 13) dispara a propria chamada assim que
-   * `HomePage` e' criada — nenhum destes testes fala dela, so' precisam
-   * drenar a requisicao para `http.verify()` nao acusar pedido em aberto.
-   * So' dispara uma vez: com `IonicRouteStrategy`, `refiltrar()` reusa o
-   * mesmo componente e nao recria `app-rascunhos-band`.
-   */
-  function flushRascunhos(): void {
-    http.match((r) => r.url.endsWith('/virtual-tours')).forEach((r) => r.flush([]));
-  }
-
   /** Abre a home na URL dada e devolve a requisicao pendente. */
   async function abrir(url = '/home'): Promise<TestRequest> {
     component = await harness.navigateByUrl(url, HomePage);
     harness.detectChanges();
-    flushRascunhos();
     return http.expectOne((r) => r.url.endsWith('/properties'));
   }
 
@@ -327,8 +315,6 @@ describe('HomePage', () => {
     eventos.next(new NavigationEnd(1, '/tour/novo', '/tour/novo'));
     eventos.next(new NavigationEnd(2, '/home', '/home'));
     harness.detectChanges();
-    // A faixa de rascunhos volta pelo mesmo caminho, e também pede o dela.
-    flushRascunhos();
 
     responder(
       http.expectOne((r) => r.url.endsWith('/properties')),

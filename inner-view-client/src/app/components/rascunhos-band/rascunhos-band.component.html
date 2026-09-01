@@ -1,15 +1,10 @@
 <!--
-  Lista vazia não desenha NADA na faixa: na home ela é um empurrão em contexto,
-  e uma seção vazia no topo da tela inicial seria ruído. Na aba, quem veio
-  procurar merece uma resposta — ver o `@else if` no fim.
+  Sem título de seção: quem tem título é a página. Enquanto isto era uma faixa
+  no topo da home, o `<h2>` existia para dizer de que era aquele bloco no meio
+  do catálogo — aqui a tela inteira já responde isso.
 -->
 @if (rascunhos().length) {
-  <section class="rascunhos" [class.rascunhos--lista]="layout() === 'lista'">
-    <!-- Na aba o título é da página; repeti-lo aqui seria dizer duas vezes. -->
-    @if (layout() === 'faixa') {
-      <h2 class="rascunhos__titulo">{{ 'HOME.DRAFTS_TITLE' | translate }}</h2>
-    }
-
+  <section class="rascunhos">
     <ul class="rascunhos__lista">
       @for (r of rascunhos(); track r.id) {
         <li class="rascunhos__card">
@@ -46,10 +41,11 @@
       }
     </ul>
   </section>
-} @else if (layout() === 'lista') {
+} @else {
   <!--
-    Só na aba. Quem foi até lá procurar merece uma resposta; na home, a mesma
-    lista vazia não desenha nada.
+    Quem foi até a aba procurar merece uma resposta, e não uma tela em branco.
+    Na faixa da home a mesma lista vazia não desenhava nada — ali ela disputava
+    o topo com o catálogo, e uma seção vazia seria ruído permanente.
   -->
   <section class="rascunhos rascunhos--vazio">
     <h2 class="rascunhos__vazio-titulo">{{ 'DRAFTS.EMPTY_TITLE' | translate }}</h2>
@@ -61,9 +57,9 @@
 }
 
 <!--
-  Fora do `@if` da faixa de propósito: com o último rascunho descartado a seção
-  inteira deixa de existir, e o diálogo iria embora no meio da própria animação
-  de saída. Aqui ele sobrevive ao cartão que o abriu.
+  Fora do `@if` de propósito: com o último rascunho descartado a seção inteira
+  deixa de existir, e o diálogo iria embora no meio da própria animação de
+  saída. Aqui ele sobrevive ao cartão que o abriu.
 -->
 <app-tw-wizard-dialog
   [pergunta]="dialogo.pergunta()"

@@ -1,14 +1,6 @@
 <ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
   <app-header></app-header>
 
-  <!--
-    Fora do `@if (mostrarMoldura())` de propósito: ela decide sozinha se
-    aparece (ver o comentário do componente) e sua condição não tem nada a
-    ver com busca/filtros/FAB — um rascunho pode existir em qualquer `view()`,
-    inclusive 'loading' e 'error' do catálogo principal.
-  -->
-  <app-rascunhos-band />
-
   @if (mostrarMoldura()) {
     <div class="search-band">
       <!--
