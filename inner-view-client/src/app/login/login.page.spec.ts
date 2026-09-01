@@ -68,9 +68,14 @@ describe('LoginPage', () => {
     expect(tagline?.textContent?.trim()).toBe('AUTH.TAGLINE');
   });
 
-  // A coruja e' o assunto do painel azul. Ela e' a arte AZUL invertida por
-  // filtro (nao existe SVG branco do simbolo), entao o que prova que ela
-  // aparece sobre o gradiente e' a classe, nao o src.
+  // Este e' o @placeholder do @defer: o que o painel azul mostra ate a
+  // coruja 3D chegar, e o que ele mostra para sempre se ela nao chegar. Ela
+  // e' a arte AZUL invertida por filtro (nao existe SVG branco do simbolo),
+  // entao o que prova que aparece sobre o gradiente e' a classe, nao o src.
+  //
+  // O TestBed nao dispara `on viewport` numa fixture solta, entao o que os
+  // testes daqui veem e' sempre o placeholder -- de proposito: e' o caminho
+  // que precisa funcionar sozinho.
   it('o painel visual traz o simbolo grande da coruja, branco e decorativo', () => {
     const coruja = el().querySelector('.login-visual__mark img') as HTMLImageElement;
     expect(coruja).not.toBeNull();
@@ -88,11 +93,12 @@ describe('LoginPage', () => {
   // o hash do componente (_ngcontent-a-cNNN_owl-tilt), e esse hash muda a
   // cada build. Prender o nome exato seria um teste quebrando sozinho.
   //
-  // As DUAS corujas: a do painel azul (>=744px) e a do auth-intro, que e' a
-  // unica que sobra no mobile -- onde o painel azul nem existe. Media query
-  // nao entra aqui: as duas regras valem em qualquer largura, e quem esconde
-  // cada uma na largura errada e' o display, nao a animacao.
-  it('as duas corujas tem a animacao de inclinar, salvo movimento reduzido', () => {
+  // As duas corujas CHAPADAS: o placeholder do painel azul (>=744px) e a do
+  // auth-intro, unica que sobra no mobile. A 3D nao entra aqui -- ela anima
+  // por conta propria, em three.js, e tem teste no proprio componente.
+  // Media query tambem nao: as duas regras valem em qualquer largura, e quem
+  // esconde cada uma na largura errada e' o display, nao a animacao.
+  it('as duas corujas chapadas tem a animacao de inclinar, salvo movimento reduzido', () => {
     const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     for (const seletor of [

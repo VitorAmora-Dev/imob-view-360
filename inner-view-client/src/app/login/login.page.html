@@ -1,8 +1,20 @@
 <ion-content [fullscreen]="true">
   <div class="login-shell">
     <div class="login-visual">
+      <!--
+        A coruja 3D custa three.js mais um modelo de 4,9 MB. `on viewport`
+        amarra esse download a ela estar VISIVEL: abaixo de 744px o painel
+        inteiro e' display:none, o placeholder nunca entra em viewport, e o
+        celular nao baixa nada disso -- fica com a coruja chapada, que ja
+        inclina a cabeca sozinha. Acima de 744px o painel nasce visivel e o
+        3D dispara na hora, sem o formulario esperar por ele.
+      -->
       <div class="login-visual__mark">
-        <app-brand-logo kind="symbol" tone="white" [decorative]="true"></app-brand-logo>
+        @defer (on viewport) {
+          <app-owl-loader color="#FFFFFF" />
+        } @placeholder {
+          <app-brand-logo kind="symbol" tone="white" [decorative]="true"></app-brand-logo>
+        }
       </div>
 
       <app-brand-logo

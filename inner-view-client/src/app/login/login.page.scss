@@ -35,10 +35,16 @@
   margin-top: 8px;
 }
 
-// Sao DUAS corujas, e nunca as duas na tela ao mesmo tempo: a do painel azul
-// a partir de 744px, a do .auth-intro abaixo disso. Quem alterna e' o display
-// em cada media query; o gesto abaixo vale para as duas, sem media query
-// nenhuma, porque e' o mesmo gesto.
+// Tres corujas no template, nunca duas na tela ao mesmo tempo:
+//
+//   >=744px  o <app-owl-loader> 3D no painel azul, que gira a cabeca de
+//            verdade -- e, ate ele carregar, o simbolo chapado que serve de
+//            @placeholder do @defer;
+//   <744px   o simbolo do .auth-intro, o unico que sobra quando o painel
+//            azul e' display:none.
+//
+// Quem alterna e' o display em cada media query. A inclinacao abaixo e' das
+// CHAPADAS -- a 3D tem animacao propria, dentro do proprio componente.
 .login-visual__mark {
   display: flex;
   flex: 1 1 auto;
@@ -60,8 +66,19 @@
 // simbolo so existe em azul; tone="white" o inverte por filtro. O clamp
 // evita que ela estoure o padding num notebook baixo e que vire um selo
 // perdido num monitor grande.
+//
+// Esta e' a coruja chapada -- o placeholder do @defer, e a unica que aparece
+// se o 3D nao chegar.
 .login-visual__mark app-brand-logo {
   --brand-logo-symbol-height: clamp(200px, 46vh, 460px);
+}
+
+// O 3D entra no lugar do placeholder, e a troca so passa despercebida se as
+// duas ocuparem a mesma altura. O :host do OwlLoader declara aspect-ratio
+// 0.82 (largura/altura), entao a largura aqui e' o clamp de cima x 0.82 --
+// mesma altura, sem salto no layout quando o modelo chega.
+.login-visual__mark app-owl-loader {
+  width: clamp(164px, 37.7vh, 377px);
 }
 
 // Mobile: sem painel azul, quem carrega a marca e' esta -- azul sobre branco,
