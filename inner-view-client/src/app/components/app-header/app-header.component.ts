@@ -1,6 +1,4 @@
-import {
-  Component, ElementRef, Input, OnDestroy, signal, computed, inject,
-} from '@angular/core';
+import { Component, Input, signal, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { IonIcon, IonPopover, IonList, IonItem, IonLabel } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -9,7 +7,6 @@ import {
 } from 'ionicons/icons';
 import { TranslatePipe } from '@ngx-translate/core';
 import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
-import { MenuToggleIconComponent } from '../menu-toggle-icon/menu-toggle-icon.component';
 import { AuthService } from '../../services/auth.service';
 import { LanguageService } from '../../services/language.service';
 
@@ -20,7 +17,13 @@ export interface HeaderNavLink {
 
 /**
  * Sticky app header. Collapses to a floating rounded bar once the page is
- * scrolled (desktop) and to a full-screen sheet behind a hamburguer (mobile).
+ * scrolled.
+ *
+ * The hamburguer and its full-screen sheet are gone: on the phone, navigation
+ * now lives in `TabBarComponent` at the bottom of the screen, and language and
+ * sign-out moved to the settings screen it points at. Two competing navigations
+ * on the same screen is what confuses people — and a menu nobody opens is
+ * navigation that does not happen.
  *
  * Sits inside the page's <ion-content> rather than in an <ion-header> because
  * the shrink-on-scroll effect needs the content scroll container. As a
@@ -35,12 +38,12 @@ export interface HeaderNavLink {
   imports: [
     RouterLink, RouterLinkActive, TranslatePipe,
     IonIcon, IonPopover, IonList, IonItem, IonLabel,
-    BrandLogoComponent, MenuToggleIconComponent,
+    BrandLogoComponent,
   ],
   templateUrl: './app-header.component.html',
   styleUrls: ['./app-header.component.scss'],
 })
-export class AppHeaderComponent implements OnDestroy {
+export class AppHeaderComponent {
   /** Shows a back arrow on the left of the brand signature. */
   @Input() backHref: string | null = null;
   /** Optional page title rendered next to the brand signature on internal screens. */
@@ -55,13 +58,11 @@ export class AppHeaderComponent implements OnDestroy {
   ];
 
   scrolled = signal(false);
-  menuOpen = signal(false);
   isLangPopoverOpen = false;
   langPopoverEvent?: Event;
 
   private router = inject(Router);
   private authService = inject(AuthService);
-  private elementRef = inject(ElementRef<HTMLElement>);
   languageService = inject(LanguageService);
 
   isAuthenticated = computed(() => this.authService.isAuthenticated());
@@ -70,30 +71,12 @@ export class AppHeaderComponent implements OnDestroy {
     addIcons({ globeOutline, personCircleOutline, logOutOutline, checkmarkOutline, arrowBackOutline });
   }
 
-  ngOnDestroy() {
-    this.unlockScroll();
-  }
-
   /**
    * ion-content scrolls its own container, so the window scroll event never
    * fires; pages forward their scroll offset here instead.
    */
   onContentScroll(scrollTop: number) {
     this.scrolled.set(scrollTop > 10);
-  }
-
-  toggleMenu() {
-    this.menuOpen.update(open => !open);
-    if (this.menuOpen()) {
-      this.lockScroll();
-    } else {
-      this.unlockScroll();
-    }
-  }
-
-  closeMenu() {
-    this.menuOpen.set(false);
-    this.unlockScroll();
   }
 
   openLanguagePopover(event: Event) {
@@ -113,28 +96,7 @@ export class AppHeaderComponent implements OnDestroy {
   }
 
   signout() {
-    this.closeMenu();
     this.authService.signout();
   }
 
-  /**
-   * The page scrolls inside ion-content's own container, not the body, so
-   * `body { overflow: hidden }` alone does not stop it. Ionic exposes
-   * `--overflow` on ion-content for exactly this; the body class is kept as a
-   * belt-and-braces measure for any non-Ionic scroller.
-   */
-  private lockScroll() {
-    document.body.classList.add('menu-scroll-lock');
-    this.hostContent()?.style.setProperty('--overflow', 'hidden');
-  }
-
-  private unlockScroll() {
-    document.body.classList.remove('menu-scroll-lock');
-    this.hostContent()?.style.removeProperty('--overflow');
-  }
-
-  /** The ion-content this header was projected into, if any. */
-  private hostContent(): HTMLElement | null {
-    return this.elementRef.nativeElement.closest('ion-content');
-  }
 }

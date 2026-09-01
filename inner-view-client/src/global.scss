@@ -415,13 +415,6 @@ ion-badge {
   }
 }
 
-/* Set while the header's mobile menu is open. The real scroll container is
-   ion-content's own div (locked via --overflow in the component), so this only
-   covers any non-Ionic scroller on the page. */
-body.menu-scroll-lock {
-  overflow: hidden;
-}
-
 /* Circular icon control used in the header and over photos/viewer surfaces */
 .circle-control {
   display: flex;
@@ -459,5 +452,28 @@ body.menu-scroll-lock {
     margin-top: 24px;
     padding-top: 24px;
     border-top: 1px solid var(--app-hairline-soft);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Folga para a barra de navegação inferior                                    */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * A barra é `position: fixed` e cobre o pé da tela; sem esta folga o último
+ * cartão da home fica embaixo dela, e o botão de descartar de um rascunho vira
+ * inalcançável.
+ *
+ * UMA regra, acionada pela classe que `TabBarComponent` põe no body enquanto a
+ * barra está no ar. A alternativa era repetir o mesmo `--padding-bottom` no
+ * SCSS de cada tela que mostra a barra — e regra de aparência repetida é regra
+ * que só vai ser corrigida uma vez de cada quatro.
+ *
+ * Aqui e não no componente porque `ion-content` pertence às páginas: estilo
+ * encapsulado da barra não alcança o conteúdo de ninguém.
+ */
+@media (max-width: 767px) {
+  body.com-barra-inferior ion-content {
+    --padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 }

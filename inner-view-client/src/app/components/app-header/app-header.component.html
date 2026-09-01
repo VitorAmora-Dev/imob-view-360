@@ -1,7 +1,6 @@
 <header
   class="app-header"
-  [class.app-header--scrolled]="scrolled() && !menuOpen()"
-  [class.app-header--menu-open]="menuOpen()"
+  [class.app-header--scrolled]="scrolled()"
   [class.app-header--overlay]="variant === 'overlay'">
   <nav class="header-nav">
     <div class="header-lead">
@@ -13,8 +12,7 @@
       <a
         class="brand-link"
         routerLink="/home"
-        aria-label="ARP VISION — início"
-        (click)="closeMenu()">
+        aria-label="ARP VISION — início">
         <app-brand-logo
           kind="horizontal"
           [tone]="variant === 'overlay' ? 'white' : 'blue'"
@@ -59,47 +57,9 @@
           <ion-icon name="log-out-outline"></ion-icon>
         </button>
       </div>
-
-      <button
-        type="button"
-        class="circle-control menu-btn"
-        (click)="toggleMenu()"
-        [attr.aria-expanded]="menuOpen()"
-        [attr.aria-label]="'NAV.MENU' | translate">
-        <app-menu-toggle-icon [open]="menuOpen()" [duration]="300"></app-menu-toggle-icon>
-      </button>
     }
   </nav>
 
-  @if (isAuthenticated()) {
-    <div class="mobile-sheet" [class.mobile-sheet--open]="menuOpen()">
-      <div class="sheet-inner">
-        <div class="sheet-links">
-          @for (link of links; track link.href) {
-            <a
-              class="sheet-link"
-              [routerLink]="link.href"
-              routerLinkActive="sheet-link--active"
-              [routerLinkActiveOptions]="{ exact: true }"
-              (click)="closeMenu()">
-              {{ link.labelKey | translate }}
-            </a>
-          }
-        </div>
-
-        <div class="sheet-actions">
-          <button type="button" class="sheet-btn sheet-btn--outline" (click)="openLanguagePopover($event)">
-            <ion-icon name="globe-outline"></ion-icon>
-            {{ 'NAV.LANGUAGE' | translate }}
-          </button>
-          <button type="button" class="sheet-btn sheet-btn--outline" (click)="signout()">
-            <ion-icon name="log-out-outline"></ion-icon>
-            {{ 'NAV.SIGNOUT' | translate }}
-          </button>
-        </div>
-      </div>
-    </div>
-  }
 </header>
 
 <ion-popover

@@ -104,8 +104,16 @@
     }
   }
 
+  <!--
+    O FAB "Novo tour 360" virou o "+" da barra inferior no celular. No desktop,
+    onde a barra não existe, ele continua sendo o atalho da tela.
+
+    Empilhado com a barra ele custaria uma terceira camada de rodapé — FAB,
+    barra e a do Safari —, e é o botão que gera receita: ele tem de estar no
+    caminho, não em cima de outra coisa.
+  -->
   @if (mostrarMoldura()) {
-    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab class="home-fab" slot="fixed" vertical="bottom" horizontal="end">
       <ion-fab-button class="home-new-tour" routerLink="/tour/novo">
         <ion-icon name="add" aria-hidden="true"></ion-icon>
         <span>{{ 'HOME.NEW_TOUR_CTA' | translate }}</span>

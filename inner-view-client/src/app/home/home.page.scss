@@ -52,3 +52,12 @@ ion-searchbar.home-search {
   white-space: nowrap;
   border: 0;
 }
+
+// No celular o "Novo tour" é o "+" da barra inferior; manter também o FAB
+// empilharia FAB + barra + a barra do Safari, ~180px de rodapé num iPhone. No
+// desktop, onde a barra não existe, ele continua sendo o atalho da tela.
+@media (max-width: 767px) {
+  .home-fab {
+    display: none;
+  }
+}

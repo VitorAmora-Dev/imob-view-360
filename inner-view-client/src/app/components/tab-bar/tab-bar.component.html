@@ -1,0 +1,28 @@
+<!--
+  `@if` e não `[hidden]`: escondida por CSS a barra continuaria no DOM, e os
+  quatro links seguiriam na ordem de tabulação de telas que não os oferecem —
+  o wizard, o visualizador, o login.
+-->
+@if (visivel()) {
+  <nav class="tabs" [attr.aria-label]="'NAV.MENU' | translate">
+    @for (aba of abas; track aba.rota) {
+      <!--
+        `estaNaTela` e não `routerLinkActive`: com o directive, a cor viria dele
+        e o ícone de `caminho()` — duas fontes para a mesma verdade. E o "+" é
+        AÇÃO, não destino: ele abre o wizard, que é uma tela SEM barra, então
+        marcá-lo como "você está aqui" seria mentira em toda tela onde aparece.
+      -->
+      <a
+        class="tabs__item"
+        [class.tabs__item--acao]="aba.acao"
+        [class.tabs__item--ativo]="estaNaTela(aba)"
+        [attr.aria-current]="estaNaTela(aba) ? 'page' : null"
+        [routerLink]="aba.rota">
+        <span class="tabs__icone">
+          <ion-icon [name]="icone(aba)" aria-hidden="true"></ion-icon>
+        </span>
+        <span class="tabs__rotulo">{{ aba.rotuloKey | translate }}</span>
+      </a>
+    }
+  </nav>
+}

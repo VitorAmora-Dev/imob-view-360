@@ -1,0 +1,88 @@
+// Só no telefone. No desktop a nav do topo já resolve, e uma barra inferior em
+// 1280px seria mobiliário sem função. Mesmo ponto de corte do resto do app.
+:host {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  :host {
+    display: block;
+  }
+}
+
+.tabs {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  // Acima do conteúdo e do FAB, abaixo dos overlays do Ionic (que começam em
+  // 20000) — um modal aberto tem de cobrir a barra.
+  z-index: 100;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--app-hairline);
+  // `env()` e não um número: no iPhone a faixa do home indicator é do sistema,
+  // e sem esta folga o rótulo fica embaixo dela. O `viewport-fit=cover` que
+  // torna isso possível já está no index.html.
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--ion-background-color);
+}
+
+.tabs__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  // 56px é piso de dedo, e é o que separa tocar a aba certa de tocar a vizinha.
+  min-height: 56px;
+  padding: 6px 4px;
+  color: var(--app-muted);
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: -2px;
+  }
+}
+
+.tabs__item--ativo {
+  color: var(--ion-color-primary);
+}
+
+.tabs__icone {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  font-size: 24px;
+}
+
+.tabs__rotulo {
+  // O rótulo é pequeno mas EXISTE: ícone sozinho é adivinhação, e "Rascunhos"
+  // não tem desenho universal. Corta com reticências em vez de vazar da célula.
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// O "+" é uma célula do mesmo tamanho das outras, distinguida pela COR e não
+// pela elevação.
+//
+// Elevado, ele precisaria estar no centro para não parecer torto — e com QUATRO
+// células o centro cai entre a segunda e a terceira, então um botão "central"
+// ficaria a 62,5% da largura. Cor separa igualmente bem e não cria o problema.
+.tabs__item--acao {
+  color: var(--ion-color-primary);
+
+  .tabs__icone {
+    border-radius: 50%;
+    background: var(--ion-color-primary);
+    color: var(--ion-color-primary-contrast);
+    font-size: 20px;
+  }
+}
