@@ -50,8 +50,7 @@
     "BACK": "Back"
   },
   "CARD": {
-    "LINK_COPIED": "Tour link copied!",
-    "SHARE_ERROR": "Could not share the link."
+    "EMBED": "Embed {{title}}"
   },
   "CAPTURE": {
     "TRATANDO_TITULO": "Enhancing your panorama",
@@ -104,6 +103,7 @@
     },
     "MODAL": {
       "TITLE": "Embed / Share",
+      "CLOSE": "Close",
       "DIRECT_LINK": "Direct link",
       "COPY_LINK": "Copy link",
       "EMBED_CODE": "Embed code",

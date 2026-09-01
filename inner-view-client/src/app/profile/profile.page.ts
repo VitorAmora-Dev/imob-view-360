@@ -1,15 +1,16 @@
 import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
-  IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
+  IonContent,
   IonSegment, IonSegmentButton, IonLabel,
   IonGrid, IonRow, IonCol, IonCard,
-  IonButton, IonIcon, IonModal, IonActionSheet, IonTextarea, IonToast, IonSearchbar
+  IonButton, IonIcon, IonActionSheet, IonToast, IonSearchbar
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
+import { EmbedModalComponent } from '../components/embed-modal/embed-modal.component';
 import { addIcons } from 'ionicons';
 import {
-  shareSocialOutline, pencilOutline, trashOutline, closeOutline, copyOutline,
+  pencilOutline, trashOutline, copyOutline,
   homeOutline, personOutline
 } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -28,11 +29,11 @@ import { environment } from '../../environments/environment';
   standalone: true,
   imports: [
     CommonModule,
-    IonHeader, IonToolbar, IonTitle, IonContent, IonButtons,
+    IonContent,
     IonSegment, IonSegmentButton, IonLabel,
     IonGrid, IonRow, IonCol, IonCard,
-    IonButton, IonIcon, IonModal, IonActionSheet, IonTextarea, IonToast, IonSearchbar,
-    AppHeaderComponent, TranslatePipe
+    IonButton, IonIcon, IonActionSheet, IonToast, IonSearchbar,
+    AppHeaderComponent, EmbedModalComponent, TranslatePipe
   ]
 })
 export class ProfilePage implements OnInit {
@@ -49,9 +50,8 @@ export class ProfilePage implements OnInit {
 
   activeSegment = 'uploads';
 
-  isEmbedModalOpen = false;
-  embedLink = '';
-  embedCode = '';
+  /** Tour aberto no modal de embed, ou `null`. O modal monta link e iframe. */
+  embedTourId: string | null = null;
 
   isEditSheetOpen = false;
   editSheetButtons: any[] = [];
@@ -60,7 +60,7 @@ export class ProfilePage implements OnInit {
   toastMessage = '';
 
   constructor() {
-    addIcons({ shareSocialOutline, pencilOutline, trashOutline, closeOutline, copyOutline, homeOutline, personOutline });
+    addIcons({ pencilOutline, trashOutline, copyOutline, homeOutline, personOutline });
   }
 
   ngOnInit() {
@@ -92,11 +92,7 @@ export class ProfilePage implements OnInit {
   }
 
   openEmbedModal(property: Property) {
-    const origin = window.location.origin;
-    const tourId = property.virtualTour?.id ?? '';
-    this.embedLink = `${origin}/embed/${tourId}`;
-    this.embedCode = `<iframe src="${origin}/embed/${tourId}" width="800" height="600" frameborder="0" allowfullscreen></iframe>`;
-    this.isEmbedModalOpen = true;
+    this.embedTourId = property.virtualTour?.id ?? null;
   }
 
   openEditSheet(property: Property) {
@@ -143,12 +139,6 @@ export class ProfilePage implements OnInit {
     } catch {
       this.showToast(this.translate.instant('PROFILE.DELETE_TOUR_ERROR'));
     }
-  }
-
-  copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text).then(() => {
-      this.showToast(this.translate.instant('PROFILE.TOAST.COPIED'));
-    });
   }
 
   thumbnailUrl(tourId: string): string {

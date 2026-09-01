@@ -99,6 +99,7 @@
       }
       <app-inner-view-list
         [items]="properties()"
+        (embedClick)="embedTourId.set($event)"
         [attr.aria-busy]="refiltrando() || null"></app-inner-view-list>
     }
   }
@@ -112,3 +113,9 @@
     </ion-fab>
   }
 </ion-content>
+
+<!--
+  UM modal para a grade inteira. O card só diz qual tour quer divulgar; quem
+  abre é aqui — ver `InnerViewListComponent.embedClick`.
+-->
+<app-embed-modal [tourId]="embedTourId()" (closed)="embedTourId.set(null)" />

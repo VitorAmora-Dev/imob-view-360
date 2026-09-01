@@ -15,6 +15,7 @@ import { add, alertCircleOutline, imagesOutline, searchOutline } from 'ionicons/
 import { TranslatePipe } from '@ngx-translate/core';
 
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
+import { EmbedModalComponent } from '../components/embed-modal/embed-modal.component';
 import { InnerViewListComponent } from '../components/inner-view-list/inner-view-list.component';
 import { HomePlaceholderComponent } from '../components/home-placeholder/home-placeholder.component';
 import { HomeNoTourBannerComponent } from '../components/home-no-tour-banner/home-no-tour-banner.component';
@@ -50,6 +51,7 @@ import {
     IonContent, IonSearchbar, IonIcon, IonFab, IonFabButton, IonProgressBar,
     AppHeaderComponent, InnerViewListComponent, HomePlaceholderComponent,
     HomeNoTourBannerComponent, RascunhosBandComponent, PropertyFiltersBarComponent,
+    EmbedModalComponent,
     ActiveFilterChipsComponent, RouterLink, TranslatePipe,
   ],
 })
@@ -63,6 +65,14 @@ export class HomePage {
 
   readonly status = signal<HomeStatus>('loading');
   readonly properties = signal<Property[]>([]);
+
+  /**
+   * Tour aberto no painel de embed, ou `null`.
+   *
+   * Mora na PÁGINA e não no card: são vinte cartões na grade, e o painel é um
+   * só. O card diz qual tour; a página abre.
+   */
+  readonly embedTourId = signal<string | null>(null);
 
   /** Só a PRIMEIRA carga ocupa a tela inteira. Ver `resolveHomeView`. */
   private readonly jaCarregou = signal(false);

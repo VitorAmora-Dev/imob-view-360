@@ -50,8 +50,7 @@
     "BACK": "Voltar"
   },
   "CARD": {
-    "LINK_COPIED": "Link do tour copiado!",
-    "SHARE_ERROR": "Não foi possível compartilhar o link."
+    "EMBED": "Embed de {{title}}"
   },
   "CAPTURE": {
     "TRATANDO_TITULO": "Melhorando seu panorama",
@@ -104,6 +103,7 @@
     },
     "MODAL": {
       "TITLE": "Embed / Compartilhar",
+      "CLOSE": "Fechar",
       "DIRECT_LINK": "Link direto",
       "COPY_LINK": "Copiar link",
       "EMBED_CODE": "Código de embed",

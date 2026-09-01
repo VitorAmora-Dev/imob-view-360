@@ -42,10 +42,21 @@
       @if (priceLabel) {
         <p class="meta-price">{{ priceLabel }}</p>
       }
+      <!--
+        Sem tour não há o que embutir, então o botão não existe. O "<>" é o
+        símbolo de embed no mercado (YouTube, Vimeo, Spotify) — o de
+        compartilhar prometia a folha do sistema, e o que abre é o painel com o
+        link e o iframe.
+      -->
       @if (item.virtualTour) {
         <div class="meta-actions">
-          <ion-button fill="clear" size="small" class="share-btn" (click)="onShare($event)">
-            <ion-icon slot="icon-only" name="share-social-outline"></ion-icon>
+          <ion-button
+            fill="clear"
+            size="small"
+            class="embed-btn"
+            [attr.aria-label]="'CARD.EMBED' | translate: { title: item.title }"
+            (click)="onEmbed($event)">
+            <ion-icon slot="icon-only" name="code-slash-outline"></ion-icon>
           </ion-button>
         </div>
       }
