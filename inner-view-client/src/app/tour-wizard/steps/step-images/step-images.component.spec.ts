@@ -243,8 +243,8 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(modalController.create).not.toHaveBeenCalled();
   });
 
-  it('mantém todos os ambientes acessíveis e empilha o ativo com os três seguintes', () => {
-    const scenes = Array.from({ length: 5 }, (_, index) =>
+  it('mantém todos os ambientes acessíveis e empilha o ativo com até cinco seguintes', () => {
+    const scenes = Array.from({ length: 7 }, (_, index) =>
       scene(String(index + 1), { order: index }),
     );
     store.scenes.set(scenes);
@@ -257,7 +257,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     const selectors: HTMLButtonElement[] = Array.from(
       fixture.nativeElement.querySelectorAll('.tw-deck__pagination button'),
     );
-    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(4);
+    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(6);
     expect(cards.filter((card) => card.getAttribute('aria-hidden') !== 'true').length).toBe(1);
     expect(
       cards.filter(
@@ -265,16 +265,16 @@ describe('StepImagesComponent — escolha e galeria', () => {
           card.querySelector('.tw-deck__card')?.getAttribute('tabindex') !== '-1',
       ).length,
     ).toBe(1);
-    expect(selectors.length).toBe(5);
+    expect(selectors.length).toBe(7);
 
-    selectors[4].click();
+    selectors[6].click();
     render();
 
-    expect(component.activeScene()?.id).toBe('5');
-    expect(store.selectedSceneId()).toBe('5');
+    expect(component.activeScene()?.id).toBe('7');
+    expect(store.selectedSceneId()).toBe('7');
     expect(
       fixture.nativeElement.querySelector('.tw-deck__rename strong').textContent,
-    ).toContain('Ambiente 5');
+    ).toContain('Ambiente 7');
   });
 
   it('numera o deck somente entre ambientes válidos', () => {
@@ -308,8 +308,8 @@ describe('StepImagesComponent — escolha e galeria', () => {
       fixture.nativeElement.querySelectorAll('.tw-scene-action'),
     );
     expect(actions.length).toBe(2);
-    expect(actions[0].classList).toContain('tw-scene-action--camera');
-    expect(actions[1].classList).toContain('tw-scene-action--gallery');
+    expect(actions[0].classList).toContain('tw-scene-action--gallery');
+    expect(actions[1].classList).toContain('tw-scene-action--camera');
   });
 
   it('navega pelas setas e pelo teclado mantendo a selecao sincronizada', () => {

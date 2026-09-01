@@ -101,7 +101,7 @@ export class StepImagesComponent implements OnDestroy {
   );
 
   /**
-   * A cena ativa fica na frente e as três seguintes formam uma pilha leve.
+   * A cena ativa fica na frente e até cinco seguintes formam uma pilha leve.
    * Durante o gesto, a ativa inclina e cede profundidade enquanto a próxima
    * se aproxima — o movimento acompanha o dedo/mouse, não é uma animação
    * decorativa disparada depois do toque.
@@ -122,7 +122,7 @@ export class StepImagesComponent implements OnDestroy {
     ];
 
     return ordered.map((scene, offset) => {
-      const depth = Math.min(offset, 3);
+      const depth = Math.min(offset, 5);
       const isActive = offset === 0;
       const isIncoming = offset === 1;
       const incomingShift = drag < 0 ? 18 * dragProgress : 0;
@@ -135,15 +135,19 @@ export class StepImagesComponent implements OnDestroy {
         scene,
         depth,
         offset,
-        hidden: offset > 3,
+        hidden: offset > 5,
         dragX: isActive ? drag : isIncoming ? incomingShift : 0,
         liveScale: isActive
           ? 1 - 0.025 * dragProgress
           : isIncoming
-            ? 0.96 + 0.035 * dragProgress
+            ? 0.985 + 0.01 * dragProgress
             : depth === 2
-              ? 0.925
-              : 0.895,
+              ? 0.97
+              : depth === 3
+                ? 0.955
+                : depth === 4
+                  ? 0.94
+                  : 0.925,
         lift: isIncoming ? -8 * dragProgress : 0,
         tilt: isActive ? drag / 32 : isIncoming ? -drag / 120 : 0,
         number,

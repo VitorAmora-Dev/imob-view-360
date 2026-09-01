@@ -167,21 +167,32 @@
   }
 
   &[data-offset='1'] {
-    --deck-x: -18px;
-    --deck-y: 12px;
-    --deck-base-tilt: -3deg;
+    --deck-x: -14px;
+    --deck-y: -8px;
+    --deck-base-tilt: -2.5deg;
   }
 
   &[data-offset='2'] {
-    --deck-x: 20px;
-    --deck-y: 18px;
-    --deck-base-tilt: 3.5deg;
+    --deck-x: 14px;
+    --deck-y: -12px;
+    --deck-base-tilt: 2.5deg;
   }
 
   &[data-offset='3'] {
-    --deck-x: 0px;
-    --deck-y: 26px;
-    --deck-base-tilt: 1deg;
+    --deck-x: -22px;
+    --deck-y: -16px;
+    --deck-base-tilt: -3.5deg;
+  }
+
+  &[data-offset='4'] {
+    --deck-x: 22px;
+    --deck-y: -20px;
+    --deck-base-tilt: 3.5deg;
+  }
+
+  &[data-offset='5'] {
+    --deck-y: -24px;
+    --deck-base-tilt: 0.8deg;
   }
 
   &.is-hidden {
@@ -455,7 +466,7 @@
   justify-content: center;
   width: min(100%, 240px);
   gap: 0;
-  margin: 4px auto 0;
+  margin: -24px auto 0;
 }
 
 .tw-deck__arrow {
@@ -638,20 +649,5 @@
 
   .tw-deck__item {
     inset: 18px 32px 42px;
-
-    &[data-offset='1'] {
-      --deck-x: -14px;
-      --deck-y: 10px;
-    }
-
-    &[data-offset='2'] {
-      --deck-x: 15px;
-      --deck-y: 16px;
-    }
-
-    &[data-offset='3'] {
-      --deck-x: 0px;
-      --deck-y: 23px;
-    }
   }
 }
