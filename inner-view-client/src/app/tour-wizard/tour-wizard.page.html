@@ -1,28 +1,21 @@
-<ion-content [fullscreen]="true" [scrollEvents]="true" (ionScroll)="onScroll($event)">
-  <!-- Na galeria da etapa 1 o stepper assume a navegação e libera a altura do header. -->
-  @if (store.step() !== 1 || !store.scenes().length) {
-    <app-header backHref="/home" [pageTitle]="'TOUR_WIZARD.COMMON.TITLE' | translate"></app-header>
-  }
-
+<ion-content [fullscreen]="true">
   <!--
     `is-imersivo` enquanto ha foto na etapa de passagens: no celular ela ocupa
-    a tela, e o stepper e a barra de acao somem. O caminho de volta a ordenacao
-    passa a ser o botao da propria gaveta -- ver `passagens-sheet`. Acabada a
-    fila a barra volta, porque e la que mora o "Continuar" -- ver `imersivo`.
+    a tela, e somente a barra de acao some. O stepper permanece no topo para
+    manter o contexto do fluxo. Acabada a fila a barra volta, porque e la que
+    mora o "Continuar" -- ver `imersivo`.
   -->
   <div class="tw-shell" [class.is-imersivo]="imersivo()">
     <div class="tw-shell__stepper-row">
-      @if (store.step() === 1 && store.scenes().length) {
-        <button
-          type="button"
-          class="tw-shell__gallery-back"
-          [attr.aria-label]="'TOUR_WIZARD.COMMON.BACK' | translate"
-          (click)="voltarParaHome()">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M15 5 8 12l7 7" />
-          </svg>
-        </button>
-      }
+      <button
+        type="button"
+        class="tw-shell__wizard-back"
+        [attr.aria-label]="'TOUR_WIZARD.COMMON.BACK' | translate"
+        (click)="voltarParaHome()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 5 8 12l7 7" />
+        </svg>
+      </button>
       <app-wizard-stepper />
     </div>
 

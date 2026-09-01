@@ -119,7 +119,7 @@ describe('WizardStepperComponent', () => {
     expect(store.step()).toBe(1);
   });
 
-  it('oculta os metadados textuais somente na etapa de imagens', () => {
+  it('mantem os metadados textuais ocultos em todas as etapas', () => {
     const { store } = makeStepper(true);
     const fixture = TestBed.createComponent(WizardStepperComponent);
 
@@ -128,6 +128,6 @@ describe('WizardStepperComponent', () => {
 
     store.step.set(2);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.tw-progress__meta')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-progress__meta')).toBeNull();
   });
 });
