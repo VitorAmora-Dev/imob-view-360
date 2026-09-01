@@ -10,8 +10,6 @@
     "NEW_TOUR_CTA": "New 360 tour",
     "NO_TOUR_BANNER": "{{n}} properties do not have 360° images yet.",
     "NO_TOUR_BANNER_ONE": "1 property does not have 360° images yet.",
-    "CARD_CREATE_TOUR": "Create tour",
-    "CARD_CREATE_TOUR_LABEL": "Create tour for {{title}}",
     "NO_RESULTS": "No property found for \"{{query}}\".",
     "FILTERS": {
       "TOGGLE": "Filters",

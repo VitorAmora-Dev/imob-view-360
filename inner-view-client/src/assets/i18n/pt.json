@@ -10,8 +10,6 @@
     "NEW_TOUR_CTA": "Novo tour 360",
     "NO_TOUR_BANNER": "{{n}} imóveis ainda não possuem imagens 360°.",
     "NO_TOUR_BANNER_ONE": "1 imóvel ainda não possui imagens 360°.",
-    "CARD_CREATE_TOUR": "Criar tour",
-    "CARD_CREATE_TOUR_LABEL": "Criar tour para {{title}}",
     "NO_RESULTS": "Nenhum imóvel encontrado para \"{{query}}\".",
     "FILTERS": {
       "TOGGLE": "Filtros",

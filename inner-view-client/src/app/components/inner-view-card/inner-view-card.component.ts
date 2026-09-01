@@ -3,18 +3,16 @@ import { Router } from '@angular/router';
 import { IonCard, IonButton, IonIcon, ToastController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { heartOutline, heart, shareSocialOutline, homeOutline } from 'ionicons/icons';
-import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { TranslateService } from '@ngx-translate/core';
 import { Property } from '../../models/property.model';
 import { environment } from '../../../environments/environment';
-import { ADD_TOUR_INTENT } from '../../models/navigation-intent';
-import { NavigationIntentService } from '../../services/navigation-intent.service';
 
 @Component({
   selector: 'app-inner-view-card',
   templateUrl: './inner-view-card.component.html',
   styleUrls: ['./inner-view-card.component.scss'],
   standalone: true,
-  imports: [IonCard, IonButton, IonIcon, TranslatePipe]
+  imports: [IonCard, IonButton, IonIcon]
 })
 export class InnerViewCardComponent {
   @Input() item!: Property;
@@ -25,7 +23,6 @@ export class InnerViewCardComponent {
   liked = false;
 
   private router = inject(Router);
-  private intents = inject(NavigationIntentService);
   private toastController = inject(ToastController);
   private translate = inject(TranslateService);
 
@@ -34,26 +31,6 @@ export class InnerViewCardComponent {
   }
 
   onCardClick() {
-    this.navigateToProperty();
-  }
-
-  /**
-   * Mesmo destino do clique no card, mas carregando a intenção — sem ela o
-   * botão seria rótulo, não ação: a página abriria e ficaria esperando um
-   * segundo clique que nada na tela pede.
-   */
-  onCreateTour(event: Event) {
-    event.stopPropagation();
-    this.navigateToProperty(ADD_TOUR_INTENT);
-  }
-
-  /**
-   * A rota do imóvel num lugar só. Os dois caminhos que chegam nela diferem
-   * APENAS pela intenção — e essa assimetria é o ponto, não um descuido: só
-   * quem apertou "Criar tour" quer o seletor de imagem aberto na chegada.
-   */
-  private navigateToProperty(action?: string) {
-    if (action) this.intents.register(this.item.id, action);
     this.router.navigate(['/inner-view-page', this.item.id], {
       state: { property: this.item },
     });

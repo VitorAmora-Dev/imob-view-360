@@ -6,8 +6,6 @@ import { provideTranslateService } from '@ngx-translate/core';
 
 import { InnerViewCardComponent } from './inner-view-card.component';
 import { Property } from '../../models/property.model';
-import { ADD_TOUR_INTENT } from '../../models/navigation-intent';
-import { NavigationIntentService } from '../../services/navigation-intent.service';
 
 function imovel(overrides: Partial<Property> = {}): Property {
   return {
@@ -29,7 +27,6 @@ describe('InnerViewCardComponent', () => {
   let fixture: ComponentFixture<InnerViewCardComponent>;
   let component: InnerViewCardComponent;
   let router: Router;
-  let intents: NavigationIntentService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -45,7 +42,6 @@ describe('InnerViewCardComponent', () => {
     fixture = TestBed.createComponent(InnerViewCardComponent);
     component = fixture.componentInstance;
     router = TestBed.inject(Router);
-    intents = TestBed.inject(NavigationIntentService);
   });
 
   function render(item: Property) {
@@ -59,72 +55,32 @@ describe('InnerViewCardComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('mostra o botao quando o imovel nao tem tour', () => {
-    const el = render(imovel({ virtualTour: null }));
-    expect(el.querySelector('.create-tour-btn')).not.toBeNull();
+  /**
+   * O inverso do que este spec provava.
+   *
+   * "Criar tour" só aparecia quando NÃO havia tour — que é o cartão de imóvel
+   * cadastrado sem foto, no catálogo. Criar tour é ação de dono, e a home é a
+   * lista de quem procura imóvel; o lugar dela é o wizard, alcançável pelo
+   * botão que abre a captura.
+   */
+  it('nao mostra mais o botao de criar tour', () => {
+    const semTour = render(imovel({ virtualTour: null }));
+    expect(semTour.querySelector('.create-tour-btn')).toBeNull();
+    expect(semTour.textContent).not.toContain('CARD_CREATE_TOUR');
   });
 
-  // O status padrao de tour e' DRAFT. Exigir PUBLISHED marcaria como "sem tour"
-  // todo tour recem-criado pelo wizard.
-  it('esconde o botao quando ha tour, inclusive DRAFT', () => {
-    const comDraft = render(imovel({ virtualTour: { id: 't1', status: 'DRAFT' } }));
-    expect(comDraft.querySelector('.create-tour-btn')).toBeNull();
-
-    const comPublicado = render(imovel({ virtualTour: { id: 't1', status: 'PUBLISHED' } }));
-    expect(comPublicado.querySelector('.create-tour-btn')).toBeNull();
-  });
-
-  it('nomeia o imovel no aria-label', () => {
-    const el = render(imovel({ title: 'Casa da Vila' }));
-    const botao = el.querySelector('.create-tour-btn')!;
-    // Sem interpolacao carregada, o pipe devolve a chave — o que importa aqui e'
-    // que o atributo exista e use a chave com parametro, e nao um texto fixo.
-    expect(botao.getAttribute('aria-label')).toContain('HOME.CARD_CREATE_TOUR_LABEL');
-  });
-
-  // A intencao vai pelo servico, e NAO no router state: o Angular re-hidrata
-  // history.state em extras.state a cada bootstrap, entao pelo router state ela
-  // sobreviveria ao refresh e reabriria o seletor para sempre.
-  it('registra a intencao no servico, nao no router state', () => {
+  it('o clique no card leva ao imovel', () => {
     const navegou = spyOn(router, 'navigate');
-    const registrou = spyOn(intents, 'register');
-    const el = render(imovel({ id: 'p9' }));
+    render(imovel({ id: 'p9' }));
 
-    (el.querySelector('.create-tour-btn') as HTMLButtonElement).click();
+    (fixture.nativeElement as HTMLElement)
+      .querySelector('ion-card')!
+      .dispatchEvent(new Event('click'));
 
-    expect(registrou).toHaveBeenCalledWith('p9', ADD_TOUR_INTENT);
     expect(navegou).toHaveBeenCalledWith(
       ['/inner-view-page', 'p9'],
       { state: { property: component.item } },
     );
-  });
-
-  // A assimetria entre os dois caminhos E' o ponto. Sem este teste, alguem
-  // "uniformiza" os dois — o que parece limpeza — e a Task 7 para de abrir o
-  // seletor, sem nada falhar.
-  it('o clique no card NAO leva a intencao', () => {
-    const navegou = spyOn(router, 'navigate');
-    const registrou = spyOn(intents, 'register');
-    const el = render(imovel({ id: 'p9' }));
-
-    el.querySelector('ion-card')!.dispatchEvent(new Event('click'));
-
-    expect(registrou).not.toHaveBeenCalled();
-    expect(navegou).toHaveBeenCalledWith(
-      ['/inner-view-page', 'p9'],
-      { state: { property: component.item } },
-    );
-  });
-
-  // O ion-card inteiro e' clicavel; sem stopPropagation o handler do card
-  // dispara junto e a navegacao COM intencao e' substituida pela sem intencao.
-  it('nao dispara o clique do card junto', () => {
-    const spy = spyOn(router, 'navigate');
-    const el = render(imovel({ id: 'p9' }));
-
-    (el.querySelector('.create-tour-btn') as HTMLButtonElement).click();
-
-    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   // O botao de favoritar (estrela) saiu do card — so curtir e compartilhar
