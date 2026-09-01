@@ -112,14 +112,9 @@
 
 .tw-scenes__head {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: center;
 
-  h2,
-  p {
-    margin: 0;
-  }
+  h2 { margin: 0; }
 
   h2 {
     font-size: clamp(26px, 4vw, 34px);
@@ -132,23 +127,6 @@
     }
   }
 
-  p {
-    margin-top: 6px;
-    font-size: 14px;
-    color: var(--tw-text-muted);
-  }
-
-  @include tw.tw-mobile {
-    align-items: flex-start;
-  }
-}
-
-.tw-scenes__count {
-  flex: 0 0 auto;
-  padding-bottom: 4px;
-  font-size: 13px;
-  color: var(--tw-text-faint);
-  white-space: nowrap;
 }
 
 /* -- Pilha interativa ----------------------------------------------------- */
@@ -169,7 +147,7 @@
   position: relative;
   height: clamp(300px, 58vw, 430px);
   margin: 0 -20px;
-  padding: 18px 54px 30px;
+  padding: 18px 54px 34px 18px;
   overflow: hidden;
   list-style: none;
   border-radius: var(--tw-radius-lg);
@@ -183,26 +161,32 @@
   --deck-drag: 0px;
 
   position: absolute;
-  inset: 18px 54px 30px;
+  inset: 18px 54px 34px 18px;
   transform: translateX(calc(var(--deck-x) + var(--deck-drag)))
     translateY(var(--deck-y)) scale(var(--deck-scale));
-  transform-origin: center;
+  transform-origin: left center;
   transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 180ms ease;
 
   &.is-arriving {
     animation: tw-deck-card-arrive 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
 
-  &[data-offset='-1'] {
-    --deck-x: -46px;
-    --deck-y: 14px;
-    --deck-scale: 0.92;
+  &[data-offset='1'] {
+    --deck-x: 18px;
+    --deck-y: 8px;
+    --deck-scale: 0.975;
   }
 
-  &[data-offset='1'] {
-    --deck-x: 46px;
-    --deck-y: 14px;
-    --deck-scale: 0.92;
+  &[data-offset='2'] {
+    --deck-x: 36px;
+    --deck-y: 16px;
+    --deck-scale: 0.95;
+  }
+
+  &[data-offset='3'] {
+    --deck-x: 54px;
+    --deck-y: 24px;
+    --deck-scale: 0.925;
   }
 
   &.is-hidden {
@@ -227,7 +211,6 @@
   border-radius: var(--tw-radius-lg);
   background: var(--tw-surface-track);
   box-shadow: var(--tw-shadow-card);
-  box-shadow: var(--tw-shadow-card);
   cursor: grab;
   transition: border-color 180ms ease, box-shadow 180ms ease, filter 180ms ease;
 
@@ -249,6 +232,14 @@
 .tw-deck__item[data-depth='1'] .tw-deck__card {
   border-color: var(--tw-border);
   filter: saturate(0.78) brightness(0.82);
+}
+
+.tw-deck__item[data-depth='2'] .tw-deck__card {
+  filter: saturate(0.68) brightness(0.72);
+}
+
+.tw-deck__item[data-depth='3'] .tw-deck__card {
+  filter: saturate(0.58) brightness(0.64);
 }
 
 .tw-deck__photo,
@@ -426,18 +417,26 @@
 .tw-deck__name-input {
   width: min(100%, 420px);
   min-height: 44px;
-  padding: 8px 12px;
-  border: 2px solid var(--tw-brand);
-  border-radius: var(--tw-radius-xs);
-  background: var(--tw-surface);
-  color: var(--tw-text-strong);
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 2px solid var(--tw-photo-text);
+  border-radius: 0;
+  background: transparent;
+  color: var(--tw-photo-text);
+  caret-color: var(--tw-photo-text);
   font: inherit;
   font-size: 16px;
-  text-shadow: none;
+  font-weight: 700;
+  text-shadow: var(--tw-shadow-photo-text);
+
+  &::placeholder {
+    color: var(--tw-photo-text);
+    opacity: 0.72;
+  }
 
   &:focus {
-    outline: 3px solid var(--tw-focus-ring);
-    outline-offset: 2px;
+    border-bottom-color: var(--tw-brand);
+    outline: 0;
   }
 }
 
@@ -475,11 +474,12 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid var(--tw-border);
-  border-radius: var(--tw-radius-pill);
-  background: var(--tw-surface);
+  border: 0;
+  border-radius: var(--tw-radius-xs);
+  background: transparent;
   color: var(--tw-brand);
   cursor: pointer;
+  transition: box-shadow 160ms ease;
 
   svg {
     width: 23px;
@@ -487,8 +487,7 @@
   }
 
   &:hover {
-    border-color: var(--tw-brand);
-    background: var(--tw-brand-soft);
+    box-shadow: var(--tw-shadow-card);
   }
 }
 
@@ -530,16 +529,13 @@
   }
 }
 
-.tw-deck__hint {
-  margin: 0;
-  color: var(--tw-text-faint);
-  font-size: 12px;
-  text-align: center;
-}
-
 .tw-deck__control:focus-visible {
   outline: 3px solid var(--tw-focus-ring);
   outline-offset: 2px;
+}
+
+.tw-deck__control.tw-deck__name-input:focus-visible {
+  outline: 0;
 }
 
 .tw-scenes__add {
@@ -604,20 +600,25 @@
     height: clamp(300px, 78vw, 390px);
     margin-right: -24px;
     margin-left: -24px;
-    padding: 18px 38px 30px;
+    padding: 18px 42px 34px 18px;
   }
 
   .tw-deck__item {
-    inset: 18px 38px 30px;
-
-    &[data-offset='-1'] {
-      --deck-x: -34px;
-      --deck-y: 11px;
-    }
+    inset: 18px 42px 34px 18px;
 
     &[data-offset='1'] {
-      --deck-x: 34px;
-      --deck-y: 11px;
+      --deck-x: 14px;
+      --deck-y: 8px;
+    }
+
+    &[data-offset='2'] {
+      --deck-x: 28px;
+      --deck-y: 16px;
+    }
+
+    &[data-offset='3'] {
+      --deck-x: 42px;
+      --deck-y: 24px;
     }
   }
 

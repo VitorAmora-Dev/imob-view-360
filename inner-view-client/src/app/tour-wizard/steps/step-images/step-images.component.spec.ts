@@ -257,7 +257,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     const selectors: HTMLButtonElement[] = Array.from(
       fixture.nativeElement.querySelectorAll('.tw-deck__pagination button'),
     );
-    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(3);
+    expect(cards.filter((card) => !card.classList.contains('is-hidden')).length).toBe(4);
     expect(cards.filter((card) => card.getAttribute('aria-hidden') !== 'true').length).toBe(1);
     expect(
       cards.filter(
@@ -394,5 +394,18 @@ describe('StepImagesComponent — escolha e galeria', () => {
 
     expect(store.scenes().map((item) => item.id)).toEqual(['outra']);
     expect(fixture.nativeElement.querySelector('.tw-scenes__editor')).toBeNull();
+  });
+
+  it('mantem cabecalho e navegacao sem textos auxiliares visiveis', () => {
+    store.scenes.set([scene('sala'), scene('cozinha')]);
+    store.selectedSceneId.set('sala');
+    render();
+
+    expect(fixture.nativeElement.querySelector('.tw-scenes__head p')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-scenes__count')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-deck__hint')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck').getAttribute('aria-label'),
+    ).toBeTruthy();
   });
 });

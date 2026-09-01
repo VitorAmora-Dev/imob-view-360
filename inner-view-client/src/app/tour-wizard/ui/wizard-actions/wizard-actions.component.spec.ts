@@ -15,7 +15,7 @@ import { WizardActionsComponent } from './wizard-actions.component';
  * sem explicacao nenhuma na etapa seguinte.
  */
 describe('WizardActionsComponent', () => {
-  function montar(): { barra: WizardActionsComponent; store: TourDraftStore } {
+  function montar() {
     TestBed.configureTestingModule({
       providers: [
         TourDraftStore,
@@ -26,7 +26,11 @@ describe('WizardActionsComponent', () => {
       ],
     });
     const fixture = TestBed.createComponent(WizardActionsComponent);
-    return { barra: fixture.componentInstance, store: TestBed.inject(TourDraftStore) };
+    return {
+      barra: fixture.componentInstance,
+      store: TestBed.inject(TourDraftStore),
+      fixture,
+    };
   }
 
   afterEach(() => TestBed.resetTestingModule());
@@ -54,10 +58,10 @@ describe('WizardActionsComponent', () => {
   }
 
   function em(etapa: WizardStep, cenas: WizardScene[]) {
-    const { barra, store } = montar();
+    const { barra, store, fixture } = montar();
     store.scenes.set(cenas);
     store.step.set(etapa);
-    return { barra, store };
+    return { barra, store, fixture };
   }
 
   const LIGADAS = () => [cena('sala', ['cozinha']), cena('cozinha', ['sala'])];
@@ -147,5 +151,18 @@ describe('WizardActionsComponent', () => {
       const { barra } = em(3, LIGADAS());
       expect(barra.showSkip()).toBeFalse();
     });
+  });
+
+  it('oculta a explicacao longa na etapa 1 e preserva o motivo no botao', () => {
+    const semNome = { ...cena('sala'), room: '' };
+    const { barra, fixture } = em(1, [semNome]);
+
+    fixture.detectChanges();
+
+    expect(barra.motivoBloqueio()).toBe('TOUR_WIZARD.STEP1.NEEDS_NAMES');
+    expect(fixture.nativeElement.querySelector('.tw-actions__motivo')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.tw-btn--primary').getAttribute('title'),
+    ).toBeTruthy();
   });
 });

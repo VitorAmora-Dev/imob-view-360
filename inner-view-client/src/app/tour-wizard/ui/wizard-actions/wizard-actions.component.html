@@ -12,7 +12,8 @@
   que é onde se conserta; aqui fica por que não dá para seguir, que é o que se
   pergunta ao ver o botão.
 -->
-@if (motivoBloqueio()) {
+<!-- Na etapa 1 o erro fica junto ao nome, dentro do card ativo. -->
+@if (motivoBloqueio() && store.step() !== 1) {
   <p class="tw-actions__motivo" role="status">{{ motivoBloqueio()! | translate }}</p>
 }
 
