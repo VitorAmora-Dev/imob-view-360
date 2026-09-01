@@ -2,17 +2,15 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 10px 16px 16px;
-  border-radius: var(--app-radius-xl) var(--app-radius-xl) 0 0;
+  padding: 16px;
+  border-top: 1px solid var(--app-hairline-soft);
   background: var(--app-surface-soft);
 }
 
-.ps__grabber {
-  align-self: center;
-  width: 38px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--app-hairline);
+.ps__acoes {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
 }
 
 .ps__progresso {
@@ -115,13 +113,12 @@
 }
 
 .ps__voltar {
-  align-self: center;
-  min-height: 44px;
-  padding: 0 8px;
-  border: 0;
-  background: transparent;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-strong);
   font-size: 13px;
-  font-weight: 600;
-  color: var(--ion-color-primary);
-  text-decoration: underline;
+  font-weight: 700;
+  color: var(--app-ink);
 }

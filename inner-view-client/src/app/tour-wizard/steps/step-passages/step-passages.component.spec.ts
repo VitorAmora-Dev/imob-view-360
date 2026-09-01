@@ -228,7 +228,11 @@ describe('StepPassagesComponent', () => {
     montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
 
     const voltar = el().querySelector('.ps__voltar') as HTMLButtonElement;
+    const acoes = el().querySelector('.ps__acoes') as HTMLElement;
     expect(voltar).not.toBeNull();
+    expect(acoes).not.toBeNull();
+    expect(acoes.querySelector('.ps__voltar')).toBe(voltar);
+    expect(acoes.querySelector('.ps__acao')).toBe(botao());
 
     voltar.click();
     expect(draft.step()).toBe(2);
