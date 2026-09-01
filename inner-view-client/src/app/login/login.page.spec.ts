@@ -87,14 +87,27 @@ describe('LoginPage', () => {
   // toContain, e nao toBe: a encapsulacao do Angular prefixa a @keyframes com
   // o hash do componente (_ngcontent-a-cNNN_owl-tilt), e esse hash muda a
   // cada build. Prender o nome exato seria um teste quebrando sozinho.
-  it('a coruja tem a animacao de inclinar, salvo movimento reduzido', () => {
-    const host = el().querySelector('.login-visual__mark app-brand-logo')!;
-    const animacao = getComputedStyle(host).animationName;
+  //
+  // As DUAS corujas: a do painel azul (>=744px) e a do auth-intro, que e' a
+  // unica que sobra no mobile -- onde o painel azul nem existe. Media query
+  // nao entra aqui: as duas regras valem em qualquer largura, e quem esconde
+  // cada uma na largura errada e' o display, nao a animacao.
+  it('as duas corujas tem a animacao de inclinar, salvo movimento reduzido', () => {
+    const reduzido = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      expect(animacao).toBe('none');
-    } else {
-      expect(animacao).toContain('owl-tilt');
+    for (const seletor of [
+      '.login-visual__mark app-brand-logo',
+      '.login-form-panel .auth-intro app-brand-logo',
+    ]) {
+      const host = el().querySelector(seletor);
+      expect(host).withContext(seletor).not.toBeNull();
+
+      const animacao = getComputedStyle(host!).animationName;
+      if (reduzido) {
+        expect(animacao).withContext(seletor).toBe('none');
+      } else {
+        expect(animacao).withContext(seletor).toContain('owl-tilt');
+      }
     }
   });
 
