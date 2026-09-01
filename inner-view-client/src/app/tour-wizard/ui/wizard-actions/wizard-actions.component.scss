@@ -60,6 +60,12 @@
     background: var(--tw-brand-disabled);
     cursor: help;
   }
+
+  &.is-compact {
+    flex: 0 0 auto;
+    min-width: 112px;
+    margin-left: auto;
+  }
 }
 
 // "Voltar" e "Pular" são curtos e não devem ceder espaço: quem encolhe quando

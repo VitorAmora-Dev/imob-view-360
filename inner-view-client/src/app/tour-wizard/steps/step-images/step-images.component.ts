@@ -25,6 +25,10 @@ interface SceneDeckItem {
   depth: number;
   offset: number;
   hidden: boolean;
+  dragX: number;
+  liveScale: number;
+  lift: number;
+  tilt: number;
   number: number | null;
   imageUrl: string | null;
   displayName: string;
@@ -90,23 +94,38 @@ export class StepImagesComponent implements OnDestroy {
     return focused ?? selected ?? scenes[0] ?? null;
   });
 
+  readonly environmentCountKey = computed(() =>
+    this.store.scenes().length === 1
+      ? 'TOUR_WIZARD.STEP1.ENVIRONMENTS_COUNT_ONE'
+      : 'TOUR_WIZARD.STEP1.ENVIRONMENTS_COUNT',
+  );
+
   /**
-   * A cena ativa fica ao centro; anterior e próxima aparecem recuadas nas
-   * laterais. As demais continuam disponíveis na paginação sem deixar
-   * controles encobertos na ordem de tabulação.
+   * A cena ativa fica na frente e as três seguintes formam uma pilha leve.
+   * Durante o gesto, a ativa inclina e cede profundidade enquanto a próxima
+   * se aproxima — o movimento acompanha o dedo/mouse, não é uma animação
+   * decorativa disparada depois do toque.
    */
   readonly deckItems = computed<SceneDeckItem[]>(() => {
     const scenes = this.store.scenes();
     const readyScenes = this.store.readyScenes();
+    const drag = this.dragOffset();
+    const dragProgress = Math.min(Math.abs(drag) / 96, 1);
     const activeId = this.activeScene()?.id;
     const activeIndex = Math.max(
       0,
       scenes.findIndex((scene) => scene.id === activeId),
     );
-    return scenes.map((scene, index) => {
-      let offset = index - activeIndex;
-      if (offset > scenes.length / 2) offset -= scenes.length;
-      if (offset < -scenes.length / 2) offset += scenes.length;
+    const ordered = [
+      ...scenes.slice(activeIndex),
+      ...scenes.slice(0, activeIndex),
+    ];
+
+    return ordered.map((scene, offset) => {
+      const depth = Math.min(offset, 3);
+      const isActive = offset === 0;
+      const isIncoming = offset === 1;
+      const incomingShift = drag < 0 ? -18 * dragProgress : 0;
 
       const readyIndex = readyScenes.findIndex(
         (candidate) => candidate.id === scene.id,
@@ -114,9 +133,19 @@ export class StepImagesComponent implements OnDestroy {
       const number = scene.state === 'ready' ? readyIndex + 1 : null;
       return {
         scene,
-        depth: Math.abs(offset),
+        depth,
         offset,
-        hidden: Math.abs(offset) > 1,
+        hidden: offset > 3,
+        dragX: isActive ? drag : isIncoming ? incomingShift : 0,
+        liveScale: isActive
+          ? 1 - 0.025 * dragProgress
+          : isIncoming
+            ? 0.975 + 0.02 * dragProgress
+            : depth === 2
+              ? 0.95
+              : 0.925,
+        lift: isIncoming ? -8 * dragProgress : 0,
+        tilt: isActive ? drag / 32 : isIncoming ? -drag / 120 : 0,
         number,
         imageUrl: this.imageUrl(scene),
         displayName: scene.room.trim() || scene.fileName,

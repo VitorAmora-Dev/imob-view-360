@@ -31,11 +31,12 @@ export class WizardActionsComponent implements OnDestroy {
    * "Publicar tour" num botão que só avançava. Prometer a ação final e entregar
    * outra tela é pior do que um rótulo feio: quem aperta acha que terminou.
    */
-  readonly primaryLabelKey = computed(() =>
-    this.store.step() === TOTAL_ETAPAS
+  readonly primaryLabelKey = computed(() => {
+    if (this.store.step() === 1) return 'TOUR_WIZARD.COMMON.DONE';
+    return this.store.step() === TOTAL_ETAPAS
       ? 'TOUR_WIZARD.COMMON.PUBLISH'
-      : 'TOUR_WIZARD.COMMON.NEXT',
-  );
+      : 'TOUR_WIZARD.COMMON.NEXT';
+  });
 
   /**
    * "Pular" só existe na etapa de PASSAGENS, e só enquanto ela é de fato
