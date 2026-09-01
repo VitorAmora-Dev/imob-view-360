@@ -301,29 +301,6 @@
       <div class="tw-scenes__actions">
         <button
           type="button"
-          class="tw-scene-action tw-scene-action--camera"
-          (click)="openCapture()">
-          <span class="tw-scene-action__eyebrow">
-            {{ 'TOUR_WIZARD.STEP1.CAPTURE_EYEBROW' | translate }}
-          </span>
-          <strong>{{ 'TOUR_WIZARD.STEP1.TAKE_ANOTHER_PHOTO' | translate }}</strong>
-          <span class="tw-scene-action__icon" aria-hidden="true">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.8">
-              <path d="M8.5 5 10 3h4l1.5 2H19a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
-              <circle cx="12" cy="12.5" r="4" />
-            </svg>
-          </span>
-        </button>
-        <button
-          type="button"
           class="tw-scene-action tw-scene-action--gallery"
           (click)="openFilePicker()">
           <span class="tw-scene-action__eyebrow">
@@ -343,6 +320,29 @@
               <rect x="3" y="5" width="18" height="14" rx="2" />
               <circle cx="8.5" cy="10" r="1.5" />
               <path d="m4 17 5-4 3 2 3-3 5 4" />
+            </svg>
+          </span>
+        </button>
+        <button
+          type="button"
+          class="tw-scene-action tw-scene-action--camera"
+          (click)="openCapture()">
+          <span class="tw-scene-action__eyebrow">
+            {{ 'TOUR_WIZARD.STEP1.CAPTURE_EYEBROW' | translate }}
+          </span>
+          <strong>{{ 'TOUR_WIZARD.STEP1.TAKE_ANOTHER_PHOTO' | translate }}</strong>
+          <span class="tw-scene-action__icon" aria-hidden="true">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8">
+              <path d="M8.5 5 10 3h4l1.5 2H19a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+              <circle cx="12" cy="12.5" r="4" />
             </svg>
           </span>
         </button>
