@@ -42,4 +42,17 @@ describe('BrandLogoComponent', () => {
     const image: HTMLImageElement = fixture.nativeElement.querySelector('img');
     expect(image.getAttribute('src')).toContain('arp-vision-horizontal-white.svg');
   });
+
+  // Nao existe SVG branco do simbolo -- so o azul. Em tom branco o componente
+  // continua servindo o mesmo arquivo e marca a classe que o inverte por
+  // filtro. Trocar o src aqui seria apontar para um asset que nao existe.
+  it('inverte o simbolo azul por classe quando o tom e branco', () => {
+    component.kind = 'symbol';
+    component.tone = 'white';
+    fixture.detectChanges();
+
+    const image: HTMLImageElement = fixture.nativeElement.querySelector('img');
+    expect(image.getAttribute('src')).toContain('arp-vision-symbol-blue-transparent.svg');
+    expect(image.classList).toContain('brand-logo--white-symbol');
+  });
 });

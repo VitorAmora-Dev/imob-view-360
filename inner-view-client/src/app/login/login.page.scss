@@ -35,6 +35,62 @@
   margin-top: 8px;
 }
 
+// A coruja e' o assunto do painel azul: ocupa o espaco livre acima do
+// letreiro, que fica ancorado embaixo. Estas regras ficam fora da media
+// query de proposito -- abaixo de 744px o painel inteiro e' display:none, e
+// animacao dentro de subarvore nao renderizada nao roda, entao nao ha custo.
+.login-visual__mark {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.login-visual__mark app-brand-logo {
+  // O simbolo so existe em azul; tone="white" o inverte por filtro. A altura
+  // acompanha a janela: o clamp evita que ele estoure o padding do painel num
+  // notebook baixo e que vire um selo perdido num monitor grande.
+  --brand-logo-symbol-height: clamp(200px, 46vh, 460px);
+
+  // O pivo fica nos pes, nao no centro. Girando pela base, a CABECA percorre
+  // o arco e as garras ficam plantadas -- e' isso que le como coruja
+  // inclinando a cabeca. Pelo centro, o corpo balancaria junto e viraria
+  // pendulo.
+  transform-origin: 50% 88%;
+  animation: owl-tilt 7s ease-in-out infinite;
+}
+
+// A pausa em cada extremo e' o que transforma um balanco continuo num gesto
+// de curiosidade: olha pra um lado, segura, olha pro outro, volta.
+@keyframes owl-tilt {
+  0%,
+  18% {
+    transform: rotate(0deg);
+  }
+
+  30%,
+  48% {
+    transform: rotate(-7deg);
+  }
+
+  60%,
+  78% {
+    transform: rotate(7deg);
+  }
+
+  90%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-visual__mark app-brand-logo {
+    animation: none;
+  }
+}
+
 @media (min-width: 744px) {
   .login-visual {
     display: flex;
@@ -42,6 +98,9 @@
     flex-direction: column;
     justify-content: flex-end;
     max-width: 560px;
+    // A coruja inclinada varre alguns pixels para os lados; o corte impede
+    // que isso vire barra de rolagem horizontal na pagina.
+    overflow: hidden;
     padding: 64px;
     // --ion-color-primary/-shade sao os alias de L1 para
     // --brand-primary/--brand-primary-dark (variables.scss). Nunca o
@@ -70,6 +129,11 @@
   // A tagline ja aparece no painel visual -- repeti-la aqui tambem soaria
   // como eco. So esconde a partir daqui; a marcacao continua no DOM porque
   // no mobile o painel visual nem existe, e o auth-intro precisa dela.
+  //
+  // O simbolo pequeno sai pela mesma razao, agora que a coruja grande domina
+  // o painel ao lado: duas vezes a mesma marca na mesma tela sao dois pedidos
+  // de atencao para a mesma coisa.
+  .login-form-panel .auth-intro app-brand-logo,
   .login-form-panel .auth-intro .brand-tagline {
     display: none;
   }
