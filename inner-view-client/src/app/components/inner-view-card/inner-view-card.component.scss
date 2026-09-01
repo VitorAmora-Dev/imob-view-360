@@ -14,7 +14,10 @@ ion-card.property-card {
 
 .card-photo {
   position: relative;
-  aspect-ratio: 1 / 1;
+  // 20:19 e nao 1:1 — e a proporcao que o Airbnb usa, e a diferenca aparece:
+  // a foto encolhe 5% da altura sem mudar de largura, e o cartao inteiro
+  // encolhe junto, porque a foto responde por quase 80% dele.
+  aspect-ratio: 20 / 19;
   border-radius: var(--app-radius-md);
   overflow: hidden;
   background: var(--app-surface-soft);
