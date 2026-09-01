@@ -125,37 +125,9 @@ ion-card.property-card {
   overflow: hidden;
 }
 
-.meta-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 6px;
-  min-height: 32px;
-}
-
 .meta-price {
-  margin: 0;
+  margin: 6px 0 0;
   font-size: 16px;
   font-weight: 600;
   color: var(--app-ink);
-}
-
-.meta-actions {
-  display: flex;
-  align-items: center;
-  margin-left: auto;
-}
-
-ion-button.share-btn {
-  --color: var(--app-muted);
-  --padding-start: 6px;
-  --padding-end: 6px;
-  height: 32px;
-  min-height: 32px;
-  margin: 0;
-
-  ion-icon {
-    font-size: 18px;
-  }
 }

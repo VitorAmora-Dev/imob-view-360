@@ -83,11 +83,17 @@ describe('InnerViewCardComponent', () => {
     );
   });
 
-  // O botao de favoritar (estrela) saiu do card — so curtir e embed ficam.
-  it('nao mostra mais o botao de favoritar', () => {
+  /**
+   * O cartao ficou com UMA acao: curtir. Favoritar (estrela) saiu antes, e o
+   * embed saiu depois — ele disputava a linha do preco com o que o corretor
+   * veio ver, e continua inteiro em "Meus imoveis".
+   */
+  it('nao mostra favoritar nem embed', () => {
     const el = render(imovel({ virtualTour: { id: 't1', status: 'PUBLISHED' } }));
+
     expect(el.querySelector('ion-icon[name^="star"]')).toBeNull();
-    expect(el.querySelectorAll('ion-button').length).toBe(1);
+    expect(el.querySelector('.embed-btn')).toBeNull();
+    expect(el.querySelectorAll('ion-button').length).toBe(0);
   });
 
   it('o botao de curtir continua, e alterna de estado', () => {
@@ -99,49 +105,5 @@ describe('InnerViewCardComponent', () => {
     fixture.detectChanges();
 
     expect(coracao.classList).toContain('heart-btn--liked');
-  });
-
-  describe('embed', () => {
-    // Sem tour nao ha o que embutir.
-    it('some quando o imovel nao tem tour', () => {
-      const el = render(imovel({ virtualTour: null }));
-      expect(el.querySelector('.embed-btn')).toBeNull();
-    });
-
-    /**
-     * O card NAO abre o painel: ele diz qual tour quer divulgar e a pagina
-     * abre. Sao vinte cartoes numa grade e um painel so — um `ion-modal` por
-     * card seria vinte overlays montados para um que abre.
-     */
-    it('pede o painel a pagina, com o id do tour', () => {
-      const el = render(imovel({ id: 'p9', virtualTour: { id: 't1', status: 'PUBLISHED' } }));
-      const pedidos: string[] = [];
-      component.embedClick.subscribe((id) => pedidos.push(id));
-
-      (el.querySelector('.embed-btn') as HTMLElement).click();
-
-      expect(pedidos).toEqual(['t1']);
-    });
-
-    // O ion-card inteiro e' clicavel; sem stopPropagation o handler dele
-    // dispara junto e a navegacao rouba o clique do botao.
-    it('nao dispara a navegacao do card junto', () => {
-      const navegou = spyOn(router, 'navigate');
-      const el = render(imovel({ virtualTour: { id: 't1', status: 'PUBLISHED' } }));
-
-      (el.querySelector('.embed-btn') as HTMLElement).click();
-
-      expect(navegou).not.toHaveBeenCalled();
-    });
-
-    // O "<>" e' o simbolo de embed no mercado. Numa grade, "Embed" sozinho nao
-    // diz de qual imovel — por isso o rotulo nomeia o item.
-    it('usa o icone de codigo e nomeia o imovel no rotulo', () => {
-      const el = render(imovel({ title: 'Casa da Vila', virtualTour: { id: 't1', status: 'PUBLISHED' } }));
-      const botao = el.querySelector('.embed-btn')!;
-
-      expect(botao.querySelector('ion-icon')!.getAttribute('name')).toBe('code-slash-outline');
-      expect(botao.getAttribute('aria-label')).toContain('CARD.EMBED');
-    });
   });
 });

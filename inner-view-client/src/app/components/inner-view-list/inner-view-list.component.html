@@ -1,7 +1,7 @@
 <ion-grid class="page-shell">
   <ion-row>
     <ion-col class="card-col" *ngFor="let item of items">
-      <app-inner-view-card [item]="item" (embedClick)="embedClick.emit($event)"></app-inner-view-card>
+      <app-inner-view-card [item]="item"></app-inner-view-card>
     </ion-col>
   </ion-row>
 </ion-grid>

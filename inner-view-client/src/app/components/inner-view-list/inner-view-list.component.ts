@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonGrid, IonRow, IonCol } from '@ionic/angular/standalone';
 import { Property } from '../../models/property.model';
@@ -13,13 +13,4 @@ import { InnerViewCardComponent } from '../inner-view-card/inner-view-card.compo
 })
 export class InnerViewListComponent {
   @Input() items: Property[] = [];
-
-  /**
-   * Repassa o pedido de embed do card para a página.
-   *
-   * A lista não abre o modal: um `<app-embed-modal>` por página, e não um por
-   * card — vinte imóveis na tela seriam vinte overlays montados para um que
-   * abre.
-   */
-  @Output() embedClick = new EventEmitter<string>();
 }

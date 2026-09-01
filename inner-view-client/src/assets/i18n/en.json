@@ -69,9 +69,6 @@
     "EMPTY_HINT": "Captures you leave unfinished show up here, ready to continue.",
     "EMPTY_CTA": "Start a capture"
   },
-  "CARD": {
-    "EMBED": "Embed {{title}}"
-  },
   "CAPTURE": {
     "TRATANDO_TITULO": "Enhancing your panorama",
     "TRATANDO": "AI is fixing the seams and parallax. This takes about a minute.",
