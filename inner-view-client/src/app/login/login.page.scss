@@ -64,6 +64,7 @@
   .login-form-panel {
     flex: 1 1 55%;
     padding: 64px;
+    padding-top: calc(64px + var(--ion-safe-area-top, 0px));
   }
 
   // A tagline ja aparece no painel visual -- repeti-la aqui tambem soaria

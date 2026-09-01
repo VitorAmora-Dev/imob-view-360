@@ -28,7 +28,7 @@ export class LoginPage {
 
   private authService = inject(AuthService);
   private router = inject(Router);
-  private translate = inject(TranslateService);
+  private readonly translate = inject(TranslateService);
 
   submit() {
     if (!this.email || !this.password) return;
