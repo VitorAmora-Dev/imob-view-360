@@ -136,6 +136,103 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
   });
 
   /**
+   * Duas cargas de textura em voo ao mesmo tempo.
+   *
+   * `TextureLoader.load` é assíncrono e não cancelável, e os callbacks chegam em
+   * ordem de CONCLUSÃO, nunca de pedido. Dois toques rápidos numa rede lenta
+   * deixam duas cargas correndo, e a foto que aparece era a que baixasse por
+   * último — medido com a rede estrangulada, três toques rendiam quatro trocas
+   * de foto, com o cômodo errado no meio.
+   *
+   * Aqui as duas cargas são resolvidas à MÃO, fora de ordem. É o único jeito de
+   * um teste falar sobre isso sem depender de qual download termina primeiro.
+   */
+  describe('duas cargas de textura em voo', () => {
+    interface Pedido {
+      ok: (textura: THREE.Texture) => void;
+      falhou: () => void;
+    }
+
+    function comoda(id: string, order: number): Panorama {
+      return {
+        id,
+        roomName: id.toUpperCase(),
+        imageUrl: `https://exemplo.invalido/${id}.jpg`,
+        order,
+        initialPanorama: order === 0,
+        originHotspots: [],
+        measurements: [],
+      };
+    }
+
+    let pedidos: Pedido[];
+
+    beforeEach(async () => {
+      pedidos = [];
+      spyOn(THREE.TextureLoader.prototype, 'load').and.callFake(((
+        _url: string,
+        ok: (t: THREE.Texture) => void,
+        _progresso: unknown,
+        falhou: () => void,
+      ) => {
+        pedidos.push({ ok, falhou });
+        return new THREE.Texture();
+      }) as never);
+
+      component.panoramas = [comoda('a', 0), comoda('b', 1), comoda('c', 2)];
+      fixture.detectChanges();
+      await afterInit();
+      // `pedidos[0]` é a carga inicial, e fica pendurada de propósito.
+    });
+
+    it('prevalece a cena pedida por último, e não a que baixou por último', () => {
+      const trocas: string[] = [];
+      component.panoramaChange.subscribe((p) => trocas.push(p.id));
+
+      component.navigateTo('b');
+      component.navigateTo('c');
+      expect(pedidos.length).toBe(3);
+
+      // 'c' chega primeiro (estava no cache); 'b', pesada, chega depois.
+      pedidos[2].ok(new THREE.Texture());
+      pedidos[1].ok(new THREE.Texture());
+
+      expect(trocas).toEqual(['c']);
+      expect(component.idAtual).toBe('c');
+    });
+
+    it('solta a textura descartada em vez de deixá-la órfã na GPU', () => {
+      const tardia = new THREE.Texture();
+      spyOn(tardia, 'dispose');
+
+      component.navigateTo('b');
+      component.navigateTo('c');
+      pedidos[2].ok(new THREE.Texture());
+      pedidos[1].ok(tardia);
+
+      // Ela nunca chega a ser atribuída ao material, então ninguém mais a
+      // solta: uma equirretangular de 8192x4096 são ~128 MB de GPU.
+      expect(tardia.dispose).toHaveBeenCalled();
+    });
+
+    it('a falha de um pedido abandonado não vira loadFailed', () => {
+      component.navigateTo('b');
+      component.navigateTo('c');
+      pedidos[2].ok(new THREE.Texture());
+
+      const falhas: string[] = [];
+      component.loadFailed.subscribe((p) => falhas.push(p.id));
+
+      pedidos[1].falhou();
+
+      // Sem esta guarda, o aviso de "não carregou" subia em tela cheia por cima
+      // do cômodo 'c', que está na tela e está correto.
+      expect(falhas).toEqual([]);
+      expect(component.loading).toBe(false);
+    });
+  });
+
+  /**
    * O sprite do viewer e o pin HTML da etapa 2 têm de nascer no MESMO ponto.
    *
    * São duas implementações da mesma conta, em arquivos diferentes — e foi

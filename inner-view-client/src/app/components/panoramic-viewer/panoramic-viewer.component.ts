@@ -291,6 +291,22 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   mostrarNav = false;
   navAberta = false;
   idAtual: string | null = null;
+
+  /**
+   * Identifica a carga de textura em voo.
+   *
+   * `TextureLoader.load` é assíncrono e não cancelável, e os callbacks chegam
+   * em ordem de CONCLUSÃO, não de pedido. Sem esta identidade, dois toques
+   * rápidos deixavam duas cargas correndo e vencia a que baixasse por último:
+   * medido com a rede estrangulada, três toques rendiam quatro trocas de foto
+   * — `q → b → quar → b` —, com o cômodo errado aparecendo no meio e uma
+   * equirretangular inteira baixada de novo para desfazer.
+   *
+   * `idAtual` não servia para isso: ele só é escrito no sucesso, então durante
+   * a carga ele ainda aponta para o cômodo ANTERIOR e as duas cargas o veem
+   * igual.
+   */
+  private pedidoDeTextura = 0;
   nomeAtual = '';
 
   alternarNav(): void {
@@ -532,6 +548,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private loadPanorama(panorama: Panorama) {
+    const pedido = ++this.pedidoDeTextura;
     this.loading = true;
     // Trocar de cômodo invalida qualquer revelação em curso: ela dissolveria a
     // imagem tratada de uma sala por cima da foto de outra.
@@ -547,6 +564,14 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     loader.load(
       endereco,
       (texture) => {
+        // Chegou tarde: outro cômodo foi pedido enquanto esta baixava. Não
+        // basta ignorar — a textura já existe na GPU e ninguém mais a
+        // referencia, e uma equirretangular de 8192×4096 são ~128 MB.
+        if (pedido !== this.pedidoDeTextura) {
+          texture.dispose();
+          return;
+        }
+
         texture.colorSpace = THREE.SRGBColorSpace;
         // An equirect wraps the sphere very unevenly: near the poles a row of
         // texels is squeezed into almost no screen width, so isotropic mip
@@ -574,6 +599,11 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       },
       undefined,
       () => {
+        // A falha de um pedido abandonado não é notícia: quem está na tela é
+        // outro cômodo, que carregou bem. Sem esta guarda o `loadFailed`
+        // atrasado apagava o `loading` de uma carga ainda em curso.
+        if (pedido !== this.pedidoDeTextura) return;
+
         this.loading = false;
         this.loadFailed.emit(panorama);
       }
