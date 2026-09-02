@@ -31,7 +31,8 @@ ion-modal.tour-sheet--centrado {
 .tour-sheet__caixa {
   display: flex;
   // A caixa ocupa a altura toda do modal para que o rodapé encoste embaixo e
-  // o conteúdo receba o resto -- é o que mantém o rodapé fora da rolagem.
+  // o conteúdo receba o resto -- é o que dá à área rolável uma altura para
+  // rolar dentro, e o que mantém o rodapé fora dela.
   height: 100%;
   flex-direction: column;
   padding: 8px 20px 20px;
@@ -58,9 +59,18 @@ ion-modal.tour-sheet--centrado {
 
 .tour-sheet__conteudo {
   flex: 1 1 auto;
-  // `min-height: 0` para o filho rolável poder encolher dentro do flex em vez
-  // de empurrar o rodapé para fora da caixa.
+  // `min-height: 0` para esta caixa poder encolher dentro do flex em vez de
+  // empurrar o rodapé para fora do sheet.
   min-height: 0;
+  // A área rolável é ESTA, e o `overflow-y` não é opcional: o `.modal-wrapper`
+  // do Ionic tem `--overflow: hidden`, então sem ele conteúdo mais alto que o
+  // sheet fica CORTADO e inalcançável, não rolado. O TV-6 é uma lista que
+  // cresce sem teto, e seriam os últimos itens a sumir.
+  //
+  // Aqui, e não embrulhando tudo num `<ion-content>`: com a rolagem neste div
+  // o rodapé fica naturalmente fora dela, que é o que se quer, sem mais um nó
+  // e mais um conjunto de custom properties no caminho.
+  overflow-y: auto;
 }
 
 .tour-sheet__rodape {

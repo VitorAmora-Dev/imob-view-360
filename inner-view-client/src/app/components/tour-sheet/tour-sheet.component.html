@@ -6,13 +6,18 @@
 
   O nome acessível do diálogo não sai daqui: ele vive no shadow DOM do Ionic.
   Ver `nomearDialogo`.
+
+  `canDismiss` recebe a FUNÇÃO `podeFechar`, e não `!travado()`: o Ionic
+  consulta `canDismiss` para qualquer papel, inclusive no fechamento
+  programático, e um booleano em `false` travaria o consumidor junto com os
+  gestos. Ver `podeFechar` e `travado`.
 -->
 <ion-modal
   class="tour-sheet"
   [class.tour-sheet--centrado]="centrado()"
   [breakpoints]="breakpointsAtivos()"
   [initialBreakpoint]="initialBreakpointAtivo()"
-  [canDismiss]="!travado()"
+  [canDismiss]="podeFechar"
   [isOpen]="isOpen()"
   (didPresent)="nomearDialogo($event)"
   (didDismiss)="fechado.emit()">

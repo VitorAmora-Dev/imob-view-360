@@ -61,6 +61,25 @@ class HospedeiroDeTesteComponent {
 })
 class HospedeiroQueSobrescreveComponent {}
 
+/**
+ * Terceiro hóspede: conteúdo mais alto do que o sheet.
+ *
+ * É o formato do TV-6 ("uma lista que cresce sem teto"). O `.modal-wrapper` do
+ * Ionic tem `--overflow: hidden`, então sem uma área rolável no shell os
+ * últimos itens ficam CORTADOS e inalcançáveis -- não rolados.
+ */
+@Component({
+  standalone: true,
+  imports: [TourSheetComponent],
+  template: `
+    <app-tour-sheet [isOpen]="true" [titulo]="'Gerenciar cenas'">
+      <div class="lista-alta" style="height: 4000px"></div>
+      <button rodape class="rodape-alto">ok</button>
+    </app-tour-sheet>
+  `,
+})
+class HospedeiroAltoComponent {}
+
 describe('TourSheetComponent', () => {
   let fixture: ComponentFixture<HospedeiroDeTesteComponent>;
   let host: HospedeiroDeTesteComponent;
@@ -69,24 +88,42 @@ describe('TourSheetComponent', () => {
   /** Tudo o que foi criado no teste, para o `afterEach` derrubar. */
   const criados: ComponentFixture<unknown>[] = [];
 
-  /** O que o dublê de `matchMedia` responde para a consulta do visualizador. */
-  let mobile = true;
-
   /**
    * Dublê de `MediaQueryList`. A viewport do Karma é a que for, e o teste
    * precisa poder dizer "isto é um celular" sem depender do tamanho da janela
-   * de quem roda a suíte. Mesmo padrão de `hotspot-sheet.component.spec.ts`.
+   * de quem roda a suíte.
+   *
+   * Ele GUARDA os ouvintes de propósito: o shell reage ao corte de 767px
+   * sendo cruzado com o sheet aberto (girar o celular), e um dublê que
+   * ignorasse `addEventListener` deixaria esse eixo inteiro invisível para a
+   * suíte. Mesmo padrão de `hotspot-sheet.component.spec.ts`.
    */
-  function mediaFalsa(matches: boolean): MediaQueryList {
-    return {
-      matches,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-    } as unknown as MediaQueryList;
+  interface MediaFalsa {
+    lista: MediaQueryList;
+    mudarPara(matches: boolean): void;
   }
 
+  function mediaFalsa(matches: boolean): MediaFalsa {
+    const ouvintes = new Set<() => void>();
+    const lista = {
+      matches,
+      addEventListener: (_: string, fn: () => void) => ouvintes.add(fn),
+      removeEventListener: (_: string, fn: () => void) => ouvintes.delete(fn),
+    };
+    return {
+      lista: lista as unknown as MediaQueryList,
+      mudarPara(valor: boolean) {
+        lista.matches = valor;
+        ouvintes.forEach((fn) => fn());
+      },
+    };
+  }
+
+  /** O que o dublê de `matchMedia` responde para a consulta do visualizador. */
+  let media: MediaFalsa;
+
   function montar(ehMobile = true): void {
-    mobile = ehMobile;
+    media.mudarPara(ehMobile);
     fixture = TestBed.createComponent(HospedeiroDeTesteComponent);
     criados.push(fixture);
     host = fixture.componentInstance;
@@ -108,14 +145,21 @@ describe('TourSheetComponent', () => {
    * marcacao. As ligacoes de propriedade (`canDismiss`, `breakpoints`) ja
    * estao no elemento antes disso, e por isso os outros testes sao sincronos.
    */
-  function apresentado(): Promise<void> {
+  function apresentado(no: HTMLElement = modal()): Promise<void> {
     return new Promise((resolve) => {
-      modal().addEventListener('didPresent', () => resolve(), { once: true });
+      no.addEventListener('didPresent', () => resolve(), { once: true });
+    });
+  }
+
+  /** Espera o Ionic TERMINAR de fechar -- `dismiss()` tambem e' assincrono. */
+  function fechou(no: HTMLElement = modal()): Promise<void> {
+    return new Promise((resolve) => {
+      no.addEventListener('didDismiss', () => resolve(), { once: true });
     });
   }
 
   beforeEach(async () => {
-    mobile = true;
+    media = mediaFalsa(true);
     // So a consulta do VISUALIZADOR e' dublada, e o resto passa para o
     // `matchMedia` real. Devolver o duble para toda consulta o entregaria
     // tambem ao Ionic, que pergunta por plataforma e por
@@ -124,11 +168,15 @@ describe('TourSheetComponent', () => {
     // `hotspot-sheet.component.spec.ts`.
     const real = window.matchMedia.bind(window);
     spyOn(window, 'matchMedia').and.callFake((consulta: string) =>
-      consulta === TOUR_MOBILE_QUERY ? mediaFalsa(mobile) : real(consulta),
+      consulta === TOUR_MOBILE_QUERY ? media.lista : real(consulta),
     );
 
     await TestBed.configureTestingModule({
-      imports: [HospedeiroDeTesteComponent, HospedeiroQueSobrescreveComponent],
+      imports: [
+        HospedeiroDeTesteComponent,
+        HospedeiroQueSobrescreveComponent,
+        HospedeiroAltoComponent,
+      ],
       providers: [provideIonicAngular()],
     }).compileComponents();
   });
@@ -139,10 +187,16 @@ describe('TourSheetComponent', () => {
    * modal desta suite aparece em `document.activeElement` na suite seguinte --
    * exatamente a falha intermitente que `hotspot-sheet.component.spec.ts` ja
    * documenta no seu proprio `afterEach`.
+   *
+   * `backdrop-no-scroll` sai junto: o Ionic o poe no `<body>` ao apresentar, e
+   * e' ele quem trava a rolagem da PAGINA. Como o `<body>` do Karma e' um so
+   * para todos os arquivos, um resto dele aqui deixaria as suites seguintes
+   * rodando com `overflow: hidden` no documento.
    */
   afterEach(() => {
     while (criados.length) criados.pop()!.destroy();
     document.querySelectorAll('ion-modal').forEach((m) => m.remove());
+    document.body.classList.remove('backdrop-no-scroll');
     (document.activeElement as HTMLElement | null)?.blur();
   });
 
@@ -207,15 +261,19 @@ describe('TourSheetComponent', () => {
     expect(wrapper?.getAttribute('aria-label')).toBe('Cenas do tour (revisado)');
   });
 
-  // Os gestos de fechar tem um teste CADA, e nao um so' com um comentario
-  // dizendo que desembocam no mesmo `didDismiss`: a spec os enumera separados,
-  // e comentario nao e' asserticao.
+  // UM teste para o fechamento, e nao um por gesto: `detail.role` nao e' lido
+  // por nada no componente, entao um teste de `'backdrop'` e outro de
+  // `'gesture'` disparariam o MESMO `didDismiss` no mesmo elemento e provariam
+  // a mesma ligacao -- o segundo seria o primeiro com outra string. Os tres
+  // gestos (scrim, Esc e arrasto) so se distinguem DENTRO do Ionic, e a
+  // verificacao de que os tres desembocam aqui acontece no navegador, com o
+  // viewer rodando (Task 7 do plano), junto da devolucao do foco ao gatilho.
   //
   // O evento do DOM chama-se `didDismiss`, e nao `ionModalDidDismiss`: o
   // `proxyOutputs` do `IonModal` liga cada `@Output` ao evento de MESMO nome, e
   // `didDismiss` e' o atalho que o `ion-modal` emite ao lado do longo.
   // Disparar o longo aqui nao acordaria a ligacao do template.
-  it('o fechamento pelo scrim vira (fechado)', () => {
+  it('o fechamento do Ionic vira (fechado)', () => {
     montar();
     expect(host.fechou).toBe(0);
 
@@ -225,29 +283,32 @@ describe('TourSheetComponent', () => {
     expect(host.fechou).toBe(1);
   });
 
-  it('o fechamento por arrasto vira (fechado)', () => {
+  /**
+   * `travado` recusa os GESTOS, e nunca o fechamento programatico.
+   *
+   * O Ionic consulta `canDismiss` dentro de `dismiss()` para QUALQUER papel.
+   * Um `canDismiss` booleano em `false` portanto vetaria tambem o consumidor
+   * mandando fechar -- que e' o caso do TV-5: `travado` ligado a `apagando()`,
+   * a requisicao falha, o consumidor mostra o toast e chama `fechar()` sem
+   * baixar `apagando` no mesmo tick. O sheet ficaria na tela com o Angular
+   * achando que `isOpen` e' `false`, e como o watcher do Ionic so reage a
+   * `true -> false`, mandar fechar de novo nao adiantaria.
+   *
+   * Os tres gestos chegam com papel -- `'backdrop'` (scrim e Esc) ou
+   * `'gesture'`; o fechamento programatico chega com papel `undefined`.
+   */
+  it('travado recusa os gestos, mas nunca o fechamento programatico', () => {
     montar();
-    expect(host.fechou).toBe(0);
+    const alvo = modal() as HTMLElement & {
+      canDismiss: (dado?: unknown, papel?: string) => boolean;
+    };
+    const podeFechar = alvo.canDismiss;
 
-    // `gesture` e' o papel que o Ionic manda quando o sheet foi arrastado ate'
-    // a parada `0`.
-    modal().dispatchEvent(new CustomEvent('didDismiss', { detail: { role: 'gesture' } }));
-    fixture.detectChanges();
-
-    expect(host.fechou).toBe(1);
-  });
-
-  // O terceiro gesto, o Esc, NAO e' testado aqui de proposito. Quem escuta a
-  // tecla e' o proprio `IonModal`, por listener interno; o teste so' poderia
-  // chamar `dismiss()` na mao, e aí estaria testando o Ionic em vez da
-  // ligacao. O Esc e' verificado no navegador, com o viewer rodando (Task 7
-  // do plano), junto da devolucao do foco ao gatilho.
-
-  it('travado recusa o fechamento, e destravado permite', () => {
-    montar();
-    const alvo = modal() as HTMLElement & { canDismiss: boolean };
-
-    expect(alvo.canDismiss).toBeTrue();
+    expect(typeof podeFechar)
+      .withContext('`canDismiss` precisa ser funcao para poder olhar o papel')
+      .toBe('function');
+    expect(podeFechar(undefined, 'backdrop')).toBeTrue();
+    expect(podeFechar()).toBeTrue();
 
     host.travado.set(true);
     fixture.detectChanges();
@@ -256,7 +317,45 @@ describe('TourSheetComponent', () => {
     // arrasto fechando, e o caso que pede isto (TV-5, "Apagando...") e'
     // justamente aquele em que fechar no meio da requisicao deixa a tela em
     // estado ambiguo.
-    expect(alvo.canDismiss).toBeFalse();
+    expect(podeFechar(undefined, 'backdrop')).toBeFalse();
+    expect(podeFechar(undefined, 'gesture')).toBeFalse();
+    expect(podeFechar())
+      .withContext('o consumidor precisa conseguir fechar mesmo travado')
+      .toBeTrue();
+  });
+
+  /**
+   * Destruir o consumidor com o sheet APRESENTADO precisa desmontar o modal.
+   *
+   * Ao apresentar, o Ionic move o `<ion-modal>` para o `<body>`. Quando o
+   * Angular destroi o consumidor, o no' fica la, apresentado: o `<body>`
+   * segue com `backdrop-no-scroll` (o app inteiro para de rolar), o foco
+   * continua preso num dialogo invisivel e `(fechado)` nunca e' emitido. E' o
+   * caminho do "voltar" do navegador com o sheet de Cenas aberto -- e o
+   * `initParentRemovalObserver` do Ionic NAO cobre esse caso.
+   */
+  it('ao destruir o consumidor, o sheet apresentado se desmonta sozinho', async () => {
+    montar();
+    await apresentado();
+    const no = modal();
+
+    expect(document.body.classList.contains('backdrop-no-scroll'))
+      .withContext('precondicao: apresentar trava a rolagem da pagina')
+      .toBeTrue();
+
+    const saiu = fechou(no);
+    // Sai da lista do `afterEach`: quem destroi e' o proprio teste, e e' o
+    // efeito DESSA destruicao que esta sob medicao.
+    criados.pop();
+    fixture.destroy();
+    await saiu;
+
+    expect(document.body.classList.contains('backdrop-no-scroll'))
+      .withContext('a rolagem da pagina ficou travada depois do teardown')
+      .toBeFalse();
+    expect(no.classList.contains('overlay-hidden'))
+      .withContext('sobrou um ion-modal apresentado no <body>')
+      .toBeTrue();
   });
 
   it('variante sheet tem breakpoints em qualquer largura', () => {
@@ -282,7 +381,7 @@ describe('TourSheetComponent', () => {
   // valor fosse fixo aqui, TV-6 so' teria como pedir 0.9 editando o shell --
   // que e' exatamente o que a spec diz que TV-4/5/6 nao devem precisar fazer.
   it('o consumidor pode sobrescrever as paradas', () => {
-    mobile = true;
+    media.mudarPara(true);
     const f = TestBed.createComponent(HospedeiroQueSobrescreveComponent);
     criados.push(f);
     f.detectChanges();
@@ -318,5 +417,66 @@ describe('TourSheetComponent', () => {
     expect(alvo.breakpoints).toBeUndefined();
     expect(alvo.classList).toContain('tour-sheet--centrado');
     expect(getComputedStyle(alvo).getPropertyValue('--width').trim()).toBe('480px');
+  });
+
+  /**
+   * Girar o celular com o sheet `adaptavel` aberto precisa FECHAR o sheet.
+   *
+   * O Ionic decide `isSheetModal` no instante do `present()`. Trocar
+   * `breakpoints` depois muda so a propriedade e a classe, e o que sobra na
+   * tela e' um hibrido: caixa de 480px que continua com grabber, continua
+   * arrastavel e continua deslocada -- nem sheet nem dialogo. Fechar, e deixar
+   * o consumidor reabrir na forma certa, e' o conserto minimo; e ele e' do
+   * SHELL porque o consumidor nao tem como saber que a largura mudou.
+   */
+  it('trocar a forma com o sheet aberto fecha o sheet, em vez de virar um hibrido', async () => {
+    montar(true);
+    host.variante.set('adaptavel');
+    fixture.detectChanges();
+    await apresentado();
+    expect(host.fechou).toBe(0);
+
+    const saiu = fechou();
+    // 390x844 retrato -> 844x390 paisagem: o corte de 767px foi cruzado.
+    media.mudarPara(false);
+    fixture.detectChanges();
+    await saiu;
+    fixture.detectChanges();
+
+    expect(host.fechou)
+      .withContext('o sheet ficou aberto com a forma trocada por baixo dele')
+      .toBe(1);
+  });
+
+  /**
+   * A area rolavel existe de verdade.
+   *
+   * O `.modal-wrapper` do Ionic tem `--overflow: hidden`: sem `overflow-y` no
+   * proprio `.tour-sheet__conteudo`, conteudo mais alto que o sheet e'
+   * CORTADO e inalcancavel, nao rolado. TV-6 e' descrito como "uma lista que
+   * cresce sem teto" -- os ultimos itens ficariam fora do alcance.
+   *
+   * `scrollTop` e' a asserticao que importa: um elemento nao rolavel IGNORA a
+   * atribuicao e continua em zero, enquanto `scrollHeight > clientHeight` e'
+   * verdade ate com `overflow: visible` e passaria sem o conserto.
+   */
+  it('o conteudo rola quando passa da altura do sheet', async () => {
+    media.mudarPara(true);
+    const f = TestBed.createComponent(HospedeiroAltoComponent);
+    criados.push(f);
+    f.detectChanges();
+    const alvo = f.nativeElement.querySelector('ion-modal') as HTMLElement;
+    await apresentado(alvo);
+
+    const conteudo = alvo.querySelector('.tour-sheet__conteudo') as HTMLElement;
+    expect(conteudo.scrollHeight)
+      .withContext('o conteudo de teste precisa passar da altura do sheet')
+      .toBeGreaterThan(conteudo.clientHeight);
+
+    conteudo.scrollTop = 200;
+
+    expect(conteudo.scrollTop)
+      .withContext('o conteudo foi cortado em vez de rolado')
+      .toBeGreaterThan(0);
   });
 });
