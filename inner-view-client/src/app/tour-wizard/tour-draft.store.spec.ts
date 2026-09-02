@@ -2829,6 +2829,144 @@ describe('TourDraftStore (contrato)', () => {
       expect(apagarImovel).not.toHaveBeenCalled();
     });
   });
+  /**
+   * Editar um tour que já está no ar (SPRINT-4-TOUR-VIEWER.md, TV-11).
+   *
+   * O modo de edição existe por UMA razão, e é ela que estes casos guardam: o
+   * wizard tem um botão que apaga o imóvel em cascata, e um tour publicado tem
+   * link que já circulou. As quatro etapas são as mesmas; o que muda é o que
+   * se pode fazer nelas.
+   */
+  describe('modo de edição', () => {
+    const TOUR_PUBLICADO = {
+      id: 'tour-1',
+      propertyId: 'imovel-1',
+      status: 'PUBLISHED',
+      updatedAt: '2026-09-01T12:00:00.000Z',
+      property: {
+        title: 'Cobertura Vila Nova',
+        type: 'APARTMENT',
+        purpose: 'SALE',
+        draftPlaceholders: [],
+        address: null,
+      },
+      panoramas: [],
+    };
+
+    function emEdicao(): TourDraftStore {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
+      comRascunhoCriado(store);
+      store.property.set({
+        ...store.property(),
+        name: 'Cobertura Vila Nova',
+        type: 'APARTMENT',
+        purpose: 'SALE',
+      });
+      store.modo.set('edicao');
+      return store;
+    }
+
+    it('abre pela rota de edição, e não pela de rascunho', async () => {
+      // A de rascunho recusa tour publicado de propósito. Pedir por ali seria
+      // um 404 em todo tour que este modo existe para abrir.
+      const store = newStore();
+      const tours = TestBed.inject(VirtualTourService);
+      const lerEdicao = spyOn(tours, 'lerTourParaEdicao').and.returnValue(
+        of(TOUR_PUBLICADO as unknown) as ReturnType<VirtualTourService['lerTourParaEdicao']>,
+      );
+      const lerRascunho = spyOn(tours, 'lerRascunho');
+
+      await store.abrirParaEdicao('tour-1');
+
+      expect(lerEdicao).toHaveBeenCalledWith('tour-1');
+      expect(lerRascunho).not.toHaveBeenCalled();
+      expect(store.editando()).toBeTrue();
+      expect(store.rascunhoTourId()).toBe('tour-1');
+    });
+
+    it('retomar rascunho continua sendo criação', async () => {
+      const store = newStore();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({ ...TOUR_PUBLICADO, status: 'DRAFT' } as unknown) as ReturnType<
+          VirtualTourService['lerRascunho']
+        >,
+      );
+
+      await store.retomarRascunho('tour-1');
+
+      expect(store.editando()).toBeFalse();
+    });
+
+    it('o descarte é INALCANÇÁVEL, e não chega a tocar na rede', async () => {
+      // A trava fica no store, e não só no diálogo que deixa de oferecer o
+      // botão: um caminho novo que esqueça do modo falha aqui, com nome, em
+      // vez de aparecer como um tour publicado que sumiu.
+      const store = emEdicao();
+      const apagarImovel = spyOn(TestBed.inject(PropertyService), 'deleteProperty');
+
+      await expectAsync(store.descartarRascunho()).toBeRejectedWithError(
+        /modo de edição/,
+      );
+      expect(apagarImovel).not.toHaveBeenCalled();
+      expect(store.rascunhoPropertyId()).toBe('imovel-1');
+    });
+
+    it('salvar NÃO republica o tour', async () => {
+      // `publicarTour` escreve PUBLISHED por cima de PUBLISHED: inofensivo
+      // hoje, e armadilha no dia em que aquele PATCH fizer mais do que trocar
+      // o status.
+      const store = emEdicao();
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      const publicar = spyOn(tours, 'publicarTour');
+
+      await store.publish();
+
+      expect(publicar).not.toHaveBeenCalled();
+      expect(store.edicaoSalva()).toBeTrue();
+      // Nem a tela de sucesso: o tour não acabou de nascer.
+      expect(store.published()).toBeFalse();
+      // O tour continua sendo o mesmo — id preservado é o link preservado.
+      expect(store.rascunhoTourId()).toBe('tour-1');
+    });
+
+    it('criar continua publicando, como sempre', async () => {
+      const store = emEdicao();
+      store.modo.set('criacao');
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'p1' } as unknown) as ReturnType<VirtualTourService['atualizarPanorama']>,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+      const publicar = spyOn(tours, 'publicarTour').and.returnValue(
+        of({} as unknown) as ReturnType<VirtualTourService['publicarTour']>,
+      );
+
+      await store.publish();
+
+      expect(publicar).toHaveBeenCalledWith('tour-1');
+      expect(store.published()).toBeTrue();
+      expect(store.edicaoSalva()).toBeFalse();
+    });
+
+    it('reset volta para o modo de criação', () => {
+      const store = emEdicao();
+      store.edicaoSalva.set(true);
+
+      store.reset();
+
+      expect(store.editando()).toBeFalse();
+      expect(store.edicaoSalva()).toBeFalse();
+    });
+  });
+
 });
 
 /**

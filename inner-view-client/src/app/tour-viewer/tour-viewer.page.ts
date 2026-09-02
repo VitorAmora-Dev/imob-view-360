@@ -164,13 +164,20 @@ export class TourViewerPage implements OnInit {
     this.store.alternarChrome();
   }
 
-  /** O EDITAR da tab bar e do cluster do desktop. Destino real: TV-11. */
+  /**
+   * O EDITAR da tab bar e do cluster do desktop.
+   *
+   * Leva ao wizard em MODO DE EDIÇÃO (TV-11), e não à retomada de rascunho: a
+   * rota de retomada recusa tour publicado de propósito, porque o wizard
+   * aberto por ela oferece "Descartar captura" — que apagaria o imóvel inteiro,
+   * com as fotos, os hotspots e o link que já foi enviado ao cliente.
+   */
   editarTour(): void {
     const id = this.store.tourId();
     if (!id) return;
 
     this.store.mostrarToast('TOUR_VIEWER.TOAST.OPENING_EDITOR');
-    void this.router.navigate(['/tour/novo'], { queryParams: { rascunho: id } });
+    void this.router.navigate(['/tour', id, 'editar']);
   }
 
   voltar(): void {

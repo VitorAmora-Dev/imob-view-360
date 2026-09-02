@@ -263,7 +263,12 @@
       "SAVE_RETRY": "Tentar de novo",
       "SAVE_FAILED_TITLE": "As últimas mudanças não foram salvas",
       "SAVE_FAILED_MESSAGE": "As fotos e o tratamento da IA estão guardados. O que ainda não subiu são os nomes dos ambientes, as passagens e os dados do imóvel — sair agora perde essa parte.",
-      "SAVE_FAILED_LEAVE": "Sair mesmo assim"
+      "SAVE_FAILED_LEAVE": "Sair mesmo assim",
+      "SAVE_CHANGES": "Salvar alterações",
+      "LEAVE_EDIT_TITLE": "Sair da edição?",
+      "LEAVE_EDIT_MESSAGE": "O que você mudou nesta tela ainda não foi salvo. O tour continua no ar exatamente como estava.",
+      "LEAVE_EDIT_SAVE": "Salvar e sair",
+      "LEAVE_EDIT_DISCARD": "Sair sem salvar"
     },
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",

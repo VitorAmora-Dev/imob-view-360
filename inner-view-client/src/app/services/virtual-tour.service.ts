@@ -184,6 +184,25 @@ export class VirtualTourService {
   }
 
   /**
+   * O tour para quem vai EDITÁ-LO, publicado inclusive.
+   *
+   * Rota irmã de `/rascunho`, e a diferença é só o status que passa — mesmo
+   * shape, mesma ausência de imagem. Existe separada porque aquela é a rota do
+   * wizard em modo CRIAÇÃO, onde "Descartar captura" apaga o imóvel em
+   * cascata; servir um tour no ar por ali poria esse botão em cima de
+   * panoramas, hotspots, tratamento de IA já pago e o link que o corretor
+   * mandou para o cliente.
+   *
+   * Ver `FindEditableTourService` no servidor: a garantia não é sobre ler, é
+   * sobre o que se pode fazer com o que foi lido.
+   */
+  lerTourParaEdicao(tourId: string): Observable<RascunhoCompleto> {
+    return this.http.get<RascunhoCompleto>(
+      `${environment.apiUrl}/virtual-tours/${tourId}/edicao`,
+    );
+  }
+
+  /**
    * Move ou renomeia um hotspot que já existe no servidor.
    *
    * Existe para o salvamento não precisar apagar e recriar. Ver

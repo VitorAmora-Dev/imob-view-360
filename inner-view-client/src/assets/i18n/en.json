@@ -263,7 +263,12 @@
       "SAVE_RETRY": "Try again",
       "SAVE_FAILED_TITLE": "Your latest changes were not saved",
       "SAVE_FAILED_MESSAGE": "The photos and the AI treatment are stored. What has not been uploaded yet are the room names, the passages and the property details — leaving now loses that part.",
-      "SAVE_FAILED_LEAVE": "Leave anyway"
+      "SAVE_FAILED_LEAVE": "Leave anyway",
+      "SAVE_CHANGES": "Save changes",
+      "LEAVE_EDIT_TITLE": "Leave the editor?",
+      "LEAVE_EDIT_MESSAGE": "What you changed on this screen has not been saved yet. The tour stays online exactly as it was.",
+      "LEAVE_EDIT_SAVE": "Save and leave",
+      "LEAVE_EDIT_DISCARD": "Leave without saving"
     },
     "STEP1": {
       "TITLE": "Start with the 360° images",

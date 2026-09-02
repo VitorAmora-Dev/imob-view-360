@@ -64,6 +64,16 @@ export const routes: Routes = [
     canDeactivate: [tourWizardLeaveGuard],
   },
   {
+    // O EDITAR do visualizador (SPRINT-4-TOUR-VIEWER.md, TV-11). Mesma tela do
+    // wizard, em modo de edição: sem descarte, e a ação final salva em vez de
+    // publicar. O `:id` aqui é o do TOUR — diferente do `:id` de
+    // `inner-view-page`, que é o do IMÓVEL.
+    path: 'tour/:id/editar',
+    loadComponent: () => import('./tour-wizard/tour-wizard.page').then(m => m.TourWizardPage),
+    canActivate: [authGuard],
+    canDeactivate: [tourWizardLeaveGuard],
+  },
+  {
     // A tela antiga segue de pé enquanto o wizard não fecha o fluxo inteiro —
     // é a única referência viva de como o publicar funciona. Some no último PR
     // do sprint, junto com este redirect.

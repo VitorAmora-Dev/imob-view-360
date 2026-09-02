@@ -33,9 +33,14 @@ export class WizardActionsComponent implements OnDestroy {
    */
   readonly primaryLabelKey = computed(() => {
     if (this.store.step() === 1) return 'TOUR_WIZARD.COMMON.DONE';
-    return this.store.step() === TOTAL_ETAPAS
-      ? 'TOUR_WIZARD.COMMON.PUBLISH'
-      : 'TOUR_WIZARD.COMMON.NEXT';
+    if (this.store.step() !== TOTAL_ETAPAS) return 'TOUR_WIZARD.COMMON.NEXT';
+
+    // Em edição o tour já está no ar: prometer "Publicar" seria descrever uma
+    // ação que não vai acontecer, e deixaria o corretor achando que o link
+    // muda ou que o tour sai e volta do ar.
+    return this.store.editando()
+      ? 'TOUR_WIZARD.COMMON.SAVE_CHANGES'
+      : 'TOUR_WIZARD.COMMON.PUBLISH';
   });
 
   /**

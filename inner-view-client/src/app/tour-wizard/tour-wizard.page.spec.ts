@@ -421,6 +421,75 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
   });
 
   /**
+   * A saída do wizard com o tour JÁ NO AR (TV-11).
+   *
+   * A pergunta muda porque o que está em jogo muda: em criação, o pior
+   * desfecho é perder uma captura pela metade; aqui é apagar um tour publicado
+   * cujo link já circulou. Por isso o descarte não aparece — e é o RÓTULO que
+   * estes casos procuram, não o id, para que uma troca de texto que mude o
+   * sentido do botão caia aqui.
+   */
+  describe('sair do modo de edição', () => {
+    function emEdicao(): TourWizardPage {
+      const page = montarPagina();
+      comUmaCena(page);
+      page.store.modo.set('edicao');
+      return page;
+    }
+
+    it('não oferece descartar — há um tour no ar do outro lado do botão', async () => {
+      const page = emEdicao();
+      const perguntar = spyOn(page.dialogo, 'perguntar').and.resolveTo(null);
+
+      await page.aoVoltar();
+
+      const pergunta = perguntar.calls.mostRecent().args[0] as PerguntaDoWizard;
+      expect(
+        pergunta.acoes.some((acao) => acao.rotuloKey.includes('DISCARD_CONFIRM')),
+      ).toBeFalse();
+      expect(pergunta.acoes.some((acao) => acao.icone === 'lixeira')).toBeFalse();
+    });
+
+    it('"Sair sem salvar" libera a saída sem tocar no tour', async () => {
+      const page = emEdicao();
+      const salvar = spyOn(page.store, 'salvarRascunho').and.resolveTo();
+      const descartar = spyOn(page.store, 'descartarRascunho').and.resolveTo();
+      escolherNoDialogo(page, 'LEAVE_EDIT_DISCARD');
+
+      const pode = await page.aoVoltar();
+
+      expect(pode).toBe(true);
+      // Nem salva nem apaga: o tour fica exatamente como estava.
+      expect(salvar).not.toHaveBeenCalled();
+      expect(descartar).not.toHaveBeenCalled();
+    });
+
+    it('"Salvar e sair" salva antes de liberar', async () => {
+      const page = emEdicao();
+      const salvar = spyOn(page.store, 'salvarRascunho').and.resolveTo();
+      escolherNoDialogo(page, 'LEAVE_EDIT_SAVE');
+
+      const pode = await page.aoVoltar();
+
+      expect(salvar).toHaveBeenCalled();
+      expect(pode).toBe(true);
+    });
+
+    it('depois de salvo não pergunta mais nada', async () => {
+      // `edicaoSalva` é o `published` deste modo: o salvamento dispara a volta
+      // ao visualizador, e uma pergunta aqui seguraria essa navegação.
+      const page = emEdicao();
+      page.store.edicaoSalva.set(true);
+      const perguntar = spyOn(page.dialogo, 'perguntar');
+
+      const pode = await page.aoVoltar();
+
+      expect(perguntar).not.toHaveBeenCalled();
+      expect(pode).toBe(true);
+    });
+  });
+
+  /**
    * O gatilho da Tarefa 13: a faixa "Capturas em andamento" da home navega
    * para `/tour/novo?rascunho=<tourId>`, e é este `ngOnInit` que fecha o
    * caminho de volta lendo o parâmetro. Sem ele, o link da faixa levaria a um
@@ -444,6 +513,11 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
             useValue: {
               snapshot: {
                 queryParamMap: convertToParamMap(rascunho ? { rascunho } : {}),
+                // A rota de edição (`tour/:id/editar`) traz o id do tour como
+                // parâmetro de CAMINHO, e o `ngOnInit` lê os dois. O dublê
+                // precisa dos dois pela mesma razão: um `snapshot` pela metade
+                // testa uma rota que não existe.
+                paramMap: convertToParamMap({}),
               },
             },
           },

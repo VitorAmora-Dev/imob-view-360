@@ -7,6 +7,7 @@ import { PanoramaImageCache } from '../services/panorama-image-cache.service';
 import { CampoMarcador, PropertyService } from '../services/property.service';
 import {
   AndamentoDaMontagem,
+  RascunhoCompleto,
   TreatmentStatus,
   VirtualTourService,
 } from '../services/virtual-tour.service';
@@ -907,6 +908,30 @@ export class TourDraftStore {
   readonly rascunhoPropertyId = signal<string | null>(null);
 
   /**
+   * Criar um tour ou editar um que já existe (SPRINT-4-TOUR-VIEWER.md, TV-11).
+   *
+   * A diferença que importa não é de tela — as quatro etapas são as mesmas —,
+   * é de PODER: em criação existe "Descartar captura", que apaga o imóvel em
+   * cascata; em edição esse botão não pode existir, porque o tour está no ar,
+   * com link já enviado a cliente.
+   *
+   * Sai de `'criacao'` só por `abrirParaEdicao()`, e volta no `reset()`.
+   */
+  readonly modo = signal<'criacao' | 'edicao'>('criacao');
+
+  readonly editando = computed(() => this.modo() === 'edicao');
+
+  /**
+   * A edição foi salva e a tela pode ir embora.
+   *
+   * Existe porque em edição não há tela de sucesso: o tour já estava
+   * publicado, e mostrar "seu tour está no ar!" para quem só renomeou um
+   * cômodo seria mentira sobre o que acabou de acontecer. Quem observa isto é
+   * a página, que devolve o corretor ao visualizador de onde ele veio.
+   */
+  readonly edicaoSalva = signal(false);
+
+  /**
    * Ids de hotspot que sumiram de `scenes()` sem que `salvarRascunho()` ainda
    * tivesse rodado, e por isso continuam vivos no servidor.
    *
@@ -943,7 +968,29 @@ export class TourDraftStore {
     const rascunho = await firstValueFrom(
       this.virtualTourService.lerRascunho(tourId),
     );
+    this.modo.set('criacao');
+    this.hidratar(rascunho);
+  }
 
+  /**
+   * Abre um tour que já existe para EDITAR — publicado inclusive.
+   *
+   * Mesma hidratação da retomada, e de propósito: o que muda é a rota que
+   * traz os dados (aquela recusa tour publicado) e o MODO, que tira o descarte
+   * do caminho e troca o "Publicar" por "Salvar alterações".
+   *
+   * O modo é marcado depois do `await`: uma falha de rede aqui não pode deixar
+   * a tela em modo de edição sem tour nenhum carregado.
+   */
+  async abrirParaEdicao(tourId: string): Promise<void> {
+    const tour = await firstValueFrom(
+      this.virtualTourService.lerTourParaEdicao(tourId),
+    );
+    this.modo.set('edicao');
+    this.hidratar(tour);
+  }
+
+  private hidratar(rascunho: RascunhoCompleto): void {
     this.rascunhoTourId.set(rascunho.id);
     this.rascunhoPropertyId.set(rascunho.propertyId);
 
@@ -1596,6 +1643,15 @@ export class TourDraftStore {
     try {
       await this.salvarRascunho();
 
+      // Em edição acaba aqui. O tour já está publicado, e chamar `publicarTour`
+      // de novo seria escrever PUBLISHED por cima de PUBLISHED — inofensivo
+      // hoje, e uma armadilha no dia em que aquele PATCH fizer mais do que
+      // trocar o status (data de publicação, notificação, o que for).
+      if (this.editando()) {
+        this.edicaoSalva.set(true);
+        return;
+      }
+
       // Por último: até esta linha nada é visível fora da imobiliária. Se algo
       // acima falhar, o rascunho continua rascunho e o retry reaproveita tudo o
       // que já subiu, em vez de duplicar imóvel a cada tentativa.
@@ -1625,6 +1681,18 @@ export class TourDraftStore {
    * filtro existe para evitar.
    */
   async descartarRascunho(): Promise<void> {
+    // A trava fica AQUI, e não só no diálogo que deixa de oferecer o botão.
+    //
+    // O diálogo é uma tela; esta função apaga o imóvel em cascata. Se um dia
+    // alguém ligar o descarte a um caminho novo — um atalho de teclado, um
+    // botão de "recomeçar" — e esquecer do modo, o erro aparece aqui, com
+    // nome, em vez de aparecer como um tour publicado que sumiu.
+    if (this.editando()) {
+      throw new Error(
+        'descartarRascunho() em modo de edição: isto apagaria um tour no ar',
+      );
+    }
+
     // Antes da ida à rede, e não só no `reset()` do fim: o que invalida uma
     // gravação enfileirada é a DECISÃO de descartar, não a confirmação do
     // servidor. Entre uma e outra cabe a rodada que recriaria o imóvel.
@@ -1663,6 +1731,8 @@ export class TourDraftStore {
     // captura criar o seu, em vez de acrescentar cômodos ao imóvel recém-criado.
     this.rascunhoTourId.set(null);
     this.rascunhoPropertyId.set(null);
+    this.modo.set('criacao');
+    this.edicaoSalva.set(false);
     this.hotspotsParaApagar.set([]);
     this.miniaturas.set({});
     this.miniaturasQueFalharam.clear();
