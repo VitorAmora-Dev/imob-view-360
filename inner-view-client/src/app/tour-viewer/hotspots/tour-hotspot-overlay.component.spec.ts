@@ -216,6 +216,48 @@ describe('TourHotspotOverlayComponent', () => {
     expect(perto).toBeGreaterThan(longe);
   });
 
+  // ---- legibilidade sobre a foto ------------------------------------------
+  //
+  // O pin é a única peça da tela pintada sobre foto de terceiro, e ele sumia
+  // por completo em cima de parede branca. O que o conserta é estrutural — cada
+  // marca clara com uma companheira escura —, então é a ESTRUTURA que estes
+  // dois casos guardam. Os números vivem em `palette.contract.spec.ts`.
+
+  it('a seta anda com contorno escuro, pintado por FORA dela', async () => {
+    host.hotspots.set([hs('a', 0.75, 0.7)]);
+    fixture.detectChanges();
+    await frames();
+
+    const chevron = getComputedStyle(parte(pins()[0], '.tv-pin__chevron')!);
+
+    expect(chevron.stroke).not.toBe('none');
+    // `paint-order: stroke` põe o traço antes do preenchimento, e é o que faz
+    // ele sobrar como auréola em vez de comer metade da seta por dentro.
+    expect(chevron.getPropertyValue('paint-order')).toContain('stroke');
+    // A transparência da seta mora no `fill`. Num `opacity` do elemento ela
+    // diluiria o contorno na mesma proporção — anulando o efeito inteiro.
+    expect(chevron.opacity).toBe('1');
+  });
+
+  it('a borda do disco anda com um fio escuro por fora', async () => {
+    host.hotspots.set([
+      hs('principal', 0.75, 0.7, 'primary'),
+      hs('outro', 0.78, 0.7, 'secondary'),
+    ]);
+    fixture.detectChanges();
+    await frames();
+
+    for (const pin of pins()) {
+      const halo = getComputedStyle(parte(pin, '.tv-pin__halo')!);
+
+      // O destaque acrescenta o brilho teal; o que ele não pode é SUBSTITUIR o
+      // par escuro, que é quem segura a silhueta sobre foto clara.
+      expect(halo.boxShadow)
+        .withContext(`box-shadow do halo: ${halo.boxShadow}`)
+        .toContain('rgba(0, 0, 0');
+    }
+  });
+
   // ---- acessibilidade e ação ----------------------------------------------
 
   it('anuncia para onde leva, e não só o nome do cômodo', async () => {

@@ -2,13 +2,18 @@
 
 // O hotspot de piso (TV-7). Geometria em `03-hotspots.md`.
 //
-// TOKENS QUE FALTAM EM L2 (`theme/tour-viewer.scss`, arquivo do TV-0 — não é
-// desta task mexer nele): o handoff pede a borda do halo em branco a .45 e o
-// halo secundário em branco a .20. Não existe token para nenhum dos dois, e o
-// mais perto que L2 tem hoje são `--tv-border-control` (.16) e
-// `--tv-fill-hover` (.13), usados abaixo. A diferença é sutil sobre foto, mas é
-// diferença: quando o TV-0 abrir para um PR, nascem `--tv-hotspot-rim` e
-// `--tv-hotspot-veil` e estas duas linhas passam a apontar para eles.
+// O PIN NÃO ESCOLHE O FUNDO EM QUE CAI. É a única peça da tela que fica sobre a
+// foto, e a foto vai de cozinha ensolarada a corredor sem luz. Por isso cada
+// marca clara daqui tem uma companheira escura — o contorno da seta, o anel por
+// fora da borda do disco, a sombra em volta. Sobre foto escura a companheira
+// some no próprio fundo e não custa nada; sobre foto clara é ela que desenha o
+// pin. O raciocínio inteiro, e a medida dos dois extremos, estão no bloco
+// `Hotspot de piso` de `theme/tour-viewer.scss`.
+//
+// Nada aqui decide nada em tempo de execução: não se mede o brilho do panorama
+// nem se troca de tema por baixo do pin. Duas camadas sempre presentes não têm
+// limiar para errar — e é isso que faz a legibilidade valer em QUALQUER foto,
+// e não nas que a heurística acertar.
 
 :host {
   position: absolute;
@@ -109,14 +114,21 @@
 .tv-pin__halo {
   background: radial-gradient(
     circle at 50% 40%,
-    var(--tv-fill-hover),
+    var(--tv-hotspot-veil),
     transparent 70%
   );
-  border: 1.5px solid var(--tv-border-control);
+  border: 1.5px solid var(--tv-hotspot-rim);
+  // O par escuro da borda: o fio de fora dá a silhueta do disco quando o branco
+  // da borda cai sobre parede branca, e o borrão largo apoia o disco no chão em
+  // vez de deixá-lo boiando. Sobre foto escura os dois somem no fundo.
+  box-shadow: var(--tv-shadow-hotspot);
 }
 
 .tv-pin__anel {
   border: 1.5px solid var(--tv-accent);
+  // O teal vivo rende 1,65:1 sobre branco — sozinho, o anel pulsaria invisível
+  // justamente na foto clara. O fio escuro por fora é o que sobra dele ali.
+  box-shadow: 0 0 0 1.5px var(--tv-hotspot-ink-soft);
   animation: tv-pin-ring var(--tv-ring-dur) ease-out infinite;
 }
 
@@ -125,8 +137,24 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  fill: var(--tv-text);
-  opacity: 0.8;
+  fill: var(--tv-hotspot-chevron);
+
+  // O contorno da seta, e a peça mais importante do conjunto: a seta é o que
+  // diz PARA ONDE se vai, e era ela que sumia por completo na cozinha branca.
+  //
+  // `paint-order: stroke` pinta o traço ANTES do preenchimento, então ele sobra
+  // como uma auréola para fora da seta em vez de comer metade dela por dentro.
+  // É o contorno da legenda de filme: branco por cima, escuro por baixo, um dos
+  // dois sempre contrastando com o que estiver atrás.
+  //
+  // A transparência mora no `fill` e no `stroke`, NUNCA num `opacity` do
+  // elemento — opacity multiplicaria os dois juntos e diluiria o contorno
+  // exatamente na mesma proporção, que é o contrário do que ele existe para
+  // fazer.
+  stroke: var(--tv-hotspot-ink);
+  stroke-width: 5;
+  stroke-linejoin: round;
+  paint-order: stroke;
 }
 
 // ---- o destino em destaque ------------------------------------------------
@@ -139,17 +167,25 @@
       var(--tv-accent-glow-soft) 62%,
       transparent 74%
     );
-    border-color: var(--tv-accent-glow);
-    box-shadow: 0 0 24px var(--tv-accent-glow);
+    // A BORDA CONTINUA BRANCA, como no handoff. Ela já foi teal a .3 aqui, e
+    // isso deixava a borda do destino sugerido MAIS FRACA que a do secundário
+    // (branco a .45) — o oposto do que a hierarquia pede. O que distingue o
+    // principal é o miolo teal, o brilho e o anel; a borda é estrutura, e
+    // estrutura é igual nos dois.
+    //
+    // O brilho teal vem DEPOIS do par escuro na lista: sobre foto clara ele
+    // não aparece (teal a .3 sobre branco é quase nada) e quem segura a
+    // silhueta é o fio escuro; sobre foto escura acontece o contrário.
+    box-shadow: var(--tv-shadow-hotspot-strong), 0 0 24px var(--tv-accent-glow);
 
     @include tv.tv-desktop {
       border-width: 1.8px;
-      box-shadow: 0 0 30px var(--tv-accent-glow);
+      box-shadow: var(--tv-shadow-hotspot-strong), 0 0 30px var(--tv-accent-glow);
     }
   }
 
   .tv-pin__chevron {
-    opacity: 0.92;
+    fill: var(--tv-hotspot-chevron-strong);
   }
 
   .tv-pin__placa {

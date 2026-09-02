@@ -87,6 +87,39 @@
   --tv-divider-sheet: rgba(var(--neutral-white-rgb), 0.06);
   --tv-hover-row: rgba(var(--neutral-white-rgb), 0.04);
 
+  /* == Hotspot de piso ==================================================== */
+  // E aqui a premissa do bloco acima deixa de valer.
+  //
+  // Todo o resto desta tela é branco sobre o escuro porque o fundo é NOSSO: o
+  // sheet, a tab bar, o vidro dos botões. O hotspot é a única peça que cai em
+  // cima da FOTO, e a foto não é nossa — a mesma cena tem cozinha ensolarada e
+  // corredor sem luz. Um disco feito só de branco a .16 e de teal claro some
+  // inteiro sobre azulejo branco, e sobrava a plaquinha, que por acaso era a
+  // única peça escura do conjunto.
+  //
+  // A resposta é a da legenda de cinema: TODA MARCA CLARA DAQUI ANDA COM UMA
+  // COMPANHEIRA ESCURA, atrás ou em volta dela. Sobre foto escura a companheira
+  // desaparece no próprio fundo e não custa nada; sobre foto clara é ela que
+  // desenha o pin. Não existe limiar para errar, porque nada é decidido em
+  // tempo de execução: as duas camadas estão sempre lá, e é o fundo que escolhe
+  // qual delas se enxerga.
+  //
+  // Os dois extremos são medidos em `palette.contract.spec.ts` — sobre branco
+  // puro e sobre preto puro, que é o pior caso de cada lado.
+  --tv-hotspot-rim: rgba(var(--neutral-white-rgb), 0.45); //     borda do disco
+  --tv-hotspot-veil: rgba(var(--neutral-white-rgb), 0.2); //     halo secundário
+  --tv-hotspot-chevron: rgba(var(--neutral-white-rgb), 0.8);
+  --tv-hotspot-chevron-strong: rgba(var(--neutral-white-rgb), 0.92);
+  // O escuro é NEUTRO de propósito, e não um teal escuro: ele é sombra, e
+  // sombra colorida franjaria de verde a borda do disco em cima de parede
+  // branca. O .5 não é gosto — é o mínimo que mantém 3:1 com o branco por cima.
+  --tv-hotspot-ink: rgba(var(--neutral-black-rgb), 0.5);
+  --tv-hotspot-ink-soft: rgba(var(--neutral-black-rgb), 0.28);
+  --tv-shadow-hotspot: 0 0 0 1.5px var(--tv-hotspot-ink),
+    0 0 20px var(--tv-hotspot-ink-soft);
+  --tv-shadow-hotspot-strong: 0 0 0 2px var(--tv-hotspot-ink),
+    0 0 22px var(--tv-hotspot-ink-soft);
+
   /* == Skeleton =========================================================== */
   // O bloco que ocupa o lugar da miniatura e do panorama enquanto a foto não
   // chega. Mais escuro que o vidro para não parecer um cartão vazio clicável.
