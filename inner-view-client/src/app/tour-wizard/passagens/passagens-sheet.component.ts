@@ -21,12 +21,10 @@ import { Passagem, nomeDoAmbiente } from './fila';
   styleUrls: ['./passagens-sheet.component.scss'],
 })
 export class PassagensSheetComponent {
-  readonly atual = input.required<Passagem>();
   readonly pendentes = input.required<readonly Passagem[]>();
   readonly feitas = input.required<number>();
   readonly total = input.required<number>();
   readonly temPonto = input.required<boolean>();
-  readonly cor = input.required<string>();
 
   readonly confirmar = output<void>();
   readonly refazer = output<void>();

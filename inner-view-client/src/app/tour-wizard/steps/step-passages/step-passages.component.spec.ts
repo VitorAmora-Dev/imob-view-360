@@ -71,11 +71,14 @@ describe('StepPassagesComponent', () => {
     return spyOn(viewer, 'resetView');
   }
 
-  it('mostra o painel com o destino atual', () => {
+  it('mostra a instrucao superior sem repetir o destino no painel', () => {
     montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
 
     expect(el().querySelector('app-passagens-sheet')).not.toBeNull();
-    expect(el().textContent).toContain('cozinha');
+    expect(el().querySelector('app-guided-banner')).not.toBeNull();
+    expect(el().querySelector('.ps__linha')).toBeNull();
+    expect(el().querySelector('.ps__thumb')).toBeNull();
+    expect(el().querySelector('.ps__nomes')).toBeNull();
   });
 
   it('sem ponto, o primario fica travado', () => {
@@ -90,6 +93,7 @@ describe('StepPassagesComponent', () => {
     fixture.detectChanges();
 
     expect(botao()?.disabled).toBeFalse();
+    expect(el().querySelector('.ps__refazer')).not.toBeNull();
   });
 
   it('a lista de pendentes mostra os outros destinos da mesma foto', () => {
