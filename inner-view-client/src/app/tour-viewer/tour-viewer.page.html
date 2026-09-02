@@ -49,13 +49,6 @@
       <div class="tv-scrim tv-scrim--topo" aria-hidden="true"></div>
       <div class="tv-scrim tv-scrim--base" aria-hidden="true"></div>
 
-      <!-- ---- camada 2: hotspots ---------------------------------------- -->
-      @if (store.hotspotsVisiveis()) {
-        <div class="tv-slot tv-slot--hotspots">
-          <!-- TV-7: overlay de hotspots de piso (app-tv-hotspot-overlay). -->
-        </div>
-      }
-
       <!-- ---- camada 3: chrome ------------------------------------------ -->
       <div class="tv-chrome">
         <div class="tv-slot tv-slot--header">
@@ -85,6 +78,24 @@
           </div>
         }
       </div>
+
+      <!-- ---- camada 2: hotspots ---------------------------------------- -->
+      <!--
+        DEPOIS do chrome no DOM, e ainda assim ATRÁS dele na tela: a pilha é
+        decidida por z-index (2 aqui, 3 no chrome), não pela ordem dos nós. O
+        que a ordem decide é a tabulação, e o handoff pede os hotspots no fim
+        dela — o Tab percorre voltar, título, "…", pill e ações antes de sair
+        andando pela foto.
+      -->
+      @if (store.hotspotsVisiveis()) {
+        @if (store.currentScene(); as cena) {
+          <app-tv-hotspot-overlay
+            class="tv-slot tv-slot--hotspots"
+            [viewer]="viewerRef() ?? null"
+            [hotspots]="cena.hotspots"
+            (cenaEscolhida)="store.irParaCenaPorId($event)" />
+        }
+      }
 
       <!-- ---- camada 4: sheets e toast ---------------------------------- -->
       <!-- TV-3: shell de sheet + sheet Cenas.   TV-4: Incorporar. -->

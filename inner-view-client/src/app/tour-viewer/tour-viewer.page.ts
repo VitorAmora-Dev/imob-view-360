@@ -1,9 +1,10 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Property } from '../models/property.model';
+import { TourHotspotOverlayComponent } from './hotspots/tour-hotspot-overlay.component';
 import { TourViewerStore } from './tour-viewer.store';
 
 /**
@@ -28,10 +29,25 @@ import { TourViewerStore } from './tour-viewer.store';
   styleUrls: ['./tour-viewer.page.scss'],
   standalone: true,
   providers: [TourViewerStore],
-  imports: [IonContent, IonSpinner, PanoramicViewerComponent, TranslatePipe],
+  imports: [
+    IonContent,
+    IonSpinner,
+    PanoramicViewerComponent,
+    TourHotspotOverlayComponent,
+    TranslatePipe,
+  ],
 })
 export class TourViewerPage implements OnInit {
   readonly store = inject(TourViewerStore);
+
+  /**
+   * O viewer, para quem precisa da câmera dele.
+   *
+   * `viewChild` e não variável de template porque o overlay de hotspots vive
+   * DEPOIS do chrome no DOM (ordem de tabulação), e uma referência declarada
+   * dentro de um bloco `@if` só existe dentro dele.
+   */
+  readonly viewerRef = viewChild(PanoramicViewerComponent);
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
