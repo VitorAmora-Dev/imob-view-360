@@ -1,6 +1,4 @@
 <div class="ps">
-  <span class="ps__grabber" aria-hidden="true"></span>
-
   <p class="ps__progresso">
     {{
       'TOUR_WIZARD.PASSAGES.PROGRESS'
@@ -37,19 +35,21 @@
     </p>
   }
 
-  <button
-    type="button"
-    class="ps__acao"
-    [disabled]="!temPonto()"
-    (click)="confirmar.emit()">
-    {{ 'TOUR_WIZARD.PASSAGES.CONFIRM' | translate }}
-  </button>
-
   <!--
     Em tela cheia a barra do wizard some, e com ela o "Voltar". Sem este botao
     o corretor fica preso na etapa de passagens sem caminho de volta.
   -->
-  <button type="button" class="ps__voltar" (click)="voltar.emit()">
-    {{ 'TOUR_WIZARD.PASSAGES.BACK' | translate }}
-  </button>
+  <div class="ps__acoes">
+    <button type="button" class="ps__voltar" (click)="voltar.emit()">
+      {{ 'TOUR_WIZARD.PASSAGES.BACK' | translate }}
+    </button>
+
+    <button
+      type="button"
+      class="ps__acao"
+      [disabled]="!temPonto()"
+      (click)="confirmar.emit()">
+      {{ 'TOUR_WIZARD.PASSAGES.CONFIRM' | translate }}
+    </button>
+  </div>
 </div>
