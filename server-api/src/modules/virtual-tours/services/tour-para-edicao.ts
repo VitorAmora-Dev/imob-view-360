@@ -53,6 +53,11 @@ export const SELECAO_PARA_EDICAO = {
       // fila da etapa de passagens volta vazia — ver `Panorama.draftConnections`.
       draftConnections: true,
       originHotspots: {
+        // `Hotspot` não tem coluna de ordem, e sem `orderBy` o Postgres devolve
+        // na ordem que lhe convier — que muda depois de um UPDATE reescrever a
+        // tupla. O wizard reabria a mesma cena com os pontos embaralhados entre
+        // duas visitas. Pelo id porque ele é o único critério estável que existe.
+        orderBy: { id: 'asc' },
         select: {
           id: true,
           label: true,

@@ -108,6 +108,51 @@ describe('leitura de tour para edição', () => {
     expect(paraEdicao.property.title).toBe(`Imóvel da alfa`);
   });
 
+  it('devolve os pontos em ordem estável entre duas leituras', async () => {
+    // `Hotspot` não tem coluna de ordem. Sem `orderBy`, o Postgres devolve na
+    // ordem que lhe convier — e ela muda depois de um UPDATE reescrever a
+    // tupla, de modo que o wizard reabria a mesma cena com os pontos
+    // embaralhados. O critério é o id porque é o único estável que existe.
+    const tour = await tourCom('PUBLISHED');
+    const sala = await prisma.panorama.create({
+      data: {
+        virtualTourId: tour.id,
+        roomName: 'Sala',
+        imageData: 'data:image/jpeg;base64,SGk=',
+        order: 0,
+        initialPanorama: true,
+      },
+      select: { id: true },
+    });
+    for (const nome of ['Quarto', 'Cozinha', 'Varanda']) {
+      const destino = await prisma.panorama.create({
+        data: {
+          virtualTourId: tour.id,
+          roomName: nome,
+          imageData: 'data:image/jpeg;base64,SGk=',
+          order: 1,
+          initialPanorama: false,
+        },
+        select: { id: true },
+      });
+      await prisma.hotspot.create({
+        data: {
+          originId: sala.id,
+          targetId: destino.id,
+          label: `Ir ao ${nome}`,
+          positionX: 0.5,
+          positionY: 0.5,
+        },
+      });
+    }
+
+    const lido = await lerParaEdicao.execute(tour.id, tenants.a.admin);
+    const ids = lido.panoramas[0].hotspots.map((h) => h.id);
+
+    expect(ids).toHaveLength(3);
+    expect(ids).toEqual([...ids].sort());
+  });
+
   it('não traz coluna de imagem nenhuma', async () => {
     // Mesma razão da rota de rascunho: a equirect é TOAST de dezenas de MB, e
     // quem edita busca a foto de um cômodo por vez, pelo preview.
