@@ -1,0 +1,25 @@
+<app-tour-sheet
+  [isOpen]="store.aberto() === 'cenas'"
+  [titulo]="'VIEWER.CENAS.TITULO' | translate"
+  [subtitulo]="legenda()"
+  (fechado)="store.fechar()">
+
+  <ul class="cenas-sheet__grade" role="list">
+    @for (cena of ordenadas(); track cena.id) {
+      <li>
+        <button
+          type="button"
+          class="cenas-sheet__card"
+          [attr.data-cena]="cena.id"
+          [attr.aria-current]="cena.id === atualId() ? 'true' : null"
+          (click)="escolher(cena)">
+          <img class="cenas-sheet__thumb" [src]="miniatura(cena)" alt="" loading="lazy">
+          <span class="cenas-sheet__nome">{{ cena.roomName }}</span>
+          @if (cena.id === atualId()) {
+            <span class="cenas-sheet__badge">{{ 'VIEWER.CENAS.ATUAL' | translate }}</span>
+          }
+        </button>
+      </li>
+    }
+  </ul>
+</app-tour-sheet>
