@@ -1,0 +1,41 @@
+<!--
+  `breakpoints` e `initialBreakpoint` vêm ANTES de `isOpen`: o Ionic lê a
+  altura inicial no momento de apresentar, e a ordem das ligações é a ordem em
+  que o Angular as escreve. Invertidas, a primeira abertura sai na altura
+  errada. O mesmo tropeço já está registrado em `hotspot-sheet.component.html`.
+
+  O nome acessível do diálogo não sai daqui: ele vive no shadow DOM do Ionic.
+  Ver `nomearDialogo`.
+-->
+<ion-modal
+  class="tour-sheet"
+  [class.tour-sheet--centrado]="centrado()"
+  [breakpoints]="breakpointsAtivos()"
+  [initialBreakpoint]="initialBreakpointAtivo()"
+  [canDismiss]="!travado()"
+  [isOpen]="isOpen()"
+  (didPresent)="nomearDialogo($event)"
+  (didDismiss)="fechado.emit()">
+  <ng-template>
+    <div class="tour-sheet__caixa">
+      <header class="tour-sheet__head">
+        <h2 class="tour-sheet__titulo">{{ titulo() }}</h2>
+        @if (subtitulo()) {
+          <p class="tour-sheet__sub">{{ subtitulo() }}</p>
+        }
+      </header>
+
+      <div class="tour-sheet__conteudo">
+        <ng-content></ng-content>
+      </div>
+
+      <!--
+        Fora da área rolável de propósito: com o botão dentro do corpo, ele
+        rola junto e sai da tela justamente quando é preciso.
+      -->
+      <div class="tour-sheet__rodape">
+        <ng-content select="[rodape]"></ng-content>
+      </div>
+    </div>
+  </ng-template>
+</ion-modal>
