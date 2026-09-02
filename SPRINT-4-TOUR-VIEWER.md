@@ -50,11 +50,11 @@ implementação e **precisam ser lidos antes de estimar qualquer coisa**.
 
 ## 3. Decisões
 
-As dez abaixo estão decididas com a recomendação escrita. As marcadas
-**[PRECISA DE OK]** custam dinheiro ou contrariam um documento existente —
-confirmem antes do commit-zero, porque depois ficam caras.
+As dez abaixo estão decididas. Duas delas custavam dinheiro ou contrariavam um
+documento existente e foram levadas ao time: **D1 e D5 foram aprovadas em
+01/09/2026**, e o que segue registra o que foi aprovado, não uma proposta.
 
-### D1 — Accent teal no chrome do viewer  [PRECISA DE OK]
+### D1 — Accent teal no chrome do viewer  [APROVADA]
 
 O handoff pede `#2FE3C2` na ação primária. O `tour-wizard.scss` diz, com todas
 as letras, que teal é "o que já está feito" e **nunca** ação primária — porque
@@ -68,6 +68,10 @@ nascendo como `--brand-accent-vivid` em L0 e consumido pelos `--tv-*` de L2. A
 regra do wizard continua valendo onde foi escrita. Registrar a exceção no
 cabeçalho de `_palette.scss` — senão vira a terceira vermelha da história do
 projeto.
+
+**Já implementada** no TV-0: `--brand-accent-vivid` em L0, consumida só por
+`tour-viewer.scss`, e o `palette.contract.spec.ts` mede os 11:1 sobre o fundo
+imersivo. A exceção agora falha em teste se alguém a desfizer.
 
 ### D2 — Tipografia: manter a do app
 
@@ -95,7 +99,7 @@ Precedente: `hotspot-sheet.component.ts`. O visual do handoff (raio 26px, fundo
 `#0D1622`, grabber) entra por custom properties do Ionic, não por painel próprio.
 Escrever sheet à mão é reescrever focus trap, que é onde a acessibilidade morre.
 
-### D5 — EDITAR abre o wizard em modo edição  [PRECISA DE OK]
+### D5 — EDITAR abre o wizard em modo edição  [APROVADA]
 
 O item de maior risco do sprint, e o que o produto exige.
 
@@ -110,6 +114,14 @@ edição (TV-10) + modo de edição no wizard (TV-11) — em que o descarte **n�
 existe** e a ação final é "Salvar alterações", não "Publicar". Enquanto TV-10 e
 TV-11 não fecharem, EDITAR navega para o wizard e cai no diálogo de retomada
 falha que já existe: feio, mas não destrutivo.
+
+**O produto ainda não está em produção**, e isso muda o CRONOGRAMA, não o
+desenho. Não há hoje link de tour na mão de cliente nenhum, então o estado
+provisório acima custa pouco e TV-10/TV-11 podem escorregar sem travar o resto
+do sprint. O que não muda é o motivo do endpoint separado: no dia em que houver
+o primeiro tour publicado de verdade, o "Descartar captura" apontado para ele
+apaga imóvel, fotos e tratamento de IA — e esse dia chega antes de alguém
+lembrar deste parágrafo.
 
 ### D6 — O que sai da tela antiga
 
@@ -442,7 +454,7 @@ botões do cluster.
 ---
 
 ### TV-10 · Backend: abrir tour publicado para edição
-**Épico:** Editar · **Dep.:** D5 aprovada · **Est.:** 1 · **Risco:** alto
+**Épico:** Editar · **Dep.:** — · **Est.:** 1 · **Risco:** alto
 
 **Escopo**
 - `GET /virtual-tours/:id/edicao` (nome a combinar), autenticado e com escopo por
