@@ -122,7 +122,7 @@
       @if (store.hotspotsVisiveis()) {
         @if (store.currentScene(); as cena) {
           <app-tv-hotspot-overlay
-            class="tv-slot tv-slot--hotspots"
+            class="tv-slot--hotspots"
             [viewer]="viewerRef() ?? null"
             [hotspots]="cena.hotspots"
             (cenaEscolhida)="store.irParaCenaPorId($event)" />

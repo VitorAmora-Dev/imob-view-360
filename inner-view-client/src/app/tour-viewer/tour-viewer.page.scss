@@ -86,7 +86,13 @@
   padding-top: var(--ion-safe-area-top, 0);
 }
 
-.tv-slot {
+// `> .tv-slot`, e nao `.tv-slot` solto: a regra existe para os filhos DO
+// CHROME, que precisam receber toque de volta. Solta, ela alcancava tambem a
+// camada de hotspots — que tem `inset: 0` — e, por vir depois no arquivo com a
+// mesma especificidade, VENCIA o `pointer-events: none` dela. O resultado era
+// uma placa invisivel sobre a foto inteira: o panorama parava de girar, sem
+// erro nenhum no console. Foi o que aconteceu, e o teste no navegador pegou.
+.tv-chrome > .tv-slot {
   pointer-events: auto;
 }
 
