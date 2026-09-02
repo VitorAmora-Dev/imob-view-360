@@ -8,7 +8,7 @@ import {
 } from '@ionic/angular/standalone';
 import { AppHeaderComponent } from '../components/app-header/app-header.component';
 import { addIcons } from 'ionicons';
-import { cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline } from 'ionicons/icons';
+import { cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline, albumsOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { Property } from '../models/property.model';
@@ -20,6 +20,8 @@ import {
   VirtualTourService,
 } from '../services/virtual-tour.service';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
+import { CenasSheetComponent } from '../components/cenas-sheet/cenas-sheet.component';
+import { TourSheetStore } from '../components/tour-sheet/tour-sheet.store';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
 import { captureSupported } from '../components/capture-360/capture-support';
 import { panoramaFilename } from './panorama-download.util';
@@ -34,7 +36,7 @@ import { urlDaImagem } from '../models/panorama-image.util';
     CommonModule,
     IonContent,
     IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonButton, IonIcon, IonSpinner,
-    PanoramicViewerComponent, AppHeaderComponent, TranslatePipe
+    PanoramicViewerComponent, AppHeaderComponent, TranslatePipe, CenasSheetComponent
   ]
 })
 export class InnerViewPagePage implements OnInit {
@@ -59,9 +61,10 @@ export class InnerViewPagePage implements OnInit {
   private modalController = inject(ModalController);
   private toastController = inject(ToastController);
   private translate = inject(TranslateService);
+  readonly tourSheet = inject(TourSheetStore);
 
   constructor() {
-    addIcons({ cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline });
+    addIcons({ cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline, albumsOutline });
   }
 
   ngOnInit() {
@@ -417,5 +420,21 @@ export class InnerViewPagePage implements OnInit {
         this.loadError = true;
       }
     });
+  }
+
+  /**
+   * Abre o sheet de cenas. O `TourSheetStore` garante que abrir este feche
+   * qualquer outro — quando TV-4, TV-5 e TV-6 existirem, nada aqui muda.
+   */
+  abrirCenas(): void {
+    this.tourSheet.abrir('cenas');
+  }
+
+  /**
+   * O `PanoramicViewerComponent` já expõe `irPara(id)` público e o campo
+   * `idAtual`; não há API nova a inventar para isto.
+   */
+  onCenaSelecionada(cena: Panorama): void {
+    this.viewer?.irPara(cena.id);
   }
 }
