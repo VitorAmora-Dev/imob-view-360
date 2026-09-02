@@ -15,17 +15,29 @@ import { DestroyRef, Signal, inject, signal } from '@angular/core';
 export const TOUR_MOBILE_QUERY = '(max-width: 767px)';
 
 /**
- * Sinal que acompanha a largura da janela.
+ * A largura da janela, como sinal.
  *
- * Chamar em contexto de injeção — o listener é solto junto com o componente.
+ * POR QUE em JS e não numa `@media` no SCSS: quem decide a forma do
+ * `TourSheetComponent` (`variante="adaptavel"`) precisa deste valor em
+ * TypeScript, porque a diferença entre bottom sheet e diálogo centralizado é
+ * a PRESENÇA da propriedade `breakpoints` no `ion-modal` — não é coisa que
+ * CSS alcance. Esconder um `IonModal` por CSS não o desliga: ele continua
+ * prendendo o foco, travando a rolagem da página e respondendo ao Esc. Um
+ * `@media` aqui devolveria exatamente esse modal invisível que sequestra o
+ * teclado.
+ *
+ * Chamar em contexto de injeção. Fora dele o `inject()` lança NG0203 — por
+ * isso ele vem ANTES do `addEventListener`: na ordem inversa, o caminho de
+ * erro deixaria o listener pendurado sem ninguém para soltá-lo.
  */
 export function emViewportMobile(): Signal<boolean> {
+  const destroyRef = inject(DestroyRef);
   const media = matchMedia(TOUR_MOBILE_QUERY);
   const valor = signal(media.matches);
   const aoMudar = () => valor.set(media.matches);
 
   media.addEventListener('change', aoMudar);
-  inject(DestroyRef).onDestroy(() => media.removeEventListener('change', aoMudar));
+  destroyRef.onDestroy(() => media.removeEventListener('change', aoMudar));
 
   return valor.asReadonly();
 }

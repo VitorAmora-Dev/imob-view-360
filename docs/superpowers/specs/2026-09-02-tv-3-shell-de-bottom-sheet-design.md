@@ -149,7 +149,7 @@ ticket novo editar o shell — e TV-4, TV-5 e TV-6 colidiriam no mesmo arquivo.
 | Inputs | `cenas: Panorama[]`, `atualId: string \| null` |
 | Output | `(selecionada: Panorama)` |
 
-Envolve o `app-tour-sheet` com `titulo` = `TOUR_SHEET.CENAS.TITULO` ("Cenas do
+Envolve o `app-tour-sheet` com `titulo` = `VIEWER.CENAS.TITULO` ("Cenas do
 tour") e `subtitulo` = a contagem.
 
 **A grade**: 2 colunas, `gap` de 8px, cards de **96px** de altura,
@@ -336,15 +336,19 @@ branchada — abrindo o sheet de verdade e conferindo grade, raio e scrim.
 
 ## i18n
 
-Bloco novo `TOUR_SHEET` em `pt.json` e `en.json`:
+As chaves entram no bloco `VIEWER` que **já existe** em `pt.json` e
+`en.json` (hoje com `ROOMS: "Ambientes"`, o rótulo da navegação interna do
+visualizador). Um bloco `TOUR_SHEET` novo no topo abriria um segundo domínio
+para a mesma tela; TV-4, TV-5 e TV-6 continuam a série aqui, com
+`VIEWER.EMBED.*`, `VIEWER.APAGAR.*` e `VIEWER.GERENCIAR.*`.
 
 | Chave | pt | en |
 |---|---|---|
-| `TOUR_SHEET.CENAS.TITULO` | "Cenas do tour" | "Tour scenes" |
-| `TOUR_SHEET.CENAS.CONTAGEM` | "{{n}} cenas" | "{{n}} scenes" |
-| `TOUR_SHEET.CENAS.UMA` | "1 cena" | "1 scene" |
-| `TOUR_SHEET.CENAS.ATUAL` | "ATUAL" | "CURRENT" |
-| `TOUR_SHEET.CENAS.ABRIR` | "Ver cenas do tour" | "View tour scenes" |
+| `VIEWER.CENAS.TITULO` | "Cenas do tour" | "Tour scenes" |
+| `VIEWER.CENAS.CONTAGEM` | "{{n}} cenas" | "{{n}} scenes" |
+| `VIEWER.CENAS.UMA` | "1 cena" | "1 scene" |
+| `VIEWER.CENAS.ATUAL` | "ATUAL" | "CURRENT" |
+| `VIEWER.CENAS.ABRIR` | "Ver cenas do tour" | "View tour scenes" |
 
 `CONTAGEM` e `UMA` separadas porque "1 cenas" é erro visível, e o ngx-translate
 não faz plural sozinho.
