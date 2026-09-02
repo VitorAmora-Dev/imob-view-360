@@ -55,7 +55,12 @@
   padding: 2px 6px;
   border-radius: 6px;
   background: var(--ion-color-primary);
-  color: #ffffff;
+  // O par contratado da primária, e não `#ffffff` cru: o `_palette.scss` abre
+  // dizendo "nunca escreva um hex direto num componente", e a exceção
+  // documentada é a família `--tour-*`, não o branco. O contraste deste par é
+  // verificado por `palette.contract.spec.ts`; um branco fixo aqui ficaria
+  // ilegível no dia em que a primária clareasse, sem nada denunciar.
+  color: var(--ion-color-primary-contrast);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;

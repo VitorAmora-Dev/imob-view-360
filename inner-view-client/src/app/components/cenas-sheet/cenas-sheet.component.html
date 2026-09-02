@@ -1,7 +1,20 @@
+<!--
+  A contagem sai pelo pipe, e NÃO por um `computed` com `translate.instant`.
+  O `instant` não é sinal: nada invalidaria o cache do computed, e o subtítulo
+  congelaria em dois casos reais — ao trocar de idioma com a página aberta (o
+  título mudaria e ele não), e quando o JSON de tradução ainda não chegou na
+  primeira detecção de mudanças, caso em que ele guardaria a CHAVE para
+  sempre. O pipe se reinscreve no `onLangChange` sozinho.
+
+  Duas chaves e não uma com plural porque o ngx-translate não pluraliza —
+  "1 cenas" é erro visível na tela.
+-->
 <app-tour-sheet
   [isOpen]="store.aberto() === 'cenas'"
   [titulo]="'VIEWER.CENAS.TITULO' | translate"
-  [subtitulo]="legenda()"
+  [subtitulo]="ordenadas().length === 1
+    ? ('VIEWER.CENAS.UMA' | translate)
+    : ('VIEWER.CENAS.CONTAGEM' | translate: { n: ordenadas().length })"
   (fechado)="store.fechar()">
 
   <ul class="cenas-sheet__grade" role="list">
@@ -12,8 +25,25 @@
           class="cenas-sheet__card"
           [attr.data-cena]="cena.id"
           [attr.aria-current]="cena.id === atualId() ? 'true' : null"
+          [title]="cena.roomName"
           (click)="escolher(cena)">
-          <img class="cenas-sheet__thumb" [src]="miniatura(cena)" alt="" loading="lazy">
+          <!--
+            O `<img>` fica sempre no DOM, sem `@if`: enquanto o `blob:` não
+            chega, `miniatura()` devolve `undefined`, o Angular não escreve o
+            atributo `src`, e um `<img>` sem `src` não rende ícone de imagem
+            quebrada — só ocupa zero e deixa aparecer o fundo do cartão, que é
+            o estado de carregando.
+
+            Sem `loading="lazy"`: quem decide quando baixar agora é o
+            componente (ao abrir o sheet), não o navegador. O atributo virou
+            enfeite quando o `src` deixou de ser um endereço remoto.
+
+            O `title` acima existe porque o nome tem ellipsis: em duas colunas
+            de ~165px, "Suíte máster com closet e varanda" vira "Suíte máster
+            co…" e não havia gesto que revelasse o resto. Leitor de tela já lia
+            o nome inteiro; quem enxerga, não.
+          -->
+          <img class="cenas-sheet__thumb" [src]="miniatura(cena)" alt="">
           <span class="cenas-sheet__nome">{{ cena.roomName }}</span>
           @if (cena.id === atualId()) {
             <span class="cenas-sheet__badge">{{ 'VIEWER.CENAS.ATUAL' | translate }}</span>

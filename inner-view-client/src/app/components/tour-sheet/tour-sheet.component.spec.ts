@@ -479,4 +479,46 @@ describe('TourSheetComponent', () => {
       .withContext('o conteudo foi cortado em vez de rolado')
       .toBeGreaterThan(0);
   });
+
+  /**
+   * No celular, o gesto do sheet precisa CEDER a area rolavel -- e sao dois
+   * ajustes, nenhum dos dois sozinho resolve.
+   *
+   * O `canStart` do gesto do Ionic
+   * (`@ionic/core/.../modal/gestures/sheet.js`) tem exatamente dois desvios que
+   * poupam a rolagem, e ambos exigem um `contentEl`:
+   *
+   *   206: `if (!expandToScroll && contentEl) { ... }`
+   *   210: `if (currentBreakpoint === 1 && contentEl) { ... }`
+   *
+   * `expandToScroll` e' `true` por padrao, e as paradas do shell sao
+   * `[0, 0.55]` -- nunca 1. Alem disso `findClosestIonContent` procura
+   * `closest('ion-content, .ion-content-scroll-host')`, e a area rolavel do
+   * shell e' um `<div overflow-y:auto>` que nao e' nenhum dos dois: `contentEl`
+   * fica `null`, os dois desvios sao pulados e o `canStart` cai no `return
+   * true` da linha 224. Resultado: TODO arrasto vertical dentro do conteudo
+   * vira arrasto do sheet -- para cima nao faz nada, para baixo fecha, e o
+   * conteudo abaixo da dobra fica inalcancavel no APARELHO que e' o alvo do
+   * dominio. No desktop a roda do mouse funciona, entao isso nao aparece numa
+   * conferencia de mesa.
+   *
+   * Com os dois no lugar, `contentEl` passa a ser o proprio
+   * `.tour-sheet__conteudo` e o desvio da linha 206 devolve
+   * `scrollEl.scrollTop === 0`: o sheet so' comeca a arrastar quando a area ja'
+   * esta' no topo.
+   */
+  it('o gesto do sheet cede a area rolavel: expandToScroll falso e scroll host', async () => {
+    montar();
+    await apresentado();
+    const alvo = modal() as HTMLElement & { expandToScroll?: boolean };
+
+    expect(alvo.expandToScroll)
+      .withContext('sem expandToScroll=false o desvio da linha 206 do canStart nao roda')
+      .toBeFalse();
+
+    const conteudo = alvo.querySelector('.tour-sheet__conteudo') as HTMLElement;
+    expect(conteudo.classList)
+      .withContext('sem a classe, findClosestIonContent devolve null e o desvio e pulado')
+      .toContain('ion-content-scroll-host');
+  });
 });
