@@ -412,6 +412,77 @@
       "PUBLISH_ERROR": "Could not publish the tour. Please try again."
     }
   },
+  "TOUR_VIEWER": {
+    "LOADING": "Loading tour...",
+    "LOAD_ERROR": "This tour could not be loaded.",
+    "RETRY": "Try again",
+    "NO_SCENES": "This tour has no scenes yet.",
+    "OFFLINE": "You are offline. The tour still works with what has been loaded.",
+    "SCENE_COUNT": "{{n}} scenes",
+    "SCENE_OF": "Scene {{n}} of {{total}}",
+    "BACK": "Back",
+    "MANAGE_OPEN": "Manage tour",
+    "HIDE_UI": "Hide interface",
+    "SHOW_UI": "Show interface",
+    "SCENES": {
+      "CAPTION": "SCENES",
+      "SEE_ALL": "See all",
+      "SHEET_TITLE": "Tour scenes",
+      "CURRENT_BADGE": "CURRENT",
+      "COLLAPSE": "Collapse",
+      "EXPAND": "Expand",
+      "OPEN_LIST": "See all scenes"
+    },
+    "ACTIONS": {
+      "EDIT": "EDIT",
+      "EMBED": "EMBED",
+      "DELETE": "DELETE",
+      "EDIT_LONG": "Edit tour",
+      "EMBED_LONG": "Embed",
+      "PUBLISH_LONG": "Publish",
+      "DELETE_ARIA": "Delete tour"
+    },
+    "EMBED": {
+      "TITLE": "Embed tour",
+      "DESCRIPTION": "Paste the code on the property website, or just send the public link.",
+      "FORMAT_RESPONSIVE": "Responsive",
+      "FORMAT_16_9": "16:9",
+      "FORMAT_SQUARE": "Square",
+      "SHOW_CONTROLS": "Show controls in the embed",
+      "COPY_CODE": "Copy code",
+      "COPY_LINK": "Copy link"
+    },
+    "DELETE": {
+      "TITLE": "Delete \"{{name}}\"?",
+      "BODY": "The {{n}} scenes, the navigation points and the public link will be removed. Anyone who embedded this tour will see an empty space.",
+      "WARNING": "This action cannot be undone.",
+      "CONFIRM": "Delete tour",
+      "CANCEL": "Cancel",
+      "DELETING": "Deleting..."
+    },
+    "MANAGE": {
+      "TITLE": "Manage tour",
+      "PUBLISH": "Publish tour",
+      "PUBLISH_SUB": "Makes the tour reachable through the public link",
+      "SETTINGS": "Tour settings",
+      "SETTINGS_SUB": "Name and starting scene",
+      "SHARE": "Share link",
+      "SHARE_SUB": "WhatsApp, email or copy URL",
+      "DOWNLOAD": "Download this scene",
+      "DOWNLOAD_SUB": "Saves the 360 photo of the current room"
+    },
+    "HOTSPOT": {
+      "GO_TO": "Go to {{name}}"
+    },
+    "TOAST": {
+      "OPENING_EDITOR": "Opening the editor...",
+      "CODE_COPIED": "Code copied",
+      "LINK_COPIED": "Link copied",
+      "DELETE_ERROR": "The tour could not be deleted",
+      "DOWNLOAD_SUCCESS": "Download started",
+      "DOWNLOAD_ERROR": "The image could not be downloaded"
+    }
+  },
   "VIEWER": {
     "ROOMS": "Rooms",
     "CENAS": {

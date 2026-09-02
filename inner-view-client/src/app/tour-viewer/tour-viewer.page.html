@@ -1,0 +1,101 @@
+<!--
+  O ARRANJO da tela de visualização (TV-0). Cada frente substitui o SEU
+  marcador; ninguém mexe na estrutura sem avisar as outras duas.
+
+  A ordem das camadas é a do `02-mobile.md` e não é decorativa:
+
+    0  panorama          recebe TODO o gesto de arrasto
+    1  scrims            pointer-events: none, sempre
+    2  hotspots          sobre a foto, abaixo do chrome
+    3  chrome            container com pointer-events: none e filhos com auto
+    4  sheets e toast    por cima de tudo
+
+  A armadilha que este arranjo evita: um container de chrome com `inset: 0` e
+  `pointer-events: auto` engole o arrasto do panorama inteiro, e o sintoma é
+  "a foto não gira" — sem erro nenhum no console.
+-->
+<ion-content [fullscreen]="true" class="tv-content">
+  @if (store.loading()) {
+    <!-- TV-8 refina: skeleton escuro com spinner accent, chrome JÁ visível. -->
+    <div class="tv-estado">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>{{ 'TOUR_VIEWER.LOADING' | translate }}</p>
+    </div>
+  } @else if (store.loadError()) {
+    <!-- TV-8 refina: estado vazio centralizado + botão ghost "Tentar de novo". -->
+    <div class="tv-estado">
+      <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
+    </div>
+  } @else {
+    <div class="tv-palco">
+      <!-- ---- camada 0: a foto ------------------------------------------ -->
+      @if (!store.semCenas()) {
+        <!--
+          `roomNav` desligada: a navegação entre cômodos agora é a pill + a
+          faixa de cenas, e duas listas na mesma tela é o que a refatoração
+          veio tirar. Continua ligada em `/embed`, que não tem chrome nenhum.
+
+          TV-8 acrescenta aqui o `[hotspots]="'none'"` quando esse @Input
+          existir — os sprites do viewer dão lugar ao overlay da TV-7.
+        -->
+        <app-panoramic-viewer
+          class="tv-pano"
+          [panoramas]="store.panoramas()"
+          [roomNav]="false">
+        </app-panoramic-viewer>
+      }
+
+      <!-- ---- camada 1: scrims ------------------------------------------ -->
+      <div class="tv-scrim tv-scrim--topo" aria-hidden="true"></div>
+      <div class="tv-scrim tv-scrim--base" aria-hidden="true"></div>
+
+      <!-- ---- camada 2: hotspots ---------------------------------------- -->
+      @if (store.hotspotsVisiveis()) {
+        <div class="tv-slot tv-slot--hotspots">
+          <!-- TV-7: overlay de hotspots de piso (app-tv-hotspot-overlay). -->
+        </div>
+      }
+
+      <!-- ---- camada 3: chrome ------------------------------------------ -->
+      <div class="tv-chrome">
+        <div class="tv-slot tv-slot--header">
+          <!-- TV-1: voltar + título/contagem + botão "…" (app-tv-header). -->
+        </div>
+
+        <div class="tv-slot tv-slot--pill">
+          <!-- TV-1 (mobile) e TV-9 (desktop): pill da cena atual. -->
+        </div>
+
+        <div class="tv-espaco"></div>
+
+        <div class="tv-slot tv-slot--olho">
+          <!-- TV-1: botão flutuante "Ocultar interface". -->
+        </div>
+
+        @if (store.faixaVisivel()) {
+          <div class="tv-slot tv-slot--cenas">
+            <!-- TV-2: faixa de miniaturas (mobile) e rail (desktop). -->
+          </div>
+        }
+
+        @if (store.chromeVisible()) {
+          <div class="tv-slot tv-slot--acoes">
+            <!-- TV-1: tab bar EDITAR · EMBED · APAGAR (mobile). -->
+            <!-- TV-9: cluster de ações do tour (desktop). -->
+          </div>
+        }
+      </div>
+
+      <!-- ---- camada 4: sheets e toast ---------------------------------- -->
+      <!-- TV-3: shell de sheet + sheet Cenas.   TV-4: Incorporar. -->
+      <!-- TV-5: Apagar (sheet e diálogo).       TV-6: Gerenciar. -->
+
+      @if (store.toast(); as chave) {
+        <div class="tv-slot tv-slot--toast">
+          <!-- TV-1: pílula de confirmação, 2200ms, pointer-events none. -->
+          {{ chave | translate }}
+        </div>
+      }
+    </div>
+  }
+</ion-content>

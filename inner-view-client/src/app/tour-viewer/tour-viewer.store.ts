@@ -1,0 +1,283 @@
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { Property } from '../models/property.model';
+import { VirtualTour } from '../models/virtual-tour.model';
+import { PropertyService } from '../services/property.service';
+import { VirtualTourService } from '../services/virtual-tour.service';
+import {
+  EmbedFormat,
+  SheetKind,
+  TOAST_MS,
+  TourViewerScene,
+  cenasDoTour,
+} from './tour-viewer.model';
+
+/**
+ * O estado da tela de visualização de tour (SPRINT-4-TOUR-VIEWER.md, TV-0).
+ *
+ * ASSINATURAS CONGELADAS: os nomes públicos daqui são o contrato entre as três
+ * frentes do sprint. O CORPO de cada método é livre — quem implementar a task
+ * dona daquele comportamento preenche o que faltar. Mudar assinatura, não:
+ * só por PR anunciado.
+ *
+ * Fornecido pela PÁGINA e não em `root`, como o `TourDraftStore` do wizard: o
+ * estado morre com a tela, e voltar para ela é começar de novo — inclusive o
+ * modo imersivo, que o handoff diz explicitamente para não persistir.
+ *
+ * Os quatro invariantes de `06-state-behavior.md` moram aqui, e não espalhados
+ * pelos componentes, porque é o único jeito de eles continuarem verdadeiros
+ * quando a quarta frente chegar:
+ *
+ *   1. Sem chrome, sem faixa de cenas, sem tab bar, sem pill e sem hotspots.
+ *   2. Sheet aberto esconde a faixa de cenas (evita duas listas na tela).
+ *   3. Nunca dois sheets ao mesmo tempo.
+ *   4. Ação destrutiva sempre passa por confirmação.
+ */
+@Injectable()
+export class TourViewerStore {
+  private readonly router = inject(Router);
+  private readonly propertyService = inject(PropertyService);
+  private readonly virtualTourService = inject(VirtualTourService);
+
+  // ---- dados -------------------------------------------------------------
+
+  readonly property = signal<Property | null>(null);
+  readonly tour = signal<VirtualTour | null>(null);
+  readonly loading = signal(true);
+  readonly loadError = signal(false);
+
+  /** As cenas já traduzidas para o vocabulário da tela. Ver `cenasDoTour()`. */
+  readonly scenes = computed<TourViewerScene[]>(() => {
+    const tour = this.tour();
+    return tour ? cenasDoTour(tour) : [];
+  });
+
+  readonly tourId = computed(() => this.tour()?.id ?? null);
+
+  /**
+   * As panorâmicas cruas, do jeito que o `PanoramicViewerComponent` as espera.
+   *
+   * Existe para o template não precisar de `store.tour()!.panoramas`: o `!`
+   * dentro do HTML é uma promessa que ninguém verifica, e o dia em que o tour
+   * for nulo por outro caminho o erro sai do template, sem pilha útil.
+   */
+  readonly panoramas = computed(() => this.tour()?.panoramas ?? []);
+
+  readonly tourName = computed(
+    () => this.property()?.title ?? '',
+  );
+
+  /**
+   * Tour existe mas não tem cômodo nenhum.
+   *
+   * Estado real: dá para apagar o último panorama e continuar na tela. A faixa
+   * e a pill somem, e a tab bar fica com EDITAR e APAGAR — ver `02-mobile.md`.
+   */
+  readonly semCenas = computed(() => this.scenes().length === 0);
+
+  /**
+   * Quem está vendo pode editar e apagar este tour.
+   *
+   * Hoje é sempre verdadeiro: a rota inteira está atrás do `authGuard` e o
+   * backend já filtra por agência, então quem chega aqui é dono. Existe como
+   * sinal, e não como `true` cravado no template, porque o handoff especifica a
+   * variante da tab bar sem permissão — e no dia em que houver perfil de
+   * leitura, é esta linha que muda, não os três componentes que a consomem.
+   */
+  readonly podeEditar = computed(() => true);
+
+  // ---- navegação entre cenas ---------------------------------------------
+
+  readonly currentSceneIndex = signal(0);
+
+  readonly currentScene = computed<TourViewerScene | null>(
+    () => this.scenes()[this.currentSceneIndex()] ?? null,
+  );
+
+  irParaCena(indice: number): void {
+    if (indice < 0 || indice >= this.scenes().length) return;
+    this.currentSceneIndex.set(indice);
+  }
+
+  /** O caminho que o hotspot e o card do sheet usam: eles conhecem o id, não o índice. */
+  irParaCenaPorId(sceneId: string): void {
+    const indice = this.scenes().findIndex((c) => c.id === sceneId);
+    if (indice >= 0) this.currentSceneIndex.set(indice);
+  }
+
+  // ---- chrome e sheets ---------------------------------------------------
+
+  readonly sheet = signal<SheetKind>(null);
+  readonly chromeVisible = signal(true);
+
+  /**
+   * Abrir um sheet SUBSTITUI o que estiver aberto — invariante 3. Como é um
+   * `set` e não uma pilha, não há como empilhar dois nem por engano.
+   */
+  abrirSheet(qual: Exclude<SheetKind, null>): void {
+    this.sheet.set(qual);
+  }
+
+  fecharSheet(): void {
+    this.sheet.set(null);
+  }
+
+  alternarChrome(): void {
+    this.chromeVisible.update((visivel) => !visivel);
+  }
+
+  /**
+   * A faixa de miniaturas está no ar.
+   *
+   * Invariantes 1 e 2 juntos, num lugar só: ela some no modo imersivo E
+   * enquanto houver sheet aberto, porque o sheet já mostra a grade de cenas.
+   */
+  readonly faixaVisivel = computed(
+    () => this.chromeVisible() && this.sheet() === null && !this.semCenas(),
+  );
+
+  /** Os hotspots somem no imersivo — invariante 1, e é o mais fácil de esquecer. */
+  readonly hotspotsVisiveis = computed(() => this.chromeVisible());
+
+  // ---- toast -------------------------------------------------------------
+
+  readonly toast = signal<string | null>(null);
+
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Mensagem efêmera. Recebe a CHAVE de tradução, não o texto: quem traduz é o
+   * template, que tem o pipe.
+   */
+  mostrarToast(chave: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toast.set(chave);
+    this.toastTimer = setTimeout(() => this.toast.set(null), TOAST_MS);
+  }
+
+  // ---- embed -------------------------------------------------------------
+
+  readonly embedFormat = signal<EmbedFormat>(0);
+  readonly embedShowControls = signal(true);
+
+  /**
+   * O link público do tour.
+   *
+   * `/embed/:id` e não uma rota nova: essa é a única rota pública do produto —
+   * `/inner-view-page` está atrás do `authGuard`, e quem recebe o link não tem
+   * conta. Não existe `publicSlug` no backend, apesar do que o handoff supõe.
+   *
+   * O `?controles=0` sai daqui e não do componente porque o sheet Incorporar e
+   * o "Compartilhar link" do Gerenciar precisam da MESMA URL.
+   */
+  readonly linkPublico = computed(() => {
+    const id = this.tourId();
+    if (!id) return '';
+    const base = `${window.location.origin}/embed/${id}`;
+    return this.embedShowControls() ? base : `${base}?controles=0`;
+  });
+
+  // ---- rail do desktop ---------------------------------------------------
+
+  /** Só desktop. A persistência por sessão é assunto da TV-2. */
+  readonly railCollapsed = signal(false);
+
+  alternarRail(): void {
+    this.railCollapsed.update((recolhido) => !recolhido);
+  }
+
+  // ---- ciclo de vida do tour ---------------------------------------------
+
+  readonly apagando = signal(false);
+
+  /**
+   * Apaga o tour e volta para a listagem.
+   *
+   * Não confirma nada: quem confirma é o sheet (TV-5), e é assim que o
+   * invariante 4 fica visível na leitura — este método é o DEPOIS da
+   * confirmação, e chamá-lo de qualquer outro lugar seria o bug que o
+   * invariante existe para impedir.
+   */
+  async apagarTour(): Promise<boolean> {
+    const id = this.tourId();
+    if (!id) return false;
+
+    this.apagando.set(true);
+    try {
+      await firstValueFrom(this.virtualTourService.deleteTour(id));
+      void this.router.navigate(['/home']);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.apagando.set(false);
+    }
+  }
+
+  // ---- carga -------------------------------------------------------------
+
+  /**
+   * Carrega imóvel e tour a partir do id da ROTA — que é o do IMÓVEL, não o do
+   * tour. Ver a decisão D10 do plano do sprint: mudar isso arrastaria home,
+   * cards, guards e links já enviados.
+   *
+   * `propertyEmMemoria` é o que a home passa por `router state` ao navegar: o
+   * imóvel já está na mão dela, e refazer a busca custaria uma tela cinza que
+   * ninguém precisa ver. Sem ele, busca.
+   */
+  async carregar(propertyId: string, propertyEmMemoria?: Property): Promise<void> {
+    this.loading.set(true);
+    this.loadError.set(false);
+
+    try {
+      const property =
+        propertyEmMemoria?.virtualTour !== undefined
+          ? propertyEmMemoria
+          : await firstValueFrom(this.propertyService.findProperty(propertyId));
+
+      this.property.set(property);
+
+      const tourId = property.virtualTour?.id;
+      if (!tourId) {
+        // Imóvel sem tour não é erro: é o estado vazio da tela.
+        this.tour.set(null);
+        return;
+      }
+
+      const tour = await firstValueFrom(this.virtualTourService.findTour(tourId));
+      this.tour.set(tour);
+      this.currentSceneIndex.set(this.indiceInicial(tour));
+
+      // Métrica, não requisito: falhar aqui não pode custar a tela ao corretor.
+      this.virtualTourService.recordView(tourId).subscribe({ error: () => undefined });
+    } catch {
+      this.loadError.set(true);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /** Recarrega tudo. É o "Tentar de novo" do estado de erro (TV-8). */
+  async recarregar(): Promise<void> {
+    const id = this.property()?.id;
+    if (id) await this.carregar(id);
+  }
+
+  /**
+   * A cena por onde o tour abre.
+   *
+   * O tour declara qual é (`initialPanorama`); só cai no primeiro da ordem se
+   * nenhum estiver marcado, o que acontece em tour antigo.
+   */
+  private indiceInicial(tour: VirtualTour): number {
+    const indice = tour.panoramas.findIndex((p) => p.initialPanorama);
+    return indice >= 0 ? indice : 0;
+  }
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      if (this.toastTimer) clearTimeout(this.toastTimer);
+    });
+  }
+}

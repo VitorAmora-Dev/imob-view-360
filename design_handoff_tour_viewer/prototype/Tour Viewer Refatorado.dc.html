@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#0A0D12; font-family:'Manrope',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#2FE3C2; text-decoration:none; }
+  a:hover { color:#7FF3DE; }
+  @keyframes hs-pulse { 0%,100% { box-shadow:0 0 0 0 rgba(47,227,194,.45), 0 10px 30px rgba(0,0,0,.45);} 50% { box-shadow:0 0 0 10px rgba(47,227,194,0), 0 10px 30px rgba(0,0,0,.45);} }
+  @keyframes pin-bob { 0%,100% { transform:translateY(0);} 50% { transform:translateY(-4px);} }
+  @keyframes pin-ring { 0% { transform:scale(.6); opacity:.5;} 100% { transform:scale(1.5); opacity:0;} }
+  ::-webkit-scrollbar { height:0; width:0; }
+</style>
+</helmet>
+
+<section style="--accent:{{ accent }}; padding:56px 64px 90px; display:flex; flex-direction:column; gap:34px; background:#0A0D12; color:#EAF0F2; width:max-content; min-width:100%; box-sizing:border-box;">
+
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:40px; min-width:1200px; max-width:1900px;">
+    <div style="max-width:720px; display:flex; flex-direction:column; gap:10px;">
+      <div style="font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--accent,#2FE3C2);">Turno 1 · Refatoração</div>
+      <h1 style="margin:0; font-size:34px; font-weight:800; letter-spacing:-.02em; line-height:1.1;">Tela de visualização de tour</h1>
+      <p style="margin:0; font-size:15px; line-height:1.55; color:rgba(234,240,242,.6); text-wrap:pretty;">Mobile com tab bar de ações (Editar · Embed · Apagar), controles de visualização separados das ações de gestão e cenas acessíveis sem sair do panorama. Desktop reorganizado no mesmo sistema.</p>
+    </div>
+    <div style="display:flex; gap:10px; flex:none; font-size:12px; color:rgba(234,240,242,.45);">
+      <span style="flex:none; white-space:nowrap; padding:7px 12px; border:1px solid rgba(234,240,242,.14); border-radius:999px;"><a href="#1a">1a</a> Mobile 390×844 · interativo</span>
+      <span style="flex:none; white-space:nowrap; padding:7px 12px; border:1px solid rgba(234,240,242,.14); border-radius:999px;"><a href="#1b">1b</a> Desktop 1440×860</span>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:56px; align-items:flex-start;">
+
+    <div id="1a" style="display:flex; gap:28px; align-items:flex-start;">
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:24px; padding:0 8px; border-radius:8px; background:var(--accent,#2FE3C2); color:#05231E; font-size:12px; font-weight:800;">1a</span>
+          <span style="font-size:13px; font-weight:700; letter-spacing:.02em;">Mobile — visualização do dono do tour</span>
+        </div>
+
+        <div data-screen-label="Mobile" style="position:relative; width:390px; height:844px; border-radius:46px; padding:0; background:#05080C; box-shadow:0 0 0 10px #12161C, 0 0 0 11px rgba(255,255,255,.08), 0 50px 90px rgba(0,0,0,.6); overflow:hidden;">
+          <img src="assets/pano.png" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:38% 55%;">
+          <div style="position:absolute; top:0; left:0; right:0; height:230px; background:linear-gradient(180deg,rgba(4,9,16,.82) 0%,rgba(4,9,16,.45) 45%,rgba(4,9,16,0) 100%); pointer-events:none;"></div>
+          <div style="position:absolute; bottom:0; left:0; right:0; height:300px; background:linear-gradient(0deg,rgba(4,9,16,.88) 0%,rgba(4,9,16,.35) 55%,rgba(4,9,16,0) 100%); pointer-events:none;"></div>
+
+          <sc-if value="{{ hotspotsOn }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute; left:16%; top:56%; display:flex; flex-direction:column; align-items:center; gap:8px;">
+              <div style="animation:pin-bob 3.6s ease-in-out infinite;">
+              <div style="position:relative; width:88px; height:88px; transform:perspective(190px) rotateX(62deg); transform-origin:center center;">
+                <span style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 50% 40%, rgba(47,227,194,.34), rgba(47,227,194,.12) 62%, rgba(47,227,194,0) 74%); border:1.5px solid rgba(255,255,255,.45); box-shadow:0 0 24px rgba(47,227,194,.28);"></span>
+                <span style="position:absolute; inset:0; border-radius:50%; border:1.5px solid var(--accent,#2FE3C2); animation:pin-ring 2.6s ease-out infinite;"></span>
+                <svg width="88" height="88" viewBox="0 0 88 88" fill="none" style="position:absolute; inset:0;">
+                  <path d="M44 26 66 50l-9 5-13-14-13 14-9-5z" fill="rgba(255,255,255,.92)"></path>
+                </svg>
+              </div>
+              </div>
+              <span style="padding:6px 13px; border-radius:9px; background:rgba(9,18,29,.9); border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(8px); font-size:11.5px; font-weight:800; letter-spacing:.06em; color:#fff; white-space:nowrap; box-shadow:0 8px 18px rgba(0,0,0,.4);">ESCRITÓRIO</span>
+            </div>
+          </sc-if>
+
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
+            <div style="height:52px; padding:0 26px; display:flex; align-items:flex-end; justify-content:space-between; padding-bottom:6px; color:#fff;">
+              <span style="font-size:14px; font-weight:700; letter-spacing:.01em;">9:41</span>
+              <span style="display:flex; align-items:center; gap:5px;">
+                <span style="width:16px; height:10px; border-radius:2px; background:rgba(255,255,255,.9);"></span>
+                <span style="width:14px; height:10px; border-radius:2px; background:rgba(255,255,255,.9);"></span>
+                <span style="width:22px; height:11px; border-radius:3px; border:1.5px solid rgba(255,255,255,.7);"></span>
+              </span>
+            </div>
+
+            <div style="padding:4px 12px 0; display:flex; align-items:center; gap:10px;">
+              <button style="width:40px; height:40px; flex:none; border-radius:50%; border:1px solid rgba(255,255,255,.16); background:rgba(9,18,29,.55); backdrop-filter:blur(14px); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:rgba(9,18,29,.85)">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"></path></svg>
+              </button>
+              <sc-if value="{{ chromeOn }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+                <div style="font-size:15px; font-weight:800; color:#fff; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Cobertura Vila Nova</div>
+                <div style="display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600; color:rgba(255,255,255,.58);">
+                  <span>6 cenas</span>
+                </div>
+              </div>
+              </sc-if>
+              <sc-if value="{{ chromeOn }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ openMore }}" style="width:40px; height:40px; flex:none; border-radius:50%; border:1px solid rgba(255,255,255,.16); background:rgba(9,18,29,.55); backdrop-filter:blur(14px); color:#fff; display:flex; align-items:center; justify-content:center; gap:3px; cursor:pointer;" style-hover="background:rgba(9,18,29,.85)">
+                <span style="width:3.5px; height:3.5px; border-radius:50%; background:#fff;"></span>
+                <span style="width:3.5px; height:3.5px; border-radius:50%; background:#fff;"></span>
+                <span style="width:3.5px; height:3.5px; border-radius:50%; background:#fff;"></span>
+              </button>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ chromeOn }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:12px 12px 0;">
+              <button onClick="{{ openScenes }}" style="display:inline-flex; align-items:center; gap:9px; height:36px; padding:0 12px 0 11px; border-radius:999px; border:1.5px solid var(--accent,#2FE3C2); background:rgba(9,18,29,.78); backdrop-filter:blur(10px); color:#fff; cursor:pointer;">
+                <span style="width:9px; height:9px; border-radius:50%; background:var(--accent,#2FE3C2);"></span>
+                <span style="font-size:13px; font-weight:700;">{{ currentName }}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.75;"><path d="M6 9l6 6 6-6"></path></svg>
+              </button>
+            </div>
+            </sc-if>
+
+            <div style="flex:1;"></div>
+
+            <div style="position:absolute; right:12px; top:210px; display:flex; flex-direction:column; gap:10px;">
+              <button onClick="{{ toggleHotspots }}" title="{{ immersiveLabel }}" style="width:44px; height:44px; border-radius:50%; border:1px solid rgba(255,255,255,.16); background:rgba(9,18,29,.55); backdrop-filter:blur(14px); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:rgba(9,18,29,.85)">
+                <sc-if value="{{ chromeOn }}" hint-placeholder-val="{{ true }}">
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s4-6.5 10-6.5S22 12 22 12s-4 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>
+                </sc-if>
+                <sc-if value="{{ chromeOff }}" hint-placeholder-val="{{ false }}">
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s4-6.5 10-6.5S22 12 22 12s-4 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle><path d="M3.5 3.5l17 17"></path></svg>
+                </sc-if>
+              </button>
+
+            </div>
+
+            <sc-if value="{{ stripOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:0 0 10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:0 16px 8px;">
+                  <span style="font-size:10.5px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.55);">Cenas</span>
+                  <button onClick="{{ openScenes }}" style="border:0; background:none; padding:0; font-family:inherit; font-size:11.5px; font-weight:700; color:var(--accent,#2FE3C2); cursor:pointer;">Ver todas</button>
+                </div>
+                <div style="display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; padding:0 12px 6px; scrollbarWidth:none; msOverflowStyle:none;">
+                  <sc-for list="{{ scenes }}" as="s" hint-placeholder-count="4">
+                    <button onClick="{{ s.select }}" style="flex:none; position:relative; width:104px; height:70px; border-radius:13px; overflow:hidden; padding:0; cursor:pointer; background:#0B1420; border:2px solid {{ s.ring }};">
+                      {{ s.img }}
+                      <span style="position:absolute; inset:0; background:linear-gradient(0deg,rgba(4,9,16,.85) 0%,rgba(4,9,16,0) 60%);"></span>
+                      <span style="position:absolute; left:8px; right:8px; bottom:6px; text-align:left; font-size:10.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ s.name }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ chromeOn }}" hint-placeholder-val="{{ true }}">
+            <div style="background:rgba(8,15,25,.86); backdrop-filter:blur(22px); border-top:1px solid rgba(255,255,255,.10); padding:8px 10px 10px;">
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
+                <button onClick="{{ goEdit }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 4px; border-radius:15px; border:0; background:rgba(47,227,194,.14); color:var(--accent,#2FE3C2); font-family:inherit; cursor:pointer; min-height:56px; justify-content:center;" style-hover="background:rgba(47,227,194,.22)">
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z"></path><path d="M14.5 6.5l3 3"></path></svg>
+                  <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;">Editar</span></sc-if>
+                </button>
+                <button onClick="{{ openEmbed }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 4px; border-radius:15px; border:0; background:rgba(255,255,255,.07); color:rgba(255,255,255,.92); font-family:inherit; cursor:pointer; min-height:56px; justify-content:center;" style-hover="background:rgba(255,255,255,.13)">
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5 4.5 12 9 16.5M15 7.5 19.5 12 15 16.5"></path></svg>
+                  <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;">Embed</span></sc-if>
+                </button>
+                <sc-if value="{{ destructiveSolid }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ openDelete }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 4px; border-radius:15px; border:0; background:#E24A4A; color:#fff; font-family:inherit; cursor:pointer; min-height:56px; justify-content:center;" style-hover="background:#F05B5B">
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7"></path></svg>
+                    <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;">Apagar</span></sc-if>
+                  </button>
+                </sc-if>
+                <sc-if value="{{ destructiveGhost }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ openDelete }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 4px; border-radius:15px; border:0; background:rgba(226,74,74,.13); color:#FF8484; font-family:inherit; cursor:pointer; min-height:56px; justify-content:center;" style-hover="background:rgba(226,74,74,.24)">
+                    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7"></path></svg>
+                    <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><span style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;">Apagar</span></sc-if>
+                  </button>
+                </sc-if>
+              </div>
+              <div style="display:flex; justify-content:center; padding-top:9px;">
+                <span style="width:134px; height:5px; border-radius:99px; background:rgba(255,255,255,.4);"></span>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:0; right:0; bottom:170px; display:flex; justify-content:center; pointer-events:none;">
+              <span style="display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:999px; background:rgba(8,15,25,.94); border:1px solid rgba(255,255,255,.12); color:#fff; font-size:12.5px; font-weight:700;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2FE3C2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"></path></svg>
+                {{ toast }}
+              </span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeSheet }}" style="position:absolute; inset:0; background:rgba(3,7,13,.6); backdrop-filter:blur(3px);"></div>
+          </sc-if>
+
+          <sc-if value="{{ isScenes }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:0; right:0; bottom:0; background:#0D1622; border-top:1px solid rgba(255,255,255,.09); border-radius:26px 26px 0 0; padding:10px 18px 26px; box-shadow:0 -20px 50px rgba(0,0,0,.5);">
+              <div style="display:flex; justify-content:center; padding-bottom:12px;"><span style="width:38px; height:4px; border-radius:99px; background:rgba(255,255,255,.22);"></span></div>
+              <div style="display:flex; align-items:baseline; justify-content:space-between; padding-bottom:14px;">
+                <span style="font-size:17px; font-weight:800; color:#fff;">Cenas do tour</span>
+                <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,.5);">6 cenas</span>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; max-height:340px; overflow-y:auto;">
+                <sc-for list="{{ scenes }}" as="s" hint-placeholder-count="4">
+                  <button onClick="{{ s.selectClose }}" style="position:relative; height:96px; border-radius:15px; overflow:hidden; padding:0; cursor:pointer; background:#0B1420; border:2px solid {{ s.ring }};">
+                    {{ s.img }}
+                    <span style="position:absolute; inset:0; background:linear-gradient(0deg,rgba(4,9,16,.9) 0%,rgba(4,9,16,0) 65%);"></span>
+                    <span style="position:absolute; left:10px; right:10px; bottom:8px; text-align:left; font-size:12px; font-weight:700; color:#fff;">{{ s.name }}</span>
+                    <sc-if value="{{ s.isCurrent }}" hint-placeholder-val="{{ false }}">
+                      <span style="position:absolute; top:8px; left:8px; padding:3px 8px; border-radius:99px; background:var(--accent,#2FE3C2); color:#05231E; font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;">Atual</span>
+                    </sc-if>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isEmbed }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:0; right:0; bottom:0; background:#0D1622; border-top:1px solid rgba(255,255,255,.09); border-radius:26px 26px 0 0; padding:10px 18px 26px; box-shadow:0 -20px 50px rgba(0,0,0,.5);">
+              <div style="display:flex; justify-content:center; padding-bottom:12px;"><span style="width:38px; height:4px; border-radius:99px; background:rgba(255,255,255,.22);"></span></div>
+              <div style="font-size:17px; font-weight:800; color:#fff;">Incorporar tour</div>
+              <p style="margin:6px 0 14px; font-size:12.5px; line-height:1.5; color:rgba(255,255,255,.55);">Cole o código no site do imóvel ou envie apenas o link público.</p>
+              <div style="display:flex; gap:6px; padding:4px; background:rgba(255,255,255,.06); border-radius:12px; margin-bottom:12px;">
+                <sc-for list="{{ formats }}" as="f" hint-placeholder-count="3">
+                  <button onClick="{{ f.select }}" style="flex:1; padding:8px 4px; border:0; border-radius:9px; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer; background:{{ f.bg }}; color:{{ f.fg }};">{{ f.label }}</button>
+                </sc-for>
+              </div>
+              <div style="background:#080F19; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:12px 13px; font-family:'JetBrains Mono',monospace; font-size:10.5px; line-height:1.6; color:rgba(255,255,255,.72); word-break:break-all;">
+                <span style="color:#7FF3DE;">&lt;iframe</span> src="arpvision.app/t/c3f3d3ba" <span style="color:#7FF3DE;">width=</span>"{{ embedW }}" <span style="color:#7FF3DE;">height=</span>"{{ embedH }}" allowfullscreen<span style="color:#7FF3DE;">&gt;&lt;/iframe&gt;</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 2px 16px;">
+                <span style="font-size:12.5px; font-weight:600; color:rgba(255,255,255,.75);">Mostrar controles no embed</span>
+                <button onClick="{{ toggleEmbedControls }}" style="width:46px; height:27px; border-radius:99px; border:0; padding:3px; cursor:pointer; display:flex; justify-content:{{ switchAlign }}; background:{{ switchBg }};">
+                  <span style="width:21px; height:21px; border-radius:50%; background:#fff;"></span>
+                </button>
+              </div>
+              <div style="display:flex; gap:9px;">
+                <button onClick="{{ copyCode }}" style="flex:1.4; height:48px; border-radius:14px; border:0; background:var(--accent,#2FE3C2); color:#05231E; font-family:inherit; font-size:13.5px; font-weight:800; cursor:pointer;">Copiar código</button>
+                <button onClick="{{ copyLink }}" style="flex:1; height:48px; border-radius:14px; border:1px solid rgba(255,255,255,.16); background:transparent; color:#fff; font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;">Copiar link</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isDelete }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:0; right:0; bottom:0; background:#0D1622; border-top:1px solid rgba(255,255,255,.09); border-radius:26px 26px 0 0; padding:10px 18px 26px; box-shadow:0 -20px 50px rgba(0,0,0,.5);">
+              <div style="display:flex; justify-content:center; padding-bottom:14px;"><span style="width:38px; height:4px; border-radius:99px; background:rgba(255,255,255,.22);"></span></div>
+              <div style="width:46px; height:46px; border-radius:50%; background:rgba(226,74,74,.15); display:flex; align-items:center; justify-content:center; margin-bottom:14px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF8484" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7"></path></svg>
+              </div>
+              <div style="font-size:19px; font-weight:800; color:#fff; letter-spacing:-.01em;">Apagar “Cobertura Vila Nova”?</div>
+              <p style="margin:8px 0 0; font-size:13px; line-height:1.55; color:rgba(255,255,255,.6); text-wrap:pretty;">As 6 cenas, os pontos de navegação e o link público serão removidos. Quem já incorporou o tour verá um espaço vazio.</p>
+              <div style="display:flex; align-items:center; gap:10px; margin:16px 0 18px; padding:11px 13px; border-radius:13px; background:rgba(226,74,74,.09); border:1px solid rgba(226,74,74,.22);">
+                <span style="font-size:11.5px; font-weight:700; color:#FF9E9E; letter-spacing:.02em;">Esta ação não pode ser desfeita.</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <button style="height:50px; border-radius:14px; border:0; background:#E24A4A; color:#fff; font-family:inherit; font-size:14px; font-weight:800; cursor:pointer;" style-hover="background:#F05B5B">Apagar tour</button>
+                <button onClick="{{ closeSheet }}" style="height:50px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background:transparent; color:#fff; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;">Cancelar</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isMore }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:0; right:0; bottom:0; background:#0D1622; border-top:1px solid rgba(255,255,255,.09); border-radius:26px 26px 0 0; padding:10px 12px 26px; box-shadow:0 -20px 50px rgba(0,0,0,.5);">
+              <div style="display:flex; justify-content:center; padding-bottom:12px;"><span style="width:38px; height:4px; border-radius:99px; background:rgba(255,255,255,.22);"></span></div>
+              <div style="padding:0 8px 10px; font-size:17px; font-weight:800; color:#fff;">Gerenciar tour</div>
+              <sc-for list="{{ moreItems }}" as="m" hint-placeholder-count="4">
+                <button onClick="{{ closeSheet }}" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:15px 10px; border:0; background:none; border-bottom:1px solid rgba(255,255,255,.06); color:#fff; font-family:inherit; cursor:pointer; text-align:left;" style-hover="background:rgba(255,255,255,.04)">
+                  <span style="display:flex; flex-direction:column; gap:3px;">
+                    <span style="font-size:14px; font-weight:700;">{{ m.title }}</span>
+                    <span style="font-size:11.5px; font-weight:500; color:rgba(255,255,255,.5);">{{ m.sub }}</span>
+                  </span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; padding-top:2px;">
+          <button onClick="{{ closeSheet }}" style="padding:8px 13px; border-radius:9px; border:1px solid rgba(234,240,242,.16); background:rgba(234,240,242,.04); color:#EAF0F2; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer;">Estado inicial</button>
+          <button onClick="{{ openScenes }}" style="padding:8px 13px; border-radius:9px; border:1px solid rgba(234,240,242,.16); background:rgba(234,240,242,.04); color:#EAF0F2; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer;">Cenas</button>
+          <button onClick="{{ openEmbed }}" style="padding:8px 13px; border-radius:9px; border:1px solid rgba(234,240,242,.16); background:rgba(234,240,242,.04); color:#EAF0F2; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer;">Embed</button>
+          <button onClick="{{ openDelete }}" style="padding:8px 13px; border-radius:9px; border:1px solid rgba(234,240,242,.16); background:rgba(234,240,242,.04); color:#EAF0F2; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer;">Apagar</button>
+          <button onClick="{{ openMore }}" style="padding:8px 13px; border-radius:9px; border:1px solid rgba(234,240,242,.16); background:rgba(234,240,242,.04); color:#EAF0F2; font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer;">Gerenciar</button>
+        </div>
+      </div>
+
+      <div style="width:290px; display:flex; flex-direction:column; gap:12px; padding-top:44px;">
+        <sc-for list="{{ mobileNotes }}" as="n" hint-placeholder-count="6">
+          <div style="display:flex; gap:12px; padding:14px 15px; border-radius:14px; background:rgba(234,240,242,.035); border:1px solid rgba(234,240,242,.08);">
+            <span style="flex:none; width:22px; height:22px; border-radius:7px; background:rgba(47,227,194,.14); color:var(--accent,#2FE3C2); font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;">{{ n.num }}</span>
+            <span style="display:flex; flex-direction:column; gap:5px;">
+              <span style="font-size:13px; font-weight:800; letter-spacing:-.01em;">{{ n.title }}</span>
+              <span style="font-size:12px; line-height:1.5; color:rgba(234,240,242,.55); text-wrap:pretty;">{{ n.body }}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div id="1b" style="display:flex; gap:28px; align-items:flex-start;">
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:24px; padding:0 8px; border-radius:8px; background:var(--accent,#2FE3C2); color:#05231E; font-size:12px; font-weight:800;">1b</span>
+          <span style="font-size:13px; font-weight:700; letter-spacing:.02em;">Desktop — mesma hierarquia, ações agrupadas e rotuladas</span>
+        </div>
+
+        <div data-screen-label="Desktop" style="position:relative; width:1440px; height:860px; border-radius:14px; overflow:hidden; background:#05080C; box-shadow:0 40px 90px rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.08);">
+          <img src="assets/pano.png" alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;">
+          <div style="position:absolute; top:0; left:0; right:0; height:190px; background:linear-gradient(180deg,rgba(4,9,16,.8) 0%,rgba(4,9,16,0) 100%);"></div>
+          <div style="position:absolute; bottom:0; left:0; right:0; height:260px; background:linear-gradient(0deg,rgba(4,9,16,.8) 0%,rgba(4,9,16,0) 100%);"></div>
+
+          <div style="position:absolute; left:21%; top:58%; display:flex; flex-direction:column; align-items:center; gap:10px;">
+            <div style="animation:pin-bob 3.6s ease-in-out infinite;">
+            <div style="position:relative; width:124px; height:124px; transform:perspective(270px) rotateX(62deg);">
+              <span style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 50% 40%, rgba(47,227,194,.34), rgba(47,227,194,.12) 62%, rgba(47,227,194,0) 74%); border:1.8px solid rgba(255,255,255,.45); box-shadow:0 0 30px rgba(47,227,194,.3);"></span>
+              <span style="position:absolute; inset:0; border-radius:50%; border:1.8px solid var(--accent,#2FE3C2); animation:pin-ring 2.6s ease-out infinite;"></span>
+              <svg width="124" height="124" viewBox="0 0 88 88" fill="none" style="position:absolute; inset:0;">
+                <path d="M44 26 66 50l-9 5-13-14-13 14-9-5z" fill="rgba(255,255,255,.92)"></path>
+              </svg>
+            </div>
+            </div>
+            <span style="padding:8px 16px; border-radius:10px; background:rgba(9,18,29,.92); border:1px solid rgba(255,255,255,.16); backdrop-filter:blur(8px); font-size:13px; font-weight:800; letter-spacing:.06em; color:#fff; white-space:nowrap; box-shadow:0 10px 22px rgba(0,0,0,.45);">ESCRITÓRIO</span>
+          </div>
+          <div style="position:absolute; left:64%; top:60%; display:flex; flex-direction:column; align-items:center; gap:9px;">
+            <div style="animation:pin-bob 3.6s ease-in-out .9s infinite; opacity:.88;">
+            <div style="position:relative; width:96px; height:96px; transform:perspective(210px) rotateX(62deg);">
+              <span style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.2), rgba(255,255,255,.07) 62%, rgba(255,255,255,0) 74%); border:1.5px solid rgba(255,255,255,.4);"></span>
+              <svg width="96" height="96" viewBox="0 0 88 88" fill="none" style="position:absolute; inset:0;">
+                <path d="M44 26 66 50l-9 5-13-14-13 14-9-5z" fill="rgba(255,255,255,.8)"></path>
+              </svg>
+            </div>
+            </div>
+            <span style="padding:7px 14px; border-radius:10px; background:rgba(9,18,29,.85); border:1px solid rgba(255,255,255,.13); backdrop-filter:blur(8px); font-size:12px; font-weight:700; letter-spacing:.06em; color:rgba(255,255,255,.88); white-space:nowrap;">VARANDA</span>
+          </div>
+
+          <div style="position:absolute; top:0; left:0; right:0; height:68px; padding:0 24px; display:flex; align-items:center; gap:16px;">
+            <button style="width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,.16); background:rgba(9,18,29,.55); backdrop-filter:blur(14px); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:rgba(9,18,29,.85)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"></path></svg>
+            </button>
+            <div style="display:flex; align-items:center; gap:9px; height:38px; padding:0 15px; border-radius:10px; background:rgba(9,18,29,.72); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.1);">
+              <span style="width:12px; height:12px; border-radius:3px; background:var(--accent,#2FE3C2); transform:rotate(45deg);"></span>
+              <span style="font-size:14px; font-weight:800; color:#fff; letter-spacing:.02em;">ARP <span style="font-weight:500; opacity:.7;">VISION</span></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:9px; font-size:13px; color:rgba(255,255,255,.55); font-weight:600;">
+              <span>Meus imóveis</span>
+              <span style="opacity:.4;">/</span>
+              <span style="color:#fff; font-weight:700;">Cobertura Vila Nova</span>
+            </div>
+            <div style="flex:1;"></div>
+            <div style="display:flex; align-items:center; gap:22px; font-size:13.5px; font-weight:600; color:rgba(255,255,255,.75);">
+              <span>Início</span><span>Meus imóveis</span><span>Novo tour</span>
+            </div>
+            <span style="width:1px; height:24px; background:rgba(255,255,255,.16);"></span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button style="width:36px; height:36px; border-radius:50%; border:1px solid rgba(255,255,255,.14); background:rgba(9,18,29,.5); backdrop-filter:blur(14px); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-family:inherit; font-size:12px; font-weight:700;">PT</button>
+              <button style="width:36px; height:36px; border-radius:50%; border:1px solid rgba(255,255,255,.14); background:rgba(9,18,29,.5); backdrop-filter:blur(14px); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="9" r="3.2"></circle><path d="M5.5 19.5c1.4-3 4-4.4 6.5-4.4s5.1 1.4 6.5 4.4"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <div style="position:absolute; top:86px; left:24px; display:flex; align-items:center; gap:10px;">
+            <button style="display:inline-flex; align-items:center; gap:10px; height:40px; padding:0 14px 0 13px; border-radius:999px; border:1.5px solid var(--accent,#2FE3C2); background:rgba(9,18,29,.78); backdrop-filter:blur(10px); color:#fff; cursor:pointer;">
+              <span style="width:9px; height:9px; border-radius:50%; background:var(--accent,#2FE3C2);"></span>
+              <span style="font-size:13.5px; font-weight:700;">{{ currentName }}</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7;"><path d="M6 9l6 6 6-6"></path></svg>
+            </button>
+            <span style="font-size:12.5px; font-weight:600; color:rgba(255,255,255,.5);">Cena 2 de 6</span>
+          </div>
+
+          <div style="position:absolute; right:24px; bottom:150px; display:flex; gap:8px; padding:6px; border-radius:14px; background:rgba(9,18,29,.6); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.1);">
+            <button title="Ocultar interface" style="display:inline-flex; align-items:center; gap:9px; height:40px; padding:0 14px; border-radius:10px; border:0; background:transparent; color:#fff; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;" style-hover="background:rgba(255,255,255,.1)">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s4-6.5 10-6.5S22 12 22 12s-4 6.5-10 6.5S2 12 2 12z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>
+              Ocultar interface
+            </button>
+
+          </div>
+
+          <div style="position:absolute; left:24px; bottom:24px; width:640px; padding:14px 16px 16px; border-radius:18px; background:rgba(9,18,29,.66); backdrop-filter:blur(18px); border:1px solid rgba(255,255,255,.1);">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding-bottom:11px;">
+              <span style="font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.6);">Cenas · 6</span>
+              <span style="display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:rgba(255,255,255,.55); cursor:pointer;">Recolher
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"></path></svg>
+              </span>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <sc-for list="{{ scenes }}" as="s" hint-placeholder-count="4">
+                <button onClick="{{ s.select }}" style="position:relative; width:146px; height:92px; border-radius:12px; overflow:hidden; padding:0; cursor:pointer; background:#0B1420; border:2px solid {{ s.ring }};">
+                  {{ s.img }}
+                  <span style="position:absolute; inset:0; background:linear-gradient(0deg,rgba(4,9,16,.85) 0%,rgba(4,9,16,0) 62%);"></span>
+                  <span style="position:absolute; left:9px; right:9px; bottom:7px; text-align:left; font-size:11.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ s.name }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="position:absolute; right:24px; bottom:24px; display:flex; align-items:center; gap:8px; padding:8px; border-radius:16px; background:rgba(9,18,29,.66); backdrop-filter:blur(18px); border:1px solid rgba(255,255,255,.1);">
+            <button style="display:inline-flex; align-items:center; gap:9px; height:46px; padding:0 18px; border-radius:11px; border:0; background:var(--accent,#2FE3C2); color:#05231E; font-family:inherit; font-size:14px; font-weight:800; cursor:pointer;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z"></path><path d="M14.5 6.5l3 3"></path></svg>
+              Editar tour
+            </button>
+            <button onClick="{{ openEmbed }}" style="display:inline-flex; align-items:center; gap:9px; height:46px; padding:0 16px; border-radius:11px; border:1px solid rgba(255,255,255,.16); background:transparent; color:#fff; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;" style-hover="background:rgba(255,255,255,.09)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7.5 4.5 12 9 16.5M15 7.5 19.5 12 15 16.5"></path></svg>
+              Incorporar
+            </button>
+            <button style="display:inline-flex; align-items:center; gap:9px; height:46px; padding:0 16px; border-radius:11px; border:1px solid rgba(255,255,255,.16); background:transparent; color:#fff; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;" style-hover="background:rgba(255,255,255,.09)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5l4 4M5 18.5h14"></path></svg>
+              Publicar
+            </button>
+            <span style="width:1px; height:28px; background:rgba(255,255,255,.14);"></span>
+            <button onClick="{{ openDelete }}" title="Apagar tour" style="width:46px; height:46px; border-radius:11px; border:1px solid rgba(226,74,74,.3); background:rgba(226,74,74,.1); color:#FF8484; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:rgba(226,74,74,.22)">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:290px; display:flex; flex-direction:column; gap:12px; padding-top:44px;">
+        <sc-for list="{{ desktopNotes }}" as="n" hint-placeholder-count="5">
+          <div style="display:flex; gap:12px; padding:14px 15px; border-radius:14px; background:rgba(234,240,242,.035); border:1px solid rgba(234,240,242,.08);">
+            <span style="flex:none; width:22px; height:22px; border-radius:7px; background:rgba(47,227,194,.14); color:var(--accent,#2FE3C2); font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;">{{ n.num }}</span>
+            <span style="display:flex; flex-direction:column; gap:5px;">
+              <span style="font-size:13px; font-weight:800; letter-spacing:-.01em;">{{ n.title }}</span>
+              <span style="font-size:12px; line-height:1.5; color:rgba(234,240,242,.55); text-wrap:pretty;">{{ n.body }}</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2FE3C2&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#2FE3C2&quot;,&quot;#3DD8F5&quot;,&quot;#7C6BFF&quot;,&quot;#FFB020&quot;],&quot;section&quot;:&quot;Marca&quot;},&quot;tabStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Ícone + rótulo&quot;,&quot;options&quot;:[&quot;Ícone + rótulo&quot;,&quot;Só ícone&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tab bar&quot;},&quot;destructiveStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Discreto&quot;,&quot;options&quot;:[&quot;Discreto&quot;,&quot;Vermelho sólido&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Tab bar&quot;},&quot;sceneStrip&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Tab bar&quot;}}">
+class Component extends DCLogic {
+  state = { scene: 0, sheet: null, hotspotsOn: true, stripOpen: true, toast: null, format: 0, embedControls: true };
+
+  open(sheet) { this.setState({ sheet }); }
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 2200);
+  }
+
+  renderVals() {
+    const accent = this.props.accent ?? '#2FE3C2';
+    const names = ['Suíte máster', 'Escritório', 'Sala de estar', 'Varanda gourmet', 'Cozinha', 'Banheiro social'];
+    const thumbs = ['assets/thumb-1.png', 'assets/thumb-2.png', 'assets/thumb-3.png', 'assets/thumb-4.png'];
+    const scenes = names.map((name, i) => ({
+      name,
+      img: React.createElement('img', { src: thumbs[i % thumbs.length], alt: '', style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' } }),
+      isCurrent: i === this.state.scene,
+      ring: i === this.state.scene ? accent : 'rgba(255,255,255,.14)',
+      select: () => this.setState({ scene: i }),
+      selectClose: () => this.setState({ scene: i, sheet: null })
+    }));
+
+    const fmts = [
+      { label: 'Responsivo', w: '100%', h: '600' },
+      { label: '16:9', w: '960', h: '540' },
+      { label: 'Quadrado', w: '600', h: '600' }
+    ];
+    const formats = fmts.map((f, i) => ({
+      label: f.label,
+      bg: i === this.state.format ? accent : 'transparent',
+      fg: i === this.state.format ? '#05231E' : 'rgba(255,255,255,.7)',
+      select: () => this.setState({ format: i })
+    }));
+
+    const tabStyle = this.props.tabStyle ?? 'Ícone + rótulo';
+    const destructive = this.props.destructiveStyle ?? 'Discreto';
+
+    return {
+      accent,
+      scenes,
+      formats,
+      currentName: names[this.state.scene],
+      embedW: fmts[this.state.format].w,
+      embedH: fmts[this.state.format].h,
+      hotspotsOn: this.state.hotspotsOn,
+      chromeOn: this.state.hotspotsOn,
+      chromeOff: !this.state.hotspotsOn,
+      immersiveLabel: this.state.hotspotsOn ? 'Ocultar interface' : 'Mostrar interface',
+      stripOpen: (this.props.sceneStrip ?? true) && this.state.hotspotsOn && this.state.sheet === null,
+      toast: this.state.toast,
+      sheetOpen: this.state.sheet !== null,
+      isScenes: this.state.sheet === 'scenes',
+      isEmbed: this.state.sheet === 'embed',
+      isDelete: this.state.sheet === 'delete',
+      isMore: this.state.sheet === 'more',
+      showLabels: tabStyle === 'Ícone + rótulo',
+      destructiveSolid: destructive === 'Vermelho sólido',
+      destructiveGhost: destructive !== 'Vermelho sólido',
+      switchAlign: this.state.embedControls ? 'flex-end' : 'flex-start',
+      switchBg: this.state.embedControls ? accent : 'rgba(255,255,255,.18)',
+      openScenes: () => this.open('scenes'),
+      openEmbed: () => this.open('embed'),
+      openDelete: () => this.open('delete'),
+      openMore: () => this.open('more'),
+      closeSheet: () => this.setState({ sheet: null }),
+      goEdit: () => this.flash('Abrindo o editor…'),
+      copyCode: () => this.flash('Código copiado'),
+      copyLink: () => this.flash('Link copiado'),
+      toggleEmbedControls: () => this.setState(s => ({ embedControls: !s.embedControls })),
+      toggleHotspots: () => this.setState(s => ({ hotspotsOn: !s.hotspotsOn })),
+      moreItems: [
+        { title: 'Publicar alterações', sub: '2 cenas editadas desde a última publicação' },
+
+        { title: 'Configurações do tour', sub: 'Nome, cena inicial, marca d’água' },
+        { title: 'Compartilhar link', sub: 'WhatsApp, e-mail ou copiar URL' }
+      ],
+      mobileNotes: [
+        { num: '1', title: 'Ações de gestão viram tab bar', body: 'Editar, Embed e Apagar saem do topo (alvos de 32px, difíceis com o polegar) e viram três alvos de 56px na zona de alcance natural.' },
+        { num: '2', title: 'Editar é a ação primária', body: 'Só ela recebe cor de marca. Apagar fica discreto em vermelho suave — presente, mas nunca competindo com o toque frequente.' },
+        { num: '3', title: 'Apagar sempre com confirmação', body: 'Bottom sheet explicando consequência real (cenas, pontos, embeds quebrados) em vez de um ícone de lixeira a um toque do panorama.' },
+        { num: '4', title: 'Ver ≠ gerenciar', body: 'Um único controle de visualização — ocultar interface — fica flutuando à direita. Ele limpa a tela inteira e deixa só voltar e o próprio botão.' },
+        { num: '5', title: 'Cenas sempre visíveis', body: 'A faixa de miniaturas substitui a barra escura sem função clara. Rolagem horizontal para navegar; “Ver todas” abre a grade completa.' },
+        { num: '6', title: 'Contexto no topo', body: 'Nome do tour, status de publicação e contagem de cenas resolvem “onde estou e o que já está no ar” sem abrir menu.' },
+        { num: '7', title: 'Embed que resolve sozinho', body: 'Formato pronto (responsivo / 16:9 / quadrado), preview do código e cópia num toque — hoje o embed exige sair da tela.' }
+      ],
+      desktopNotes: [
+        { num: '1', title: 'Vale a pena mexer, sim', body: 'No desktop o problema não é alcance: são seis ícones sem rótulo no topo, misturados à navegação global. Ninguém adivinha o que é a nuvem ou o círculo branco.' },
+        { num: '2', title: 'Duas camadas separadas', body: 'Topo = navegação do produto (voltar, marca, breadcrumb, conta). Rodapé direito = ações deste tour, com rótulo escrito.' },
+        { num: '3', title: 'Botões com texto', body: 'Editar tour (primário), Incorporar e Publicar. Apagar fica só como ícone vermelho após um divisor — separação física reduz clique acidental.' },
+        { num: '4', title: 'Breadcrumb de orientação', body: 'Meus imóveis / nome do tour deixa claro onde o usuário está e devolve o caminho de volta à listagem em um clique.' },
+        { num: '5', title: 'Rail de cenas no rodapé', body: 'Miniaturas maiores, recolhíveis, com a cena atual marcada — mesma lógica do mobile, mesma linguagem visual.' },
+        { num: '6', title: 'Panorama respira', body: 'Todos os controles em vidro escuro nas bordas, com scrims sutis: a imagem 360º volta a ser o conteúdo principal.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

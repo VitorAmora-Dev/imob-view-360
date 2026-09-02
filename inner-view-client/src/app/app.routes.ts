@@ -22,7 +22,18 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    // O `:id` é o do IMÓVEL, não o do tour — e continua sendo (decisão D10 do
+    // SPRINT-4-TOUR-VIEWER.md). Trocar o parâmetro arrastaria a home, os cards,
+    // os guards e todo link que já foi enviado por aí.
     path: 'inner-view-page/:id',
+    loadComponent: () => import('./tour-viewer/tour-viewer.page').then(m => m.TourViewerPage),
+    canActivate: [authGuard],
+  },
+  {
+    // A tela antiga fica de pé enquanto a refatoração não fecha — é a única
+    // referência viva de upload inline e edição de hotspots na visualização.
+    // Some no último PR do sprint (TV-12), junto com esta rota.
+    path: 'inner-view-legado/:id',
     loadComponent: () => import('./inner-view-page/inner-view-page.page').then(m => m.InnerViewPagePage),
     canActivate: [authGuard],
   },

@@ -83,6 +83,7 @@ describe('Contrato da paleta', () => {
     const pares: [string, string][] = [
       ['--brand-primary', '--brand-primary-rgb'],
       ['--brand-accent', '--brand-accent-rgb'],
+      ['--brand-accent-vivid', '--brand-accent-vivid-rgb'],
       ['--brand-secondary', '--brand-secondary-rgb'],
       ['--brand-tertiary', '--brand-tertiary-rgb'],
       ['--neutral-ink', '--neutral-ink-rgb'],
@@ -137,6 +138,13 @@ describe('Contrato da paleta', () => {
       ['accent sobre o fundo de accent', '--tw-accent', '--tw-accent-soft'],
       ['accent sobre card', '--tw-accent', '--tw-surface'],
       ['texto do visualizador sobre o fundo imersivo', '--tour-text', '--tour-bg'],
+      // O visualizador refeito (SPRINT-4). Aqui está a prova de que a exceção
+      // da D1 se paga: o mesmo teal que reprova sobre branco rende 11:1 sobre o
+      // escuro, e o -ink é o único foreground que fecha em cima dele.
+      ['accent do visualizador sobre o fundo imersivo', '--tv-accent', '--tour-bg'],
+      ['tinta sobre o accent do visualizador', '--tv-accent-ink', '--tv-accent'],
+      ['vermelho de texto sobre o fundo do sheet', '--tv-danger-text', '--tv-sheet-bg'],
+      ['branco sobre o botão sólido de apagar', '--tv-text', '--tv-danger'],
       ['sucesso sobre branco', '--status-success-text', '--neutral-white'],
     ];
 
@@ -151,6 +159,7 @@ describe('Contrato da paleta', () => {
 
     const grafico: [string, string, string][] = [
       ['preenchimento da barra sobre o trilho', '--tw-accent', '--tw-surface-track'],
+      ['botão sólido de apagar sobre o sheet', '--tv-danger', '--tv-sheet-bg'],
       ['acento do pin sobre a pílula escura', '--tw-pin-accent', '--tour-bg'],
       ['contraste do primary do Ionic', '--ion-color-primary-contrast', '--ion-color-primary'],
       ['contraste do secondary do Ionic', '--ion-color-secondary-contrast', '--ion-color-secondary'],
@@ -244,8 +253,13 @@ describe('Contrato da paleta', () => {
             if (!prop.startsWith('--')) continue;
             // Só o que é cor. Fora ficam raios, sombras, easings, alvos de
             // toque e as triplas -rgb, que não são cor sozinhas.
-            if (/-(rgb|radius|shadow|ease|tap|max|family)/.test(prop)) continue;
-            if (/^--(brand|neutral|status|accent|tour|app|tw|ion)-/.test(prop)) nomes.add(prop);
+            // Os marcadores de NAO-COR. `dur`, `blur`, `grad` e `size` entraram
+            // com a camada --tv-*: duração, raio de desfoque, gradiente e medida
+            // de alvo não resolvem como `background-color`, e cairiam aqui como
+            // "cadeia quebrada" sendo que estão certos. Token novo que não seja
+            // cor precisa nascer com um destes no nome.
+            if (/-(rgb|radius|shadow|ease|tap|max|family|dur|blur|grad|size)/.test(prop)) continue;
+            if (/^--(brand|neutral|status|accent|tour|app|tw|tv|ion)-/.test(prop)) nomes.add(prop);
           }
         }
       }
