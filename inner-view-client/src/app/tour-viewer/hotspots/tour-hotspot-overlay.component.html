@@ -1,0 +1,53 @@
+<!--
+  Três camadas aninhadas, e a separação é obrigatória — ver o cabeçalho do
+  componente:
+
+    .tv-pin         posição (o laço de frame reescreve o transform)
+    .tv-pin__bob    flutuação  (pin-bob anima transform)
+    .tv-pin__disco  perspectiva (perspective + rotateX)
+
+  Juntar duas delas faz a keyframe engolir a perspectiva, e o disco vira um
+  círculo chapado. É o primeiro item do checklist de QA do handoff.
+-->
+@for (pin of pins(); track pin.id) {
+  <button
+    type="button"
+    class="tv-pin"
+    [class.is-principal]="pin.principal"
+    [attr.data-hotspot-id]="pin.id"
+    [style.--tv-pin-lado]="pin.lado"
+    [attr.aria-label]="pin.ariaLabel"
+    (click)="cenaEscolhida.emit(pin.targetSceneId)">
+    <span class="tv-pin__bob" aria-hidden="true">
+      <span class="tv-pin__disco">
+        <span class="tv-pin__halo"></span>
+
+        <!--
+          Só o destino em destaque pulsa: "no máximo um hotspot ativo por cena"
+          é regra de produto do handoff, e dois anéis competindo transformam o
+          caminho sugerido em ruído. Com menos movimento pedido o anel não
+          nasce — parado ele seria um círculo solto em volta do disco.
+        -->
+        @if (pin.principal && !semMovimento()) {
+          <span class="tv-pin__anel"></span>
+        }
+
+        <!--
+          O chevron aponta para o topo do disco; como o disco está deitado,
+          isso lê como "para frente".
+        -->
+        <svg class="tv-pin__chevron" viewBox="0 0 88 88" focusable="false">
+          <path d="M44 26 66 50l-9 5-13-14-13 14-9-5z" />
+        </svg>
+      </span>
+    </span>
+
+    <!--
+      A plaquinha fica FORA do wrapper de perspectiva: deitada junto com o
+      disco, ela ficaria ilegível. E é aria-hidden porque o aria-label do botão
+      já diz a frase inteira — "ESCRITÓRIO" sozinho não conta a quem não vê a
+      foto que aquilo é um caminho.
+    -->
+    <span class="tv-pin__placa" aria-hidden="true">{{ pin.label }}</span>
+  </button>
+}

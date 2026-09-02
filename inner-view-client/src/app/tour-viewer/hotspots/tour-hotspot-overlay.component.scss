@@ -1,0 +1,217 @@
+@use '../../../theme/tour-viewer-mixins' as tv;
+
+// O hotspot de piso (TV-7). Geometria em `03-hotspots.md`.
+//
+// TOKENS QUE FALTAM EM L2 (`theme/tour-viewer.scss`, arquivo do TV-0 — não é
+// desta task mexer nele): o handoff pede a borda do halo em branco a .45 e o
+// halo secundário em branco a .20. Não existe token para nenhum dos dois, e o
+// mais perto que L2 tem hoje são `--tv-border-control` (.16) e
+// `--tv-fill-hover` (.13), usados abaixo. A diferença é sutil sobre foto, mas é
+// diferença: quando o TV-0 abrir para um PR, nascem `--tv-hotspot-rim` e
+// `--tv-hotspot-veil` e estas duas linhas passam a apontar para eles.
+
+:host {
+  position: absolute;
+  inset: 0;
+  // A camada não intercepta o arrasto do panorama; só os pins o fazem.
+  pointer-events: none;
+}
+
+.tv-pin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+
+  // Nasce escondido. Entre o `@for` criar o nó e o primeiro frame do laço, o
+  // botão já está no DOM e ainda sem `transform` — ou seja, em (0,0), o canto
+  // do canvas. É um frame só, mas é um pin piscando no canto a cada troca de
+  // cena. Quem o mostra é `reposicionar()`, junto com a primeira posição.
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  // Posição vem do laço de frame, em transform — nunca em top/left, que
+  // forçariam layout sessenta vezes por segundo.
+  will-change: transform;
+  // O canvas embaixo é `touch-action: none` (o OrbitControls o põe assim para
+  // girar a foto com o dedo). Sem isto o browser trata o toque no pin como
+  // rolagem da página.
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+
+  // O fator de tamanho do desktop. O handoff pede 124px no destino em destaque
+  // lá contra 88px aqui — a MESMA distância desenhada maior, porque a tela é
+  // maior. Mora no CSS e não no TypeScript: quem sabe a largura da janela é a
+  // media query, e o componente só sabe a distância.
+  --tv-pin-fator: 1;
+  --tv-pin-tamanho: calc(var(--tv-pin-lado, 88px) * var(--tv-pin-fator));
+
+  @include tv.tv-desktop {
+    --tv-pin-fator: 1.4;
+  }
+
+  &:focus-visible {
+    outline: none;
+
+    .tv-pin__placa {
+      outline: 2px solid var(--tv-accent);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// ---- flutuação ------------------------------------------------------------
+//
+// A altura da caixa acompanha a altura RENDERIZADA do disco (o cosseno de 62°,
+// ~0.47), não o lado dele. Sem isto o botão teria uns 45px de retângulo
+// transparente acima e abaixo da elipse — área invisível engolindo o arrasto do
+// panorama, que é o gesto principal da tela.
+.tv-pin__bob {
+  position: relative;
+  width: var(--tv-pin-tamanho);
+  height: calc(var(--tv-pin-tamanho) * 0.48);
+  animation: tv-pin-bob var(--tv-bob-dur) ease-in-out infinite;
+}
+
+// ---- perspectiva ----------------------------------------------------------
+//
+// NUNCA junte esta regra com a de cima. `tv-pin-bob` anima `transform`, e a
+// keyframe substitui o transform inteiro do elemento — a perspectiva iria
+// junto, e o disco viraria um círculo de frente para a câmera.
+//
+// A perspectiva acompanha o tamanho na mesma proporção do handoff (190/88,
+// 270/124, 210/96 — todas ~2.17), senão o disco pequeno parece mais deitado
+// que o grande.
+.tv-pin__disco {
+  position: absolute;
+  left: 0;
+  top: calc(var(--tv-pin-tamanho) * -0.26);
+  width: var(--tv-pin-tamanho);
+  height: var(--tv-pin-tamanho);
+  transform: perspective(calc(var(--tv-pin-tamanho) * 2.17)) rotateX(62deg);
+  transform-origin: center center;
+}
+
+.tv-pin__halo,
+.tv-pin__anel {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+// Secundário: um véu claro, sem brilho. É caminho possível, não o sugerido.
+.tv-pin__halo {
+  background: radial-gradient(
+    circle at 50% 40%,
+    var(--tv-fill-hover),
+    transparent 70%
+  );
+  border: 1.5px solid var(--tv-border-control);
+}
+
+.tv-pin__anel {
+  border: 1.5px solid var(--tv-accent);
+  animation: tv-pin-ring var(--tv-ring-dur) ease-out infinite;
+}
+
+.tv-pin__chevron {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--tv-text);
+  opacity: 0.8;
+}
+
+// ---- o destino em destaque ------------------------------------------------
+
+.tv-pin.is-principal {
+  .tv-pin__halo {
+    background: radial-gradient(
+      circle at 50% 40%,
+      var(--tv-accent-glow),
+      var(--tv-accent-glow-soft) 62%,
+      transparent 74%
+    );
+    border-color: var(--tv-accent-glow);
+    box-shadow: 0 0 24px var(--tv-accent-glow);
+
+    @include tv.tv-desktop {
+      border-width: 1.8px;
+      box-shadow: 0 0 30px var(--tv-accent-glow);
+    }
+  }
+
+  .tv-pin__chevron {
+    opacity: 0.92;
+  }
+
+  .tv-pin__placa {
+    background: var(--tv-glass-4);
+  }
+}
+
+// ---- plaquinha ------------------------------------------------------------
+
+.tv-pin__placa {
+  max-width: 168px;
+  padding: 6px 13px;
+  border-radius: var(--tv-radius-plate);
+  background: var(--tv-glass-3);
+  border: 1px solid var(--tv-border-control);
+  backdrop-filter: blur(var(--tv-blur-pill));
+  -webkit-backdrop-filter: blur(var(--tv-blur-pill));
+  box-shadow: var(--tv-shadow-float);
+
+  color: var(--tv-text);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  // UPPERCASE é decisão de apresentação: o dado guarda o nome do cômodo como a
+  // pessoa o escreveu, e é ele que o leitor de tela anuncia.
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @include tv.tv-desktop {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
+
+// ---- movimento ------------------------------------------------------------
+//
+// As durações vêm de `tour-viewer.scss` e são ZERADAS lá quando o sistema pede
+// menos movimento — por isso não há media query aqui. O anel, esse não chega a
+// existir: quem decide é o template, porque um anel parado é só um círculo
+// solto em volta do disco.
+
+@keyframes tv-pin-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes tv-pin-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
