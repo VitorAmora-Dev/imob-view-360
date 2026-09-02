@@ -9,6 +9,7 @@ import {
   output,
 } from '@angular/core';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import type { Vector3 } from 'three';
 import { PanoramicViewerComponent } from '../../components/panoramic-viewer/panoramic-viewer.component';
 // Do wizard, de propósito. A projeção é a MESMA matemática, já testada contra
 // a câmera de verdade, e o comentário de `hotspotToWorld` documenta a cadeia de
@@ -56,6 +57,17 @@ interface Pin {
   principal: boolean;
   /** Lado do disco, já em `px`, para a custom property do elemento. */
   lado: string;
+  /**
+   * Onde o pin está na esfera, em coordenadas de mundo.
+   *
+   * Constante: `u` e `v` de um hotspot não mudam, e a esfera não se move — só a
+   * câmera. Isto já foi recalculado a cada frame, com quatro chamadas de seno e
+   * cosseno por pin, sessenta vezes por segundo, produzindo sempre os mesmos
+   * números. Com seis pins eram 1.440 chamadas transcendentais por segundo e um
+   * `Vector3` novo em cada uma — pressão de GC durante o giro, que é justo
+   * quando o laço importa.
+   */
+  world: Vector3;
 }
 
 /**
@@ -131,7 +143,19 @@ export class TourHotspotOverlayComponent {
       ariaLabel: this.translate.instant('TOUR_VIEWER.HOTSPOT.GO_TO', { name: h.label }),
       principal: h.kind === 'primary',
       lado: `${ladoDoDisco(h.v)}px`,
+      world: hotspotToWorld(h.u, h.v),
     })),
+  );
+
+  /**
+   * Os mesmos pins, endereçáveis por id.
+   *
+   * `computed` e não montado dentro de `reposicionar()`: lá ele nascia de novo a
+   * cada frame, um `Map` mais o array intermediário de pares, sessenta vezes por
+   * segundo. É a mesma razão de `pins` ser `computed`, um nível abaixo.
+   */
+  private readonly pinsPorId = computed(
+    () => new Map(this.pins().map((pin) => [pin.id, pin])),
   );
 
   constructor() {
@@ -163,20 +187,17 @@ export class TourHotspotOverlayComponent {
     const size = viewer.viewerSize;
     if (!camera || !size) return;
 
-    const porId = new Map(this.hotspots().map((h) => [h.id, h]));
+    const porId = this.pinsPorId();
     const elementos = this.host.nativeElement.children;
 
     for (let i = 0; i < elementos.length; i++) {
       const el = elementos[i] as HTMLElement;
-      const hotspot = porId.get(el.dataset['hotspotId'] ?? '');
-      if (!hotspot) continue;
+      const pin = porId.get(el.dataset['hotspotId'] ?? '');
+      if (!pin) continue;
 
-      const ponto = projectToScreen(
-        hotspotToWorld(hotspot.u, hotspot.v),
-        camera,
-        size.width,
-        size.height,
-      );
+      // `pin.world` já está pronto desde que a lista mudou. O que muda a cada
+      // frame é só a câmera, e `projectToScreen` não mexe no vetor que recebe.
+      const ponto = projectToScreen(pin.world, camera, size.width, size.height);
 
       // `display: none` e não `visibility: hidden` (handoff, §Integração item 5):
       // o pin fora de quadro sai também da ordem de tabulação, que é o que

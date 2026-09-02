@@ -556,7 +556,7 @@ describe('PanoramicViewerComponent — superfície da tela de visualização', (
     });
 
     it("com 'none' não desenha sprite nenhum", () => {
-      fixture.componentRef.setInput('hotspots', 'none');
+      fixture.componentRef.setInput('hotspotMode', 'none');
       fixture.detectChanges();
 
       component.reloadHotspots(panoramaCom(2));
@@ -570,7 +570,7 @@ describe('PanoramicViewerComponent — superfície da tela de visualização', (
 
       // Sem o tratamento em ngOnChanges eles só sumiriam na próxima troca de
       // cômodo — e a tela ficaria com pin dobrado até lá, um sprite e um HTML.
-      fixture.componentRef.setInput('hotspots', 'none');
+      fixture.componentRef.setInput('hotspotMode', 'none');
       fixture.detectChanges();
 
       expect(sprites().length).toBe(0);
@@ -596,7 +596,7 @@ describe('PanoramicViewerComponent — superfície da tela de visualização', (
       spyOn(HTMLElement.prototype, 'setPointerCapture').and.stub();
       spyOn(HTMLElement.prototype, 'releasePointerCapture').and.stub();
 
-      fixture.componentRef.setInput('hotspots', 'none');
+      fixture.componentRef.setInput('hotspotMode', 'none');
       fixture.detectChanges();
       await afterInit();
     });

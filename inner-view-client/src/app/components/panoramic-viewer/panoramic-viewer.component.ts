@@ -236,8 +236,14 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    * coisas de CSS, e o `<button>` ainda traz teclado e leitor de tela.
    *
    * Aditivo de propósito: quem não disser nada não vê diferença.
+   *
+   * `hotspotMode` e não `hotspots`: há outros dois inputs com esse nome no app
+   * — nos dois overlays — e ambos recebem a LISTA de pontos. Na página do
+   * visualizador os dois apareciam a setenta linhas de distância, e
+   * `[hotspots]="'none'"` lia como "não há hotspots" quando quer dizer "não
+   * desenhe você".
    */
-  @Input() hotspots: 'sprites' | 'none' = 'sprites';
+  @Input() hotspotMode: 'sprites' | 'none' = 'sprites';
 
   /**
    * Imagem que deve SUBSTITUIR a que está à vista, com uma dissolvência.
@@ -480,7 +486,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // decidir o modo depois de montada, e essa PRIMEIRA mudança é justamente a
     // que precisa limpar. O `initialized` já barra a chamada de criação, quando
     // ainda não há sprite nenhum para limpar.
-    if (changes['hotspots'] && this.initialized) {
+    if (changes['hotspotMode'] && this.initialized) {
       this.clearHotspots();
       const atual = this.panoramas.find((p) => p.id === this.idAtual);
       if (atual) this.addHotspots(atual);
@@ -681,7 +687,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // lá de cima, mantém o `clearHotspots(); addHotspots()` de `loadPanorama`
     // como um par simétrico — e evita que a próxima troca de cômodo traga os
     // sprites de volta por um caminho que ninguém lembrou de cobrir.
-    if (this.hotspots === 'none') return;
+    if (this.hotspotMode === 'none') return;
 
     for (const hotspot of panorama.originHotspots) {
       // De (positionX, positionY) para a posição 3D dentro da esfera invertida.

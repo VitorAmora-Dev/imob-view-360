@@ -191,6 +191,9 @@ export class TourViewerStore {
 
   readonly apagando = signal(false);
 
+  /** O tour cuja visita já foi contada nesta abertura de tela. */
+  private visitaContada: string | null = null;
+
   /**
    * Apaga o tour e volta para a listagem.
    *
@@ -250,7 +253,15 @@ export class TourViewerStore {
       this.currentSceneIndex.set(this.indiceInicial(tour));
 
       // Métrica, não requisito: falhar aqui não pode custar a tela ao corretor.
-      this.virtualTourService.recordView(tourId).subscribe({ error: () => undefined });
+      //
+      // Uma vez por abertura de tela, e não uma por chamada: `recarregar()` cai
+      // aqui de novo, então cada toque em "Tentar de novo" numa rede ruim
+      // somava uma visita. O store morre com a página, então o campo é do
+      // tamanho certo — voltar ao tour depois conta de novo, que é o correto.
+      if (this.visitaContada !== tourId) {
+        this.visitaContada = tourId;
+        this.virtualTourService.recordView(tourId).subscribe({ error: () => undefined });
+      }
     } catch {
       this.loadError.set(true);
     } finally {
@@ -271,8 +282,20 @@ export class TourViewerStore {
    * nenhum estiver marcado, o que acontece em tour antigo.
    */
   private indiceInicial(tour: VirtualTour): number {
-    const indice = tour.panoramas.findIndex((p) => p.initialPanorama);
-    return indice >= 0 ? indice : 0;
+    const marcado = tour.panoramas.findIndex((p) => p.initialPanorama);
+    if (marcado >= 0) return marcado;
+
+    // O MESMO desempate do viewer (`loadInitialPanorama`): o menor `order`, e
+    // não o primeiro do array. Duas regras diferentes para a mesma decisão só
+    // concordavam porque o servidor ordena por `order`; numa resposta fora de
+    // ordem elas escolheriam cenas diferentes, e o efeito da página mandaria
+    // navegar já no primeiro frame — baixando a mesma equirretangular duas
+    // vezes, que é exatamente o que aquele efeito existe para evitar.
+    let menor = 0;
+    for (let i = 1; i < tour.panoramas.length; i++) {
+      if (tour.panoramas[i].order < tour.panoramas[menor].order) menor = i;
+    }
+    return menor;
   }
 
   constructor() {

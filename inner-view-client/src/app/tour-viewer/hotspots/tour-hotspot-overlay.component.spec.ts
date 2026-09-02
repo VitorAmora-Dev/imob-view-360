@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../../components/panoramic-viewer/panoramic-viewer.component';
 import { ViewerHotspot } from '../tour-viewer.model';
@@ -214,6 +215,27 @@ describe('TourHotspotOverlayComponent', () => {
     const perto = parte(pins()[1], '.tv-pin__disco')!.getBoundingClientRect().width;
 
     expect(perto).toBeGreaterThan(longe);
+  });
+
+  it('calcula a posição de mundo do pin UMA vez, e não a cada frame', async () => {
+    // `u` e `v` de um hotspot não mudam, e a esfera não se move — só a câmera.
+    // Recalcular isso no laço custava quatro chamadas de seno/cosseno e um
+    // `Vector3` novo por pin, sessenta vezes por segundo, para chegar sempre no
+    // mesmo número. A identidade do objeto é o que denuncia se alguém devolver a
+    // conta para dentro do laço.
+    host.hotspots.set([hs('a', 0.75, 0.7), hs('b', 0.25, 0.65)]);
+    fixture.detectChanges();
+    await frames();
+
+    const overlay = fixture.debugElement.query(By.directive(TourHotspotOverlayComponent))
+      .componentInstance as TourHotspotOverlayComponent;
+    const antes = overlay.pins().map((pin) => pin.world);
+    await frames();
+
+    expect(overlay.pins().map((pin) => pin.world)).toEqual(antes);
+    // `toEqual` compara valor; `toBe` compara IDENTÍSSIMO, que é o ponto aqui.
+    expect(overlay.pins()[0].world).toBe(antes[0]);
+    expect(overlay.pins()[1].world).toBe(antes[1]);
   });
 
   // ---- legibilidade sobre a foto ------------------------------------------
