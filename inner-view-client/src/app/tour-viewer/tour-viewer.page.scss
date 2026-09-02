@@ -131,3 +131,58 @@
   color: var(--tv-text-muted);
   background: var(--tour-bg);
 }
+
+// ---- faixa de offline -----------------------------------------------------
+//
+// Abaixo do header, e não sobre a foto: é aviso de contexto, não alerta de
+// erro. O tour continua navegável com o que já baixou.
+.tv-slot--offline {
+  margin: 6px 12px 0;
+  padding: 7px 12px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--tv-radius-plate);
+  background: var(--tv-warn-soft);
+  color: var(--tv-warn-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+// ---- erro sobre a foto ----------------------------------------------------
+
+.tv-estado--sobre-a-foto {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  // Cobre a foto do cômodo anterior, que é o que está embaixo.
+  background: var(--tour-bg);
+}
+
+.tv-ghost {
+  min-height: var(--tv-tap);
+  padding: 0 18px;
+  border-radius: var(--tv-radius-primary);
+  border: 1px solid var(--tv-border-control);
+  background: none;
+  color: var(--tv-text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--tv-dur-control) ease-out;
+
+  &:hover {
+    background: var(--tv-fill);
+  }
+}
+
+// O spinner do viewer herda `color`, e é assim que ele sai na cor da marca
+// desta tela sem que o componente compartilhado saiba dela.
+.tv-palco app-panoramic-viewer,
+.tv-estado {
+  color: var(--tv-accent);
+}
+
+.tv-estado p {
+  color: var(--tv-text-muted);
+}

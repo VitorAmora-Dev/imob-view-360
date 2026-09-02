@@ -1,9 +1,18 @@
-import { Component, OnInit, inject, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  OnInit,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Property } from '../models/property.model';
+import { Panorama } from '../models/virtual-tour.model';
 import { TourHotspotOverlayComponent } from './hotspots/tour-hotspot-overlay.component';
 import { TourViewerStore } from './tour-viewer.store';
 
@@ -49,8 +58,56 @@ export class TourViewerPage implements OnInit {
    */
   readonly viewerRef = viewChild(PanoramicViewerComponent);
 
+  /**
+   * Qual cômodo o viewer está mostrando AGORA.
+   *
+   * Não é o mesmo que `store.currentScene()`: entre o toque na miniatura e a
+   * textura pronta existe um intervalo, e é justamente ele que diz se falta
+   * navegar. Mora na página, e não no store, porque é estado do VIEWER — o
+   * store fala do tour, e quem o lê não deveria precisar saber que existe uma
+   * textura carregando.
+   */
+  private readonly panoramaAtual = signal<string | null>(null);
+
+  /** A foto da cena atual falhou. Zera sozinho quando alguma carrega. */
+  readonly cenaComErro = signal(false);
+
+  readonly offline = signal(!navigator.onLine);
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+
+  constructor() {
+    /**
+     * O único lugar que manda o viewer trocar de foto.
+     *
+     * Os quatro caminhos de troca de cena — pill, faixa de miniaturas, card do
+     * sheet e hotspot — escrevem todos em `currentSceneIndex`, e só este efeito
+     * lê dali para o viewer. Quatro chamadas espalhadas de `navigateTo` dariam
+     * quatro jeitos sutilmente diferentes de chegar ao mesmo lugar.
+     *
+     * Só age depois de o viewer anunciar a primeira foto: até lá ele está
+     * carregando a cena inicial por conta própria, e mandar navegar para ela
+     * seria baixar a mesma equirretangular duas vezes.
+     */
+    effect(() => {
+      const cena = this.store.currentScene();
+      const atual = this.panoramaAtual();
+      if (!cena || !atual || atual === cena.id) return;
+
+      this.viewerRef()?.navigateTo(cena.id);
+    });
+
+    // A faixa de aviso segue a rede de verdade, e não um palpite do carregamento:
+    // o tour continua navegável com o que já baixou, e some quando a rede volta.
+    const aoMudarRede = () => this.offline.set(!navigator.onLine);
+    window.addEventListener('online', aoMudarRede);
+    window.addEventListener('offline', aoMudarRede);
+    inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('online', aoMudarRede);
+      window.removeEventListener('offline', aoMudarRede);
+    });
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -66,6 +123,45 @@ export class TourViewerPage implements OnInit {
       | undefined;
 
     void this.store.carregar(id, emMemoria);
+  }
+
+  /** O viewer trocou de foto. É o que fecha o ciclo do efeito acima. */
+  aoTrocarPanorama(panorama: Panorama): void {
+    this.panoramaAtual.set(panorama.id);
+    this.cenaComErro.set(false);
+  }
+
+  aoFalharCena(): void {
+    this.cenaComErro.set(true);
+  }
+
+  /**
+   * O "Tentar de novo" dos dois estados de erro.
+   *
+   * São falhas diferentes e a resposta muda: o tour inteiro não carregou (nem
+   * há cena para pedir) ou a foto de UMA cena não veio. Um botão só porque, do
+   * lado de cá da tela, os dois casos são "não apareceu, tenta de novo".
+   */
+  tentarDeNovo(): void {
+    const cena = this.store.currentScene();
+    this.cenaComErro.set(false);
+
+    if (cena) {
+      this.viewerRef()?.navigateTo(cena.id);
+      return;
+    }
+    void this.store.recarregar();
+  }
+
+  /**
+   * Um toque na foto alterna o modo imersivo.
+   *
+   * O viewer só avisa em toque de verdade: o arrasto que gira a esfera e o
+   * toque que acerta um hotspot não chegam aqui. Sem essa distinção, girar a
+   * foto esconderia a interface a cada gesto.
+   */
+  aoTocarNaFoto(): void {
+    this.store.alternarChrome();
   }
 
   /** O EDITAR da tab bar e do cluster do desktop. Destino real: TV-11. */

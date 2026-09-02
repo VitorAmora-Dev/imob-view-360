@@ -16,15 +16,22 @@
 -->
 <ion-content [fullscreen]="true" class="tv-content">
   @if (store.loading()) {
-    <!-- TV-8 refina: skeleton escuro com spinner accent, chrome JÁ visível. -->
+    <!--
+      O tour inteiro ainda não chegou: não há título nem contagem de cenas para
+      o chrome mostrar, então o skeleton cobre a tela. O carregamento de UMA
+      cena é outro caso — ali o chrome fica no ar e quem gira o spinner é o
+      próprio viewer, sobre a foto anterior.
+    -->
     <div class="tv-estado">
       <ion-spinner name="crescent"></ion-spinner>
       <p>{{ 'TOUR_VIEWER.LOADING' | translate }}</p>
     </div>
   } @else if (store.loadError()) {
-    <!-- TV-8 refina: estado vazio centralizado + botão ghost "Tentar de novo". -->
-    <div class="tv-estado">
+    <div class="tv-estado" role="alert">
       <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
+      <button type="button" class="tv-ghost" (click)="tentarDeNovo()">
+        {{ 'TOUR_VIEWER.RETRY' | translate }}
+      </button>
     </div>
   } @else {
     <div class="tv-palco">
@@ -35,13 +42,18 @@
           faixa de cenas, e duas listas na mesma tela é o que a refatoração
           veio tirar. Continua ligada em `/embed`, que não tem chrome nenhum.
 
-          TV-8 acrescenta aqui o `[hotspots]="'none'"` quando esse @Input
-          existir — os sprites do viewer dão lugar ao overlay da TV-7.
+          `hotspots: 'none'` desliga os sprites do viewer: quem desenha os
+          pontos aqui é o overlay em HTML da TV-7. O padrão do @Input continua
+          sendo 'sprites', então embed, wizard e captura não sentem nada.
         -->
         <app-panoramic-viewer
           class="tv-pano"
           [panoramas]="store.panoramas()"
-          [roomNav]="false">
+          [roomNav]="false"
+          [hotspots]="'none'"
+          (panoramaChange)="aoTrocarPanorama($event)"
+          (loadFailed)="aoFalharCena()"
+          (canvasTapped)="aoTocarNaFoto()">
         </app-panoramic-viewer>
       }
 
@@ -54,6 +66,12 @@
         <div class="tv-slot tv-slot--header">
           <!-- TV-1: voltar + título/contagem + botão "…" (app-tv-header). -->
         </div>
+
+        @if (offline()) {
+          <div class="tv-slot tv-slot--offline" role="status">
+            {{ 'TOUR_VIEWER.OFFLINE' | translate }}
+          </div>
+        }
 
         <div class="tv-slot tv-slot--pill">
           <!-- TV-1 (mobile) e TV-9 (desktop): pill da cena atual. -->
@@ -78,6 +96,20 @@
           </div>
         }
       </div>
+
+      <!--
+        A foto desta cena não veio. Cobre o palco porque o que está embaixo é a
+        foto do cômodo ANTERIOR: deixar aquilo à mostra sem aviso é pior que a
+        tela vazia — quem olha não sabe que está vendo outro lugar.
+      -->
+      @if (cenaComErro()) {
+        <div class="tv-estado tv-estado--sobre-a-foto" role="alert">
+          <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
+          <button type="button" class="tv-ghost" (click)="tentarDeNovo()">
+            {{ 'TOUR_VIEWER.RETRY' | translate }}
+          </button>
+        </div>
+      }
 
       <!-- ---- camada 2: hotspots ---------------------------------------- -->
       <!--
