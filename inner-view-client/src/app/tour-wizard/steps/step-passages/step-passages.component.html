@@ -23,7 +23,7 @@
       {{ 'TOUR_WIZARD.PASSAGES.DONE' | translate: { n: passagens.total() } }}
     </p>
   </div>
-} @else if (passagens.atual(); as passagem) {
+} @else if (passagens.atual()) {
   <div class="sp">
     <div class="sp__pano">
       <app-panoramic-viewer
@@ -54,12 +54,10 @@
     </div>
 
     <app-passagens-sheet
-      [atual]="passagem"
       [pendentes]="passagens.pendentes()"
       [feitas]="passagens.feitas()"
       [total]="passagens.total()"
       [temPonto]="temPonto()"
-      [cor]="corDoAlvo()"
       (confirmar)="passagens.confirmar()"
       (refazer)="passagens.refazer()"
       (voltar)="voltarParaOrdenacao()" />

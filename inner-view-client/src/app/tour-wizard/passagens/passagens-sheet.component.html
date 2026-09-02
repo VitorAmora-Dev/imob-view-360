@@ -1,17 +1,11 @@
 <div class="ps">
-  <p class="ps__progresso">
-    {{
-      'TOUR_WIZARD.PASSAGES.PROGRESS'
-        | translate: { feitas: feitas(), total: total() }
-    }}
-  </p>
-
-  <div class="ps__linha">
-    <span class="ps__thumb" [style.background]="cor()" aria-hidden="true"></span>
-    <span class="ps__nomes">
-      <small>{{ 'TOUR_WIZARD.PASSAGES.CURRENT' | translate }}</small>
-      <strong>{{ nome(atual().destino) }}</strong>
-    </span>
+  <div class="ps__cabecalho">
+    <p class="ps__progresso">
+      {{
+        'TOUR_WIZARD.PASSAGES.PROGRESS'
+          | translate: { feitas: feitas(), total: total() }
+      }}
+    </p>
 
     @if (temPonto()) {
       <button type="button" class="ps__refazer" (click)="refazer.emit()">
