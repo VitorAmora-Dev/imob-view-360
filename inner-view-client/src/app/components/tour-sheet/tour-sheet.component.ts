@@ -3,7 +3,13 @@ import { IonModal } from '@ionic/angular/standalone';
 
 import { emViewportMobile } from './media';
 
-/** Paradas do bottom sheet. O `0` é o que permite arrastar até fechar. */
+/**
+ * Paradas PADRÃO do bottom sheet. O `0` é o que permite arrastar até fechar.
+ *
+ * Exportadas, e não embutidas na declaração do input, porque um consumidor que
+ * queira só ACRESCENTAR uma parada precisa saber quais são as de fábrica sem
+ * copiar números soltos para o próprio arquivo.
+ */
 export const TOUR_SHEET_BREAKPOINTS = [0, 0.55];
 export const TOUR_SHEET_INICIAL = 0.55;
 
@@ -52,6 +58,27 @@ export class TourSheetComponent {
    */
   readonly travado = input(false);
 
+  /**
+   * As paradas do sheet, configuráveis PELO CONSUMIDOR.
+   *
+   * POR QUE não é constante do shell: a altura útil é propriedade do conteúdo,
+   * e só quem monta o conteúdo a conhece. O Cenas trava a grade em 340px, então
+   * uma parada alta mostraria sheet vazio abaixo do conteúdo — daí o default
+   * `[0, 0.55]`, com uma parada útil só. Mas o TV-6 é uma lista que cresce sem
+   * teto e precisa de outra altura, como o `HotspotSheet` (`[0, 0.5, 0.9]`) já
+   * precisa hoje. Se o valor ficasse fixo aqui, TV-6 abriria este arquivo para
+   * mudá-lo — exatamente o que a spec diz que TV-4/5/6 não devem precisar
+   * fazer ("arquivos novos que não editam nem o shell nem o store").
+   *
+   * O `0` da primeira posição é o que permite arrastar para baixo até fechar;
+   * quem sobrescrever precisa mantê-lo, senão o arrasto deixa de ser gesto de
+   * fechamento.
+   */
+  readonly breakpoints = input<number[]>(TOUR_SHEET_BREAKPOINTS);
+
+  /** A parada em que o sheet abre. Configurável pelo mesmo motivo acima. */
+  readonly initialBreakpoint = input<number>(TOUR_SHEET_INICIAL);
+
   readonly fechado = output<void>();
 
   private readonly mobile = emViewportMobile();
@@ -68,11 +95,11 @@ export class TourSheetComponent {
    * sozinho — que é o certo, não há o que arrastar num diálogo centralizado.
    */
   readonly breakpointsAtivos = computed(() =>
-    this.centrado() ? undefined : TOUR_SHEET_BREAKPOINTS,
+    this.centrado() ? undefined : this.breakpoints(),
   );
 
   readonly initialBreakpointAtivo = computed(() =>
-    this.centrado() ? undefined : TOUR_SHEET_INICIAL,
+    this.centrado() ? undefined : this.initialBreakpoint(),
   );
 
   constructor() {

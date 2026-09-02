@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideIonicAngular } from '@ionic/angular/standalone';
 
+import { TOUR_MOBILE_QUERY } from './media';
 import { TourSheetComponent } from './tour-sheet.component';
 
 /**
@@ -19,7 +20,7 @@ import { TourSheetComponent } from './tour-sheet.component';
   template: `
     <app-tour-sheet
       [isOpen]="aberto()"
-      [titulo]="'Cenas do tour'"
+      [titulo]="titulo()"
       [subtitulo]="sub()"
       [variante]="variante()"
       [travado]="travado()"
@@ -31,16 +32,45 @@ import { TourSheetComponent } from './tour-sheet.component';
 })
 class HospedeiroDeTesteComponent {
   readonly aberto = signal(true);
+  readonly titulo = signal('Cenas do tour');
   readonly sub = signal<string | null>('3 cenas');
   readonly variante = signal<'sheet' | 'adaptavel'>('sheet');
   readonly travado = signal(false);
   fechou = 0;
 }
 
+/**
+ * Segundo hóspede, só para o caso das paradas sobrescritas.
+ *
+ * Separado do principal DE PROPÓSITO: se o hóspede principal passasse
+ * `[breakpoints]`, nenhum outro teste exercitaria mais o DEFAULT do shell --
+ * que é justamente o valor que o Cenas consome sem dizer nada.
+ */
+@Component({
+  standalone: true,
+  imports: [TourSheetComponent],
+  template: `
+    <app-tour-sheet
+      [isOpen]="true"
+      [titulo]="'Gerenciar cenas'"
+      [breakpoints]="[0, 0.9]"
+      [initialBreakpoint]="0.9">
+      <p>lista</p>
+    </app-tour-sheet>
+  `,
+})
+class HospedeiroQueSobrescreveComponent {}
+
 describe('TourSheetComponent', () => {
   let fixture: ComponentFixture<HospedeiroDeTesteComponent>;
   let host: HospedeiroDeTesteComponent;
   let alvoModal: HTMLElement;
+
+  /** Tudo o que foi criado no teste, para o `afterEach` derrubar. */
+  const criados: ComponentFixture<unknown>[] = [];
+
+  /** O que o dublê de `matchMedia` responde para a consulta do visualizador. */
+  let mobile = true;
 
   /**
    * Dublê de `MediaQueryList`. A viewport do Karma é a que for, e o teste
@@ -55,9 +85,10 @@ describe('TourSheetComponent', () => {
     } as unknown as MediaQueryList;
   }
 
-  function montar(mobile = true): void {
-    spyOn(window, 'matchMedia').and.returnValue(mediaFalsa(mobile));
+  function montar(ehMobile = true): void {
+    mobile = ehMobile;
     fixture = TestBed.createComponent(HospedeiroDeTesteComponent);
+    criados.push(fixture);
     host = fixture.componentInstance;
     fixture.detectChanges();
     // O no' e' guardado AGORA, e nao consultado a cada uso: ao apresentar, o
@@ -84,8 +115,20 @@ describe('TourSheetComponent', () => {
   }
 
   beforeEach(async () => {
+    mobile = true;
+    // So a consulta do VISUALIZADOR e' dublada, e o resto passa para o
+    // `matchMedia` real. Devolver o duble para toda consulta o entregaria
+    // tambem ao Ionic, que pergunta por plataforma e por
+    // `prefers-reduced-motion` -- e ele passaria a acreditar em coisas que
+    // nenhum teste daqui disse. Mesmo cuidado ja documentado em
+    // `hotspot-sheet.component.spec.ts`.
+    const real = window.matchMedia.bind(window);
+    spyOn(window, 'matchMedia').and.callFake((consulta: string) =>
+      consulta === TOUR_MOBILE_QUERY ? mediaFalsa(mobile) : real(consulta),
+    );
+
     await TestBed.configureTestingModule({
-      imports: [HospedeiroDeTesteComponent],
+      imports: [HospedeiroDeTesteComponent, HospedeiroQueSobrescreveComponent],
       providers: [provideIonicAngular()],
     }).compileComponents();
   });
@@ -98,7 +141,7 @@ describe('TourSheetComponent', () => {
    * documenta no seu proprio `afterEach`.
    */
   afterEach(() => {
-    fixture?.destroy();
+    while (criados.length) criados.pop()!.destroy();
     document.querySelectorAll('ion-modal').forEach((m) => m.remove());
     (document.activeElement as HTMLElement | null)?.blur();
   });
@@ -135,22 +178,70 @@ describe('TourSheetComponent', () => {
     expect(modal().querySelector('.tour-sheet__sub')).toBeNull();
   });
 
-  // Os tres gestos de fechar -- scrim, arrasto e Esc -- desembocam todos no
-  // mesmo didDismiss do Ionic. Provar que ele emite (fechado) prova os tres;
-  // simular o gesto em si seria testar o Ionic.
-  it('o fechamento do modal vira (fechado)', () => {
+  /**
+   * O nome acessivel do dialogo, e o unico guarda que ele tem.
+   *
+   * O no' do dialogo vive no shadow DOM do Ionic e o `<h2>` vive na luz, entao
+   * `aria-labelledby` nao alcanca: IDREF nao atravessa fronteira de shadow.
+   * Sobra escrever `aria-label` literal no `.modal-wrapper`. Se o Ionic
+   * renomear essa classe, `nomearDialogo` passa a escrever em coisa nenhuma,
+   * NADA quebra visualmente e o leitor de tela volta a anunciar so "dialogo".
+   * A spec registra este teste como o que denuncia isso.
+   */
+  it('nomeia o dialogo dentro do shadow DOM, e o nome acompanha o titulo', async () => {
+    montar();
+    await apresentado();
+
+    const wrapper = modal().shadowRoot?.querySelector('.modal-wrapper') ?? null;
+    expect(wrapper)
+      .withContext('`.modal-wrapper` sumiu do shadow DOM do ion-modal')
+      .not.toBeNull();
+    expect(wrapper?.getAttribute('aria-label')).toBe('Cenas do tour');
+
+    // Trocar o titulo com o sheet JA aberto: quem mantem o nome em dia daqui
+    // para a frente e' o `effect` do construtor, porque `nomearDialogo` so
+    // roda uma vez, no `didPresent`.
+    host.titulo.set('Cenas do tour (revisado)');
+    fixture.detectChanges();
+
+    expect(wrapper?.getAttribute('aria-label')).toBe('Cenas do tour (revisado)');
+  });
+
+  // Os gestos de fechar tem um teste CADA, e nao um so' com um comentario
+  // dizendo que desembocam no mesmo `didDismiss`: a spec os enumera separados,
+  // e comentario nao e' asserticao.
+  //
+  // O evento do DOM chama-se `didDismiss`, e nao `ionModalDidDismiss`: o
+  // `proxyOutputs` do `IonModal` liga cada `@Output` ao evento de MESMO nome, e
+  // `didDismiss` e' o atalho que o `ion-modal` emite ao lado do longo.
+  // Disparar o longo aqui nao acordaria a ligacao do template.
+  it('o fechamento pelo scrim vira (fechado)', () => {
     montar();
     expect(host.fechou).toBe(0);
 
-    // O evento do DOM chama-se `didDismiss`, e nao `ionModalDidDismiss`: o
-    // `proxyOutputs` do `IonModal` liga cada `@Output` ao evento de MESMO
-    // nome, e `didDismiss` e' o atalho que o `ion-modal` emite ao lado do
-    // longo. Disparar o longo aqui nao acordaria a ligacao do template.
     modal().dispatchEvent(new CustomEvent('didDismiss', { detail: { role: 'backdrop' } }));
     fixture.detectChanges();
 
     expect(host.fechou).toBe(1);
   });
+
+  it('o fechamento por arrasto vira (fechado)', () => {
+    montar();
+    expect(host.fechou).toBe(0);
+
+    // `gesture` e' o papel que o Ionic manda quando o sheet foi arrastado ate'
+    // a parada `0`.
+    modal().dispatchEvent(new CustomEvent('didDismiss', { detail: { role: 'gesture' } }));
+    fixture.detectChanges();
+
+    expect(host.fechou).toBe(1);
+  });
+
+  // O terceiro gesto, o Esc, NAO e' testado aqui de proposito. Quem escuta a
+  // tecla e' o proprio `IonModal`, por listener interno; o teste so' poderia
+  // chamar `dismiss()` na mao, e aí estaria testando o Ionic em vez da
+  // ligacao. O Esc e' verificado no navegador, com o viewer rodando (Task 7
+  // do plano), junto da devolucao do foco ao gatilho.
 
   it('travado recusa o fechamento, e destravado permite', () => {
     montar();
@@ -185,6 +276,26 @@ describe('TourSheetComponent', () => {
     expect(alvo.breakpoints?.[0]).toBe(0);
   });
 
+  // As paradas sao INPUT, e nao constante do modulo, porque a altura util e'
+  // propriedade do conteudo: o Cenas trava a grade em 340px e uma parada alta
+  // mostraria sheet vazio, mas o TV-6 e' uma lista que cresce sem teto. Se o
+  // valor fosse fixo aqui, TV-6 so' teria como pedir 0.9 editando o shell --
+  // que e' exatamente o que a spec diz que TV-4/5/6 nao devem precisar fazer.
+  it('o consumidor pode sobrescrever as paradas', () => {
+    mobile = true;
+    const f = TestBed.createComponent(HospedeiroQueSobrescreveComponent);
+    criados.push(f);
+    f.detectChanges();
+
+    const alvo = f.nativeElement.querySelector('ion-modal') as HTMLElement & {
+      breakpoints?: number[];
+      initialBreakpoint?: number;
+    };
+
+    expect(alvo.breakpoints).toEqual([0, 0.9]);
+    expect(alvo.initialBreakpoint).toBe(0.9);
+  });
+
   it('variante adaptavel: bottom sheet no mobile', () => {
     montar(true);
     host.variante.set('adaptavel');
@@ -196,8 +307,9 @@ describe('TourSheetComponent', () => {
 
   // TV-5 pede dialogo centralizado de 480px no desktop com o mesmo conteudo.
   // Quem decide a forma e' a PRESENCA de breakpoints: com eles o Ionic desenha
-  // sheet, sem eles desenha modal centrado.
-  it('variante adaptavel: modal centrado no desktop, sem breakpoints', () => {
+  // sheet, sem eles desenha modal centrado. A largura vem do SCSS, pela
+  // custom property `--width` que o proprio `ion-modal` consome.
+  it('variante adaptavel: modal centrado de 480px no desktop, sem breakpoints', () => {
     montar(false);
     host.variante.set('adaptavel');
     fixture.detectChanges();
@@ -205,5 +317,6 @@ describe('TourSheetComponent', () => {
 
     expect(alvo.breakpoints).toBeUndefined();
     expect(alvo.classList).toContain('tour-sheet--centrado');
+    expect(getComputedStyle(alvo).getPropertyValue('--width').trim()).toBe('480px');
   });
 });
