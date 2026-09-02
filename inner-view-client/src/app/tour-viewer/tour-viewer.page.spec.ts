@@ -30,10 +30,13 @@ function panorama(id: string, order: number): Panorama {
       'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
     order,
     initialPanorama: order === 0,
-    originHotspots:
+    // Cada cômodo com UM ponto, e com rótulos diferentes: é o rótulo que denuncia
+    // de qual cena são os pins desenhados.
+    originHotspots: [
       order === 0
-        ? [{ id: 'h1', positionX: 0.75, positionY: 0.6, targetId: 'b', label: 'Quarto' }]
-        : [],
+        ? { id: 'h-a', positionX: 0.75, positionY: 0.6, targetId: 'b', label: 'Quarto' }
+        : { id: 'h-b', positionX: 0.25, positionY: 0.6, targetId: 'a', label: 'Sala' },
+    ],
     measurements: [],
   };
 }
@@ -80,6 +83,12 @@ describe('TourViewerPage — camadas da tela', () => {
     page.store.tour.set(TOUR);
     page.store.loading.set(false);
     fixture.detectChanges();
+
+    // A primeira textura chegou. Faz parte da linha de base porque a camada de
+    // hotspots segue a FOTO na tela, e nao a cena pedida: antes deste anuncio
+    // nao existe foto, e portanto nao existe nada para desenhar em cima dela.
+    page.aoTrocarPanorama(TOUR.panoramas[0]);
+    fixture.detectChanges();
   });
 
   afterEach(() => fixture.destroy());
@@ -117,6 +126,84 @@ describe('TourViewerPage — camadas da tela', () => {
     const posicao = chrome.compareDocumentPosition(overlay());
 
     expect(posicao & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // ---- a intenção contra a realidade --------------------------------------
+  //
+  // A tela tem duas noções de "cena atual". `store.currentScene()` é a
+  // INTENÇÃO: vira no instante do toque. `cenaNaTela()` é a REALIDADE: vira
+  // quando a textura chega, segundos depois num 4G. Tudo o que é desenhado em
+  // cima da foto tem de ler da segunda, e os três casos abaixo são os lugares
+  // onde ler da primeira dava defeito de verdade, visto no navegador.
+
+  function rotulosDosPins(): string[] {
+    return Array.from(
+      fixture.nativeElement.querySelectorAll('.tv-pin__placa') as NodeListOf<HTMLElement>,
+    ).map((placa) => placa.textContent!.trim());
+  }
+
+  function avisoDeErro(): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.tv-estado--sobre-a-foto');
+  }
+
+  it('não desenha pin nenhum antes de existir foto na tela', () => {
+    // O palco ainda vazio: `currentSceneIndex` já aponta para a cena inicial e
+    // `loading` já caiu, mas a primeira equirretangular não chegou. Ligado ao
+    // store, o overlay pintava os pins da cena inicial sobre o nada.
+    const zerado = TestBed.createComponent(TourViewerPage);
+    zerado.detectChanges();
+    zerado.componentInstance.store.tour.set(TOUR);
+    zerado.componentInstance.store.loading.set(false);
+    zerado.detectChanges();
+
+    expect(zerado.nativeElement.querySelector('app-tv-hotspot-overlay')).toBeNull();
+    zerado.destroy();
+  });
+
+  it('desenha os pins da cena que está NA TELA, e não da que acabou de ser pedida', () => {
+    expect(rotulosDosPins()).toEqual(['Quarto']);
+
+    // O toque. A textura da cena 'b' comeca a baixar e vai demorar.
+    page.store.irParaCena(1);
+    fixture.detectChanges();
+
+    // A foto na tela ainda é a de 'a'. Os pins de 'b' aqui seriam posições de
+    // OUTRA equirretangular projetadas nesta — boiando sobre nada, e clicáveis.
+    expect(rotulosDosPins()).toEqual(['Quarto']);
+
+    page.aoTrocarPanorama(TOUR.panoramas[1]);
+    fixture.detectChanges();
+    expect(rotulosDosPins()).toEqual(['Sala']);
+  });
+
+  it('a falha atrasada de uma cena abandonada não cobre a cena que está boa', () => {
+    page.store.irParaCena(1);
+    fixture.detectChanges();
+    page.aoTrocarPanorama(TOUR.panoramas[1]);
+    fixture.detectChanges();
+
+    // A carga de 'a', que o corretor já abandonou, falha agora.
+    page.aoFalharCena(TOUR.panoramas[0]);
+    fixture.detectChanges();
+
+    expect(avisoDeErro()).toBeNull();
+  });
+
+  it('o aviso de erro sai ao voltar para uma cena que está carregada', () => {
+    page.store.irParaCena(1);
+    fixture.detectChanges();
+    page.aoFalharCena(TOUR.panoramas[1]);
+    fixture.detectChanges();
+    expect(avisoDeErro()).not.toBeNull();
+
+    // De volta para 'a', que nunca saiu da tela. Repare que o efeito de
+    // navegação NÃO roda aqui — a cena pedida volta a ser a que já está na
+    // tela —, então não há `panoramaChange` para derrubar o aviso. Era
+    // exatamente por isso que o booleano ficava preso.
+    page.store.irParaCena(0);
+    fixture.detectChanges();
+
+    expect(avisoDeErro()).toBeNull();
   });
 
   it('sem chrome, sem camada de hotspots', () => {

@@ -2,6 +2,7 @@ import {
   Component,
   DestroyRef,
   OnInit,
+  computed,
   effect,
   inject,
   signal,
@@ -14,6 +15,7 @@ import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoram
 import { Property } from '../models/property.model';
 import { Panorama } from '../models/virtual-tour.model';
 import { TourHotspotOverlayComponent } from './hotspots/tour-hotspot-overlay.component';
+import { TourViewerScene } from './tour-viewer.model';
 import { TourViewerStore } from './tour-viewer.store';
 
 /**
@@ -69,8 +71,43 @@ export class TourViewerPage implements OnInit {
    */
   private readonly panoramaAtual = signal<string | null>(null);
 
-  /** A foto da cena atual falhou. Zera sozinho quando alguma carrega. */
-  readonly cenaComErro = signal(false);
+  /**
+   * A cena cuja FOTO está na tela — a REALIDADE, contra a intenção que
+   * `store.currentScene()` guarda.
+   *
+   * Tudo o que é desenhado EM CIMA da foto tem de ler daqui, e não do store.
+   * Os hotspots são o caso que dói: eles são posições dentro de uma
+   * equirretangular específica, e `currentScene()` vira no instante do toque
+   * enquanto a textura ainda leva segundos para chegar. Ligados ao store, os
+   * pins do DESTINO ficavam boiando sobre a foto da ORIGEM, em lugares que não
+   * correspondiam a nada visível — e clicáveis, levando a um terceiro cômodo a
+   * partir de um pin que nunca esteve ali.
+   *
+   * `null` até a primeira textura chegar: antes disso não há foto, e portanto
+   * não há nada para desenhar em cima.
+   */
+  readonly cenaNaTela = computed<TourViewerScene | null>(() => {
+    const id = this.panoramaAtual();
+    if (!id) return null;
+    return this.store.scenes().find((cena) => cena.id === id) ?? null;
+  });
+
+  /**
+   * QUAL cena não carregou, e não apenas "alguma não carregou".
+   *
+   * Guardar o id em vez de um booleano é o que faz o aviso pertencer a uma
+   * cena. Com booleano, duas coisas davam errado: uma falha que chegasse
+   * atrasada — de um pedido que o corretor já tinha abandonado — levantava o
+   * erro em tela cheia por cima de um cômodo perfeitamente carregado; e o erro
+   * de uma cena continuava de pé depois de voltar para outra que estava boa,
+   * sem nada para derrubá-lo além do próprio botão de tentar de novo.
+   */
+  private readonly cenaComErro = signal<string | null>(null);
+
+  /** O aviso de falha só aparece para a cena que a pessoa está pedindo. */
+  readonly mostrarErroDaCena = computed(
+    () => this.cenaComErro() !== null && this.cenaComErro() === this.store.currentScene()?.id,
+  );
 
   readonly offline = signal(!navigator.onLine);
 
@@ -79,12 +116,15 @@ export class TourViewerPage implements OnInit {
 
   constructor() {
     /**
-     * O único lugar que manda o viewer trocar de foto.
+     * O único lugar que reage a uma MUDANÇA de cena pedida.
      *
      * Os quatro caminhos de troca de cena — pill, faixa de miniaturas, card do
      * sheet e hotspot — escrevem todos em `currentSceneIndex`, e só este efeito
      * lê dali para o viewer. Quatro chamadas espalhadas de `navigateTo` dariam
      * quatro jeitos sutilmente diferentes de chegar ao mesmo lugar.
+     *
+     * `tentarDeNovo()` chama `navigateTo` por fora, e é a única exceção: lá a
+     * cena pedida NÃO mudou, então não há sinal novo a que reagir.
      *
      * Só age depois de o viewer anunciar a primeira foto: até lá ele está
      * carregando a cena inicial por conta própria, e mandar navegar para ela
@@ -95,6 +135,10 @@ export class TourViewerPage implements OnInit {
       const atual = this.panoramaAtual();
       if (!cena || !atual || atual === cena.id) return;
 
+      // Uma tentativa NOVA torna sem efeito a falha anterior. Sem esta linha, a
+      // cena que já falhou uma vez reabria com o aviso de erro em pé enquanto a
+      // segunda tentativa ainda estava baixando.
+      this.cenaComErro.set(null);
       this.viewerRef()?.navigateTo(cena.id);
     });
 
@@ -128,11 +172,20 @@ export class TourViewerPage implements OnInit {
   /** O viewer trocou de foto. É o que fecha o ciclo do efeito acima. */
   aoTrocarPanorama(panorama: Panorama): void {
     this.panoramaAtual.set(panorama.id);
-    this.cenaComErro.set(false);
+    this.cenaComErro.set(null);
   }
 
-  aoFalharCena(): void {
-    this.cenaComErro.set(true);
+  /**
+   * A foto de UMA cena não veio — e o parâmetro diz de qual.
+   *
+   * O `@Output` sempre carregou o panorama; era este ouvinte que jogava fora o
+   * argumento e ligava um booleano. O caso que isso quebrava: dois toques
+   * rápidos deixam duas cargas em voo, a segunda chega bem, e a falha atrasada
+   * da PRIMEIRA cobria com "não carregou" um cômodo que estava na tela,
+   * correto, e do qual não havia como sair a não ser recarregando.
+   */
+  aoFalharCena(panorama: Panorama): void {
+    this.cenaComErro.set(panorama.id);
   }
 
   /**
@@ -141,10 +194,15 @@ export class TourViewerPage implements OnInit {
    * São falhas diferentes e a resposta muda: o tour inteiro não carregou (nem
    * há cena para pedir) ou a foto de UMA cena não veio. Um botão só porque, do
    * lado de cá da tela, os dois casos são "não apareceu, tenta de novo".
+   *
+   * É a ÚNICA exceção ao efeito lá de cima ser o único a mandar o viewer
+   * navegar, e a exceção é necessária: aqui a cena pedida não mudou, então não
+   * há sinal novo para o efeito reagir. Repetir o mesmo pedido não é mudar de
+   * intenção — é insistir na mesma.
    */
   tentarDeNovo(): void {
     const cena = this.store.currentScene();
-    this.cenaComErro.set(false);
+    this.cenaComErro.set(null);
 
     if (cena) {
       this.viewerRef()?.navigateTo(cena.id);

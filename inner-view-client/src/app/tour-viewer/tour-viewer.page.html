@@ -52,7 +52,7 @@
           [roomNav]="false"
           [hotspots]="'none'"
           (panoramaChange)="aoTrocarPanorama($event)"
-          (loadFailed)="aoFalharCena()"
+          (loadFailed)="aoFalharCena($event)"
           (canvasTapped)="aoTocarNaFoto()">
         </app-panoramic-viewer>
       }
@@ -102,7 +102,7 @@
         foto do cômodo ANTERIOR: deixar aquilo à mostra sem aviso é pior que a
         tela vazia — quem olha não sabe que está vendo outro lugar.
       -->
-      @if (cenaComErro()) {
+      @if (mostrarErroDaCena()) {
         <div class="tv-estado tv-estado--sobre-a-foto" role="alert">
           <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
           <button type="button" class="tv-ghost" (click)="tentarDeNovo()">
@@ -120,7 +120,14 @@
         andando pela foto.
       -->
       @if (store.hotspotsVisiveis()) {
-        @if (store.currentScene(); as cena) {
+        <!--
+          `cenaNaTela()` e NÃO `store.currentScene()`: os pins pertencem a UMA
+          equirretangular, e o store vira no instante do toque enquanto a
+          textura ainda leva segundos para chegar. Ligados ao store, os pins do
+          DESTINO boiavam sobre a foto da ORIGEM — e clicáveis. O porquê
+          inteiro está no docstring de `cenaNaTela`.
+        -->
+        @if (cenaNaTela(); as cena) {
           <app-tv-hotspot-overlay
             class="tv-slot--hotspots"
             [viewer]="viewerRef() ?? null"
