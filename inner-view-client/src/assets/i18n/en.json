@@ -268,7 +268,8 @@
       "LEAVE_EDIT_TITLE": "Leave the editor?",
       "LEAVE_EDIT_MESSAGE": "What you changed on this screen has not been saved yet. The tour stays online exactly as it was.",
       "LEAVE_EDIT_SAVE": "Save and leave",
-      "LEAVE_EDIT_DISCARD": "Leave without saving"
+      "LEAVE_EDIT_DISCARD": "Leave without saving",
+      "LOADING": "Opening the tour…"
     },
     "STEP1": {
       "TITLE": "Start with the 360° images",
@@ -342,9 +343,12 @@
       "REDO": "Redo",
       "CONFIRM": "Confirm passage",
       "BACK": "Back to rooms",
-      "DONE": "All {{n}} passages are placed. Tap a point to walk the tour the way visitors will see it.",
+      "DONE": "All {{n}} passages are placed",
       "EMPTY": "No connections chosen. Go back to the rooms and connect them.",
-      "NEEDS_LINKS": "Place the remaining passages before moving on"
+      "NEEDS_LINKS": "Place the remaining passages before moving on",
+      "DONE_HINT": "Tap a point to walk the tour the way a visitor will.",
+      "LOADING": "Loading the room photo…",
+      "SCENES": "Scenes"
     },
     "STEP2": {
       "PICK_TARGET": "Take the visitor to which room?",

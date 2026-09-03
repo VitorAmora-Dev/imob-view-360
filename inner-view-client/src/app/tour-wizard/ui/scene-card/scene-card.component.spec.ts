@@ -146,7 +146,10 @@ describe('SceneCardComponent — capa e numeração', () => {
     it('desenha a miniatura assim que ela chega', async () => {
       const retomada = scene('retomada', { imageData: '', serverPanoramaId: 'p1' });
       spyOn(store, 'garantirMiniatura').and.callFake(async (id: string) => {
-        store.miniaturas.update((m) => ({ ...m, [id]: 'blob:mini' }));
+        store.miniaturas.update((m) => ({
+          ...m,
+          [TourDraftStore.chaveDaMiniatura(id)]: 'blob:mini',
+        }));
         return 'blob:mini';
       });
 

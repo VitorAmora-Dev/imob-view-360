@@ -659,6 +659,96 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
  * mostra so um paragrafo, e ai esconder a barra prende o corretor numa tela
  * quase branca, sem avancar nem voltar. Aconteceu no celular, em producao.
  */
+/**
+ * A espera de abrir um tour que já existe.
+ *
+ * Sem ela, o wizard montava a etapa 1 com o rascunho VAZIO enquanto a resposta
+ * do servidor não chegava. Quem vem do EDITAR do visualizador acabou de ver o
+ * tour cheio, então uma tela sem ambiente nenhum lê como "sumiu", e não como
+ * "está vindo" — medido em 1,2s só para a requisição sair.
+ */
+describe('TourWizardPage — a espera de abrir o tour', () => {
+  function montar() {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideIonicAngular(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+        provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { paramMap: convertToParamMap({}), queryParamMap: convertToParamMap({}) },
+          },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(TourWizardPage);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a coruja cobre o corpo enquanto o tour desce', () => {
+    const fixture = montar();
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('app-owl-loader')).toBeNull();
+
+    fixture.componentInstance.store.carregando.set(true);
+    fixture.detectChanges();
+
+    expect(host.querySelector('app-owl-loader')).not.toBeNull();
+    expect(host.querySelector('app-tour-step-images')).toBeNull();
+    fixture.destroy();
+  });
+
+  /**
+   * O stepper e o voltar FICAM: eles são a moldura do fluxo, e sumir com tudo
+   * faria a tela piscar de branco entre duas telas cheias.
+   */
+  it('a moldura do wizard continua à vista', () => {
+    const fixture = montar();
+    fixture.componentInstance.store.carregando.set(true);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('app-wizard-stepper')).not.toBeNull();
+    expect(host.querySelector('.tw-shell__wizard-back')).not.toBeNull();
+    fixture.destroy();
+  });
+
+  /**
+   * A barra de ação sai junto. Com ela no ar, "Próximo" avançaria uma etapa
+   * sobre um rascunho que ainda não existe.
+   */
+  it('a barra de ação não fica em cima da espera', () => {
+    const fixture = montar();
+    const componente = fixture.componentInstance;
+    componente.store.scenes.set([
+      {
+        id: 'sala',
+        room: 'Sala',
+        fileName: 'sala.jpg',
+        fileSize: 1,
+        imageData: 'data:image/jpeg;base64,x',
+        order: 0,
+        hotspots: [],
+        state: 'ready',
+        connections: [],
+      } as WizardScene,
+    ]);
+    componente.store.carregando.set(true);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-wizard-actions'))
+      .toBeNull();
+    fixture.destroy();
+  });
+});
+
 describe('TourWizardPage — modo imersivo da etapa de passagens', () => {
   function montar(): TourWizardPage {
     TestBed.configureTestingModule({

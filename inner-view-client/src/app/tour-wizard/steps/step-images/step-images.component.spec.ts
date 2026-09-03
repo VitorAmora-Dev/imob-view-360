@@ -3,7 +3,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ModalController } from '@ionic/angular/standalone';
 import { TranslateService, provideTranslateService } from '@ngx-translate/core';
-import { TourDraftStore } from '../../tour-draft.store';
+import { LARGURA_DA_MINIATURA, LARGURA_DO_CARD, TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
 import { DialogoDoWizard } from '../../ui/wizard-dialog/dialogo-do-wizard.service';
 import { StepImagesComponent } from './step-images.component';
@@ -139,7 +139,17 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(fixture.nativeElement.querySelector('.tw-deck__item.is-arriving')).toBeNull();
   });
 
-  it('carrega a miniatura do card ativo ao retomar um rascunho', () => {
+  /**
+   * A LARGURA faz parte do pedido, e é o conserto do "abre em baixa qualidade
+   * e depois melhora".
+   *
+   * O card deste baralho tem ~377×390 e recorta a equirretangular com `cover`:
+   * uma imagem 2:1 numa caixa quase quadrada é escalada pela ALTURA, então a
+   * fonte precisa do dobro da altura em largura. Com o tamanho de selo (320) o
+   * navegador ampliava a miniatura ~2,4×, e o card só ficava nítido quando
+   * outra tela baixava a foto cheia daquele cômodo.
+   */
+  it('pede a miniatura do card no tamanho do CARD, e não no de selo', () => {
     const garantirMiniatura = spyOn(store, 'garantirMiniatura').and.resolveTo();
 
     store.scenes.set([
@@ -147,7 +157,8 @@ describe('StepImagesComponent — escolha e galeria', () => {
     ]);
     render();
 
-    expect(garantirMiniatura).toHaveBeenCalledOnceWith('retomada');
+    expect(garantirMiniatura).toHaveBeenCalledOnceWith('retomada', LARGURA_DO_CARD);
+    expect(LARGURA_DO_CARD).toBeGreaterThan(LARGURA_DA_MINIATURA);
   });
 
   it('sincroniza a etapa seguinte quando o card escolhido termina a leitura', () => {

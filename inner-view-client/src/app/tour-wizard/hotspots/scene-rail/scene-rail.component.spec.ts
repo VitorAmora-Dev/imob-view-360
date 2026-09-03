@@ -191,7 +191,10 @@ describe('SceneRailComponent', () => {
     it('desenha a miniatura assim que ela chega', async () => {
       draft.scenes.set([retomada('a')]);
       spyOn(draft, 'garantirMiniatura').and.callFake(async (id: string) => {
-        draft.miniaturas.update((m) => ({ ...m, [id]: 'blob:mini' }));
+        draft.miniaturas.update((m) => ({
+          ...m,
+          [TourDraftStore.chaveDaMiniatura(id)]: 'blob:mini',
+        }));
         return 'blob:mini';
       });
 

@@ -76,6 +76,31 @@
   }
 }
 
+// A espera de abrir um tour existente.
+//
+// `min-height` e não `height: 100%`: o corpo do wizard é `flex: 1` dentro de
+// uma coluna, e a altura percentual de um filho de flex-item sem base definida
+// colapsa para o conteúdo — a coruja ficava colada no topo. Com um mínimo em
+// `dvh` a caixa ocupa o que sobra da tela em qualquer aparelho, e o `dvh`
+// acompanha a barra de endereço do celular ao recolher.
+.tw-espera {
+  min-height: 52dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.tw-espera__texto {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tw-text-muted);
+  text-align: center;
+  text-wrap: pretty;
+}
+
 // Cabeçalho de etapa: as três etapas repetem a mesma dupla h2 + parágrafo, e o
 // `::ng-deep` evita reimplementá-la em cada uma. É deliberado, e o alcance está
 // limitado pelo `:host`.

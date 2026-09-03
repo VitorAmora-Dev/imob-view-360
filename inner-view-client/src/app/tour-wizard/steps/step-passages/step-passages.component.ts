@@ -3,20 +3,28 @@ import {
   computed,
   effect,
   inject,
+  signal,
   untracked,
   viewChild,
 } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
+import { OwlLoaderComponent } from '../../../components/owl-loader/owl-loader.component';
 import { PanoramicViewerComponent } from '../../../components/panoramic-viewer/panoramic-viewer.component';
-import { Panorama } from '../../../models/virtual-tour.model';
+import { Panorama, VirtualTour } from '../../../models/virtual-tour.model';
+import { TourHotspotOverlayComponent } from '../../../tour-viewer/hotspots/tour-hotspot-overlay.component';
+import { TourViewerScene, cenasDoTour } from '../../../tour-viewer/tour-viewer.model';
 import { HotspotEditorStore } from '../../hotspot-editor.store';
 import { GuidedBannerComponent } from '../../hotspots/guided/guided-banner.component';
 import { HotspotOverlayComponent } from '../../hotspots/hotspot-overlay/hotspot-overlay.component';
 import { corDoAmbiente } from '../../passagens/cores';
 import { nomeDoAmbiente } from '../../passagens/fila';
+import {
+  CenaDaFaixa,
+  PassagesSceneStripComponent,
+} from '../../passagens/passages-scene-strip.component';
 import { PassagensSheetComponent } from '../../passagens/passagens-sheet.component';
 import { PassagensStore } from '../../passagens/passagens.store';
-import { TourDraftStore } from '../../tour-draft.store';
+import { LARGURA_DA_MINIATURA, TourDraftStore } from '../../tour-draft.store';
 
 /**
  * Etapa 3 -- posicionar as passagens escolhidas.
@@ -29,9 +37,12 @@ import { TourDraftStore } from '../../tour-draft.store';
   standalone: true,
   imports: [
     TranslatePipe,
+    OwlLoaderComponent,
     PanoramicViewerComponent,
     HotspotOverlayComponent,
+    TourHotspotOverlayComponent,
     GuidedBannerComponent,
+    PassagesSceneStripComponent,
     PassagensSheetComponent,
   ],
   // O HotspotEditorStore era fornecido pela etapa 2 antiga, que saiu. Ele
@@ -46,7 +57,14 @@ export class StepPassagesComponent {
   readonly editor = inject(HotspotEditorStore);
   readonly passagens = inject(PassagensStore);
 
-  private readonly viewerRef = viewChild(PanoramicViewerComponent);
+  /**
+   * Público porque a revisão liga o overlay de hotspots nele.
+   *
+   * Um `viewChild` só para os dois viewers desta etapa, e não um por estado:
+   * eles vivem em ramos `@if` mutuamente exclusivos, então nunca há dois no
+   * DOM ao mesmo tempo.
+   */
+  readonly viewerRef = viewChild(PanoramicViewerComponent);
 
   readonly nomeDoAlvo = computed(() => {
     const p = this.passagens.atual();
@@ -186,8 +204,92 @@ export class StepPassagesComponent {
     },
   );
 
+  // ---- a revisão: o tour inteiro, navegável ------------------------------
+
+  /**
+   * A cena cuja FOTO está na tela durante a revisão.
+   *
+   * A mesma regra R4 do visualizador, e pelo mesmo motivo: entre o toque no
+   * pin e a textura pronta existe um intervalo, e tudo o que é desenhado EM
+   * CIMA da foto tem de ler daqui. Ligados à intenção, os pins do DESTINO
+   * boiariam sobre a foto da ORIGEM — e clicáveis.
+   */
+  private readonly idNaTela = signal<string | null>(null);
+
+  /**
+   * As cenas da revisão no vocabulário do VISUALIZADOR.
+   *
+   * `cenasDoTour()` é reusado inteiro de propósito: ele traz a eleição do
+   * hotspot principal e a resolução do rótulo ("o label, ou o nome da cena
+   * destino"). Reimplementar isso aqui daria dois tours com pins diferentes
+   * para os mesmos dados — e a revisão existe justamente para mostrar o que o
+   * visitante vai ver.
+   *
+   * `imageUrl`/`thumbUrl` do resultado NÃO servem aqui e não são lidos: eles
+   * saem de `urlDaImagem()`, que devolve o `blob:` do wizard intacto, e o
+   * `thumbUrl` ainda lhe grudaria um `?w=` que um `blob:` não aceita. Quem
+   * desenha foto nesta tela é o viewer, com `tourCompleto()`; quem desenha
+   * miniatura é a faixa, com o cache do rascunho.
+   */
+  readonly cenasDaRevisao = computed<TourViewerScene[]>(() =>
+    cenasDoTour({ panoramas: this.tourCompleto() } as VirtualTour),
+  );
+
+  readonly cenaNaTela = computed<TourViewerScene | null>(
+    () => this.cenasDaRevisao().find((c) => c.id === this.idNaTela()) ?? null,
+  );
+
+  /** As cenas como a faixa as desenha: nome e miniatura, nada mais. */
+  readonly cenasDaFaixa = computed<CenaDaFaixa[]>(() =>
+    this.draft.readyScenes().map((cena) => ({
+      id: cena.id,
+      nome: nomeDoAmbiente(cena),
+      thumb: this.draft.miniatura(cena.id),
+    })),
+  );
+
+  /**
+   * A foto do passo ainda não chegou.
+   *
+   * O que a coruja cobre é a espera REAL desta etapa: entrar nela dispara o
+   * download da equirretangular do ambiente, e sem aviso o palco fica preto
+   * por segundos — medido em ~4s no ambiente de desenvolvimento. Não é o mesmo
+   * que a espera da página, que é a do tour inteiro descendo.
+   */
+  readonly esperandoFoto = computed(() => {
+    const cena = this.passagens.atual()?.origem;
+    if (!cena) return false;
+    return !(cena.treatedImageUrl || cena.imageData);
+  });
+
+  /** O viewer trocou de foto na revisão. Fecha o ciclo de `idNaTela`. */
+  aoTrocarPanorama(panorama: Panorama): void {
+    this.idNaTela.set(panorama.id);
+  }
+
+  /** Um pin ou a faixa pediram outro cômodo. */
+  irParaCena(sceneId: string): void {
+    this.viewerRef()?.navigateTo(sceneId);
+  }
+
   constructor() {
     this.passagens.abrir();
+
+    /**
+     * As miniaturas da faixa da revisão.
+     *
+     * Tamanho de selo (o padrão de `garantirMiniatura`) e não a foto cheia: a
+     * faixa desenha 104×70, e a equirretangular do cômodo já está sendo baixada
+     * pelo viewer por outro caminho. Pedir a grande aqui dobraria o tráfego da
+     * etapa para desenhar um retângulo.
+     */
+    effect(() => {
+      if (!this.passagens.acabou()) return;
+      for (const cena of untracked(() => this.draft.readyScenes())) {
+        if (this.draft.miniatura(cena.id, LARGURA_DA_MINIATURA)) continue;
+        void this.draft.garantirMiniatura(cena.id);
+      }
+    });
 
     // Trocar de FOTO devolve a camera ao angulo inicial. A dependencia e o id,
     // e nao a passagem: ver `fotoAtualId`.

@@ -268,7 +268,8 @@
       "LEAVE_EDIT_TITLE": "Sair da edição?",
       "LEAVE_EDIT_MESSAGE": "O que você mudou nesta tela ainda não foi salvo. O tour continua no ar exatamente como estava.",
       "LEAVE_EDIT_SAVE": "Salvar e sair",
-      "LEAVE_EDIT_DISCARD": "Sair sem salvar"
+      "LEAVE_EDIT_DISCARD": "Sair sem salvar",
+      "LOADING": "Abrindo o tour…"
     },
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",
@@ -342,9 +343,12 @@
       "REDO": "Refazer",
       "CONFIRM": "Confirmar passagem",
       "BACK": "Voltar para ambientes",
-      "DONE": "As {{n}} passagens estão posicionadas. Toque num ponto para percorrer o tour como o visitante vai ver.",
+      "DONE": "As {{n}} passagens estão posicionadas",
       "EMPTY": "Nenhuma conexão escolhida. Volte aos ambientes e conecte-os.",
-      "NEEDS_LINKS": "Posicione as passagens que faltam antes de seguir"
+      "NEEDS_LINKS": "Posicione as passagens que faltam antes de seguir",
+      "DONE_HINT": "Toque num ponto para percorrer o tour como o visitante vai ver.",
+      "LOADING": "Carregando a foto do ambiente…",
+      "SCENES": "Cenas"
     },
     "STEP2": {
       "PICK_TARGET": "Levar para qual ambiente?",

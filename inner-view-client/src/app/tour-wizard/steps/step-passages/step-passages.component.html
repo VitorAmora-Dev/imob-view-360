@@ -4,24 +4,69 @@
   </p>
 } @else if (passagens.acabou()) {
   <!--
-    A revisao: o tour inteiro, navegavel, do jeito que o visitante vera. Sem
-    `editMode`, entao um toque na foto nao cria ponto nenhum -- clicar num ponto
-    troca de ambiente. Nao e imersivo de proposito: a barra do wizard fica a
-    vista, porque e por ela que se segue para as informacoes.
+    A revisao: o tour inteiro, navegavel, do jeito que o visitante vera.
+
+    `hotspotMode: 'none'` desliga os sprites 3D do viewer e `roomNav: false`
+    tira o seletor de ambiente do canto superior esquerdo. Os dois davam a esta
+    tela um desenho que a de visualizacao ja abandonou: quem desenha os pontos
+    agora e o overlay em HTML da TV-7, e quem troca de comodo e a faixa de
+    cenas la embaixo. E a mesma dupla da tela do visitante, e e disso que a
+    revisao serve como ensaio.
   -->
   <div class="sp sp--revisao">
-    @if (tourPronto()) {
-      <div class="sp__pano">
+    <div class="sp__pano">
+      @if (tourPronto()) {
         <app-panoramic-viewer
           [panoramas]="tourCompleto()"
           [editMode]="false"
-          [roomNav]="true" />
-      </div>
-    }
+          [roomNav]="false"
+          [hotspotMode]="'none'"
+          (panoramaChange)="aoTrocarPanorama($event)" />
 
-    <p class="sp__pronto" role="status">
-      {{ 'TOUR_WIZARD.PASSAGES.DONE' | translate: { n: passagens.total() } }}
-    </p>
+        <!--
+          `cenaNaTela()` e NAO a cena pedida: os pins pertencem a UMA
+          equirretangular, e entre o toque e a textura pronta existe um
+          intervalo. Ligados a intencao, os pins do destino boiariam sobre a
+          foto da origem — e clicaveis.
+        -->
+        @if (cenaNaTela(); as cena) {
+          <app-tv-hotspot-overlay
+            class="sp__hotspots"
+            [viewer]="viewerRef() ?? null"
+            [hotspots]="cena.hotspots"
+            (cenaEscolhida)="irParaCena($event)" />
+        }
+      } @else {
+        <div class="sp__espera" role="status">
+          <app-owl-loader />
+          <p>{{ 'TOUR_WIZARD.PASSAGES.LOADING' | translate }}</p>
+        </div>
+      }
+
+      <!--
+        O aviso de conclusao cobre a foto em vez de ficar abaixo dela.
+
+        Ele era um bloco tracejado de 24px de padding embaixo do palco, e num
+        celular a dupla "foto de 320px + aviso" deixava o aviso com quase um
+        terco da tela para dizer uma frase que se le uma vez. Sobre a foto ele
+        custa a altura de uma linha, e a foto fica com o resto.
+      -->
+      <p class="sp__pronto" role="status">
+        <span class="sp__pronto-selo" aria-hidden="true">&#10003;</span>
+        <span class="sp__pronto-texto">
+          <strong>
+            {{ 'TOUR_WIZARD.PASSAGES.DONE' | translate: { n: passagens.total() } }}
+          </strong>
+          <small>{{ 'TOUR_WIZARD.PASSAGES.DONE_HINT' | translate }}</small>
+        </span>
+      </p>
+
+      <app-passages-scene-strip
+        class="sp__cenas"
+        [cenas]="cenasDaFaixa()"
+        [atualId]="cenaNaTela()?.id ?? null"
+        (escolhida)="irParaCena($event)" />
+    </div>
   </div>
 } @else if (passagens.atual()) {
   <div class="sp">
@@ -46,11 +91,23 @@
         (pinDragMoved)="editor.dragTo($event.u, $event.v)"
         (pinDragEnded)="editor.endDrag()" />
 
-      <app-guided-banner
-        class="sp__banner"
-        [target]="nomeDoAlvo()"
-        [cor]="corDoAlvo()"
-        [ultimo]="false" />
+      <!--
+        Entrar nesta etapa dispara o download da equirretangular do ambiente, e
+        sem aviso o palco fica preto por segundos. A coruja cobre a espera; o
+        banner de instrucao so aparece quando ha foto para tocar.
+      -->
+      @if (esperandoFoto()) {
+        <div class="sp__espera" role="status">
+          <app-owl-loader />
+          <p>{{ 'TOUR_WIZARD.PASSAGES.LOADING' | translate }}</p>
+        </div>
+      } @else {
+        <app-guided-banner
+          class="sp__banner"
+          [target]="nomeDoAlvo()"
+          [cor]="corDoAlvo()"
+          [ultimo]="false" />
+      }
     </div>
 
     <app-passagens-sheet
