@@ -64,7 +64,12 @@
       <!-- ---- camada 3: chrome ------------------------------------------ -->
       <div class="tv-chrome">
         <div class="tv-slot tv-slot--header">
-          <!-- TV-1: voltar + título/contagem + botão "…" (app-tv-header). -->
+          <app-tv-header
+            [tourName]="store.tourName()"
+            [sceneCount]="store.scenes().length"
+            [chromeVisible]="store.chromeVisible()"
+            (back)="voltar()"
+            (manage)="store.abrirSheet('manage')" />
         </div>
 
         @if (offline()) {
@@ -74,13 +79,20 @@
         }
 
         <div class="tv-slot tv-slot--pill">
-          <!-- TV-1 (mobile) e TV-9 (desktop): pill da cena atual. -->
+          @if (store.currentScene(); as scene) {
+            <app-tv-scene-pill
+              [sceneName]="scene.name"
+              [chromeVisible]="store.chromeVisible()"
+              (openScenes)="store.abrirSheet('scenes')" />
+          }
         </div>
 
         <div class="tv-espaco"></div>
 
         <div class="tv-slot tv-slot--olho">
-          <!-- TV-1: botão flutuante "Ocultar interface". -->
+          <app-tv-immersive-toggle
+            [chromeVisible]="store.chromeVisible()"
+            (toggled)="store.alternarChrome()" />
         </div>
 
         @if (store.faixaVisivel()) {
@@ -99,12 +111,16 @@
             [atualId]="cenaNaTela()?.id ?? null" />
         }
 
-        @if (store.chromeVisible()) {
-          <div class="tv-slot tv-slot--acoes">
-            <!-- TV-1: tab bar EDITAR · EMBED · APAGAR (mobile). -->
-            <!-- TV-9: cluster de ações do tour (desktop). -->
-          </div>
-        }
+        <div class="tv-slot tv-slot--acoes">
+          <app-tour-actions-bar
+            [canEdit]="store.podeEditar()"
+            [hasScenes]="!store.semCenas()"
+            [chromeVisible]="store.chromeVisible()"
+            (editRequested)="editarTour()"
+            (embedRequested)="store.abrirSheet('embed')"
+            (deleteRequested)="store.abrirSheet('delete')" />
+          <!-- TV-9: cluster de ações do tour (desktop). -->
+        </div>
       </div>
 
       <!--
@@ -177,8 +193,7 @@
 
       @if (store.toast(); as chave) {
         <div class="tv-slot tv-slot--toast">
-          <!-- TV-1: pílula de confirmação, 2200ms, pointer-events none. -->
-          {{ chave | translate }}
+          <app-tv-toast [messageKey]="chave" />
         </div>
       }
     </div>

@@ -15,10 +15,15 @@ import { CenasSheetComponent } from '../components/cenas-sheet/cenas-sheet.compo
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Property } from '../models/property.model';
 import { Panorama } from '../models/virtual-tour.model';
+import { TvHeaderComponent } from './chrome/tv-header.component';
+import { TvImmersiveToggleComponent } from './chrome/tv-immersive-toggle.component';
+import { TvScenePillComponent } from './chrome/tv-scene-pill.component';
+import { TvToastComponent } from './chrome/tv-toast.component';
 import { TourHotspotOverlayComponent } from './hotspots/tour-hotspot-overlay.component';
 import { TourScenesStripComponent } from './scenes/tour-scenes-strip.component';
 import { TourDeleteSheetComponent } from './sheets/delete/tour-delete-sheet.component';
 import { TourEmbedSheetComponent } from './sheets/embed/tour-embed-sheet.component';
+import { TourActionsBarComponent } from './tour-actions-bar/tour-actions-bar.component';
 import { TourViewerScene } from './tour-viewer.model';
 import { TourViewerStore } from './tour-viewer.store';
 
@@ -54,6 +59,11 @@ import { TourViewerStore } from './tour-viewer.store';
     TourHotspotOverlayComponent,
     TourScenesStripComponent,
     TranslatePipe,
+    TvHeaderComponent,
+    TvImmersiveToggleComponent,
+    TvScenePillComponent,
+    TvToastComponent,
+    TourActionsBarComponent,
   ],
 })
 export class TourViewerPage implements OnInit {

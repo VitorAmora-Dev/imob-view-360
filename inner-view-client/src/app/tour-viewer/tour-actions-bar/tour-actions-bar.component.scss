@@ -1,0 +1,106 @@
+@use '../../../theme/tour-viewer-mixins' as tv;
+
+:host {
+  display: block;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--tv-border-hairline);
+  background: var(--tv-tabbar-bg);
+  backdrop-filter: blur(var(--tv-blur-tabbar));
+  -webkit-backdrop-filter: blur(var(--tv-blur-tabbar));
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity var(--tv-dur-chrome) ease,
+    transform var(--tv-dur-chrome) ease,
+    visibility var(--tv-dur-chrome) ease;
+
+  // O slot da página soma `--ion-safe-area-bottom`; repetir `env()` aqui
+  // dobraria a área segura no iPhone.
+  &.is-hidden {
+    @include tv.tv-oculto-no-imersivo;
+  }
+}
+
+.tv-actions__grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+
+.tv-actions__button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: var(--tv-size-tab);
+  min-height: var(--tv-size-tab);
+  gap: 5px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--tv-radius-tab);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background var(--tv-dur-control) ease,
+    transform var(--tv-dur-control) ease;
+
+  ion-icon {
+    flex: 0 0 21px;
+    width: 21px;
+    height: 21px;
+  }
+
+  span {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-text);
+    outline-offset: -3px;
+  }
+}
+
+.tv-actions__button--edit {
+  background: var(--tv-accent-tint);
+  color: var(--tv-accent);
+
+  &:hover,
+  &:active {
+    background: var(--tv-accent-tint-hover);
+  }
+}
+
+.tv-actions__button--embed {
+  background: var(--tv-fill);
+  color: var(--tv-text);
+
+  &:hover,
+  &:active {
+    background: var(--tv-fill-hover);
+  }
+}
+
+.tv-actions__button--delete {
+  background: var(--tv-danger-tint);
+  color: var(--tv-danger-text);
+
+  &:hover,
+  &:active {
+    background: var(--tv-danger-tint-hover);
+  }
+}
+
+@include tv.tv-desktop {
+  :host {
+    display: none;
+  }
+}
