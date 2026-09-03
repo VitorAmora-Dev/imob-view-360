@@ -37,5 +37,7 @@ Este repositório é um monorepo com 3 módulos (`server-api`, `inner-view-clien
 | `SPRINT-2-NOTES.md` | raiz | Sprint de testes e tenant |
 | `SPRINT-3-TOUR-WIZARD.md` | raiz | Plano do wizard de criação de tour |
 | `SPRINT-3-NOTAS-FRENTE-B.md` | raiz | Detalhes técnicos dos hotspots |
+| `SPRINT-4-TOUR-VIEWER.md` | raiz | **Sprint em andamento.** Plano da refatoração da tela de visualização de tour: decisões, mapa de propriedade de arquivos e as 13 tasks |
+| `design_handoff_tour_viewer/` | raiz | Handoff de design da tela de visualização (tokens, mobile, hotspots, sheets, desktop, estados) |
 | `server-api/README.md` | server-api | Como rodar a API, testes, tratamento IA |
 | `prisma/schema.prisma` | server-api | Schema do banco de dados |

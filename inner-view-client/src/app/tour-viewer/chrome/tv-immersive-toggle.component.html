@@ -1,0 +1,11 @@
+<button
+  type="button"
+  [attr.aria-label]="labelKey() | translate"
+  [attr.title]="labelKey() | translate"
+  [attr.aria-pressed]="!chromeVisible()"
+  (click)="toggled.emit()">
+  <ion-icon
+    [name]="chromeVisible() ? 'eye-outline' : 'eye-off-outline'"
+    aria-hidden="true">
+  </ion-icon>
+</button>

@@ -1,0 +1,225 @@
+// L2 — tokens da tela de visualização de tour (SPRINT-4-TOUR-VIEWER.md, TV-0).
+//
+// Camada de DOMÍNIO, irmã de `tour-wizard.scss`: dá nomes do vocabulário desta
+// tela ("o vidro do botão flutuante", "o tint do apagar", "o scrim de cima") a
+// coisas que já existem em L0/L1.
+//
+// A regra que vale para este arquivo, igual à do wizard: cada linha ou é
+// `var()` de L1/L0, ou é um `rgba()`/gradiente montado a partir de um par
+// `-rgb` de L0. **Nenhum hex nasce aqui.** Faltou cor? Ela nasce em
+// `_palette.scss`, com o motivo escrito.
+//
+// Por que uma camada só desta tela, e não tokens novos em `variables.scss`: o
+// app inteiro é claro, e esta tela é a única superfície escura do produto
+// (junto com `/embed`). Tokens de vidro e de texto branco em L1 seriam uma
+// oferta permanente para o resto do app usar errado.
+//
+// Carregado uma vez pela lista `styles` do angular.json, nos targets `build` e
+// `test` — o segundo é o que permite ao `palette.contract.spec.ts` medir
+// contraste de verdade. Os mixins ficam em `_tour-viewer-mixins.scss`, que os
+// componentes consomem por `@use`.
+//
+// DE ONDE VÊM OS VALORES: `design_handoff_tour_viewer/01-design-tokens.md`.
+// Onde o handoff traz um hex que já existia no sistema com outro nome, vale o
+// do sistema — as três diferenças conscientes estão anotadas no lugar.
+
+:root {
+  /* == Marca ============================================================== */
+  --tv-accent: var(--brand-accent-vivid);
+  --tv-accent-light: var(--brand-accent-vivid-light);
+  --tv-accent-ink: var(--brand-accent-vivid-ink);
+  --tv-accent-tint: rgba(var(--brand-accent-vivid-rgb), 0.14); //       fundo do EDITAR
+  --tv-accent-tint-hover: rgba(var(--brand-accent-vivid-rgb), 0.22);
+  --tv-accent-glow: rgba(var(--brand-accent-vivid-rgb), 0.3); //        halo do hotspot
+  --tv-accent-glow-soft: rgba(var(--brand-accent-vivid-rgb), 0.12);
+
+  /* == Superfícies de vidro =============================================== */
+  // Todas montadas sobre --tour-bg-rgb (11, 18, 32). O handoff pede
+  // rgba(9, 18, 29, …): dois canais de diferença, imperceptível sobre foto, e
+  // não vale um segundo azul-escuro na paleta.
+  //
+  // Toda superfície desta família assume `backdrop-filter` — ver os --tv-blur-*
+  // logo abaixo. Sem o blur elas ficam cinza-sujas em vez de vidro.
+  --tv-glass-1: rgba(var(--tour-bg-rgb), 0.55); //        botão circular flutuante
+  --tv-glass-1-hover: rgba(var(--tour-bg-rgb), 0.85);
+  --tv-glass-2: rgba(var(--tour-bg-rgb), 0.66); //        cluster do desktop
+  --tv-glass-3: rgba(var(--tour-bg-rgb), 0.78); //        pill de cena
+  --tv-glass-4: rgba(var(--tour-bg-rgb), 0.9); //         plaquinha do hotspot
+  --tv-tabbar-bg: rgba(var(--tour-bg-rgb), 0.86);
+
+  // Sólido, não translúcido: o sheet cobre a foto de propósito, e vidro aqui
+  // deixaria o texto competindo com o panorama.
+  --tv-sheet-bg: var(--tour-bg);
+  // Escurece o que estiver embaixo em vez de trazer um segundo tom de fundo.
+  --tv-code-bg: rgba(var(--neutral-black-rgb), 0.35);
+  // O corpo do código do embed. Mais claro que o texto secundário porque isto
+  // é para LER caractere a caractere — é uma URL, e um `l` confundido com um
+  // `1` produz um iframe que não abre.
+  --tv-code-text: rgba(var(--neutral-white-rgb), 0.72);
+  --tv-scrim: rgba(var(--tour-bg-rgb), 0.62);
+
+  --tv-fill: rgba(var(--neutral-white-rgb), 0.07); //     fundo do EMBED
+  --tv-fill-hover: rgba(var(--neutral-white-rgb), 0.13);
+  // O trilho do interruptor DESLIGADO. Fica acima de `--tv-border-control`
+  // (.16) de propósito: aqui ele é superfície, e não fio de borda — no mesmo
+  // valor, o interruptor desligado sumia dentro do fundo do sheet.
+  --tv-toggle-off: rgba(var(--neutral-white-rgb), 0.18);
+
+  /* == Destrutivo ========================================================= */
+  // A base é mais escura que o hover DE PROPÓSITO: o botão sólido de confirmar
+  // clareia ao toque, como o resto do app.
+  --tv-danger: var(--status-error);
+  --tv-danger-hover: var(--status-error-tint);
+  // Um só token para os dois vermelhos claros do handoff (#ff8484 e #ff9e9e):
+  // a diferença não é perceptível e o segundo não tinha papel próprio.
+  --tv-danger-text: var(--status-error-on-dark);
+  --tv-danger-tint: rgba(var(--status-error-rgb), 0.13); //   fundo do APAGAR
+  --tv-danger-tint-hover: rgba(var(--status-error-rgb), 0.24);
+  --tv-danger-tint-soft: rgba(var(--status-error-rgb), 0.09); // caixa de aviso
+  --tv-danger-border: rgba(var(--status-error-rgb), 0.22);
+  --tv-danger-border-strong: rgba(var(--status-error-rgb), 0.3);
+  --tv-danger-icon-bg: rgba(var(--status-error-rgb), 0.15);
+
+  /* == Aviso (faixa de offline) =========================================== */
+  --tv-warn-soft: rgba(var(--status-warning-rgb), 0.15);
+  --tv-warn-text: var(--status-warning);
+
+  /* == Texto e bordas sobre o escuro ====================================== */
+  --tv-text: var(--neutral-white);
+  --tv-text-secondary: rgba(var(--neutral-white-rgb), 0.58); // "6 cenas"
+  --tv-text-tertiary: rgba(var(--neutral-white-rgb), 0.5); //   contadores
+  --tv-text-muted: rgba(var(--neutral-white-rgb), 0.55); //     corpo de sheet
+  --tv-border-hairline: rgba(var(--neutral-white-rgb), 0.1);
+  --tv-border-soft: rgba(var(--neutral-white-rgb), 0.14);
+  --tv-border-control: rgba(var(--neutral-white-rgb), 0.16);
+  --tv-divider-sheet: rgba(var(--neutral-white-rgb), 0.06);
+  --tv-hover-row: rgba(var(--neutral-white-rgb), 0.04);
+
+  /* == Hotspot de piso ==================================================== */
+  // E aqui a premissa do bloco acima deixa de valer.
+  //
+  // Todo o resto desta tela é branco sobre o escuro porque o fundo é NOSSO: o
+  // sheet, a tab bar, o vidro dos botões. O hotspot é a única peça que cai em
+  // cima da FOTO, e a foto não é nossa — a mesma cena tem cozinha ensolarada e
+  // corredor sem luz. Um disco feito só de branco a .16 e de teal claro some
+  // inteiro sobre azulejo branco, e sobrava a plaquinha, que por acaso era a
+  // única peça escura do conjunto.
+  //
+  // A resposta é a da legenda de cinema: TODA MARCA CLARA DAQUI ANDA COM UMA
+  // COMPANHEIRA ESCURA, atrás ou em volta dela. Sobre foto escura a companheira
+  // desaparece no próprio fundo e não custa nada; sobre foto clara é ela que
+  // desenha o pin. Não existe limiar para errar, porque nada é decidido em
+  // tempo de execução: as duas camadas estão sempre lá, e é o fundo que escolhe
+  // qual delas se enxerga.
+  //
+  // Os dois extremos são medidos em `palette.contract.spec.ts` — sobre branco
+  // puro e sobre preto puro, que é o pior caso de cada lado.
+  --tv-hotspot-rim: rgba(var(--neutral-white-rgb), 0.45); //     borda do disco
+  --tv-hotspot-veil: rgba(var(--neutral-white-rgb), 0.2); //     halo secundário
+  --tv-hotspot-chevron: rgba(var(--neutral-white-rgb), 0.8);
+  --tv-hotspot-chevron-strong: rgba(var(--neutral-white-rgb), 0.92);
+  // O escuro é NEUTRO de propósito, e não um teal escuro: ele é sombra, e
+  // sombra colorida franjaria de verde a borda do disco em cima de parede
+  // branca. O .5 não é gosto — é o mínimo que mantém 3:1 com o branco por cima.
+  --tv-hotspot-ink: rgba(var(--neutral-black-rgb), 0.5);
+  --tv-hotspot-ink-soft: rgba(var(--neutral-black-rgb), 0.28);
+  --tv-shadow-hotspot: 0 0 0 1.5px var(--tv-hotspot-ink),
+    0 0 20px var(--tv-hotspot-ink-soft);
+  --tv-shadow-hotspot-strong: 0 0 0 2px var(--tv-hotspot-ink),
+    0 0 22px var(--tv-hotspot-ink-soft);
+
+  /* == Skeleton =========================================================== */
+  // O bloco que ocupa o lugar da miniatura e do panorama enquanto a foto não
+  // chega. Mais escuro que o vidro para não parecer um cartão vazio clicável.
+  --tv-skeleton: rgba(var(--neutral-black-rgb), 0.45);
+  --tv-skeleton-shimmer: rgba(var(--neutral-white-rgb), 0.06);
+
+  /* == Scrims sobre o panorama ============================================ */
+  // Garantem contraste do chrome sem escurecer o centro da imagem. Quem os usa
+  // é obrigado a pôr `pointer-events: none`: eles cobrem a área de arrasto.
+  --tv-grad-top: linear-gradient(
+    180deg,
+    rgba(var(--tour-bg-rgb), 0.82) 0%,
+    rgba(var(--tour-bg-rgb), 0.45) 45%,
+    rgba(var(--tour-bg-rgb), 0) 100%
+  );
+  --tv-grad-bottom: linear-gradient(
+    0deg,
+    rgba(var(--tour-bg-rgb), 0.88) 0%,
+    rgba(var(--tour-bg-rgb), 0.35) 55%,
+    rgba(var(--tour-bg-rgb), 0) 100%
+  );
+  // O que cai por cima da miniatura para a legenda ter fundo.
+  --tv-grad-thumb: linear-gradient(
+    0deg,
+    rgba(var(--tour-bg-rgb), 0.85) 0%,
+    rgba(var(--tour-bg-rgb), 0) 60%
+  );
+  --tv-size-scrim-top: 230px;
+  --tv-size-scrim-bottom: 300px;
+
+  /* == Raios ============================================================== */
+  --tv-radius-sheet: 26px;
+  --tv-radius-tab: 15px; //          botão da tab bar
+  --tv-radius-primary: 14px; //      botão primário de sheet, bloco de código
+  --tv-radius-thumb: 13px; //        miniatura mobile
+  --tv-radius-thumb-desk: 12px;
+  --tv-radius-card: 15px; //         card do sheet Cenas
+  --tv-radius-cluster: 16px; //      cluster de ações do desktop
+  --tv-radius-rail: 18px; //         rail de cenas do desktop
+  --tv-radius-action: 11px; //       botão de ação do desktop
+  --tv-radius-plate: 10px; //        plaquinha do hotspot
+  --tv-radius-pill: 999px;
+
+  /* == Sombras e blur ===================================================== */
+  --tv-shadow-sheet: 0 -20px 50px rgba(var(--neutral-black-rgb), 0.5);
+  --tv-shadow-float: 0 8px 18px rgba(var(--neutral-black-rgb), 0.4);
+  --tv-shadow-float-lg: 0 10px 22px rgba(var(--neutral-black-rgb), 0.45);
+
+  --tv-blur-control: 14px; //  botões circulares
+  --tv-blur-pill: 10px; //     pills e plaquinhas
+  --tv-blur-cluster: 18px; //  clusters do desktop
+  --tv-blur-tabbar: 22px;
+  --tv-blur-scrim: 3px;
+
+  /* == Tipografia ========================================================= */
+  // O bloco de código do sheet Incorporar, e só ele (decisão D2). Mono DO
+  // SISTEMA: uma fonte de código baixada custaria um arquivo a mais no
+  // carregamento da tela inteira para servir a cinco linhas dentro de um sheet
+  // que a maioria nunca abre.
+  --tv-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, 'Liberation Mono', monospace;
+
+  /* == Medidas de alvo ==================================================== */
+  // Não são enfeite: são o motivo da refatoração. O mínimo do sistema é 44, e a
+  // tab bar usa 56 porque é a barra que carrega as três decisões da tela.
+  --tv-tap: 44px;
+  --tv-size-tab: 56px;
+
+  /* == Motion ============================================================= */
+  --tv-dur-control: 120ms; //  hover de botão
+  --tv-dur-chrome: 200ms; //   entrada/saída do modo imersivo
+  --tv-dur-sheet: 240ms;
+  --tv-dur-scrim: 180ms;
+  --tv-ease-sheet: cubic-bezier(0.22, 1, 0.36, 1);
+  --tv-bob-dur: 3.6s; //       flutuação do hotspot
+  --tv-ring-dur: 2.6s; //      anel de pulso do hotspot ativo
+}
+
+/**
+ * Menos movimento: as duas animações do hotspot morrem, as transições de
+ * opacidade ficam.
+ *
+ * Zerar o TOKEN, e não cada `animation` espalhada, é o que faz a preferência
+ * valer para componente que ainda não existe. O que o CSS não alcança — o laço
+ * de frame do overlay de hotspots — é decidido no TypeScript, por
+ * `prefersReducedMotion()`.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --tv-bob-dur: 0s;
+    --tv-ring-dur: 0s;
+    --tv-dur-sheet: 0ms;
+    --tv-dur-chrome: 0ms;
+  }
+}

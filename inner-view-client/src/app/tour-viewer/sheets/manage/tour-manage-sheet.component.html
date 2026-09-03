@@ -1,0 +1,55 @@
+<app-tour-sheet
+  [isOpen]="aberto()"
+  [variante]="'adaptavel'"
+  [breakpoints]="paradas"
+  [initialBreakpoint]="paradas[1]"
+  [titulo]="'TOUR_VIEWER.MANAGE.TITLE' | translate"
+  (fechado)="fechar()">
+
+  <nav class="tv-manage" [attr.aria-label]="'TOUR_VIEWER.MANAGE.TITLE' | translate">
+    @if (podePublicar()) {
+      <button
+        type="button"
+        class="tv-manage__item"
+        [attr.aria-busy]="publicando()"
+        [disabled]="publicando()"
+        (click)="publicar()">
+        <span class="tv-manage__texto">
+          <strong>{{ 'TOUR_VIEWER.MANAGE.PUBLISH' | translate }}</strong>
+          <small>{{ 'TOUR_VIEWER.MANAGE.PUBLISH_SUB' | translate }}</small>
+        </span>
+        <span class="tv-manage__chevron" aria-hidden="true">›</span>
+      </button>
+    }
+
+    @if (podeEditar()) {
+      <button type="button" class="tv-manage__item" (click)="abrirConfiguracoes()">
+        <span class="tv-manage__texto">
+          <strong>{{ 'TOUR_VIEWER.MANAGE.SETTINGS' | translate }}</strong>
+          <small>{{ 'TOUR_VIEWER.MANAGE.SETTINGS_SUB' | translate }}</small>
+        </span>
+        <span class="tv-manage__chevron" aria-hidden="true">›</span>
+      </button>
+    }
+
+    @if (podeCompartilhar()) {
+      <button type="button" class="tv-manage__item" (click)="compartilhar()">
+        <span class="tv-manage__texto">
+          <strong>{{ 'TOUR_VIEWER.MANAGE.SHARE' | translate }}</strong>
+          <small>{{ 'TOUR_VIEWER.MANAGE.SHARE_SUB' | translate }}</small>
+        </span>
+        <span class="tv-manage__chevron" aria-hidden="true">›</span>
+      </button>
+    }
+
+    @if (podeBaixar()) {
+      <button type="button" class="tv-manage__item" (click)="baixarCena()">
+        <span class="tv-manage__texto">
+          <strong>{{ 'TOUR_VIEWER.MANAGE.DOWNLOAD' | translate }}</strong>
+          <small>{{ 'TOUR_VIEWER.MANAGE.DOWNLOAD_SUB' | translate }}</small>
+        </span>
+        <span class="tv-manage__chevron" aria-hidden="true">›</span>
+      </button>
+    }
+  </nav>
+</app-tour-sheet>

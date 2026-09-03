@@ -4,7 +4,7 @@ import { IonIcon, IonPopover, IonList, IonItem, IonLabel } from '@ionic/angular/
 import { addIcons } from 'ionicons';
 import {
   globeOutline, personCircleOutline, logOutOutline, checkmarkOutline, arrowBackOutline,
-  settingsOutline,
+  ellipsisHorizontal, settingsOutline,
 } from 'ionicons/icons';
 import { TranslatePipe } from '@ngx-translate/core';
 import { BrandLogoComponent } from '../brand-logo/brand-logo.component';
@@ -53,6 +53,8 @@ export class AppHeaderComponent {
   @Input() pageTitle: string | null = null;
   /** Renders the compact variant used over the immersive 360 viewer. */
   @Input() variant: 'default' | 'overlay' = 'default';
+  /** No viewer imersivo, preserva somente o voltar no cabeçalho overlay. */
+  @Input() chromeVisible = true;
 
   readonly links: HeaderNavLink[] = [
     { labelKey: 'NAV.HOME', href: '/home' },
@@ -63,6 +65,8 @@ export class AppHeaderComponent {
   scrolled = signal(false);
   isLangPopoverOpen = false;
   langPopoverEvent?: Event;
+  isNavPopoverOpen = false;
+  navPopoverEvent?: Event;
 
   private router = inject(Router);
   private authService = inject(AuthService);
@@ -73,7 +77,7 @@ export class AppHeaderComponent {
   constructor() {
     addIcons({
       globeOutline, personCircleOutline, logOutOutline, checkmarkOutline, arrowBackOutline,
-      settingsOutline,
+      ellipsisHorizontal, settingsOutline,
     });
   }
 
@@ -88,6 +92,11 @@ export class AppHeaderComponent {
   openLanguagePopover(event: Event) {
     this.langPopoverEvent = event;
     this.isLangPopoverOpen = true;
+  }
+
+  openNavPopover(event: Event) {
+    this.navPopoverEvent = event;
+    this.isNavPopoverOpen = true;
   }
 
   selectLang(lang: 'pt' | 'en') {

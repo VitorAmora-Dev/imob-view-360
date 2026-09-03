@@ -263,7 +263,12 @@
       "SAVE_RETRY": "Tentar de novo",
       "SAVE_FAILED_TITLE": "As últimas mudanças não foram salvas",
       "SAVE_FAILED_MESSAGE": "As fotos e o tratamento da IA estão guardados. O que ainda não subiu são os nomes dos ambientes, as passagens e os dados do imóvel — sair agora perde essa parte.",
-      "SAVE_FAILED_LEAVE": "Sair mesmo assim"
+      "SAVE_FAILED_LEAVE": "Sair mesmo assim",
+      "SAVE_CHANGES": "Salvar alterações",
+      "LEAVE_EDIT_TITLE": "Sair da edição?",
+      "LEAVE_EDIT_MESSAGE": "O que você mudou nesta tela ainda não foi salvo. O tour continua no ar exatamente como estava.",
+      "LEAVE_EDIT_SAVE": "Salvar e sair",
+      "LEAVE_EDIT_DISCARD": "Sair sem salvar"
     },
     "STEP1": {
       "TITLE": "Comece pelas imagens 360°",
@@ -412,14 +417,83 @@
       "PUBLISH_ERROR": "Não foi possível publicar o tour. Tente de novo."
     }
   },
-  "VIEWER": {
-    "ROOMS": "Ambientes",
-    "CENAS": {
-      "TITULO": "Cenas do tour",
-      "CONTAGEM": "{{n}} cenas",
-      "UMA": "1 cena",
-      "ATUAL": "ATUAL",
-      "ABRIR": "Ver cenas do tour"
+  "TOUR_VIEWER": {
+    "LOADING": "Carregando o tour…",
+    "LOAD_ERROR": "Não foi possível carregar este tour.",
+    "RETRY": "Tentar de novo",
+    "NO_SCENES": "Este tour ainda não tem cenas.",
+    "OFFLINE": "Você está sem conexão. O tour segue navegável com o que já foi carregado.",
+    "SCENE_COUNT": "{{n}} cenas",
+    "SCENE_COUNT_ONE": "1 cena",
+    "SCENE_OF": "Cena {{n}} de {{total}}",
+    "BACK": "Voltar",
+    "MANAGE_OPEN": "Gerenciar tour",
+    "HIDE_UI": "Ocultar interface",
+    "SHOW_UI": "Mostrar interface",
+    "SCENES": {
+      "CAPTION": "CENAS",
+      "SEE_ALL": "Ver todas",
+      "SHEET_TITLE": "Cenas do tour",
+      "CURRENT_BADGE": "ATUAL",
+      "COLLAPSE": "Recolher",
+      "EXPAND": "Expandir",
+      "OPEN_LIST": "Ver todas as cenas"
+    },
+    "ACTIONS": {
+      "EDIT": "EDITAR",
+      "EMBED": "EMBED",
+      "DELETE": "APAGAR",
+      "EDIT_LONG": "Editar tour",
+      "EMBED_LONG": "Incorporar",
+      "PUBLISH_LONG": "Publicar",
+      "DELETE_ARIA": "Apagar tour"
+    },
+    "EMBED": {
+      "TITLE": "Incorporar tour",
+      "DESCRIPTION": "Cole o código no site do imóvel ou envie apenas o link público.",
+      "FORMAT_LABEL": "Formato do incorporado",
+      "FORMAT_RESPONSIVE": "Responsivo",
+      "FORMAT_16_9": "16:9",
+      "FORMAT_SQUARE": "Quadrado",
+      "SHOW_CONTROLS": "Mostrar controles no embed",
+      "COPY_CODE": "Copiar código",
+      "COPY_LINK": "Copiar link"
+    },
+    "DELETE": {
+      "TITLE": "Apagar “{{name}}”?",
+      "BODY": "As {{n}} cenas, os pontos de navegação e o link público serão removidos. Quem já incorporou o tour verá um espaço vazio.",
+      "WARNING": "Esta ação não pode ser desfeita.",
+      "CONFIRM": "Apagar tour",
+      "CANCEL": "Cancelar",
+      "DELETING": "Apagando…"
+    },
+    "MANAGE": {
+      "TITLE": "Gerenciar tour",
+      "PUBLISH": "Publicar tour",
+      "PUBLISH_SUB": "Deixa o tour visível pelo link público",
+      "SETTINGS": "Configurações do tour",
+      "SETTINGS_SUB": "Nome e cena inicial",
+      "SHARE": "Compartilhar link",
+      "SHARE_SUB": "WhatsApp, e-mail ou copiar URL",
+      "DOWNLOAD": "Baixar esta cena",
+      "DOWNLOAD_SUB": "Salva a foto 360º do cômodo atual"
+    },
+    "HOTSPOT": {
+      "GO_TO": "Ir para {{name}}"
+    },
+    "TOAST": {
+      "OPENING_EDITOR": "Abrindo o editor…",
+      "CODE_COPIED": "Código copiado",
+      "LINK_COPIED": "Link copiado",
+      "COPY_ERROR": "Não foi possível copiar. Selecione o texto e copie.",
+      "DELETE_ERROR": "Não foi possível apagar o tour",
+      "PUBLISHED": "Tour publicado",
+      "PUBLISH_ERROR": "Não foi possível publicar o tour",
+      "DOWNLOAD_SUCCESS": "Download iniciado",
+      "DOWNLOAD_ERROR": "Não foi possível baixar a imagem"
     }
+  },
+  "VIEWER": {
+    "ROOMS": "Ambientes"
   }
 }

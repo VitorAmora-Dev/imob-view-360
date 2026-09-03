@@ -22,8 +22,11 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    // O `:id` é o do IMÓVEL, não o do tour — e continua sendo (decisão D10 do
+    // SPRINT-4-TOUR-VIEWER.md). Trocar o parâmetro arrastaria a home, os cards,
+    // os guards e todo link que já foi enviado por aí.
     path: 'inner-view-page/:id',
-    loadComponent: () => import('./inner-view-page/inner-view-page.page').then(m => m.InnerViewPagePage),
+    loadComponent: () => import('./tour-viewer/tour-viewer.page').then(m => m.TourViewerPage),
     canActivate: [authGuard],
   },
   {
@@ -50,6 +53,16 @@ export const routes: Routes = [
     // Pergunta antes de sair quando há foto capturada e ainda não publicada —
     // ver `tourWizardLeaveGuard` para o porquê de ser um guard e não um
     // evento do header.
+    canDeactivate: [tourWizardLeaveGuard],
+  },
+  {
+    // O EDITAR do visualizador (SPRINT-4-TOUR-VIEWER.md, TV-11). Mesma tela do
+    // wizard, em modo de edição: sem descarte, e a ação final salva em vez de
+    // publicar. O `:id` aqui é o do TOUR — diferente do `:id` de
+    // `inner-view-page`, que é o do IMÓVEL.
+    path: 'tour/:id/editar',
+    loadComponent: () => import('./tour-wizard/tour-wizard.page').then(m => m.TourWizardPage),
+    canActivate: [authGuard],
     canDeactivate: [tourWizardLeaveGuard],
   },
   {

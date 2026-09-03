@@ -1,6 +1,14 @@
 <ion-content>
   @if (tour && tour.panoramas.length > 0) {
-    <app-panoramic-viewer [panoramas]="tour.panoramas"></app-panoramic-viewer>
+    <!--
+      `roomNav` é a lista de ambientes do próprio viewer, e aqui ela é a ÚNICA
+      navegação que existe: o embed não tem chrome, nem pill, nem faixa de
+      cenas. Por isso ela continua ligada por padrão — ao contrário do
+      visualizador, onde a TV-8 a desligou para não ter duas listas na tela.
+    -->
+    <app-panoramic-viewer
+      [panoramas]="tour.panoramas"
+      [roomNav]="mostrarControles"></app-panoramic-viewer>
   }
   @if (!tour && !loadError) {
     <div class="embed-state">

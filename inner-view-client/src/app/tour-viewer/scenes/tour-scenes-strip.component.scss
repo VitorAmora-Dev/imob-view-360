@@ -1,0 +1,283 @@
+@use '../../../theme/tour-viewer-mixins' as tv;
+
+// A faixa de cenas do celular e o rail do desktop (TV-2). Medidas em
+// `02-mobile.md` e `05-desktop.md`.
+//
+// O host É o slot do chrome: ele leva `class="tv-slot tv-slot--cenas"` no
+// template da página, e é de lá que vem o `pointer-events: auto`. Por isso ele
+// NÃO pode ganhar `inset: 0` nem largura total no desktop — uma caixa
+// transparente sobre a foto engole o arrasto do panorama, que é o gesto
+// principal da tela. No celular ele ocupa a linha dele no flex do chrome; no
+// desktop ele é uma caixa de 640px ancorada no canto de baixo à esquerda.
+
+:host {
+  display: block;
+}
+
+// ---- cabeçalho ------------------------------------------------------------
+
+.tv-cenas__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 16px 8px;
+}
+
+.tv-cenas__titulo {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tv-text-muted);
+}
+
+.tv-cenas__contagem {
+  display: none;
+}
+
+.tv-cenas__acao {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  // O alvo tem os 44px do dedo mesmo com o cabeçalho desenhado em 36: as
+  // margens negativas deixam o botão transbordar a linha em vez de empurrá-la.
+  // A medida mínima de toque é o motivo desta refatoração existir, e ela não
+  // deveria custar 8px de foto.
+  min-height: var(--tv-tap);
+  margin: -4px -6px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-accent);
+    outline-offset: 2px;
+    border-radius: var(--tv-radius-plate);
+  }
+}
+
+.tv-cenas__acao--faixa {
+  color: var(--tv-accent);
+}
+
+// Só existe no rail do desktop — ver o comentário no topo do template.
+.tv-cenas__acao--rail {
+  display: none;
+  color: var(--tv-text-secondary);
+}
+
+.tv-cenas__chevron {
+  transition: transform var(--tv-dur-chrome) ease;
+}
+
+// ---- trilho ---------------------------------------------------------------
+
+.tv-cenas__trilho {
+  @include tv.tv-trilho-sem-barra;
+
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0 12px 6px;
+  list-style: none;
+  // `proximity` e não `mandatory`: com `mandatory` o trilho corrige a posição
+  // sozinho ao fim de todo arrasto, e num tour de trinta cômodos isso vira o
+  // trilho puxando o dedo de volta.
+  scroll-snap-type: x proximity;
+}
+
+.tv-cenas__vaga {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.tv-cenas__item {
+  position: relative;
+  display: block;
+  width: 104px;
+  height: 70px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--tv-border-soft);
+  border-radius: var(--tv-radius-thumb);
+  // O bloco que ocupa o lugar da foto enquanto o `blob:` não chega.
+  background: var(--tv-skeleton);
+  cursor: pointer;
+  transition: border-color var(--tv-dur-control) ease-out;
+
+  // A cena que está NA TELA. `aria-selected` como seletor, e não uma classe
+  // paralela: assim é impossível o anel accent e o anúncio do leitor de tela
+  // discordarem — eles saem do mesmo atributo.
+  &[aria-selected='true'] {
+    border-color: var(--tv-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-accent);
+    outline-offset: 2px;
+  }
+
+  // O bloco só espera enquanto NÃO há foto. A classe vem do template, e não de
+  // um seletor sobre o `<img>`, porque o que se quer pintar é o botão — e CSS
+  // não sobe do filho para o pai.
+  //
+  // O brilho corre em `background-position` sobre um gradiente três vezes mais
+  // largo que o botão: assim é uma propriedade composta que anima, e não a
+  // geometria de um pseudo-elemento a mais em cima de trinta miniaturas.
+  &.is-carregando {
+    background-image: linear-gradient(
+      100deg,
+      transparent 30%,
+      var(--tv-skeleton-shimmer) 50%,
+      transparent 70%
+    );
+    background-size: 300% 100%;
+    animation: tv-cenas-brilho 1.4s ease-in-out infinite;
+  }
+
+  // O gradiente que dá fundo à legenda. Em `::after` para não precisar de um
+  // nó a mais dentro de cada miniatura — são trinta em um tour grande.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--tv-grad-thumb);
+    pointer-events: none;
+  }
+}
+
+.tv-cenas__thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tv-cenas__nome {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  // Acima do gradiente do `::after`, que também está em `position: absolute`.
+  z-index: 1;
+  display: block;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--tv-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes tv-cenas-brilho {
+  from {
+    background-position: 150% 0;
+  }
+
+  to {
+    background-position: -150% 0;
+  }
+}
+
+// O brilho é a única animação daqui, e ela não tem token de duração em
+// `tour-viewer.scss` — os de lá são do hotspot. Por isso a media query mora
+// aqui: a espera continua sendo comunicada pelo bloco escuro, parado.
+@media (prefers-reduced-motion: reduce) {
+  .tv-cenas__item.is-carregando {
+    animation: none;
+  }
+}
+
+// ---- desktop: o mesmo trilho dentro de um rail de vidro -------------------
+
+@include tv.tv-desktop {
+  :host {
+    position: absolute;
+    left: 24px;
+    bottom: 24px;
+    // 640px é a medida do handoff. Não vira token porque é geometria de UM
+    // componente: a camada L2 nomeia o que mais de um lugar precisa saber.
+    width: 640px;
+    max-width: calc(100% - 48px);
+  }
+
+  .tv-cenas {
+    @include tv.tv-vidro(
+      var(--tv-glass-2),
+      var(--tv-blur-cluster),
+      var(--tv-border-hairline)
+    );
+
+    padding: 14px 16px 16px;
+    border-radius: var(--tv-radius-rail);
+  }
+
+  .tv-cenas__head {
+    padding: 0 0 10px;
+  }
+
+  .tv-cenas__titulo {
+    font-size: 11px;
+    color: var(--tv-text-secondary);
+  }
+
+  .tv-cenas__contagem {
+    display: inline;
+  }
+
+  .tv-cenas__acao--faixa {
+    display: none;
+  }
+
+  .tv-cenas__acao--rail {
+    display: inline-flex;
+  }
+
+  .tv-cenas__trilho {
+    gap: 10px;
+    padding: 0;
+  }
+
+  .tv-cenas__item {
+    width: 146px;
+    height: 92px;
+    border-radius: var(--tv-radius-thumb-desk);
+  }
+
+  .tv-cenas__nome {
+    font-size: 11.5px;
+  }
+
+  // Recolhido, sobra o cabeçalho — e é por isso que a contagem vive nele.
+  //
+  // `display: none` no trilho, e não altura zero: as miniaturas continuariam
+  // focáveis pelo Tab dentro de uma caixa de altura 0, que é o jeito clássico
+  // de o foco sumir da tela.
+  .tv-cenas--recolhido {
+    .tv-cenas__head {
+      padding-bottom: 0;
+    }
+
+    .tv-cenas__trilho {
+      display: none;
+    }
+
+    .tv-cenas__chevron {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+// O degrau do meio do desktop: o rail encolhe, o resto fica igual.
+@include tv.tv-desktop-compacto {
+  :host {
+    width: 480px;
+  }
+}

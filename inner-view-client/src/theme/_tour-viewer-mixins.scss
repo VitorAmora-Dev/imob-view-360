@@ -1,0 +1,71 @@
+// Mixins da tela de visualização de tour (SPRINT-4-TOUR-VIEWER.md, TV-0).
+//
+// Só abstrações — este arquivo não emite uma linha de CSS. É por isso que os
+// componentes fazem `@use` daqui e não de `tour-viewer.scss`: aquele tem um
+// bloco `:root`, que sairia duplicado dentro do CSS encapsulado de cada
+// componente que o carregasse.
+//
+// Mesmo corte do wizard (767px), de propósito: dois breakpoints diferentes no
+// mesmo app é como uma tela passa a trocar de layout em dois lugares.
+
+/// Layout de celular. Abaixo deste corte a tab bar substitui o cluster de ações
+/// e os diálogos viram bottom sheets — é mudança de LAYOUT, não de tamanho.
+@mixin tv-mobile {
+  @media (max-width: 767px) {
+    @content;
+  }
+}
+
+@mixin tv-desktop {
+  @media (min-width: 768px) {
+    @content;
+  }
+}
+
+/// Os dois degraus internos do desktop, do `05-desktop.md`.
+@mixin tv-desktop-compacto {
+  @media (min-width: 768px) and (max-width: 1279px) {
+    @content;
+  }
+}
+
+/// Trilho que rola na horizontal sem mostrar barra.
+///
+/// Existe como mixin porque são três motores e três sintaxes, e o trilho
+/// aparece em dois lugares (faixa do mobile e rail do desktop). Escrito à mão
+/// nos dois, um deles esquece o `-webkit-` e ganha uma barra cinza no iOS.
+@mixin tv-trilho-sem-barra {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/// Superfície de vidro. O `backdrop-filter` é o que separa "vidro" de "cinza
+/// sujo", e é justamente o que se esquece ao copiar só a cor.
+@mixin tv-vidro($fundo, $blur, $borda: var(--tv-border-control)) {
+  background: $fundo;
+  border: 1px solid $borda;
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+}
+
+/// O que o modo imersivo faz com cada peça de chrome que ele esconde.
+///
+/// `visibility` junto com a opacidade porque o elemento precisa sair do
+/// caminho do dedo, e não só ficar invisível: um botão transparente continua
+/// engolindo o arrasto do panorama.
+@mixin tv-oculto-no-imersivo {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition:
+    opacity var(--tv-dur-chrome) ease,
+    transform var(--tv-dur-chrome) ease,
+    visibility var(--tv-dur-chrome) ease;
+}

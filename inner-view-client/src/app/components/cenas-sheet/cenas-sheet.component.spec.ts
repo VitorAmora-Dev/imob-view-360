@@ -6,7 +6,6 @@ import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 
 import { environment } from '../../../environments/environment';
 import { Panorama } from '../../models/virtual-tour.model';
-import { TourSheetStore } from '../tour-sheet/tour-sheet.store';
 import { CenasSheetComponent } from './cenas-sheet.component';
 
 /**
@@ -23,7 +22,7 @@ import { CenasSheetComponent } from './cenas-sheet.component';
  * Aqui ela não serve, e o motivo é concreto: um dos critérios da spec é "a
  * contagem do subtítulo bate com `cenas.length`", e a contagem só existe
  * DENTRO do texto interpolado. Com a chave crua no DOM,
- * `toBe('VIEWER.CENAS.CONTAGEM')` passa igual se o componente mandar `{ n: 3 }`
+ * `toBe('TOUR_VIEWER.SCENE_COUNT')` passa igual se o componente mandar `{ n: 3 }`
  * ou `{ n: 999 }` — foi assim que o `{ n }` ficou oito testes sem cobertura.
  *
  * O `MENSAGENS` abaixo é um dublê CURTO e local: nada aqui lê `pt.json`, então
@@ -31,12 +30,12 @@ import { CenasSheetComponent } from './cenas-sheet.component';
  * ele fixa é a FORMA da mensagem ("{{n}} cenas"), que é o que carrega o número.
  */
 const MENSAGENS = {
-  VIEWER: {
-    CENAS: {
-      TITULO: 'Cenas do tour',
-      CONTAGEM: '{{n}} cenas',
-      UMA: '1 cena',
-      ATUAL: 'ATUAL',
+  TOUR_VIEWER: {
+    SCENE_COUNT: '{{n}} cenas',
+    SCENE_COUNT_ONE: '1 cena',
+    SCENES: {
+      SHEET_TITLE: 'Cenas do tour',
+      CURRENT_BADGE: 'ATUAL',
     },
   },
 };
@@ -52,7 +51,6 @@ function cena(id: string, order: number): Panorama {
 
 describe('CenasSheetComponent', () => {
   let fixture: ComponentFixture<CenasSheetComponent>;
-  let store: TourSheetStore;
   let http: HttpTestingController;
 
   /** Tudo o que foi criado no teste, para o `afterEach` derrubar. */
@@ -83,7 +81,7 @@ describe('CenasSheetComponent', () => {
     criados.push(fixture);
     fixture.componentRef.setInput('cenas', cenas);
     fixture.componentRef.setInput('atualId', atualId);
-    store.abrir('cenas');
+    fixture.componentRef.setInput('aberto', true);
     fixture.detectChanges();
 
     const no = fixture.nativeElement.querySelector('ion-modal') as HTMLElement;
@@ -123,7 +121,6 @@ describe('CenasSheetComponent', () => {
       ],
     }).compileComponents();
 
-    store = TestBed.inject(TourSheetStore);
     http = TestBed.inject(HttpTestingController);
     // Ver o cabeçalho do arquivo: aqui a chave crua não prova a contagem.
     TestBed.inject(TranslateService).setTranslation('pt', MENSAGENS, true);
@@ -140,7 +137,6 @@ describe('CenasSheetComponent', () => {
     document.querySelectorAll('ion-modal').forEach((m) => m.remove());
     document.body.classList.remove('backdrop-no-scroll');
     (document.activeElement as HTMLElement | null)?.blur();
-    store.fechar();
   });
 
   /**
@@ -158,7 +154,7 @@ describe('CenasSheetComponent', () => {
    * O NÚMERO no subtítulo, e não só a chave.
    *
    * A spec lista "a contagem do subtítulo bate com `cenas.length`" como
-   * critério. Asserir `'VIEWER.CENAS.CONTAGEM'` distinguia apenas plural de
+   * critério. Asserir `'TOUR_VIEWER.SCENE_COUNT'` distinguia apenas plural de
    * singular: `{ n: 999 }` passava igual. Três cenas precisam dizer três.
    */
   it('mostra o titulo e a contagem REAL no plural quando ha varias cenas', async () => {
@@ -204,7 +200,7 @@ describe('CenasSheetComponent', () => {
    */
   it('o subtitulo acompanha a troca de idioma com o sheet aberto', async () => {
     const translate = TestBed.inject(TranslateService);
-    translate.setTranslation('en', { VIEWER: { CENAS: { CONTAGEM: '{{n}} scenes' } } }, true);
+    translate.setTranslation('en', { TOUR_VIEWER: { SCENE_COUNT: '{{n}} scenes' } }, true);
 
     const no = await abrir([cena('a', 1), cena('b', 2)]);
     expect(no.querySelector('.tour-sheet__sub')?.textContent?.trim()).toBe('2 cenas');
@@ -279,14 +275,19 @@ describe('CenasSheetComponent', () => {
   it('escolher emite a cena e fecha o sheet', async () => {
     const no = await abrir([cena('a', 1), cena('b', 2)], 'a');
     const escolhidas: Panorama[] = [];
+    const fechamentos: number[] = [];
     fixture.componentInstance.selecionada.subscribe((c) => escolhidas.push(c));
+    fixture.componentInstance.fechado.subscribe(() => fechamentos.push(1));
 
     cards(no)[1].click();
 
     expect(escolhidas.map((c) => c.id)).toEqual(['b']);
-    expect(store.aberto())
-      .withContext('o sheet ficou aberto depois de escolher uma cena')
-      .toBeNull();
+    // Pedir o fechamento continua sendo regra DESTE sheet (o TV-4 mantém o
+    // dele aberto ao copiar). O que mudou é quem obedece: antes ele mesmo
+    // escrevia num store global; agora avisa a tela, que é quem sabe.
+    expect(fechamentos.length)
+      .withContext('escolher uma cena não pediu para fechar')
+      .toBe(1);
   });
 
 
@@ -297,17 +298,17 @@ describe('CenasSheetComponent', () => {
    * O `main.ts` carrega o JSON por HTTP sem `APP_INITIALIZER` bloqueante, e o
    * `app-cenas-sheet` vive no template da pagina -- o subtitulo e' avaliado
    * antes de o arquivo chegar. Se o valor congelasse ali, o sheet mostraria
-   * `VIEWER.CENAS.CONTAGEM` para sempre.
+   * `TOUR_VIEWER.SCENE_COUNT` para sempre.
    */
   it('o subtitulo se corrige quando as traducoes chegam depois da montagem', async () => {
     const translate = TestBed.inject(TranslateService);
     // Apaga a mensagem: e' o estado de "o JSON ainda nao chegou".
-    translate.setTranslation('pt', { VIEWER: { CENAS: { CONTAGEM: 'AINDA NAO' } } }, true);
+    translate.setTranslation('pt', { TOUR_VIEWER: { SCENE_COUNT: 'AINDA NAO' } }, true);
 
     const no = await abrir([cena('a', 1), cena('b', 2)]);
     expect(no.querySelector('.tour-sheet__sub')?.textContent?.trim()).toBe('AINDA NAO');
 
-    translate.setTranslation('pt', { VIEWER: { CENAS: { CONTAGEM: '{{n}} cenas' } } }, true);
+    translate.setTranslation('pt', { TOUR_VIEWER: { SCENE_COUNT: '{{n}} cenas' } }, true);
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -399,7 +400,7 @@ describe('CenasSheetComponent', () => {
       .withContext('baixou miniatura com o sheet fechado')
       .toBe(0);
 
-    store.abrir('cenas');
+    fixture.componentRef.setInput('aberto', true);
     fixture.detectChanges();
 
     expect(pedidosDeMiniatura().length).toBe(30);
@@ -414,9 +415,9 @@ describe('CenasSheetComponent', () => {
     await abrir([cena('a', 1), cena('b', 2)]);
     await entregarMiniaturas();
 
-    store.fechar();
+    fixture.componentRef.setInput('aberto', false);
     fixture.detectChanges();
-    store.abrir('cenas');
+    fixture.componentRef.setInput('aberto', true);
     fixture.detectChanges();
 
     expect(pedidosDeMiniatura().length)

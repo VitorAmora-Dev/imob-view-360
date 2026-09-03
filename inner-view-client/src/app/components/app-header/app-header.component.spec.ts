@@ -61,6 +61,18 @@ describe('AppHeaderComponent', () => {
     expect(image.getAttribute('src')).toContain('arp-vision-horizontal-white.svg');
   });
 
+  it('preserva o voltar e oculta o restante do overlay no modo imersivo', () => {
+    montar();
+    component.variant = 'overlay';
+    component.backHref = '/home';
+    component.chromeVisible = false;
+    fixture.detectChanges();
+
+    const header = fixture.nativeElement.querySelector('.app-header');
+    expect(header.classList).toContain('app-header--chrome-hidden');
+    expect(fixture.nativeElement.querySelector('.back-btn')).not.toBeNull();
+  });
+
   /**
    * A engrenagem e o `.header-desktop` do telefone: abaixo de 744px aquele
    * bloco some, e ela vira o unico caminho para idioma, sair e "Meus imoveis".

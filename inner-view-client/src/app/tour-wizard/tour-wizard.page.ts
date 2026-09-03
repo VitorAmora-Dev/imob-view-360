@@ -3,6 +3,7 @@ import {
   DestroyRef,
   OnInit,
   computed,
+  effect,
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -67,6 +68,36 @@ const PERGUNTA_DE_SAIDA: PerguntaDoWizard = {
       // em que o polegar descansa. A confirmação devolve o custo que a
       // simplificação tirou.
       confirmaKey: 'TOUR_WIZARD.COMMON.LEAVE_DISCARD_CONFIRM',
+    },
+  ],
+};
+
+/**
+ * A saída em modo de EDIÇÃO (TV-11).
+ *
+ * A diferença para a pergunta acima é a ausência: não há "Descartar captura".
+ * Aquele botão apaga o imóvel em cascata, e aqui o tour está no ar, com link
+ * que já circulou. Sair sem salvar deixa o tour exatamente como estava — que é
+ * o pior desfecho possível deste diálogo, e é um desfecho seguro.
+ *
+ * Sem `icone: 'lixeira'` em lugar nenhum, pela mesma razão: nada aqui apaga
+ * coisa alguma.
+ */
+const PERGUNTA_DE_SAIDA_EM_EDICAO: PerguntaDoWizard = {
+  tituloKey: 'TOUR_WIZARD.COMMON.LEAVE_EDIT_TITLE',
+  mensagemKey: 'TOUR_WIZARD.COMMON.LEAVE_EDIT_MESSAGE',
+  dispensavel: true,
+  fecharKey: 'TOUR_WIZARD.COMMON.LEAVE_CANCEL',
+  acoes: [
+    {
+      id: SAIR_SALVANDO,
+      rotuloKey: 'TOUR_WIZARD.COMMON.LEAVE_EDIT_SAVE',
+      tom: 'primario',
+    },
+    {
+      id: SAIR_SEM_SALVAR,
+      rotuloKey: 'TOUR_WIZARD.COMMON.LEAVE_EDIT_DISCARD',
+      tom: 'neutro',
     },
   ],
 };
@@ -194,6 +225,17 @@ export class TourWizardPage implements OnInit {
       void this.store.salvarRascunho().catch(() => undefined);
     };
     document.addEventListener('visibilitychange', aoEsconder);
+
+    // Salvou a edição: volta para o visualizador de onde o corretor veio.
+    //
+    // Não há tela de sucesso aqui — o tour já estava publicado, e anunciar
+    // "seu tour está no ar!" para quem renomeou um cômodo seria mentir sobre o
+    // que acabou de acontecer. A confirmação é ver o tour de novo, com a
+    // alteração feita.
+    effect(() => {
+      if (!this.store.edicaoSalva()) return;
+      void this.router.navigate(this.destinoDeSaida());
+    });
     inject(DestroyRef).onDestroy(() =>
       document.removeEventListener('visibilitychange', aoEsconder),
     );
@@ -206,8 +248,47 @@ export class TourWizardPage implements OnInit {
    * tour".
    */
   ngOnInit(): void {
+    // `tour/:id/editar` — o EDITAR do visualizador. Tem precedência sobre a
+    // retomada porque são rotas diferentes: o parâmetro de caminho só existe
+    // na de edição.
+    const emEdicao = this.route.snapshot.paramMap.get('id');
+    if (emEdicao) {
+      void this.abrirParaEdicao(emEdicao);
+      return;
+    }
+
     const rascunho = this.route.snapshot.queryParamMap.get('rascunho');
     if (rascunho) void this.retomar(rascunho);
+  }
+
+  /**
+   * Abre o tour para edição, com a mesma pergunta da retomada quando falha.
+   *
+   * Seguir em frente calado seria pior aqui do que lá: o wizard vazio com
+   * `rascunhoTourId` nulo trataria a primeira captura como tour NOVO, e o
+   * corretor que veio editar um tour publicado ganharia um segundo imóvel.
+   */
+  private async abrirParaEdicao(tourId: string): Promise<void> {
+    try {
+      await this.store.abrirParaEdicao(tourId);
+
+      // O sheet Gerenciar pode pedir a etapa de Informações diretamente. A
+      // ausência (ou qualquer outro valor) preserva a entrada normal do botão
+      // Editar, sem mudar o fluxo de criação nem a retomada de rascunho.
+      if (this.route.snapshot.queryParamMap.get('etapa') === '4') {
+        this.store.step.set(4);
+      }
+      return;
+    } catch {
+      // A pergunta fica fora do catch pelo mesmo motivo de `retomar()`.
+    }
+
+    if ((await this.dialogo.perguntar(PERGUNTA_DE_RETOMADA_FALHA)) === TENTAR_DE_NOVO) {
+      await this.abrirParaEdicao(tourId);
+      return;
+    }
+
+    void this.router.navigate(['/home']);
   }
 
   /**
@@ -272,9 +353,22 @@ export class TourWizardPage implements OnInit {
     void this.store.salvarRascunho().catch(() => undefined);
   }
 
-  /** Voltar compacto da galeria; o guard da rota preserva a decisÃ£o de saÃ­da. */
-  voltarParaHome(): void {
-    void this.router.navigate(['/home']);
+  /**
+   * Voltar compacto da galeria; o guard da rota preserva a decisão de saída.
+   *
+   * Em edição o destino é o VISUALIZADOR de onde o corretor veio, e não a
+   * home: ele tocou em EDITAR dentro de um tour, e devolvê-lo à listagem o
+   * faria procurar de novo o imóvel que estava aberto na tela.
+   */
+  voltar(): void {
+    void this.router.navigate(this.destinoDeSaida());
+  }
+
+  private destinoDeSaida(): unknown[] {
+    const propertyId = this.store.rascunhoPropertyId();
+    return this.store.editando() && propertyId
+      ? ['/inner-view-page', propertyId]
+      : ['/home'];
   }
 
   /**
@@ -326,11 +420,23 @@ export class TourWizardPage implements OnInit {
    * que deixou de ser rascunho.
    */
   private async decidirSaida(): Promise<boolean> {
-    if (this.store.published() || !this.store.readyScenes().length) {
+    // `edicaoSalva` é o `published` do modo de edição: o trabalho está no
+    // servidor, e perguntar de novo seguraria a navegação que o próprio
+    // salvamento disparou.
+    if (
+      this.store.published() ||
+      this.store.edicaoSalva() ||
+      !this.store.readyScenes().length
+    ) {
       return true;
     }
 
-    switch (await this.dialogo.perguntar(PERGUNTA_DE_SAIDA)) {
+    const pergunta = this.store.editando()
+      ? PERGUNTA_DE_SAIDA_EM_EDICAO
+      : PERGUNTA_DE_SAIDA;
+
+    switch (await this.dialogo.perguntar(pergunta)) {
+      // Só a pergunta de CRIAÇÃO oferece este. Ver `PERGUNTA_DE_SAIDA_EM_EDICAO`.
       case SAIR_DESCARTANDO:
         await this.store.descartarRascunho().catch(() => undefined);
         return true;
@@ -352,6 +458,11 @@ export class TourWizardPage implements OnInit {
         } catch {
           return this.avisarQueNaoSalvou();
         }
+
+      case SAIR_SEM_SALVAR:
+        // Só existe em edição, e é escolha informada: o tour continua no ar
+        // exatamente como estava antes de esta tela abrir.
+        return true;
 
       default:
         // O X, o toque fora e o Esc. Dispensar É "ficar aqui" — foi o botão

@@ -10,12 +10,13 @@
   "1 cenas" é erro visível na tela.
 -->
 <app-tour-sheet
-  [isOpen]="store.aberto() === 'cenas'"
-  [titulo]="'VIEWER.CENAS.TITULO' | translate"
+  [isOpen]="aberto()"
+  [variante]="'adaptavel'"
+  [titulo]="'TOUR_VIEWER.SCENES.SHEET_TITLE' | translate"
   [subtitulo]="ordenadas().length === 1
-    ? ('VIEWER.CENAS.UMA' | translate)
-    : ('VIEWER.CENAS.CONTAGEM' | translate: { n: ordenadas().length })"
-  (fechado)="store.fechar()">
+    ? ('TOUR_VIEWER.SCENE_COUNT_ONE' | translate)
+    : ('TOUR_VIEWER.SCENE_COUNT' | translate: { n: ordenadas().length })"
+  (fechado)="fechado.emit()">
 
   <ul class="cenas-sheet__grade" role="list">
     @for (cena of ordenadas(); track cena.id) {
@@ -46,7 +47,7 @@
           <img class="cenas-sheet__thumb" [src]="miniatura(cena)" alt="">
           <span class="cenas-sheet__nome">{{ cena.roomName }}</span>
           @if (cena.id === atualId()) {
-            <span class="cenas-sheet__badge">{{ 'VIEWER.CENAS.ATUAL' | translate }}</span>
+            <span class="cenas-sheet__badge">{{ 'TOUR_VIEWER.SCENES.CURRENT_BADGE' | translate }}</span>
           }
         </button>
       </li>

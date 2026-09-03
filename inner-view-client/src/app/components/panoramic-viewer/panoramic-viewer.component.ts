@@ -227,6 +227,25 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   @Input() roomNav = true;
 
   /**
+   * Como os pontos de navegação são desenhados.
+   *
+   * `'sprites'` é o padrão, e é o que embed, wizard e captura continuam
+   * recebendo sem pedir. A tela de visualização refeita passa `'none'` e
+   * desenha os seus por cima, em HTML (decisão D3 do SPRINT-4-TOUR-VIEWER.md):
+   * disco deitado com perspectiva, halo em gradiente e anel que pulsa são
+   * coisas de CSS, e o `<button>` ainda traz teclado e leitor de tela.
+   *
+   * Aditivo de propósito: quem não disser nada não vê diferença.
+   *
+   * `hotspotMode` e não `hotspots`: há outros dois inputs com esse nome no app
+   * — nos dois overlays — e ambos recebem a LISTA de pontos. Na página do
+   * visualizador os dois apareciam a setenta linhas de distância, e
+   * `[hotspots]="'none'"` lia como "não há hotspots" quando quer dizer "não
+   * desenhe você".
+   */
+  @Input() hotspotMode: 'sprites' | 'none' = 'sprites';
+
+  /**
    * Imagem que deve SUBSTITUIR a que está à vista, com uma dissolvência.
    *
    * É como a etapa 2 do wizard revela o resultado da montagem por IA: o cômodo
@@ -244,6 +263,26 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   @Output() panoramaChange = new EventEmitter<Panorama>();
   @Output() hotspotPlaced = new EventEmitter<{ positionX: number; positionY: number }>();
 
+  /**
+   * Um toque na foto que não acertou nada.
+   *
+   * Existe para o modo imersivo da tela de visualização: tocar no panorama
+   * esconde e mostra o chrome. Só dispara em toque de verdade — o arrasto que
+   * gira a esfera já é descartado por `suppressNextClick` — e nunca quando o
+   * toque caiu num hotspot.
+   */
+  @Output() canvasTapped = new EventEmitter<void>();
+
+  /**
+   * A foto deste cômodo não carregou.
+   *
+   * O `TextureLoader` engolia a falha e só desligava o spinner: a tela ficava
+   * com a foto do cômodo ANTERIOR e nenhum aviso, o que é pior que a tela
+   * preta — quem olha não sabe que está vendo outro lugar. Quem ouve decide o
+   * que mostrar; aqui só se sabe que falhou.
+   */
+  @Output() loadFailed = new EventEmitter<Panorama>();
+
   loading = true;
 
   // ---- planta na parede ---------------------------------------------------
@@ -258,6 +297,22 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   mostrarNav = false;
   navAberta = false;
   idAtual: string | null = null;
+
+  /**
+   * Identifica a carga de textura em voo.
+   *
+   * `TextureLoader.load` é assíncrono e não cancelável, e os callbacks chegam
+   * em ordem de CONCLUSÃO, não de pedido. Sem esta identidade, dois toques
+   * rápidos deixavam duas cargas correndo e vencia a que baixasse por último:
+   * medido com a rede estrangulada, três toques rendiam quatro trocas de foto
+   * — `q → b → quar → b` —, com o cômodo errado aparecendo no meio e uma
+   * equirretangular inteira baixada de novo para desfazer.
+   *
+   * `idAtual` não servia para isso: ele só é escrito no sucesso, então durante
+   * a carga ele ainda aponta para o cômodo ANTERIOR e as duas cargas o veem
+   * igual.
+   */
+  private pedidoDeTextura = 0;
   nomeAtual = '';
 
   alternarNav(): void {
@@ -425,6 +480,17 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // three.js já ter subido. Presa ao init, ela não apareceria no primeiro
     // desenho — o init é adiado um tick de propósito.
     if (changes['panoramas'] || changes['roomNav']) this.atualizarNav();
+    // Trocar o modo com a tela montada: sem isto os sprites só sumiriam na
+    // próxima troca de cômodo.
+    // Sem `!firstChange` aqui, ao contrário de `panoramas`: uma tela pode
+    // decidir o modo depois de montada, e essa PRIMEIRA mudança é justamente a
+    // que precisa limpar. O `initialized` já barra a chamada de criação, quando
+    // ainda não há sprite nenhum para limpar.
+    if (changes['hotspotMode'] && this.initialized) {
+      this.clearHotspots();
+      const atual = this.panoramas.find((p) => p.id === this.idAtual);
+      if (atual) this.addHotspots(atual);
+    }
   }
 
   ngOnDestroy() {
@@ -488,6 +554,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private loadPanorama(panorama: Panorama) {
+    const pedido = ++this.pedidoDeTextura;
     this.loading = true;
     // Trocar de cômodo invalida qualquer revelação em curso: ela dissolveria a
     // imagem tratada de uma sala por cima da foto de outra.
@@ -503,6 +570,14 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     loader.load(
       endereco,
       (texture) => {
+        // Chegou tarde: outro cômodo foi pedido enquanto esta baixava. Não
+        // basta ignorar — a textura já existe na GPU e ninguém mais a
+        // referencia, e uma equirretangular de 8192×4096 são ~128 MB.
+        if (pedido !== this.pedidoDeTextura) {
+          texture.dispose();
+          return;
+        }
+
         texture.colorSpace = THREE.SRGBColorSpace;
         // An equirect wraps the sphere very unevenly: near the poles a row of
         // texels is squeezed into almost no screen width, so isotropic mip
@@ -529,7 +604,15 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
         this.panoramaChange.emit(panorama);
       },
       undefined,
-      () => { this.loading = false; }
+      () => {
+        // A falha de um pedido abandonado não é notícia: quem está na tela é
+        // outro cômodo, que carregou bem. Sem esta guarda o `loadFailed`
+        // atrasado apagava o `loading` de uma carga ainda em curso.
+        if (pedido !== this.pedidoDeTextura) return;
+
+        this.loading = false;
+        this.loadFailed.emit(panorama);
+      }
     );
   }
 
@@ -600,6 +683,12 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private addHotspots(panorama: Panorama) {
+    // Quem desenha os pontos é outra camada. Sair aqui, e não deixar de chamar
+    // lá de cima, mantém o `clearHotspots(); addHotspots()` de `loadPanorama`
+    // como um par simétrico — e evita que a próxima troca de cômodo traga os
+    // sprites de volta por um caminho que ninguém lembrou de cobrir.
+    if (this.hotspotMode === 'none') return;
+
     for (const hotspot of panorama.originHotspots) {
       // De (positionX, positionY) para a posição 3D dentro da esfera invertida.
       //
@@ -812,20 +901,26 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
       return;
     }
 
-    if (this.hotspotSprites.length === 0) return;
-
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObjects(this.hotspotSprites);
-    if (intersects.length > 0) {
-      const sprite = intersects[0].object as THREE.Sprite;
-      const targetId = this.hotspotTargetMap.get(sprite);
-      if (targetId) {
-        this.navigateTo(targetId);
+    if (this.hotspotSprites.length > 0) {
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersects = this.raycaster.intersectObjects(this.hotspotSprites);
+      if (intersects.length > 0) {
+        const sprite = intersects[0].object as THREE.Sprite;
+        const targetId = this.hotspotTargetMap.get(sprite);
+        if (targetId) {
+          this.navigateTo(targetId);
+          return;
+        }
       }
     }
+
+    // Sobrou o toque na foto. Sai por último, depois de o hotspot ter tido a
+    // chance de responder: um toque que troca de cômodo não pode TAMBÉM
+    // esconder a interface.
+    this.canvasTapped.emit();
   };
 
   private readonly onWindowResize = () => {

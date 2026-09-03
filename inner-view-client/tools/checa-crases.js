@@ -49,6 +49,10 @@ function linhasComentadas(bloco) {
 
 let problemas = 0;
 for (const arquivo of arquivos) {
+  // `git ls-files` ainda lista arquivos removidos antes do commit. A limpeza da
+  // TV-12 apaga a página legada e o lint precisa validar o estado de trabalho,
+  // não tentar reabrir um arquivo que já não existe.
+  if (!fs.existsSync(arquivo)) continue;
   const texto = fs.readFileSync(arquivo, 'utf8');
   // Blocos template:` ... ` e styles: [` ... `]
   const re = /(template|styles):\s*\[?\s*`([\s\S]*?)`\s*[,\]]/g;

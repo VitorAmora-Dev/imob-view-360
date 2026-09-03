@@ -90,9 +90,20 @@ publishing: signal(false)
 ```
 L0  src/theme/_palette.scss        → --brand-*, --neutral-*, --status-*, --tour-*
 L1  src/theme/variables.scss       → --ion-color-*, --app-*
-L2  src/theme/tour-wizard.scss     → --tw-*
-L3  componentes                    → var(--tw-*), var(--app-*), var(--ion-*)
+L2  src/theme/tour-wizard.scss     → --tw-*   (wizard de criação de tour)
+L2  src/theme/tour-viewer.scss     → --tv-*   (tela de visualização de tour)
+L3  componentes                    → var(--tw-*), var(--tv-*), var(--app-*), var(--ion-*)
 ```
+
+**Duas camadas L2, e não se misturam.** O wizard é claro, o visualizador é
+escuro sobre foto. Componente de `app/tour-viewer/` usa `--tv-*`; componente do
+wizard usa `--tw-*`. Token que falta nasce na L2 da própria tela, nunca no
+componente — ver `SPRINT-4-TOUR-VIEWER.md`.
+
+**Token de `--tv-*` que NÃO é cor precisa de marcador no nome** (`dur`, `blur`,
+`grad`, `size`): `palette.contract.spec.ts` varre a camada e exige que todo
+token varrido resolva como cor. Uma duração ou um gradiente sem marcador cai lá
+como "cadeia quebrada" estando certo.
 
 ### Regra de ouro
 Componente **nunca** usa primitivo (L0) diretamente. Pede pelo papel:

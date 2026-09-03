@@ -69,6 +69,30 @@ function contraste(a: string, b: string): number {
   return (claro + 0.05) / (escuro + 0.05);
 }
 
+function alfa(cor: string): number {
+  const m = cor.match(/rgba?\(([^)]+)\)/);
+  if (!m) throw new Error(`não é uma cor resolvida: "${cor}"`);
+  const partes = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+  return partes.length > 3 ? partes[3] : 1;
+}
+
+/**
+ * A cor que sobra quando `frente`, que tem alpha, é pintada sobre `fundo`.
+ *
+ * Existe porque `contraste()` sozinho não sabe medir token translúcido: ele lê
+ * os canais e ignora o alpha, de modo que branco a .2 e branco a .9 dariam a
+ * mesma conta. Para o chrome da tela isso nunca importou — o fundo é sempre o
+ * mesmo escuro nosso, e os tokens já nascem compostos. Importa para o hotspot,
+ * que é pintado sobre a FOTO, e aí o fundo é um argumento.
+ */
+function sobre(frente: string, fundo: string): string {
+  const a = alfa(frente);
+  const [fr, fg, fb] = canais(frente);
+  const [br, bg, bb] = canais(fundo);
+  const misturar = (f: number, b: number) => Math.round(f * a + b * (1 - a));
+  return `rgb(${misturar(fr, br)}, ${misturar(fg, bg)}, ${misturar(fb, bb)})`;
+}
+
 describe('Contrato da paleta', () => {
   /**
    * 1. Os pares hex/rgb não divergiram.
@@ -83,6 +107,7 @@ describe('Contrato da paleta', () => {
     const pares: [string, string][] = [
       ['--brand-primary', '--brand-primary-rgb'],
       ['--brand-accent', '--brand-accent-rgb'],
+      ['--brand-accent-vivid', '--brand-accent-vivid-rgb'],
       ['--brand-secondary', '--brand-secondary-rgb'],
       ['--brand-tertiary', '--brand-tertiary-rgb'],
       ['--neutral-ink', '--neutral-ink-rgb'],
@@ -137,6 +162,13 @@ describe('Contrato da paleta', () => {
       ['accent sobre o fundo de accent', '--tw-accent', '--tw-accent-soft'],
       ['accent sobre card', '--tw-accent', '--tw-surface'],
       ['texto do visualizador sobre o fundo imersivo', '--tour-text', '--tour-bg'],
+      // O visualizador refeito (SPRINT-4). Aqui está a prova de que a exceção
+      // da D1 se paga: o mesmo teal que reprova sobre branco rende 11:1 sobre o
+      // escuro, e o -ink é o único foreground que fecha em cima dele.
+      ['accent do visualizador sobre o fundo imersivo', '--tv-accent', '--tour-bg'],
+      ['tinta sobre o accent do visualizador', '--tv-accent-ink', '--tv-accent'],
+      ['vermelho de texto sobre o fundo do sheet', '--tv-danger-text', '--tv-sheet-bg'],
+      ['branco sobre o botão sólido de apagar', '--tv-text', '--tv-danger'],
       ['sucesso sobre branco', '--status-success-text', '--neutral-white'],
     ];
 
@@ -151,6 +183,7 @@ describe('Contrato da paleta', () => {
 
     const grafico: [string, string, string][] = [
       ['preenchimento da barra sobre o trilho', '--tw-accent', '--tw-surface-track'],
+      ['botão sólido de apagar sobre o sheet', '--tv-danger', '--tv-sheet-bg'],
       ['acento do pin sobre a pílula escura', '--tw-pin-accent', '--tour-bg'],
       ['contraste do primary do Ionic', '--ion-color-primary-contrast', '--ion-color-primary'],
       ['contraste do secondary do Ionic', '--ion-color-secondary-contrast', '--ion-color-secondary'],
@@ -187,6 +220,71 @@ describe('Contrato da paleta', () => {
     it('o teal claro segue reprovando com branco — é por isso que existe o -dark', () => {
       expect(contraste(token('--brand-accent'), token('--neutral-white'))).toBeLessThan(4.5);
       expect(contraste(token('--brand-accent-dark'), token('--neutral-white'))).toBeGreaterThanOrEqual(4.5);
+    });
+
+    /**
+     * O hotspot, que é a única peça do produto pintada sobre foto de terceiro.
+     *
+     * Todo o resto do visualizador é claro sobre um escuro NOSSO — sheet, tab
+     * bar, vidro dos botões — e por isso as linhas da tabela lá em cima podem
+     * nomear um fundo. O pin não pode: a mesma cena tem cozinha ensolarada e
+     * corredor sem luz, e ele cai onde a câmera parar.
+     *
+     * Isto chegou como defeito de verdade, visto na tela e não em teste: sobre
+     * uma parede branca o disco sumia inteiro e sobrava a plaquinha, que por
+     * acaso era a única peça escura do conjunto. A correção foi dar uma
+     * companheira escura a cada marca clara, e é ela que estes casos medem —
+     * nos DOIS extremos, porque uma correção que só olhasse o branco puro
+     * apagaria o pin no corredor escuro e ninguém veria até a próxima foto.
+     */
+    describe('o hotspot sobre foto que não é nossa', () => {
+      const BRANCO = '--neutral-white';
+      const PRETO = '--neutral-black';
+
+      function marca(cor: string, fundo: string): string {
+        return sobre(token(cor), token(fundo));
+      }
+
+      it('a seta continua seta sobre a parede mais clara possível', () => {
+        const razao = contraste(
+          marca('--tv-hotspot-chevron', BRANCO),
+          marca('--tv-hotspot-ink', BRANCO),
+        );
+        expect(razao)
+          .withContext(`contorno contra miolo da seta: ${razao.toFixed(2)}:1`)
+          .toBeGreaterThanOrEqual(3);
+      });
+
+      it('e continua seta sobre a foto mais escura possível', () => {
+        const razao = contraste(
+          marca('--tv-hotspot-chevron', PRETO),
+          marca('--tv-hotspot-ink', PRETO),
+        );
+        expect(razao)
+          .withContext(`miolo da seta contra o corredor escuro: ${razao.toFixed(2)}:1`)
+          .toBeGreaterThanOrEqual(3);
+      });
+
+      it('a borda do disco tem os dois lados: o branco serve no escuro, o escuro serve no claro', () => {
+        expect(contraste(marca('--tv-hotspot-rim', PRETO), token(PRETO)))
+          .withContext('a borda branca sobre foto escura')
+          .toBeGreaterThanOrEqual(3);
+        expect(contraste(marca('--tv-hotspot-ink', BRANCO), token(BRANCO)))
+          .withContext('o fio escuro sobre foto clara')
+          .toBeGreaterThanOrEqual(3);
+      });
+
+      /**
+       * O contrário dos três acima, e a razão de o par escuro não ser enfeite:
+       * sozinhas, as marcas claras do pin não contrastam NADA com uma parede
+       * branca — o que se vê ali é inteiramente obra da companheira escura.
+       * Quem um dia achar o fio escuro pesado e o apagar derruba este caso.
+       */
+      it('sem a companheira escura não sobra pin nenhum sobre branco', () => {
+        expect(contraste(marca('--tv-hotspot-rim', BRANCO), token(BRANCO))).toBeLessThan(1.1);
+        expect(contraste(marca('--tv-hotspot-chevron', BRANCO), token(BRANCO))).toBeLessThan(1.1);
+        expect(contraste(token('--tv-accent'), token(BRANCO))).toBeLessThan(2);
+      });
     });
   });
 
@@ -244,8 +342,13 @@ describe('Contrato da paleta', () => {
             if (!prop.startsWith('--')) continue;
             // Só o que é cor. Fora ficam raios, sombras, easings, alvos de
             // toque e as triplas -rgb, que não são cor sozinhas.
-            if (/-(rgb|radius|shadow|ease|tap|max|family)/.test(prop)) continue;
-            if (/^--(brand|neutral|status|accent|tour|app|tw|ion)-/.test(prop)) nomes.add(prop);
+            // Os marcadores de NAO-COR. `dur`, `blur`, `grad` e `size` entraram
+            // com a camada --tv-*: duração, raio de desfoque, gradiente e medida
+            // de alvo não resolvem como `background-color`, e cairiam aqui como
+            // "cadeia quebrada" sendo que estão certos. Token novo que não seja
+            // cor precisa nascer com um destes no nome.
+            if (/-(rgb|radius|shadow|ease|tap|max|family|dur|blur|grad|size)/.test(prop)) continue;
+            if (/^--(brand|neutral|status|accent|tour|app|tw|tv|ion)-/.test(prop)) nomes.add(prop);
           }
         }
       }

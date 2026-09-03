@@ -136,6 +136,103 @@ describe('PanoramicViewerComponent — superfície para o overlay de pins', () =
   });
 
   /**
+   * Duas cargas de textura em voo ao mesmo tempo.
+   *
+   * `TextureLoader.load` é assíncrono e não cancelável, e os callbacks chegam em
+   * ordem de CONCLUSÃO, nunca de pedido. Dois toques rápidos numa rede lenta
+   * deixam duas cargas correndo, e a foto que aparece era a que baixasse por
+   * último — medido com a rede estrangulada, três toques rendiam quatro trocas
+   * de foto, com o cômodo errado no meio.
+   *
+   * Aqui as duas cargas são resolvidas à MÃO, fora de ordem. É o único jeito de
+   * um teste falar sobre isso sem depender de qual download termina primeiro.
+   */
+  describe('duas cargas de textura em voo', () => {
+    interface Pedido {
+      ok: (textura: THREE.Texture) => void;
+      falhou: () => void;
+    }
+
+    function comoda(id: string, order: number): Panorama {
+      return {
+        id,
+        roomName: id.toUpperCase(),
+        imageUrl: `https://exemplo.invalido/${id}.jpg`,
+        order,
+        initialPanorama: order === 0,
+        originHotspots: [],
+        measurements: [],
+      };
+    }
+
+    let pedidos: Pedido[];
+
+    beforeEach(async () => {
+      pedidos = [];
+      spyOn(THREE.TextureLoader.prototype, 'load').and.callFake(((
+        _url: string,
+        ok: (t: THREE.Texture) => void,
+        _progresso: unknown,
+        falhou: () => void,
+      ) => {
+        pedidos.push({ ok, falhou });
+        return new THREE.Texture();
+      }) as never);
+
+      component.panoramas = [comoda('a', 0), comoda('b', 1), comoda('c', 2)];
+      fixture.detectChanges();
+      await afterInit();
+      // `pedidos[0]` é a carga inicial, e fica pendurada de propósito.
+    });
+
+    it('prevalece a cena pedida por último, e não a que baixou por último', () => {
+      const trocas: string[] = [];
+      component.panoramaChange.subscribe((p) => trocas.push(p.id));
+
+      component.navigateTo('b');
+      component.navigateTo('c');
+      expect(pedidos.length).toBe(3);
+
+      // 'c' chega primeiro (estava no cache); 'b', pesada, chega depois.
+      pedidos[2].ok(new THREE.Texture());
+      pedidos[1].ok(new THREE.Texture());
+
+      expect(trocas).toEqual(['c']);
+      expect(component.idAtual).toBe('c');
+    });
+
+    it('solta a textura descartada em vez de deixá-la órfã na GPU', () => {
+      const tardia = new THREE.Texture();
+      spyOn(tardia, 'dispose');
+
+      component.navigateTo('b');
+      component.navigateTo('c');
+      pedidos[2].ok(new THREE.Texture());
+      pedidos[1].ok(tardia);
+
+      // Ela nunca chega a ser atribuída ao material, então ninguém mais a
+      // solta: uma equirretangular de 8192x4096 são ~128 MB de GPU.
+      expect(tardia.dispose).toHaveBeenCalled();
+    });
+
+    it('a falha de um pedido abandonado não vira loadFailed', () => {
+      component.navigateTo('b');
+      component.navigateTo('c');
+      pedidos[2].ok(new THREE.Texture());
+
+      const falhas: string[] = [];
+      component.loadFailed.subscribe((p) => falhas.push(p.id));
+
+      pedidos[1].falhou();
+
+      // Sem esta guarda, o aviso de "não carregou" subia em tela cheia por cima
+      // do cômodo 'c', que está na tela e está correto.
+      expect(falhas).toEqual([]);
+      expect(component.loading).toBe(false);
+    });
+  });
+
+  /**
    * O sprite do viewer e o pin HTML da etapa 2 têm de nascer no MESMO ponto.
    *
    * São duas implementações da mesma conta, em arquivos diferentes — e foi
@@ -397,5 +494,151 @@ describe('PanoramicViewerComponent — resetView', () => {
     expect(camera.position.x).toBeCloseTo(0, 5);
     expect(camera.position.y).toBeCloseTo(0, 5);
     expect(camera.position.z).toBeCloseTo(0.1, 5);
+  });
+});
+
+/**
+ * A superfície que a tela de visualização refeita consome (TV-8).
+ *
+ * Três acréscimos, todos ADITIVOS: quem não pedir nada continua com o viewer
+ * que embed, wizard e captura já usam. É essa promessa que estes testes
+ * guardam — o padrão de `hotspots` é 'sprites', e o toque na foto só avisa
+ * quem quis ouvir.
+ */
+describe('PanoramicViewerComponent — superfície da tela de visualização', () => {
+  let fixture: ComponentFixture<PanoramicViewerComponent>;
+  let component: PanoramicViewerComponent;
+
+  function panoramaCom(hotspots: number): Panorama {
+    return {
+      id: 'p1',
+      roomName: 'Sala',
+      imageUrl: '',
+      order: 0,
+      initialPanorama: true,
+      measurements: [],
+      originHotspots: Array.from({ length: hotspots }, (_, i) => ({
+        id: `h${i}`,
+        label: 'Porta',
+        positionX: 0.5,
+        positionY: 0.5,
+        targetId: 'p2',
+      })),
+    };
+  }
+
+  function sprites(): THREE.Sprite[] {
+    return (component as unknown as { hotspotSprites: THREE.Sprite[] }).hotspotSprites;
+  }
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PanoramicViewerComponent],
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PanoramicViewerComponent);
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  describe('modo dos hotspots', () => {
+    beforeEach(async () => {
+      fixture.detectChanges();
+      await afterInit();
+    });
+
+    it('desenha sprites por padrão — quem não pediu nada não perde nada', () => {
+      component.reloadHotspots(panoramaCom(2));
+
+      expect(sprites().length).toBe(2);
+    });
+
+    it("com 'none' não desenha sprite nenhum", () => {
+      fixture.componentRef.setInput('hotspotMode', 'none');
+      fixture.detectChanges();
+
+      component.reloadHotspots(panoramaCom(2));
+
+      expect(sprites().length).toBe(0);
+    });
+
+    it('trocar o modo com a tela montada limpa os sprites que já estavam lá', () => {
+      component.reloadHotspots(panoramaCom(2));
+      expect(sprites().length).toBe(2);
+
+      // Sem o tratamento em ngOnChanges eles só sumiriam na próxima troca de
+      // cômodo — e a tela ficaria com pin dobrado até lá, um sprite e um HTML.
+      fixture.componentRef.setInput('hotspotMode', 'none');
+      fixture.detectChanges();
+
+      expect(sprites().length).toBe(0);
+    });
+  });
+
+  describe('toque na foto', () => {
+    function toque(deslocamento: number): void {
+      const el: HTMLCanvasElement = fixture.nativeElement.querySelector('canvas');
+      const rect = el.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const opts = { bubbles: true, clientY: y };
+
+      el.dispatchEvent(new PointerEvent('pointerdown', { ...opts, clientX: x }));
+      el.dispatchEvent(new PointerEvent('pointerup', { ...opts, clientX: x + deslocamento }));
+      el.dispatchEvent(new MouseEvent('click', { ...opts, clientX: x + deslocamento }));
+    }
+
+    beforeEach(async () => {
+      // O OrbitControls captura o ponteiro no pointerdown, e o browser recusa
+      // capturar um pointerId que não veio de dispositivo real.
+      spyOn(HTMLElement.prototype, 'setPointerCapture').and.stub();
+      spyOn(HTMLElement.prototype, 'releasePointerCapture').and.stub();
+
+      fixture.componentRef.setInput('hotspotMode', 'none');
+      fixture.detectChanges();
+      await afterInit();
+    });
+
+    it('avisa no toque parado', () => {
+      let toques = 0;
+      component.canvasTapped.subscribe(() => toques++);
+
+      toque(0);
+
+      expect(toques).toBe(1);
+    });
+
+    it('não avisa quando o toque foi um arrasto', () => {
+      // Girar a foto é o gesto principal da tela. Se ele contasse como toque, a
+      // interface sumiria e voltaria a cada movimento.
+      let toques = 0;
+      component.canvasTapped.subscribe(() => toques++);
+
+      toque(40);
+
+      expect(toques).toBe(0);
+    });
+  });
+
+  it('avisa quando a foto do cômodo não carrega', async () => {
+    // Uma data-URI quebrada, e não um endereço que dá 404: a falha acontece na
+    // decodificação, no mesmo processo, sem depender de o servidor de teste
+    // responder de um jeito ou de outro.
+    //
+    // Antes deste aviso, a falha só apagava o spinner: a tela ficava com a foto
+    // do cômodo ANTERIOR e nada dizendo que aquilo era outro lugar.
+    let falhas = 0;
+    component.loadFailed.subscribe(() => falhas++);
+
+    fixture.componentRef.setInput('panoramas', [
+      { ...panoramaCom(0), imageUrl: 'data:image/png;base64,--nao-e-imagem--' },
+    ]);
+    fixture.detectChanges();
+    await afterInit();
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    expect(falhas).toBeGreaterThan(0);
   });
 });

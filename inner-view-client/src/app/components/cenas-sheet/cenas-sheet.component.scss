@@ -18,8 +18,9 @@
   height: 96px;
   padding: 0;
   border: 0;
-  border-radius: 12px;
-  background: var(--tour-surface);
+  border-radius: var(--tv-radius-thumb-desk);
+  // O bloco que ocupa o lugar da foto enquanto o `blob:` não chega.
+  background: var(--tv-skeleton);
   overflow: hidden;
   cursor: pointer;
 }
@@ -39,8 +40,8 @@
   padding: 4px 8px;
   // Degradê e não cor sólida: o nome fica sobre foto, e uma faixa opaca
   // cortaria a miniatura em duas.
-  background: linear-gradient(transparent, rgba(var(--tour-bg-rgb), 0.9));
-  color: var(--tour-text);
+  background: var(--tv-grad-thumb);
+  color: var(--tv-text);
   font-size: 12px;
   text-align: left;
   white-space: nowrap;
@@ -54,13 +55,13 @@
   left: 6px;
   padding: 2px 6px;
   border-radius: 6px;
-  background: var(--ion-color-primary);
-  // O par contratado da primária, e não `#ffffff` cru: o `_palette.scss` abre
-  // dizendo "nunca escreva um hex direto num componente", e a exceção
-  // documentada é a família `--tour-*`, não o branco. O contraste deste par é
-  // verificado por `palette.contract.spec.ts`; um branco fixo aqui ficaria
-  // ilegível no dia em que a primária clareasse, sem nada denunciar.
-  color: var(--ion-color-primary-contrast);
+  // O accent do VISUALIZADOR, e não a primária do app: o azul da primária é do
+  // tema claro, e sobre a foto escura desta tela ele não é o acento que o
+  // handoff pede — quem marca a cena atual aqui é o mesmo teal da pill e da
+  // borda da miniatura. O par accent/-ink tem o contraste medido em
+  // `palette.contract.spec.ts`, igual ao par do Ionic que estava aqui.
+  background: var(--tv-accent);
+  color: var(--tv-accent-ink);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;

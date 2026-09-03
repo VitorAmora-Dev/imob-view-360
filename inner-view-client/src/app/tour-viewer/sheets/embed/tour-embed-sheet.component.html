@@ -1,0 +1,87 @@
+<app-tour-sheet
+  [isOpen]="aberto()"
+  [variante]="'adaptavel'"
+  [titulo]="'TOUR_VIEWER.EMBED.TITLE' | translate"
+  [subtitulo]="'TOUR_VIEWER.EMBED.DESCRIPTION' | translate"
+  [breakpoints]="paradas"
+  [initialBreakpoint]="paradas[1]"
+  (fechado)="fechar()">
+
+  <!--
+    Rádios de verdade, e não `<button role="radio">`.
+
+    O padrão ARIA de radiogroup pede foco itinerante e navegação por setas, e é
+    isso que o `<input type="radio">` com `name` compartilhado já entrega de
+    fábrica — junto com o anúncio "1 de 3" e com o grupo nomeado pelo
+    `<legend>`. Escrito à mão, seriam trinta linhas de teclado para chegar ao
+    mesmo lugar, e é sempre a seta que fica faltando.
+
+    O `<input>` fica DENTRO do `<label>`: assim o rótulo inteiro é o alvo de
+    toque, sem `for`/`id` para manter em dia numa lista gerada.
+  -->
+  <fieldset class="tv-embed__formatos">
+    <legend class="tv-embed__legenda">
+      {{ 'TOUR_VIEWER.EMBED.FORMAT_LABEL' | translate }}
+    </legend>
+
+    @for (opcao of formatos; track opcao.rotuloKey; let i = $index) {
+      <label class="tv-embed__formato" [class.is-ativo]="i === formatoAtual()">
+        <input
+          class="tv-embed__radio"
+          type="radio"
+          name="tv-embed-formato"
+          [checked]="i === formatoAtual()"
+          (change)="escolherFormato(i)">
+        <span>{{ opcao.rotuloKey | translate }}</span>
+      </label>
+    }
+  </fieldset>
+
+  <!--
+    Um `<code>` sem `<pre>`: a quebra é por `word-break`, porque o link do tour
+    não tem espaço nenhum onde quebrar e dentro de um `<pre>` ele sairia do
+    sheet numa linha só.
+
+    Os espaços entre os atributos vêm no TEXTO de cada trecho, não do HTML —
+    ver o docstring de `pedacos`.
+  -->
+  <code class="tv-embed__codigo" [attr.aria-label]="'TOUR_VIEWER.EMBED.TITLE' | translate">
+    @for (pedaco of pedacos(); track $index) {
+      <span [class]="pedaco.classe">{{ pedaco.texto }}</span>
+    }
+  </code>
+
+  <!--
+    `role="switch"` sobre um checkbox nativo: o estado é ligado/desligado, e o
+    leitor de tela anuncia "ativado"/"desativado" em vez de "marcado". Para o
+    teclado ele continua sendo um checkbox — barra de espaço, foco e o
+    `<label>` como alvo vêm junto.
+  -->
+  <label class="tv-embed__toggle">
+    <span class="tv-embed__toggle-rotulo">
+      {{ 'TOUR_VIEWER.EMBED.SHOW_CONTROLS' | translate }}
+    </span>
+    <input
+      class="tv-embed__switch"
+      type="checkbox"
+      role="switch"
+      [checked]="mostrarControles()"
+      (change)="alternarControles()">
+    <span class="tv-embed__trilho" aria-hidden="true"></span>
+  </label>
+
+  <div rodape class="tv-embed__acoes">
+    <button
+      type="button"
+      class="tv-embed__botao tv-embed__botao--primario"
+      (click)="copiar(codigo(), 'TOUR_VIEWER.TOAST.CODE_COPIED')">
+      {{ 'TOUR_VIEWER.EMBED.COPY_CODE' | translate }}
+    </button>
+    <button
+      type="button"
+      class="tv-embed__botao tv-embed__botao--ghost"
+      (click)="copiar(link(), 'TOUR_VIEWER.TOAST.LINK_COPIED')">
+      {{ 'TOUR_VIEWER.EMBED.COPY_LINK' | translate }}
+    </button>
+  </div>
+</app-tour-sheet>

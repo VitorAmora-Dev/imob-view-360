@@ -39,7 +39,8 @@
               "node_modules/@fontsource-variable/inter/index.css",
               "src/global.scss",
               "src/theme/variables.scss",
-              "src/theme/tour-wizard.scss"
+              "src/theme/tour-wizard.scss",
+              "src/theme/tour-viewer.scss"
             ],
             "scripts": [],
             "browser": "src/main.ts"
@@ -121,7 +122,8 @@
               "node_modules/@fontsource-variable/inter/index.css",
               "src/global.scss",
               "src/theme/variables.scss",
-              "src/theme/tour-wizard.scss"
+              "src/theme/tour-wizard.scss",
+              "src/theme/tour-viewer.scss"
             ],
             "scripts": []
           },

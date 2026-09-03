@@ -1,0 +1,78 @@
+<!--
+  `travado` é o estado "Apagando…", e ele alimenta o `canDismiss` do Ionic —
+  que trava os TRÊS gestos de fechar de uma vez: scrim, arrasto e Esc. Travar
+  só o scrim (o caminho óbvio, `backdropDismiss`) deixaria os outros dois
+  vivos, e fechar no meio da requisição deixa a tela em estado ambíguo: o tour
+  sumiu ou não?
+
+  O que ele NÃO trava é o fechamento programático, e isso é deliberado — ver o
+  docstring de `travado` no shell.
+-->
+<app-tour-sheet
+  [isOpen]="aberto()"
+  [variante]="'adaptavel'"
+  [travado]="apagando()"
+  [titulo]="'TOUR_VIEWER.DELETE.TITLE' | translate: { name: nome() }"
+  (fechado)="cancelar()">
+
+  <!--
+    O handoff desenha este círculo ACIMA do título. Aqui ele vem logo abaixo,
+    porque o título é do shell: é ele que vira o `<h2>` do diálogo e o
+    `aria-label` do nó que carrega o `role="dialog"` no shadow DOM do Ionic.
+    Trocar a ordem custaria um diálogo anônimo, ou um segundo slot no shell —
+    e mexer no shell é o que TV-4, TV-5 e TV-6 existem para não precisar fazer.
+  -->
+  <div class="tv-apagar__icone" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="22" height="22">
+      <path
+        d="M4 7h16M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7m2.5 0v12a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 6.5 19V7M10 11v6M14 11v6"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.7"
+        stroke-linecap="round"
+        stroke-linejoin="round" />
+    </svg>
+  </div>
+
+  <p class="tv-apagar__corpo">
+    {{ 'TOUR_VIEWER.DELETE.BODY' | translate: { n: quantidadeDeCenas() } }}
+  </p>
+
+  <!--
+    `role="note"` e não `role="alert"`: o aviso já está na tela quando o sheet
+    abre, e `alert` faria o leitor de tela interromper a leitura do título para
+    reanunciá-lo. Ele é o contexto da decisão, não um evento.
+  -->
+  <p class="tv-apagar__aviso" role="note">
+    {{ 'TOUR_VIEWER.DELETE.WARNING' | translate }}
+  </p>
+
+  <!--
+    No slot `[rodape]` do shell, que fica FORA da área rolável: dentro do corpo,
+    os botões rolam junto e saem da tela justamente quando são necessários.
+
+    Ordem no DOM: destrutivo primeiro. No celular ele é o de cima, ao alcance
+    do polegar, como o handoff pede. No desktop o `row-reverse` do SCSS o joga
+    para a direita e traz o Cancelar para a esquerda — a ordem de leitura da
+    tela grande —, e o efeito colateral é que o Tab alcança Apagar antes de
+    Cancelar. Fica assim de propósito: os dois caminhos baratos de desistir
+    (Esc e o scrim) continuam abertos, e trocar a ordem do DOM custaria o
+    alcance do polegar no celular, que é onde esta tela é usada.
+  -->
+  <div rodape class="tv-apagar__acoes">
+    <button
+      type="button"
+      class="tv-apagar__botao tv-apagar__botao--confirmar"
+      [disabled]="apagando()"
+      (click)="confirmar()">
+      {{ (apagando() ? 'TOUR_VIEWER.DELETE.DELETING' : 'TOUR_VIEWER.DELETE.CONFIRM') | translate }}
+    </button>
+    <button
+      type="button"
+      class="tv-apagar__botao tv-apagar__botao--cancelar"
+      [disabled]="apagando()"
+      (click)="cancelar()">
+      {{ 'TOUR_VIEWER.DELETE.CANCEL' | translate }}
+    </button>
+  </div>
+</app-tour-sheet>

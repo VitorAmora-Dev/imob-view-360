@@ -1,0 +1,27 @@
+<button
+  type="button"
+  class="tv-header__circular"
+  [attr.aria-label]="'TOUR_VIEWER.BACK' | translate"
+  (click)="back.emit()">
+  <ion-icon name="chevron-back-outline" aria-hidden="true"></ion-icon>
+</button>
+
+<div
+  class="tv-header__titulo"
+  [class.is-hidden]="!chromeVisible()"
+  [attr.aria-hidden]="!chromeVisible() ? 'true' : null">
+  <strong>{{ tourName() }}</strong>
+  <span>{{ 'TOUR_VIEWER.SCENE_COUNT' | translate: { n: sceneCount() } }}</span>
+</div>
+
+<button
+  type="button"
+  class="tv-header__circular tv-header__gerenciar"
+  [class.is-hidden]="!chromeVisible()"
+  [attr.inert]="!chromeVisible() ? '' : null"
+  [attr.aria-label]="'TOUR_VIEWER.MANAGE_OPEN' | translate"
+  (click)="manage.emit()">
+  <span aria-hidden="true"></span>
+  <span aria-hidden="true"></span>
+  <span aria-hidden="true"></span>
+</button>

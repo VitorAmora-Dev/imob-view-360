@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { SELECAO_PARA_EDICAO, formatarParaEdicao } from './tour-para-edicao';
 
 /**
  * O tour inteiro para quem vai voltar a editá-lo.
@@ -27,6 +28,14 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
  *
  * Nenhuma coluna de imagem, pelo mesmo motivo daquela consulta: elas são TOAST
  * de dezenas de MB e o wizard só precisa da foto do cômodo que está à vista.
+ *
+ * VER TAMBÉM `FindEditableTourService`, que serve o MESMO shape para tour
+ * publicado (`GET /virtual-tours/:id/edicao`, SPRINT-4-TOUR-VIEWER.md, TV-10).
+ * A trava daqui continua valendo, e é por isso que aquele existe: enquanto
+ * forem duas rotas, "isto é descartável" é uma afirmação do servidor, e não uma
+ * convenção que o cliente precisa lembrar de respeitar. Quem afrouxar o
+ * `status: 'DRAFT'` abaixo devolve o botão de descarte para cima de um tour no
+ * ar e torna a outra rota inútil no mesmo commit.
  */
 @Injectable()
 export class FindDraftTourService {
@@ -39,69 +48,13 @@ export class FindDraftTourService {
         status: 'DRAFT',
         property: { agencyId: currentUser.agencyId },
       },
-      select: {
-        id: true,
-        propertyId: true,
-        status: true,
-        updatedAt: true,
-        property: {
-          select: {
-            title: true,
-            type: true,
-            purpose: true,
-            // Quais dos três acima ainda são marcador. Sem isto a retomada
-            // precisa adivinhar pelo título, e erra quando só o título foi
-            // preenchido — ver `Property.draftPlaceholders`.
-            draftPlaceholders: true,
-            address: {
-              select: {
-                street: true,
-                number: true,
-                complement: true,
-                district: true,
-                city: true,
-                state: true,
-                zipCode: true,
-              },
-            },
-          },
-        },
-        panoramas: {
-          orderBy: { order: 'asc' },
-          select: {
-            id: true,
-            roomName: true,
-            order: true,
-            initialPanorama: true,
-            treatmentStatus: true,
-            // Sem isto a etapa de ordenação voltava com todos os cômodos
-            // soltos, e a fila da etapa de passagens voltava vazia — ver
-            // `Panorama.draftConnections` no schema.
-            draftConnections: true,
-            originHotspots: {
-              select: {
-                id: true,
-                label: true,
-                positionX: true,
-                positionY: true,
-                targetId: true,
-              },
-            },
-          },
-        },
-      },
+      select: SELECAO_PARA_EDICAO,
     });
     // 404 e não 403: 403 confirmaria que o id existe em outra imobiliária. E
     // 404 também para tour publicado — do ponto de vista de quem pede um
     // rascunho, ele deixou de existir quando virou tour.
     if (!tour) throw new NotFoundException('Draft tour not found');
 
-    return {
-      ...tour,
-      panoramas: tour.panoramas.map(({ originHotspots, ...panorama }) => ({
-        ...panorama,
-        hotspots: originHotspots,
-      })),
-    };
+    return formatarParaEdicao(tour);
   }
 }

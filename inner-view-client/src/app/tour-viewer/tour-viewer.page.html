@@ -1,0 +1,206 @@
+<!--
+  O ARRANJO da tela de visualização (TV-0). Cada frente substitui o SEU
+  marcador; ninguém mexe na estrutura sem avisar as outras duas.
+
+  A ordem das camadas é a do `02-mobile.md` e não é decorativa:
+
+    0  panorama          recebe TODO o gesto de arrasto
+    1  scrims            pointer-events: none, sempre
+    2  hotspots          sobre a foto, abaixo do chrome
+    3  chrome            container com pointer-events: none e filhos com auto
+    4  sheets e toast    por cima de tudo
+
+  A armadilha que este arranjo evita: um container de chrome com `inset: 0` e
+  `pointer-events: auto` engole o arrasto do panorama inteiro, e o sintoma é
+  "a foto não gira" — sem erro nenhum no console.
+-->
+<ion-content [fullscreen]="true" class="tv-content">
+  @if (store.loading()) {
+    <!--
+      O tour inteiro ainda não chegou: não há título nem contagem de cenas para
+      o chrome mostrar, então o skeleton cobre a tela. O carregamento de UMA
+      cena é outro caso — ali o chrome fica no ar e quem gira o spinner é o
+      próprio viewer, sobre a foto anterior.
+    -->
+    <div class="tv-estado">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>{{ 'TOUR_VIEWER.LOADING' | translate }}</p>
+    </div>
+  } @else if (store.loadError()) {
+    <div class="tv-estado" role="alert">
+      <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
+      <button type="button" class="tv-ghost" (click)="tentarDeNovo()">
+        {{ 'TOUR_VIEWER.RETRY' | translate }}
+      </button>
+    </div>
+  } @else {
+    <div class="tv-palco">
+      <!-- ---- camada 0: a foto ------------------------------------------ -->
+      @if (!store.semCenas()) {
+        <!--
+          `roomNav` desligada: a navegação entre cômodos agora é a pill + a
+          faixa de cenas, e duas listas na mesma tela é o que a refatoração
+          veio tirar. Continua ligada em `/embed`, que não tem chrome nenhum.
+
+          `hotspots: 'none'` desliga os sprites do viewer: quem desenha os
+          pontos aqui é o overlay em HTML da TV-7. O padrão do @Input continua
+          sendo 'sprites', então embed, wizard e captura não sentem nada.
+        -->
+        <app-panoramic-viewer
+          class="tv-pano"
+          [panoramas]="store.panoramas()"
+          [roomNav]="false"
+          [hotspotMode]="'none'"
+          (panoramaChange)="aoTrocarPanorama($event)"
+          (loadFailed)="aoFalharCena($event)"
+          (canvasTapped)="aoTocarNaFoto()">
+        </app-panoramic-viewer>
+      } @else {
+        <div class="tv-estado tv-estado--vazio" role="status">
+          <p>{{ 'TOUR_VIEWER.NO_SCENES' | translate }}</p>
+        </div>
+      }
+
+      <!-- ---- camada 1: scrims ------------------------------------------ -->
+      <div class="tv-scrim tv-scrim--topo" aria-hidden="true"></div>
+      <div class="tv-scrim tv-scrim--base" aria-hidden="true"></div>
+
+      <!-- ---- camada 3: chrome ------------------------------------------ -->
+      <div class="tv-chrome">
+        <app-tour-desktop-chrome (editRequested)="editarTour()" />
+
+        <div class="tv-slot tv-slot--header">
+          <app-tv-header
+            [tourName]="store.tourName()"
+            [sceneCount]="store.scenes().length"
+            [chromeVisible]="store.chromeVisible()"
+            (back)="voltar()"
+            (manage)="store.abrirSheet('manage')" />
+        </div>
+
+        @if (offline()) {
+          <div class="tv-slot tv-slot--offline" role="status">
+            {{ 'TOUR_VIEWER.OFFLINE' | translate }}
+          </div>
+        }
+
+        <div class="tv-slot tv-slot--pill">
+          @if (store.currentScene(); as scene) {
+            <app-tv-scene-pill
+              [sceneName]="scene.name"
+              [chromeVisible]="store.chromeVisible()"
+              (openScenes)="store.abrirSheet('scenes')" />
+          }
+        </div>
+
+        <div class="tv-espaco"></div>
+
+        <div class="tv-slot tv-slot--olho">
+          <app-tv-immersive-toggle
+            [chromeVisible]="store.chromeVisible()"
+            (toggled)="store.alternarChrome()" />
+        </div>
+
+        @if (store.faixaVisivel()) {
+          <!--
+            O próprio componente É o slot: a classe `tv-slot` no host é o que
+            lhe devolve o `pointer-events` que o chrome tira de todo mundo. Um
+            `<div>` a mais em volta seria uma caixa transparente sem essa
+            classe, e a faixa deixaria de receber toque.
+
+            `cenaNaTela()` e não `store.currentScene()`, pela regra R4: a
+            miniatura marcada é a do cômodo que está NA FOTO, não a do que
+            acabou de ser pedido e ainda leva segundos para chegar.
+          -->
+          <app-tour-scenes-strip
+            class="tv-slot tv-slot--cenas"
+            [atualId]="cenaNaTela()?.id ?? null" />
+        }
+
+        <div class="tv-slot tv-slot--acoes">
+          <app-tour-actions-bar
+            [canEdit]="store.podeEditar()"
+            [hasScenes]="!store.semCenas()"
+            [chromeVisible]="store.chromeVisible()"
+            (editRequested)="editarTour()"
+            (embedRequested)="store.abrirSheet('embed')"
+            (deleteRequested)="store.abrirSheet('delete')" />
+        </div>
+      </div>
+
+      <!--
+        A foto desta cena não veio. Cobre o palco porque o que está embaixo é a
+        foto do cômodo ANTERIOR: deixar aquilo à mostra sem aviso é pior que a
+        tela vazia — quem olha não sabe que está vendo outro lugar.
+      -->
+      @if (mostrarErroDaCena()) {
+        <div class="tv-estado tv-estado--sobre-a-foto" role="alert">
+          <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
+          <button type="button" class="tv-ghost" (click)="tentarDeNovo()">
+            {{ 'TOUR_VIEWER.RETRY' | translate }}
+          </button>
+        </div>
+      }
+
+      <!-- ---- camada 2: hotspots ---------------------------------------- -->
+      <!--
+        DEPOIS do chrome no DOM, e ainda assim ATRÁS dele na tela: a pilha é
+        decidida por z-index (2 aqui, 3 no chrome), não pela ordem dos nós. O
+        que a ordem decide é a tabulação, e o handoff pede os hotspots no fim
+        dela — o Tab percorre voltar, título, "…", pill e ações antes de sair
+        andando pela foto.
+      -->
+      @if (store.hotspotsVisiveis()) {
+        <!--
+          `cenaNaTela()` e NÃO `store.currentScene()`: os pins pertencem a UMA
+          equirretangular, e o store vira no instante do toque enquanto a
+          textura ainda leva segundos para chegar. Ligados ao store, os pins do
+          DESTINO boiavam sobre a foto da ORIGEM — e clicáveis. O porquê
+          inteiro está no docstring de `cenaNaTela`.
+        -->
+        @if (cenaNaTela(); as cena) {
+          <app-tv-hotspot-overlay
+            class="tv-slot--hotspots"
+            [viewer]="viewerRef() ?? null"
+            [hotspots]="cena.hotspots"
+            (cenaEscolhida)="store.irParaCenaPorId($event)" />
+        }
+      }
+
+      <!-- ---- camada 4: sheets e toast ---------------------------------- -->
+      <app-tour-manage-sheet [panoramaAtual]="panoramaNaTela()" />
+
+      <!--
+        Entram sem ligação nenhuma: eles leem o `TourViewerStore` que esta
+        página fornece, e é `store.sheet()` que diz de quem é a vez. Sem `@if`
+        em volta — quem monta e desmonta o `<ion-modal>` é o `isOpen` lá
+        dentro, e um `@if` aqui destruiria o componente no meio da animação de
+        saída.
+      -->
+      <app-tour-embed-sheet />
+      <app-tour-delete-sheet />
+
+      <!--
+        O sheet Cenas veio da TV-3, que nasceu fora desta tela. `[aberto]` sai
+        do MESMO sinal que a faixa de cenas consulta: um sheet por vez é
+        invariante do `TourViewerStore`, e não combinado entre componentes.
+
+        `cenaNaTela()` e não `store.currentScene()`, pela regra desta tela: o
+        badge ATUAL descreve a foto que está no ar, e não a que acabou de ser
+        pedida e ainda está baixando.
+      -->
+      <app-cenas-sheet
+        [aberto]="store.sheet() === 'scenes'"
+        [cenas]="store.panoramas()"
+        [atualId]="cenaNaTela()?.id ?? null"
+        (selecionada)="store.irParaCenaPorId($event.id)"
+        (fechado)="store.fecharSheet()" />
+
+      @if (store.toast(); as chave) {
+        <div class="tv-slot tv-slot--toast">
+          <app-tv-toast [messageKey]="chave" />
+        </div>
+      }
+    </div>
+  }
+</ion-content>

@@ -1,0 +1,34 @@
+<div class="tv-actions__grid">
+  @if (canEdit()) {
+    <button
+      type="button"
+      class="tv-actions__button tv-actions__button--edit"
+      [attr.title]="'TOUR_VIEWER.ACTIONS.EDIT_LONG' | translate"
+      (click)="editRequested.emit()">
+      <ion-icon name="pencil-outline" aria-hidden="true"></ion-icon>
+      <span>{{ 'TOUR_VIEWER.ACTIONS.EDIT' | translate }}</span>
+    </button>
+  }
+
+  @if (hasScenes() || !canEdit()) {
+    <button
+      type="button"
+      class="tv-actions__button tv-actions__button--embed"
+      [attr.title]="'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate"
+      (click)="embedRequested.emit()">
+      <ion-icon name="code-slash-outline" aria-hidden="true"></ion-icon>
+      <span>{{ 'TOUR_VIEWER.ACTIONS.EMBED' | translate }}</span>
+    </button>
+  }
+
+  @if (canEdit()) {
+    <button
+      type="button"
+      class="tv-actions__button tv-actions__button--delete"
+      [attr.aria-label]="'TOUR_VIEWER.ACTIONS.DELETE_ARIA' | translate"
+      (click)="deleteRequested.emit()">
+      <ion-icon name="trash-outline" aria-hidden="true"></ion-icon>
+      <span>{{ 'TOUR_VIEWER.ACTIONS.DELETE' | translate }}</span>
+    </button>
+  }
+</div>

@@ -75,6 +75,24 @@
   --brand-accent-soft: #ccfbf1; //  fundo de tag/realce; o par dele é -dark (4,86:1 ✓)
   --brand-accent-glow: #2dd4bf; //  só sobre o escuro do visualizador: 10,06:1 sobre --tour-bg
 
+  /* -- Accent do visualizador: a exceção, e só ela --------------------- */
+  // SPRINT-4-TOUR-VIEWER.md, decisão D1.
+  //
+  // A regra escrita logo acima — teal é preenchimento, nunca ação primária —
+  // vale onde ela foi medida: sobre as superfícies CLARAS do app, onde o teal
+  // claro rende 2,49:1 com branco. O chrome do visualizador não é superfície
+  // clara: é vidro escuro sobre foto, e ali a relação se inverte. O azul da
+  // marca é que some contra o panorama, enquanto este teal rende 11:1 com o
+  // próprio -ink.
+  //
+  // Nasce com nome próprio em vez de esticar --brand-accent porque o nome é a
+  // trava: quem quiser usá-lo fora do visualizador precisa digitar "vivid" e
+  // passar por este comentário antes. `tour-viewer.scss` é o único consumidor.
+  --brand-accent-vivid: #2fe3c2;
+  --brand-accent-vivid-rgb: 47, 227, 194;
+  --brand-accent-vivid-light: #8dfce6; // topo do gradiente do hotspot de piso
+  --brand-accent-vivid-ink: #05231e; //  o ÚNICO foreground permitido sobre ele
+
   // Sub-marca. Zero consumidores em template hoje, mas os slots do Ionic NÃO
   // podem ficar indefinidos: o CSS do Ionic 8 traz `var(--ion-color-secondary,
   // #3dc2ff)` com fallback embutido, então apagar a definição não desliga o
@@ -169,6 +187,11 @@
   // sobre o proprio fundo de erro da 3,95:1. Este red-700 da 5,30:1 sobre o
   // soft e 6,47:1 sobre branco.
   --status-error-text: #b91c1c;
+  // O vermelho que passa como TEXTO sobre o ESCURO do visualizador. O -text
+  // acima é o par das superfícies claras: sobre --tour-bg ele dá 3,03:1 e
+  // reprova. Mesma lógica dos três slots, um degrau adiante — a superfície
+  // mudou, então o foreground muda junto.
+  --status-error-on-dark: #ff8484;
   --status-error-soft: #fee2e2;
   --status-error-border: #fecaca;
 }

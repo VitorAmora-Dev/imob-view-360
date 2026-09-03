@@ -1,0 +1,253 @@
+@use '../../../theme/tour-viewer-mixins' as tv;
+
+// O hotspot de piso (TV-7). Geometria em `03-hotspots.md`.
+//
+// O PIN NÃO ESCOLHE O FUNDO EM QUE CAI. É a única peça da tela que fica sobre a
+// foto, e a foto vai de cozinha ensolarada a corredor sem luz. Por isso cada
+// marca clara daqui tem uma companheira escura — o contorno da seta, o anel por
+// fora da borda do disco, a sombra em volta. Sobre foto escura a companheira
+// some no próprio fundo e não custa nada; sobre foto clara é ela que desenha o
+// pin. O raciocínio inteiro, e a medida dos dois extremos, estão no bloco
+// `Hotspot de piso` de `theme/tour-viewer.scss`.
+//
+// Nada aqui decide nada em tempo de execução: não se mede o brilho do panorama
+// nem se troca de tema por baixo do pin. Duas camadas sempre presentes não têm
+// limiar para errar — e é isso que faz a legibilidade valer em QUALQUER foto,
+// e não nas que a heurística acertar.
+
+:host {
+  position: absolute;
+  inset: 0;
+  // A camada não intercepta o arrasto do panorama; só os pins o fazem.
+  pointer-events: none;
+}
+
+.tv-pin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+
+  // Nasce escondido. Entre o `@for` criar o nó e o primeiro frame do laço, o
+  // botão já está no DOM e ainda sem `transform` — ou seja, em (0,0), o canto
+  // do canvas. É um frame só, mas é um pin piscando no canto a cada troca de
+  // cena. Quem o mostra é `reposicionar()`, junto com a primeira posição.
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  // Posição vem do laço de frame, em transform — nunca em top/left, que
+  // forçariam layout sessenta vezes por segundo.
+  will-change: transform;
+  // O canvas embaixo é `touch-action: none` (o OrbitControls o põe assim para
+  // girar a foto com o dedo). Sem isto o browser trata o toque no pin como
+  // rolagem da página.
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+
+  // O fator de tamanho do desktop. O handoff pede 124px no destino em destaque
+  // lá contra 88px aqui — a MESMA distância desenhada maior, porque a tela é
+  // maior. Mora no CSS e não no TypeScript: quem sabe a largura da janela é a
+  // media query, e o componente só sabe a distância.
+  --tv-pin-fator: 1;
+  --tv-pin-tamanho: calc(var(--tv-pin-lado, 88px) * var(--tv-pin-fator));
+
+  @include tv.tv-desktop {
+    --tv-pin-fator: 1.4;
+  }
+
+  &:focus-visible {
+    outline: none;
+
+    .tv-pin__placa {
+      outline: 2px solid var(--tv-accent);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// ---- flutuação ------------------------------------------------------------
+//
+// A altura da caixa acompanha a altura RENDERIZADA do disco (o cosseno de 62°,
+// ~0.47), não o lado dele. Sem isto o botão teria uns 45px de retângulo
+// transparente acima e abaixo da elipse — área invisível engolindo o arrasto do
+// panorama, que é o gesto principal da tela.
+.tv-pin__bob {
+  position: relative;
+  width: var(--tv-pin-tamanho);
+  height: calc(var(--tv-pin-tamanho) * 0.48);
+  animation: tv-pin-bob var(--tv-bob-dur) ease-in-out infinite;
+}
+
+// ---- perspectiva ----------------------------------------------------------
+//
+// NUNCA junte esta regra com a de cima. `tv-pin-bob` anima `transform`, e a
+// keyframe substitui o transform inteiro do elemento — a perspectiva iria
+// junto, e o disco viraria um círculo de frente para a câmera.
+//
+// A perspectiva acompanha o tamanho na mesma proporção do handoff (190/88,
+// 270/124, 210/96 — todas ~2.17), senão o disco pequeno parece mais deitado
+// que o grande.
+.tv-pin__disco {
+  position: absolute;
+  left: 0;
+  top: calc(var(--tv-pin-tamanho) * -0.26);
+  width: var(--tv-pin-tamanho);
+  height: var(--tv-pin-tamanho);
+  transform: perspective(calc(var(--tv-pin-tamanho) * 2.17)) rotateX(62deg);
+  transform-origin: center center;
+}
+
+.tv-pin__halo,
+.tv-pin__anel {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+// Secundário: um véu claro, sem brilho. É caminho possível, não o sugerido.
+.tv-pin__halo {
+  background: radial-gradient(
+    circle at 50% 40%,
+    var(--tv-hotspot-veil),
+    transparent 70%
+  );
+  border: 1.5px solid var(--tv-hotspot-rim);
+  // O par escuro da borda: o fio de fora dá a silhueta do disco quando o branco
+  // da borda cai sobre parede branca, e o borrão largo apoia o disco no chão em
+  // vez de deixá-lo boiando. Sobre foto escura os dois somem no fundo.
+  box-shadow: var(--tv-shadow-hotspot);
+}
+
+.tv-pin__anel {
+  border: 1.5px solid var(--tv-accent);
+  // O teal vivo rende 1,65:1 sobre branco — sozinho, o anel pulsaria invisível
+  // justamente na foto clara. O fio escuro por fora é o que sobra dele ali.
+  box-shadow: 0 0 0 1.5px var(--tv-hotspot-ink-soft);
+  animation: tv-pin-ring var(--tv-ring-dur) ease-out infinite;
+}
+
+.tv-pin__chevron {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--tv-hotspot-chevron);
+
+  // O contorno da seta, e a peça mais importante do conjunto: a seta é o que
+  // diz PARA ONDE se vai, e era ela que sumia por completo na cozinha branca.
+  //
+  // `paint-order: stroke` pinta o traço ANTES do preenchimento, então ele sobra
+  // como uma auréola para fora da seta em vez de comer metade dela por dentro.
+  // É o contorno da legenda de filme: branco por cima, escuro por baixo, um dos
+  // dois sempre contrastando com o que estiver atrás.
+  //
+  // A transparência mora no `fill` e no `stroke`, NUNCA num `opacity` do
+  // elemento — opacity multiplicaria os dois juntos e diluiria o contorno
+  // exatamente na mesma proporção, que é o contrário do que ele existe para
+  // fazer.
+  stroke: var(--tv-hotspot-ink);
+  stroke-width: 5;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+// ---- o destino em destaque ------------------------------------------------
+
+.tv-pin.is-principal {
+  .tv-pin__halo {
+    background: radial-gradient(
+      circle at 50% 40%,
+      var(--tv-accent-glow),
+      var(--tv-accent-glow-soft) 62%,
+      transparent 74%
+    );
+    // A BORDA CONTINUA BRANCA, como no handoff. Ela já foi teal a .3 aqui, e
+    // isso deixava a borda do destino sugerido MAIS FRACA que a do secundário
+    // (branco a .45) — o oposto do que a hierarquia pede. O que distingue o
+    // principal é o miolo teal, o brilho e o anel; a borda é estrutura, e
+    // estrutura é igual nos dois.
+    //
+    // O brilho teal vem DEPOIS do par escuro na lista: sobre foto clara ele
+    // não aparece (teal a .3 sobre branco é quase nada) e quem segura a
+    // silhueta é o fio escuro; sobre foto escura acontece o contrário.
+    box-shadow: var(--tv-shadow-hotspot-strong), 0 0 24px var(--tv-accent-glow);
+
+    @include tv.tv-desktop {
+      border-width: 1.8px;
+      box-shadow: var(--tv-shadow-hotspot-strong), 0 0 30px var(--tv-accent-glow);
+    }
+  }
+
+  .tv-pin__chevron {
+    fill: var(--tv-hotspot-chevron-strong);
+  }
+
+  .tv-pin__placa {
+    background: var(--tv-glass-4);
+  }
+}
+
+// ---- plaquinha ------------------------------------------------------------
+
+.tv-pin__placa {
+  max-width: 168px;
+  padding: 6px 13px;
+  border-radius: var(--tv-radius-plate);
+  background: var(--tv-glass-3);
+  border: 1px solid var(--tv-border-control);
+  backdrop-filter: blur(var(--tv-blur-pill));
+  -webkit-backdrop-filter: blur(var(--tv-blur-pill));
+  box-shadow: var(--tv-shadow-float);
+
+  color: var(--tv-text);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  // UPPERCASE é decisão de apresentação: o dado guarda o nome do cômodo como a
+  // pessoa o escreveu, e é ele que o leitor de tela anuncia.
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @include tv.tv-desktop {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
+
+// ---- movimento ------------------------------------------------------------
+//
+// As durações vêm de `tour-viewer.scss` e são ZERADAS lá quando o sistema pede
+// menos movimento — por isso não há media query aqui. O anel, esse não chega a
+// existir: quem decide é o template, porque um anel parado é só um círculo
+// solto em volta do disco.
+
+@keyframes tv-pin-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes tv-pin-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}

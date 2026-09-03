@@ -1,0 +1,100 @@
+<app-header
+  class="tv-desktop__header"
+  variant="overlay"
+  backHref="/home"
+  [chromeVisible]="store.chromeVisible()">
+  <span headerBreadcrumb class="tv-desktop__breadcrumb">
+    <a routerLink="/profile">{{ 'NAV.MY_PROPERTIES' | translate }}</a>
+    <span aria-hidden="true">/</span>
+    <strong [title]="store.tourName()">{{ store.tourName() }}</strong>
+  </span>
+</app-header>
+
+@if (store.currentScene(); as cena) {
+  <div class="tv-desktop__contexto" [class.is-hidden]="!store.chromeVisible()">
+    <button
+      type="button"
+      class="tv-desktop__pill"
+      [attr.aria-label]="'TOUR_VIEWER.SCENES.OPEN_LIST' | translate"
+      [title]="'TOUR_VIEWER.SCENES.OPEN_LIST' | translate"
+      (click)="store.abrirSheet('scenes')">
+      <span class="tv-desktop__dot" aria-hidden="true"></span>
+      <span class="tv-desktop__nome">{{ cena.name }}</span>
+      <span class="tv-desktop__chevron" aria-hidden="true">⌄</span>
+    </button>
+    <span class="tv-desktop__contagem">
+      {{ 'TOUR_VIEWER.SCENE_OF' | translate: { n: indiceDaCena(), total: totalDeCenas() } }}
+    </span>
+  </div>
+}
+
+<div class="tv-desktop__visualizacao">
+  <button
+    type="button"
+    class="tv-desktop__visualizacao-botao"
+    [attr.aria-label]="chaveDoOlho() | translate"
+    [attr.aria-pressed]="!store.chromeVisible()"
+    [title]="chaveDoOlho() | translate"
+    (click)="store.alternarChrome()">
+    <ion-icon
+      [name]="store.chromeVisible() ? 'eye-off-outline' : 'eye-outline'"
+      aria-hidden="true" />
+    <span>{{ chaveDoOlho() | translate }}</span>
+  </button>
+</div>
+
+<div class="tv-desktop__acoes" [class.is-hidden]="!store.chromeVisible()">
+  @if (podeEditar()) {
+    <button
+      type="button"
+      class="tv-desktop__acao tv-desktop__acao--primaria"
+      data-action="edit"
+      [attr.aria-label]="'TOUR_VIEWER.ACTIONS.EDIT_LONG' | translate"
+      [title]="'TOUR_VIEWER.ACTIONS.EDIT_LONG' | translate"
+      (click)="editRequested.emit()">
+      <ion-icon name="pencil-outline" aria-hidden="true" />
+      <span>{{ 'TOUR_VIEWER.ACTIONS.EDIT_LONG' | translate }}</span>
+    </button>
+  }
+
+  @if (!store.semCenas() || !podeEditar()) {
+    <button
+      type="button"
+      class="tv-desktop__acao"
+      data-action="embed"
+      [attr.aria-label]="'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate"
+      [title]="'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate"
+      (click)="store.abrirSheet('embed')">
+      <ion-icon name="code-slash-outline" aria-hidden="true" />
+      <span>{{ 'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate }}</span>
+    </button>
+  }
+
+  @if (podeEditar() && store.podePublicar() && !store.semCenas()) {
+    <button
+      type="button"
+      class="tv-desktop__acao"
+      data-action="publish"
+      [attr.aria-label]="'TOUR_VIEWER.ACTIONS.PUBLISH_LONG' | translate"
+      [attr.aria-busy]="store.publicando()"
+      [disabled]="store.publicando()"
+      [title]="'TOUR_VIEWER.ACTIONS.PUBLISH_LONG' | translate"
+      (click)="publicar()">
+      <ion-icon name="cloud-upload-outline" aria-hidden="true" />
+      <span>{{ 'TOUR_VIEWER.ACTIONS.PUBLISH_LONG' | translate }}</span>
+    </button>
+  }
+
+  @if (podeEditar()) {
+    <span class="tv-desktop__divisor" aria-hidden="true"></span>
+    <button
+      type="button"
+      class="tv-desktop__acao tv-desktop__acao--apagar"
+      data-action="delete"
+      [attr.aria-label]="'TOUR_VIEWER.ACTIONS.DELETE_ARIA' | translate"
+      [title]="'TOUR_VIEWER.ACTIONS.DELETE_ARIA' | translate"
+      (click)="store.abrirSheet('delete')">
+      <ion-icon name="trash-outline" aria-hidden="true" />
+    </button>
+  }
+</div>
