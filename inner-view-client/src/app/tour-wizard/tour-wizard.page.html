@@ -29,7 +29,24 @@
         ainda estiver em curso termina no servidor, sem ninguém olhando.
         O andamento cômodo a cômodo aparece no card da etapa 1.
       -->
-      @if (store.published()) {
+      <!--
+        A espera de abrir um tour existente — o EDITAR do visualizador e a
+        retomada de rascunho.
+
+        Ela cobre o CORPO e não a tela inteira: o stepper e o voltar continuam
+        à vista, porque eles são a moldura do fluxo e sumir com tudo faria a
+        tela piscar de branco entre duas telas cheias. Quem vem do visualizador
+        acabou de ver o tour montado; um corpo vazio por dois segundos lê como
+        "sumiu", e não como "está vindo".
+      -->
+      @if (store.carregando()) {
+        <div class="tw-espera" role="status">
+          <app-owl-loader />
+          <p class="tw-espera__texto">
+            {{ 'TOUR_WIZARD.COMMON.LOADING' | translate }}
+          </p>
+        </div>
+      } @else if (store.published()) {
         <app-tour-published />
       } @else {
         @switch (store.step()) {
@@ -83,7 +100,11 @@
         tem ação possível ali e competiria com os dois caminhos que realmente
         fazem a tela avançar. Assim que nasce um card, a barra volta.
       -->
-      @if (!store.published() && (store.step() !== 1 || store.scenes().length)) {
+      @if (
+        !store.carregando() &&
+        !store.published() &&
+        (store.step() !== 1 || store.scenes().length)
+      ) {
         <app-wizard-actions />
       }
     </div>

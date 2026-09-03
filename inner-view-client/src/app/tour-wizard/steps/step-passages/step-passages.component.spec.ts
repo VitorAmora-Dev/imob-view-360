@@ -207,6 +207,104 @@ describe('StepPassagesComponent', () => {
       expect(visor()?.editMode).toBeFalse();
     });
 
+    /**
+     * O desenho da revisao passou a ser o da tela de visualizacao.
+     *
+     * `hotspotMode: 'none'` desliga os sprites 3D do proprio viewer e
+     * `roomNav: false` tira o seletor de ambiente do canto superior esquerdo.
+     * Os dois eram o desenho ANTIGO: quem desenha ponto agora e o overlay em
+     * HTML da TV-7, e quem troca de comodo e a faixa de cenas.
+     */
+    it('desliga os sprites e o seletor de ambiente do proprio viewer', () => {
+      montar(acabado());
+
+      expect(visor()?.hotspotMode).toBe('none');
+      expect(visor()?.roomNav).toBeFalse();
+    });
+
+    it('desenha os pontos com o pin novo, e nao com o do wizard', () => {
+      montar(acabado());
+      fixture.componentInstance.aoTrocarPanorama(
+        fixture.componentInstance.tourCompleto()[0],
+      );
+      fixture.detectChanges();
+
+      expect(el().querySelector('app-tv-hotspot-overlay')).not.toBeNull();
+      // O overlay do wizard e o do EDITOR: ele arrasta e apaga ponto, e na
+      // revisao nao ha o que editar.
+      expect(el().querySelector('app-hotspot-overlay')).toBeNull();
+    });
+
+    /**
+     * Os pins seguem a foto NA TELA, e nao a cena pedida.
+     *
+     * Mesma regra R4 do visualizador: entre o toque no pin e a textura pronta
+     * existe um intervalo, e ligados a intencao os pins do destino boiariam
+     * sobre a foto da origem — clicaveis.
+     */
+    it('os pins sao os da cena que esta na tela', () => {
+      montar(acabado());
+      const componente = fixture.componentInstance;
+
+      // Nada na tela ainda: nenhum pin para projetar.
+      expect(componente.cenaNaTela()).toBeNull();
+
+      componente.aoTrocarPanorama(componente.tourCompleto()[0]);
+      expect(componente.cenaNaTela()?.id).toBe('sala');
+      expect(componente.cenaNaTela()?.hotspots[0].targetSceneId).toBe('cozinha');
+
+      componente.aoTrocarPanorama(componente.tourCompleto()[1]);
+      expect(componente.cenaNaTela()?.id).toBe('cozinha');
+      expect(componente.cenaNaTela()?.hotspots[0].targetSceneId).toBe('sala');
+    });
+
+    it('a faixa de cenas lista os ambientes e marca o que esta na tela', () => {
+      montar(acabado());
+      fixture.componentInstance.aoTrocarPanorama(
+        fixture.componentInstance.tourCompleto()[1],
+      );
+      fixture.detectChanges();
+
+      const faixa = el().querySelector('app-passages-scene-strip');
+      expect(faixa).not.toBeNull();
+      expect(fixture.componentInstance.cenasDaFaixa().map((c) => c.id)).toEqual([
+        'sala',
+        'cozinha',
+      ]);
+
+      const abas = Array.from(faixa!.querySelectorAll('[role="tab"]'));
+      expect(abas.map((a) => a.getAttribute('aria-selected'))).toEqual([
+        'false',
+        'true',
+      ]);
+    });
+
+    it('escolher na faixa manda o viewer navegar', () => {
+      montar(acabado());
+      const navegar = spyOn(visor()!, 'navigateTo');
+
+      fixture.componentInstance.irParaCena('cozinha');
+
+      expect(navegar).toHaveBeenCalledOnceWith('cozinha');
+    });
+
+    /**
+     * O aviso vive SOBRE a foto, e nao abaixo dela.
+     *
+     * Abaixo, ele era um bloco tracejado de 24px de padding: no celular a dupla
+     * "foto de 320px + aviso" dava ao aviso quase um terco da tela para dizer
+     * uma frase que se le uma vez. Este teste trava o lugar dele, que e o que
+     * devolve a altura para a foto.
+     */
+    it('o aviso de conclusao fica dentro do palco', () => {
+      montar(acabado());
+
+      const aviso = el().querySelector('.sp__pronto');
+      expect(aviso).not.toBeNull();
+      expect(aviso!.closest('.sp__pano')).not.toBeNull();
+      expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.DONE_HINT');
+    });
+
     // O `ngOnChanges` do viewer volta ao ambiente inicial a cada mudanca de
     // `panoramas`. Montando antes de todas as fotos chegarem, a que chegasse
     // enquanto o corretor esta no terceiro comodo o jogaria de volta ao
@@ -219,6 +317,33 @@ describe('StepPassagesComponent', () => {
       expect(visor()).toBeNull();
       expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.DONE');
     });
+  });
+
+  /**
+   * Entrar na etapa dispara o download da equirretangular do ambiente, e sem
+   * aviso o palco fica preto por segundos — medido em ~4s em desenvolvimento.
+   * Antes disso a tela nao dizia nada, e a instrucao "toque onde fica a
+   * passagem" aparecia sobre um retangulo vazio, convidando a tocar no nada.
+   */
+  it('mostra a coruja enquanto a foto do ambiente nao chega', () => {
+    const semFoto = [
+      { ...cena('sala', ['cozinha']), imageData: '' },
+      cena('cozinha', ['sala']),
+    ];
+    montar(semFoto);
+
+    expect(fixture.componentInstance.esperandoFoto()).toBeTrue();
+    expect(el().querySelector('app-owl-loader')).not.toBeNull();
+    // A instrucao so aparece quando ha foto para tocar.
+    expect(el().querySelector('app-guided-banner')).toBeNull();
+  });
+
+  it('com a foto em maos, a coruja sai e a instrucao entra', () => {
+    montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+
+    expect(fixture.componentInstance.esperandoFoto()).toBeFalse();
+    expect(el().querySelector('app-owl-loader')).toBeNull();
+    expect(el().querySelector('app-guided-banner')).not.toBeNull();
   });
 
   it('sem conexao nenhuma, manda voltar e conectar', () => {

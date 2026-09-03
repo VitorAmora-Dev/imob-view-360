@@ -2716,6 +2716,30 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.scenes()[0].treatedImageUrl).toBeUndefined();
     });
 
+    /**
+     * O rail pede selo, o baralho pede card, e os dois falam do mesmo cômodo.
+     *
+     * Sem a largura na chave eles dividiriam a mesma entrada: quem pedisse a
+     * grande receberia a pequena que chegou antes — que é o mesmo defeito de
+     * imagem borrada, mudado de lugar. É a razão de o `PanoramaImageCache` já
+     * ter a largura na chave dele, e este mapa precisava da mesma regra.
+     */
+    it('a largura entra na chave: selo e card não se atropelam', async () => {
+      const store = storeWith(
+        scene('s1', { room: 'Sala', serverPanoramaId: 'p1', imageData: '' }),
+      );
+      const obter = spyOn(TestBed.inject(PanoramaImageCache), 'obter').and.callFake(
+        async (_id: string, _v: string, largura?: number) => `blob:${largura}`,
+      );
+
+      await store.garantirMiniatura('s1');
+      await store.garantirMiniatura('s1', 960);
+
+      expect(obter).toHaveBeenCalledTimes(2);
+      expect(store.miniatura('s1')).toBe('blob:320');
+      expect(store.miniatura('s1', 960)).toBe('blob:960');
+    });
+
     it('baixa uma vez só', async () => {
       const store = storeWith(
         scene('s1', { room: 'Sala', serverPanoramaId: 'p1', imageData: '' }),

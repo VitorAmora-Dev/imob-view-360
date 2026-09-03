@@ -74,7 +74,9 @@ describe('TourSummaryComponent — a capa de um rascunho retomado', () => {
     const componente = montar([retomada('sala')]);
     expect(componente.coverUrl()).toBeNull();
 
-    store.miniaturas.set({ sala: 'blob:http://localhost/capa' });
+    store.miniaturas.set({
+      [TourDraftStore.chaveDaMiniatura('sala')]: 'blob:http://localhost/capa',
+    });
 
     expect(componente.coverUrl()).toBe('blob:http://localhost/capa');
   });

@@ -9,6 +9,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
+import { OwlLoaderComponent } from '../components/owl-loader/owl-loader.component';
 import { filaDePassagens } from './passagens/fila';
 import { TourPublishedComponent } from './published/tour-published.component';
 import { StepOrderingComponent } from './steps/step-ordering/step-ordering.component';
@@ -168,6 +169,7 @@ const PERGUNTA_DE_RETOMADA_FALHA: PerguntaDoWizard = {
   providers: [TourDraftStore, DialogoDoWizard],
   imports: [
     IonContent,
+    OwlLoaderComponent,
     TranslatePipe,
     WizardStepperComponent,
     WizardActionsComponent,

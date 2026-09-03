@@ -1,0 +1,46 @@
+<h2 class="pf__titulo">{{ 'TOUR_WIZARD.PASSAGES.SCENES' | translate }}</h2>
+
+<!--
+  `tablist` com foco itinerante, como a faixa do visualizador: só a cena na
+  tela recebe Tab, e as setas percorrem o resto. O painel que este conjunto
+  controla é o próprio palco — ele fica fora do componente por causa da camada
+  Three.js, e é a mesma situação já registrada na TV-12.
+-->
+<ul
+  class="pf__trilho"
+  role="tablist"
+  [attr.aria-label]="'TOUR_WIZARD.PASSAGES.SCENES' | translate">
+  @for (cena of cenas(); track cena.id; let i = $index) {
+    <li class="pf__vaga" role="presentation">
+      <button
+        type="button"
+        class="pf__item"
+        role="tab"
+        [class.is-carregando]="!cena.thumb"
+        [attr.data-cena]="cena.id"
+        [attr.aria-selected]="cena.id === atualId()"
+        [attr.tabindex]="cena.id === atualId() || (!atualId() && i === 0) ? 0 : -1"
+        [title]="cena.nome"
+        (click)="escolher(cena)"
+        (keydown)="aoTeclar($event, i)">
+        <!--
+          O `<img>` fica sempre no DOM, sem `@if`: enquanto o `blob:` não chega
+          o que se vê é o fundo do botão, que é o estado de carregando.
+
+          `[attr.src]` e não `[src]`, e a diferença é medida: ligação de
+          PROPRIEDADE sempre escreve algo — `null` vira `src=""` e `undefined`
+          vira a string "undefined" —, e as duas são endereços que o navegador
+          tenta buscar, terminando no ícone de imagem quebrada. Ligação de
+          ATRIBUTO com `null` REMOVE o atributo, que é o único estado em que um
+          `<img>` não pede nada.
+
+          O que se perde é o sanitizador de URL do Angular, e aqui ele não
+          protege nada: o valor é um `blob:` criado por este app, e `img[src]`
+          não executa script em esquema nenhum.
+        -->
+        <img class="pf__thumb" [attr.src]="cena.thumb || null" alt="">
+        <span class="pf__nome">{{ cena.nome }}</span>
+      </button>
+    </li>
+  }
+</ul>

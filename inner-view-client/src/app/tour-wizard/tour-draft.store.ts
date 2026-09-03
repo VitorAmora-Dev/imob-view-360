@@ -71,14 +71,38 @@ const MINIMO_DE_REFERENCIAS = 4;
 const LIMITE_DA_ESPERA_MS = 2 * 60 * 1000;
 
 /**
- * Largura que o card da etapa 1 e o rail da etapa 2 pedem ao servidor.
+ * Largura que o rail, o card compacto e o resumo pedem ao servidor.
  *
- * Os dois desenham um retângulo perto de 196×110. Sem esta largura a rota de
+ * Os três desenham um retângulo perto de 196×110. Sem esta largura a rota de
  * preview devolve a equirretangular inteira — dezenas de MB por cômodo, no 4G,
  * para preencher algo do tamanho de um selo. 320 dá margem para tela de alta
  * densidade sem chegar perto do custo da imagem cheia.
  */
-const LARGURA_DA_MINIATURA = 320;
+export const LARGURA_DA_MINIATURA = 320;
+
+/**
+ * Largura para o CARD GRANDE do baralho da etapa 1 — e o conserto de um
+ * defeito relatado como "a imagem abre em baixa qualidade e depois melhora".
+ *
+ * O baralho substituiu o card compacto nesta tela e desenha um retângulo perto
+ * de 377×390, não de 196×110. E ele recorta a equirretangular com `cover`: uma
+ * imagem 2:1 dentro de uma caixa quase quadrada é escalada PELA ALTURA, então
+ * a largura útil da fonte é o dobro da altura da caixa — ~780px em DPR 1. Com
+ * os 320 do selo, o navegador ampliava a miniatura ~2,4×.
+ *
+ * A parte "e depois melhora" é a mesma linha de `imageUrl()` na etapa 1:
+ * `treatedImageUrl ?? (imageData || miniatura)`. Quando qualquer outra tela
+ * baixa a foto cheia daquele cômodo — a etapa 3 ao entrar, a revisão ao
+ * acabar —, `treatedImageUrl` aparece, ganha a precedência, e o MESMO card
+ * troca de imagem sozinho. Medido lado a lado: dois cards do mesmo baralho,
+ * um com fonte de 2048×1024 e outro com 320×160, ambos desenhados a ~370px.
+ *
+ * 960 e não 2048: cobre DPR 1 com folga, corta a ampliação de 2,4× para 0,8×
+ * (ou seja, some), e custa perto de um quarto dos bytes da imagem cheia. O
+ * teto continua sendo a rota — acima de `LARGURA_MAXIMA` ela devolve o
+ * original inteiro, que é o custo que estas constantes existem para evitar.
+ */
+export const LARGURA_DO_CARD = 960;
 
 /**
  * Título que `garantirRascunho()` grava no imóvel enquanto os dados de verdade
@@ -922,6 +946,21 @@ export class TourDraftStore {
   readonly editando = computed(() => this.modo() === 'edicao');
 
   /**
+   * O tour está descendo do servidor — `abrirParaEdicao` ou `retomarRascunho`.
+   *
+   * Existe porque as duas entradas levam segundos e a tela NÃO esperava: o
+   * wizard montava a etapa 1 com o rascunho vazio, e o corretor via um tour sem
+   * ambiente nenhum até a resposta chegar. Quem vem do EDITAR do visualizador
+   * acabou de ver o tour cheio, então a tela vazia lê como "sumiu", e não como
+   * "está carregando" — medido em 1,2s só para o `/edicao` sair, mais o tempo
+   * da resposta.
+   *
+   * Mora no store, e não na página, porque a etapa 3 também precisa saber:
+   * ela mostra a mesma espera enquanto a foto do ambiente não chega.
+   */
+  readonly carregando = signal(false);
+
+  /**
    * A edição foi salva e a tela pode ir embora.
    *
    * Existe porque em edição não há tela de sucesso: o tour já estava
@@ -965,11 +1004,19 @@ export class TourDraftStore {
    * retomar. A imagem chega pelo `PanoramaImageCache` quando o viewer pedir.
    */
   async retomarRascunho(tourId: string): Promise<void> {
-    const rascunho = await firstValueFrom(
-      this.virtualTourService.lerRascunho(tourId),
-    );
-    this.modo.set('criacao');
-    this.hidratar(rascunho);
+    this.carregando.set(true);
+    try {
+      const rascunho = await firstValueFrom(
+        this.virtualTourService.lerRascunho(tourId),
+      );
+      this.modo.set('criacao');
+      this.hidratar(rascunho);
+    } finally {
+      // `finally`, e não depois do `hidratar`: quem chama trata a falha com uma
+      // PERGUNTA ("tentar de novo?"), e a caixa de diálogo não pode nascer
+      // atrás de uma tela de espera que ninguém mais vai desligar.
+      this.carregando.set(false);
+    }
   }
 
   /**
@@ -983,11 +1030,17 @@ export class TourDraftStore {
    * a tela em modo de edição sem tour nenhum carregado.
    */
   async abrirParaEdicao(tourId: string): Promise<void> {
-    const tour = await firstValueFrom(
-      this.virtualTourService.lerTourParaEdicao(tourId),
-    );
-    this.modo.set('edicao');
-    this.hidratar(tour);
+    this.carregando.set(true);
+    try {
+      const tour = await firstValueFrom(
+        this.virtualTourService.lerTourParaEdicao(tourId),
+      );
+      this.modo.set('edicao');
+      this.hidratar(tour);
+    } finally {
+      // Ver `retomarRascunho`: a espera precisa cair também no caminho de erro.
+      this.carregando.set(false);
+    }
   }
 
   private hidratar(rascunho: RascunhoCompleto): void {
@@ -1141,6 +1194,22 @@ export class TourDraftStore {
   readonly miniaturas = signal<Record<string, string>>({});
 
   /**
+   * A chave do mapa acima: cena MAIS largura.
+   *
+   * A largura entra aqui pelo mesmo motivo que entra na chave do
+   * `PanoramaImageCache`. Sem ela, o rail (320) e o baralho (960) dividiriam a
+   * mesma entrada, e quem pedisse a segunda receberia a primeira — que é
+   * exatamente o defeito de imagem borrada, só que num lugar novo.
+   *
+   * Pública porque `miniaturas` é pública: quem semeia o mapa de fora (os
+   * testes, hoje) precisa montar a chave, e montá-la à mão em cada arquivo é
+   * como o formato passa a ter quatro donos.
+   */
+  static chaveDaMiniatura(sceneId: string, largura = LARGURA_DA_MINIATURA): string {
+    return `${sceneId}:${largura}`;
+  }
+
+  /**
    * Panoramas cuja miniatura já falhou nesta sessão.
    *
    * O card e o rail pedem a miniatura de dentro de um `effect`, que reroda a
@@ -1150,8 +1219,8 @@ export class TourDraftStore {
   private readonly miniaturasQueFalharam = new Set<string>();
 
   /** A miniatura de uma cena, ou vazio enquanto ela não chegou. */
-  miniatura(sceneId: string): string {
-    return this.miniaturas()[sceneId] ?? '';
+  miniatura(sceneId: string, largura = LARGURA_DA_MINIATURA): string {
+    return this.miniaturas()[TourDraftStore.chaveDaMiniatura(sceneId, largura)] ?? '';
   }
 
   /**
@@ -1162,11 +1231,24 @@ export class TourDraftStore {
    * pagar a equirretangular inteira por isso era o custo que a faixa da home
    * cobrava em toda visita.
    *
+   * A `largura` é parâmetro porque nem todo mundo desenha um selo: o baralho da
+   * etapa 1 pede `LARGURA_DO_CARD`, e o porquê está lá. Quem não passa nada
+   * continua recebendo o tamanho de selo, que é o caso da maioria.
+   *
    * Não rejeita: quem chama é um `effect`, e uma promise rejeitada ali não tem
    * onde ser tratada. Miniatura que não veio é um card sem foto, não um erro.
+   *
+   * A memória de falha é por PANORAMA, e não por (panorama, largura): a falha
+   * que interessa é de rede ou de permissão, e ela não muda com o tamanho
+   * pedido. Uma segunda largura insistindo no mesmo cômodo caído seria o
+   * download por tecla digitada que esta memória existe para cortar.
    */
-  async garantirMiniatura(sceneId: string): Promise<string> {
-    const jaTenho = this.miniaturas()[sceneId];
+  async garantirMiniatura(
+    sceneId: string,
+    largura = LARGURA_DA_MINIATURA,
+  ): Promise<string> {
+    const chave = TourDraftStore.chaveDaMiniatura(sceneId, largura);
+    const jaTenho = this.miniaturas()[chave];
     if (jaTenho) return jaTenho;
 
     const panoramaId = this.scenes().find((s) => s.id === sceneId)
@@ -1175,12 +1257,8 @@ export class TourDraftStore {
     if (this.miniaturasQueFalharam.has(panoramaId)) return '';
 
     try {
-      const url = await this.imagens.obter(
-        panoramaId,
-        'treated',
-        LARGURA_DA_MINIATURA,
-      );
-      this.miniaturas.update((atual) => ({ ...atual, [sceneId]: url }));
+      const url = await this.imagens.obter(panoramaId, 'treated', largura);
+      this.miniaturas.update((atual) => ({ ...atual, [chave]: url }));
       return url;
     } catch {
       this.miniaturasQueFalharam.add(panoramaId);

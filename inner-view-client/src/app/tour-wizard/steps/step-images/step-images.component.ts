@@ -16,7 +16,7 @@ import {
   CaptureFrameUpload,
   CaptureGeometry,
 } from '../../../services/virtual-tour.service';
-import { TourDraftStore } from '../../tour-draft.store';
+import { LARGURA_DO_CARD, TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
 import { TrashIconComponent } from '../../ui/trash-icon/trash-icon.component';
 import { DialogoDoWizard } from '../../ui/wizard-dialog/dialogo-do-wizard.service';
@@ -214,7 +214,9 @@ export class StepImagesComponent implements OnDestroy {
         // O deck substituiu o SceneCard nesta tela, então ele próprio garante
         // tanto a miniatura ativa quanto as que aparecem nas laterais.
         if (this.imageUrl(scene) || !scene.serverPanoramaId) continue;
-        void this.store.garantirMiniatura(scene.id);
+        // `LARGURA_DO_CARD` e não o tamanho de selo: o card deste baralho é
+        // grande e recorta a equirretangular com `cover`. Ver a constante.
+        void this.store.garantirMiniatura(scene.id, LARGURA_DO_CARD);
       }
     });
 
@@ -515,10 +517,20 @@ export class StepImagesComponent implements OnDestroy {
     }, 420);
   }
 
+  /**
+   * A foto que o card desenha, da melhor para a pior.
+   *
+   * A ordem é o que faz a imagem MELHORAR sozinha quando a foto cheia chega
+   * por outro caminho (a etapa 3 ao entrar, a revisão ao acabar) — e era o
+   * "abre em baixa qualidade e depois melhora" do ticket. A troca continua
+   * existindo, de propósito: quando a foto cheia já está em memória, mostrar a
+   * reduzida seria pior de graça. O que mudou é o TAMANHO do primeiro degrau,
+   * que era 320px num card de ~377 e agora é `LARGURA_DO_CARD`.
+   */
   private imageUrl(scene: WizardScene): string | null {
     return (
       scene.treatedImageUrl ??
-      (scene.imageData || this.store.miniatura(scene.id) || null)
+      (scene.imageData || this.store.miniatura(scene.id, LARGURA_DO_CARD) || null)
     );
   }
 
