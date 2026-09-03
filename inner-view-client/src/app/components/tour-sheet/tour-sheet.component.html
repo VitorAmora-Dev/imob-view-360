@@ -1,0 +1,83 @@
+<!--
+  `breakpoints` e `initialBreakpoint` vêm ANTES de `isOpen`: o Ionic lê a
+  altura inicial no momento de apresentar, e a ordem das ligações é a ordem em
+  que o Angular as escreve. Invertidas, a primeira abertura sai na altura
+  errada. O mesmo tropeço já está registrado em `hotspot-sheet.component.html`.
+
+  O nome acessível do diálogo não sai daqui: ele vive no shadow DOM do Ionic.
+  Ver `nomearDialogo`.
+
+  `canDismiss` recebe a FUNÇÃO `podeFechar`, e não `!travado()`: o Ionic
+  consulta `canDismiss` para qualquer papel, inclusive no fechamento
+  programático, e um booleano em `false` travaria o consumidor junto com os
+  gestos. Ver `podeFechar` e `travado`.
+
+  `expandToScroll="false"` E a classe `ion-content-scroll-host` lá embaixo são
+  UM conserto só — nenhum dos dois sozinho resolve, e é por isso que os dois
+  moram aqui em vez de um em cada arquivo.
+
+  O `canStart` do gesto do sheet
+  (`@ionic/core/dist/collection/components/modal/gestures/sheet.js`) tem
+  exatamente dois desvios que cedem o arrasto à área rolável, e AMBOS exigem
+  um `contentEl`:
+
+      206:  if (!expandToScroll && contentEl) { ... }
+      210:  if (currentBreakpoint === 1 && contentEl) { ... }
+
+  O da 210 nunca roda aqui: as paradas são `[0, 0.55]`, e `currentBreakpoint`
+  nunca é 1. O da 206 estava desligado porque `expandToScroll` é `true` por
+  padrão. E `contentEl` vem de `findClosestIonContent`, que procura
+  `closest('ion-content, .ion-content-scroll-host')` — a área rolável do shell
+  é um `<div overflow-y:auto>` que não era nenhum dos dois, então `contentEl`
+  era `null` e os dois desvios eram pulados de qualquer jeito. Sobrava o
+  `return true` da linha 224: TODO arrasto vertical dentro do conteúdo virava
+  arrasto do sheet. No celular, com trinta cenas, arrastar para cima não fazia
+  nada e para baixo fechava o sheet — as cenas abaixo da quarta linha ficavam
+  inalcançáveis. No desktop a roda do mouse funciona, e por isso isso não
+  aparece numa conferência de mesa.
+
+  Com os dois no lugar, `contentEl` passa a ser o `.tour-sheet__conteudo` e a
+  linha 208 devolve `scrollEl.scrollTop === 0`: o sheet só começa a arrastar
+  quando a área rolável já está no topo.
+-->
+<ion-modal
+  class="tour-sheet"
+  [class.tour-sheet--centrado]="centrado()"
+  [breakpoints]="breakpointsAtivos()"
+  [initialBreakpoint]="initialBreakpointAtivo()"
+  [expandToScroll]="false"
+  [canDismiss]="podeFechar"
+  [isOpen]="isOpen()"
+  (didPresent)="nomearDialogo($event)"
+  (didDismiss)="fechado.emit()">
+  <ng-template>
+    <div class="tour-sheet__caixa">
+      <header class="tour-sheet__head">
+        <h2 class="tour-sheet__titulo">{{ titulo() }}</h2>
+        @if (subtitulo()) {
+          <p class="tour-sheet__sub">{{ subtitulo() }}</p>
+        }
+      </header>
+
+      <!--
+        `ion-content-scroll-host` é o que faz o `findClosestIonContent` do
+        Ionic ENXERGAR esta caixa — ver o comentário do `<ion-modal>` acima.
+        É só um marcador: a única regra de estilo do Ionic para essa classe é
+        `.menu-content-open .ion-content-scroll-host { overflow: hidden }`, que
+        vale com um `ion-menu` aberto e não existe no visualizador. Quem rola
+        continua sendo o `overflow-y` do SCSS.
+      -->
+      <div class="tour-sheet__conteudo ion-content-scroll-host">
+        <ng-content></ng-content>
+      </div>
+
+      <!--
+        Fora da área rolável de propósito: com o botão dentro do corpo, ele
+        rola junto e sai da tela justamente quando é preciso.
+      -->
+      <div class="tour-sheet__rodape">
+        <ng-content select="[rodape]"></ng-content>
+      </div>
+    </div>
+  </ng-template>
+</ion-modal>

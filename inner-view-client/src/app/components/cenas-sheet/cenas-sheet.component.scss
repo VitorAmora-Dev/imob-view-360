@@ -1,0 +1,67 @@
+.cenas-sheet__grade {
+  display: grid;
+  // Duas colunas, cards de 96px, rolagem depois de 340px -- os três números
+  // vêm do escopo do ticket.
+  grid-template-columns: repeat(2, 1fr);
+  max-height: 340px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  list-style: none;
+}
+
+.cenas-sheet__card {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 96px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: var(--tour-surface);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.cenas-sheet__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cenas-sheet__nome {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 4px 8px;
+  // Degradê e não cor sólida: o nome fica sobre foto, e uma faixa opaca
+  // cortaria a miniatura em duas.
+  background: linear-gradient(transparent, rgba(var(--tour-bg-rgb), 0.9));
+  color: var(--tour-text);
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cenas-sheet__badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--ion-color-primary);
+  // O par contratado da primária, e não `#ffffff` cru: o `_palette.scss` abre
+  // dizendo "nunca escreva um hex direto num componente", e a exceção
+  // documentada é a família `--tour-*`, não o branco. O contraste deste par é
+  // verificado por `palette.contract.spec.ts`; um branco fixo aqui ficaria
+  // ilegível no dia em que a primária clareasse, sem nada denunciar.
+  color: var(--ion-color-primary-contrast);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}

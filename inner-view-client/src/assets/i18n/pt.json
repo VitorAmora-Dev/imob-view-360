@@ -413,6 +413,13 @@
     }
   },
   "VIEWER": {
-    "ROOMS": "Ambientes"
+    "ROOMS": "Ambientes",
+    "CENAS": {
+      "TITULO": "Cenas do tour",
+      "CONTAGEM": "{{n}} cenas",
+      "UMA": "1 cena",
+      "ATUAL": "ATUAL",
+      "ABRIR": "Ver cenas do tour"
+    }
   }
 }

@@ -1,0 +1,83 @@
+// As cores saem da família `--tour-*`. Ela é a exceção documentada em
+// `_palette.scss`: "Eles alimentam o fundo das páginas imersivas" -- é o único
+// grupo de primitivos que componente consome direto, e o visualizador é
+// exatamente o lugar para isso.
+//
+// O escopo do ticket pedia `#0D1622` de fundo. O `--tour-bg` existente é
+// `#0b1220`: 1,03:1 de contraste entre os dois, ou seja, a mesma cor. Um
+// primitivo novo para um hex indistinguível de um existente é o inchaço que o
+// `_palette.scss` foi escrito para impedir.
+ion-modal.tour-sheet {
+  --border-radius: 26px;
+  --background: var(--tour-bg);
+  // O scrim do Ionic é preto puro com opacidade; a cor final vem inteira do
+  // `::part(backdrop)` abaixo, então a opacidade daqui vai a 1.
+  --backdrop-opacity: 1;
+}
+
+ion-modal.tour-sheet::part(backdrop) {
+  background: rgba(var(--tour-bg-rgb), 0.55);
+  backdrop-filter: blur(8px);
+}
+
+// Modal centrado do desktop (variante "adaptavel"). Sem `breakpoints` o Ionic
+// já centraliza; aqui só se fixa a largura que o TV-5 pede.
+ion-modal.tour-sheet--centrado {
+  --width: 480px;
+  --max-width: calc(100vw - 32px);
+  --height: auto;
+}
+
+.tour-sheet__caixa {
+  display: flex;
+  // A caixa ocupa a altura toda do modal para que o rodapé encoste embaixo e
+  // o conteúdo receba o resto -- é o que dá à área rolável uma altura para
+  // rolar dentro, e o que mantém o rodapé fora dela.
+  height: 100%;
+  flex-direction: column;
+  padding: 8px 20px 20px;
+  color: var(--tour-text);
+}
+
+.tour-sheet__head {
+  flex: 0 0 auto;
+  padding-bottom: 12px;
+}
+
+.tour-sheet__titulo {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tour-text);
+}
+
+.tour-sheet__sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.tour-sheet__conteudo {
+  flex: 1 1 auto;
+  // `min-height: 0` para esta caixa poder encolher dentro do flex em vez de
+  // empurrar o rodapé para fora do sheet.
+  min-height: 0;
+  // A área rolável é ESTA, e o `overflow-y` não é opcional: o `.modal-wrapper`
+  // do Ionic tem `--overflow: hidden`, então sem ele conteúdo mais alto que o
+  // sheet fica CORTADO e inalcançável, não rolado. O TV-6 é uma lista que
+  // cresce sem teto, e seriam os últimos itens a sumir.
+  //
+  // Aqui, e não embrulhando tudo num `<ion-content>`: com a rolagem neste div
+  // o rodapé fica naturalmente fora dela, que é o que se quer, sem mais um nó
+  // e mais um conjunto de custom properties no caminho.
+  overflow-y: auto;
+}
+
+.tour-sheet__rodape {
+  flex: 0 0 auto;
+  // Sem conteúdo projetado o div fica com altura zero e não abre buraco --
+  // por isso não há `@if` aqui, e Cenas pode simplesmente não usar o slot.
+  &:empty {
+    display: none;
+  }
+}

@@ -413,6 +413,13 @@
     }
   },
   "VIEWER": {
-    "ROOMS": "Rooms"
+    "ROOMS": "Rooms",
+    "CENAS": {
+      "TITULO": "Tour scenes",
+      "CONTAGEM": "{{n}} scenes",
+      "UMA": "1 scene",
+      "ATUAL": "CURRENT",
+      "ABRIR": "View tour scenes"
+    }
   }
 }

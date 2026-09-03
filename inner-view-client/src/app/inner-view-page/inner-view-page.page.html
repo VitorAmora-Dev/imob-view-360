@@ -10,6 +10,18 @@
           }
         </button>
         @if (tour) {
+          <!-- Some com uma cena só: é o mesmo critério do `mostrarNav` do
+               panoramic-viewer (`ambientes.length > 1`). Uma lista com um
+               item só não leva a lugar nenhum além de onde já se está. -->
+          @if (tour.panoramas.length > 1) {
+            <button
+              type="button"
+              class="viewer-action"
+              [attr.aria-label]="'VIEWER.CENAS.ABRIR' | translate"
+              (click)="abrirCenas()">
+              <ion-icon name="albums-outline"></ion-icon>
+            </button>
+          }
           <button
             type="button"
             class="viewer-action"
@@ -51,6 +63,16 @@
       (panoramaChange)="onPanoramaChange($event)"
       (hotspotPlaced)="onHotspotPlaced($event)">
     </app-panoramic-viewer>
+
+    <!-- `atualId` vem de `currentPanorama`, campo desta página mantido pelo
+         `(panoramaChange)` acima, e NÃO de `viewer.idAtual`: ler um campo do
+         filho numa ligação do pai dá ExpressionChangedAfterItHasBeenCheckedError,
+         porque o filho o escreve depois de o pai já ter sido verificado. -->
+    <app-cenas-sheet
+      [cenas]="tour.panoramas"
+      [atualId]="currentPanorama?.id ?? null"
+      (selecionada)="onCenaSelecionada($event)">
+    </app-cenas-sheet>
 
     @if (editingHotspots) {
       <div class="edit-banner">
