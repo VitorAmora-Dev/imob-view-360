@@ -21,7 +21,6 @@ import {
 } from '../services/virtual-tour.service';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { CenasSheetComponent } from '../components/cenas-sheet/cenas-sheet.component';
-import { TourSheetStore } from '../components/tour-sheet/tour-sheet.store';
 import { Capture360Component } from '../components/capture-360/capture-360.component';
 import { captureSupported } from '../components/capture-360/capture-support';
 import { panoramaFilename } from './panorama-download.util';
@@ -61,7 +60,14 @@ export class InnerViewPagePage implements OnInit {
   private modalController = inject(ModalController);
   private toastController = inject(ToastController);
   private translate = inject(TranslateService);
-  readonly tourSheet = inject(TourSheetStore);
+  /**
+   * O sheet de cenas desta tela, num booleano local.
+   *
+   * A tela nova coordena os sheets pelo `TourViewerStore.sheet`, que é tipado e
+   * vive com a página. Aqui não vale a pena nada disso: esta tela sai do ar no
+   * TV-12 junto com a rota `inner-view-legado`, e tem um sheet só.
+   */
+  cenasAbertas = false;
 
   constructor() {
     addIcons({ cameraOutline, eyeOutline, eyeOffOutline, cloudUploadOutline, imageOutline, trashOutline, gitNetworkOutline, informationCircleOutline, albumsOutline });
@@ -422,12 +428,9 @@ export class InnerViewPagePage implements OnInit {
     });
   }
 
-  /**
-   * Abre o sheet de cenas. O `TourSheetStore` garante que abrir este feche
-   * qualquer outro — quando TV-4, TV-5 e TV-6 existirem, nada aqui muda.
-   */
+  /** Abre o sheet de cenas. É o único sheet que esta tela tem. */
   abrirCenas(): void {
-    this.tourSheet.abrir('cenas');
+    this.cenasAbertas = true;
   }
 
   /**

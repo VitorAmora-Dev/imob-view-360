@@ -1,23 +1,27 @@
-// As cores saem da família `--tour-*`. Ela é a exceção documentada em
-// `_palette.scss`: "Eles alimentam o fundo das páginas imersivas" -- é o único
-// grupo de primitivos que componente consome direto, e o visualizador é
-// exatamente o lugar para isso.
+// As cores saem da família `--tv-*` (`theme/tour-viewer.scss`), a camada L2 do
+// visualizador — irmã da `--tw-*` do wizard.
 //
-// O escopo do ticket pedia `#0D1622` de fundo. O `--tour-bg` existente é
-// `#0b1220`: 1,03:1 de contraste entre os dois, ou seja, a mesma cor. Um
+// Este arquivo nasceu consumindo `--tour-*` direto, que é a exceção que o
+// `_palette.scss` abre para as páginas imersivas, e não era erro: a camada L2
+// desta tela vinha na TV-0, que ainda não estava mesclada. Os valores são os
+// mesmos; o que muda é o NOME ter o vocabulário da tela ("o fundo do sheet",
+// "o scrim") em vez do primitivo.
+//
+// O escopo do ticket pedia `#0D1622` de fundo. O `--tour-bg` por trás do
+// `--tv-sheet-bg` é `#0b1220`: 1,03:1 entre os dois, ou seja, a mesma cor. Um
 // primitivo novo para um hex indistinguível de um existente é o inchaço que o
 // `_palette.scss` foi escrito para impedir.
 ion-modal.tour-sheet {
-  --border-radius: 26px;
-  --background: var(--tour-bg);
+  --border-radius: var(--tv-radius-sheet);
+  --background: var(--tv-sheet-bg);
   // O scrim do Ionic é preto puro com opacidade; a cor final vem inteira do
   // `::part(backdrop)` abaixo, então a opacidade daqui vai a 1.
   --backdrop-opacity: 1;
 }
 
 ion-modal.tour-sheet::part(backdrop) {
-  background: rgba(var(--tour-bg-rgb), 0.55);
-  backdrop-filter: blur(8px);
+  background: var(--tv-scrim);
+  backdrop-filter: blur(var(--tv-blur-scrim));
 }
 
 // Modal centrado do desktop (variante "adaptavel"). Sem `breakpoints` o Ionic
@@ -36,7 +40,7 @@ ion-modal.tour-sheet--centrado {
   height: 100%;
   flex-direction: column;
   padding: 8px 20px 20px;
-  color: var(--tour-text);
+  color: var(--tv-text);
 }
 
 .tour-sheet__head {
@@ -48,13 +52,15 @@ ion-modal.tour-sheet--centrado {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: var(--tour-text);
+  color: var(--tv-text);
 }
 
 .tour-sheet__sub {
   margin: 2px 0 0;
   font-size: 13px;
-  opacity: 0.7;
+  // Token, e não `opacity`: o secundário desta tela tem valor próprio, e um
+  // `opacity` no elemento também apagaria o que viesse dentro dele.
+  color: var(--tv-text-secondary);
 }
 
 .tour-sheet__conteudo {

@@ -137,8 +137,23 @@
       }
 
       <!-- ---- camada 4: sheets e toast ---------------------------------- -->
-      <!-- TV-3: shell de sheet + sheet Cenas.   TV-4: Incorporar. -->
-      <!-- TV-5: Apagar (sheet e diálogo).       TV-6: Gerenciar. -->
+      <!-- TV-4: Incorporar.  TV-5: Apagar.  TV-6: Gerenciar. -->
+
+      <!--
+        O sheet Cenas veio da TV-3, que nasceu fora desta tela. `[aberto]` sai
+        do MESMO sinal que a faixa de cenas consulta: um sheet por vez é
+        invariante do `TourViewerStore`, e não combinado entre componentes.
+
+        `cenaNaTela()` e não `store.currentScene()`, pela regra desta tela: o
+        badge ATUAL descreve a foto que está no ar, e não a que acabou de ser
+        pedida e ainda está baixando.
+      -->
+      <app-cenas-sheet
+        [aberto]="store.sheet() === 'scenes'"
+        [cenas]="store.panoramas()"
+        [atualId]="cenaNaTela()?.id ?? null"
+        (selecionada)="store.irParaCenaPorId($event.id)"
+        (fechado)="store.fecharSheet()" />
 
       @if (store.toast(); as chave) {
         <div class="tv-slot tv-slot--toast">

@@ -17,7 +17,7 @@
             <button
               type="button"
               class="viewer-action"
-              [attr.aria-label]="'VIEWER.CENAS.ABRIR' | translate"
+              [attr.aria-label]="'TOUR_VIEWER.SCENES.OPEN_LIST' | translate"
               (click)="abrirCenas()">
               <ion-icon name="albums-outline"></ion-icon>
             </button>
@@ -69,9 +69,11 @@
          filho numa ligação do pai dá ExpressionChangedAfterItHasBeenCheckedError,
          porque o filho o escreve depois de o pai já ter sido verificado. -->
     <app-cenas-sheet
+      [aberto]="cenasAbertas"
       [cenas]="tour.panoramas"
       [atualId]="currentPanorama?.id ?? null"
-      (selecionada)="onCenaSelecionada($event)">
+      (selecionada)="onCenaSelecionada($event)"
+      (fechado)="cenasAbertas = false">
     </app-cenas-sheet>
 
     @if (editingHotspots) {

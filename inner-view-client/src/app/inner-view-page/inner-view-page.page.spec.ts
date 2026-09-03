@@ -6,7 +6,6 @@ import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 
 import { InnerViewPagePage } from './inner-view-page.page';
-import { TourSheetStore } from '../components/tour-sheet/tour-sheet.store';
 
 describe('InnerViewPagePage', () => {
   let component: InnerViewPagePage;
@@ -35,12 +34,14 @@ describe('InnerViewPagePage', () => {
 
   describe('sheet de cenas', () => {
     it('o botao de cenas abre o sheet', () => {
-      const store = TestBed.inject(TourSheetStore);
-      expect(store.aberto()).toBeNull();
+      // Esta tela sai do ar no TV-12 e tem um sheet so, entao o estado dele e
+      // um booleano local. Quem coordena varios sheets e a tela nova, pelo
+      // `TourViewerStore.sheet`.
+      expect(component.cenasAbertas).toBeFalse();
 
       component.abrirCenas();
 
-      expect(store.aberto()).toBe('cenas');
+      expect(component.cenasAbertas).toBeTrue();
     });
 
     // O viewer ja expoe `irPara(id)` publico -- nao ha API nova a inventar.

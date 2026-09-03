@@ -424,6 +424,7 @@
     "NO_SCENES": "Este tour ainda não tem cenas.",
     "OFFLINE": "Você está sem conexão. O tour segue navegável com o que já foi carregado.",
     "SCENE_COUNT": "{{n}} cenas",
+    "SCENE_COUNT_ONE": "1 cena",
     "SCENE_OF": "Cena {{n}} de {{total}}",
     "BACK": "Voltar",
     "MANAGE_OPEN": "Gerenciar tour",
@@ -489,13 +490,6 @@
     }
   },
   "VIEWER": {
-    "ROOMS": "Ambientes",
-    "CENAS": {
-      "TITULO": "Cenas do tour",
-      "CONTAGEM": "{{n}} cenas",
-      "UMA": "1 cena",
-      "ATUAL": "ATUAL",
-      "ABRIR": "Ver cenas do tour"
-    }
+    "ROOMS": "Ambientes"
   }
 }

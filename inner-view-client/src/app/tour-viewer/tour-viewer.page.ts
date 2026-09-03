@@ -11,6 +11,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
+import { CenasSheetComponent } from '../components/cenas-sheet/cenas-sheet.component';
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Property } from '../models/property.model';
 import { Panorama } from '../models/virtual-tour.model';
@@ -41,6 +42,7 @@ import { TourViewerStore } from './tour-viewer.store';
   standalone: true,
   providers: [TourViewerStore],
   imports: [
+    CenasSheetComponent,
     IonContent,
     IonSpinner,
     PanoramicViewerComponent,

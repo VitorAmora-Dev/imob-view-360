@@ -424,6 +424,7 @@
     "NO_SCENES": "This tour has no scenes yet.",
     "OFFLINE": "You are offline. The tour still works with what has been loaded.",
     "SCENE_COUNT": "{{n}} scenes",
+    "SCENE_COUNT_ONE": "1 scene",
     "SCENE_OF": "Scene {{n}} of {{total}}",
     "BACK": "Back",
     "MANAGE_OPEN": "Manage tour",
@@ -489,13 +490,6 @@
     }
   },
   "VIEWER": {
-    "ROOMS": "Rooms",
-    "CENAS": {
-      "TITULO": "Tour scenes",
-      "CONTAGEM": "{{n}} scenes",
-      "UMA": "1 scene",
-      "ATUAL": "CURRENT",
-      "ABRIR": "View tour scenes"
-    }
+    "ROOMS": "Rooms"
   }
 }

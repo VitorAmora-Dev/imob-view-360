@@ -46,7 +46,8 @@ export const SELETOR_WRAPPER_IONIC = '.modal-wrapper';
  * O shell de bottom sheet do visualizador.
  *
  * Puramente visual: não sabe quais sheets existem nem o que cada um faz. Quem
- * decide qual está aberto é o `TourSheetStore`, e quem monta o conteúdo é cada
+ * decide qual está aberto é a tela (no visualizador, `TourViewerStore.sheet`),
+ * e quem monta o conteúdo é cada
  * consumidor, por projeção. É o que faz TV-4, TV-5 e TV-6 serem arquivos novos
  * que não editam este.
  *
