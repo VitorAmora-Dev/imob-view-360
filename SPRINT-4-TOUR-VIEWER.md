@@ -220,7 +220,7 @@ merge conflict garantido — no sprint 3 foi assim que o CONGELADO nasceu.
 |---|---|---|
 | Contrato | trio (TV-0) | `tour-viewer.model.ts`, `tour-viewer.store.ts` (assinaturas), `theme/tour-viewer.scss`, `theme/_tour-viewer-mixins.scss`, `app.routes.ts`, i18n (blocos abertos) |
 | Chrome mobile | Frente A | `tour-viewer/chrome/**`, `tour-viewer/tour-actions-bar/**` |
-| Cenas e sheets | Frente B | `tour-viewer/scenes/**`, `tour-viewer/sheets/**` |
+| Cenas e sheets | Frente B | `tour-viewer/scenes/**`, `tour-viewer/sheets/**`, `embed/embed.page.*` (só a leitura do `?controles=0`, TV-4) |
 | Viewer e hotspots | Frente C | `tour-viewer/hotspots/**`, `components/panoramic-viewer/**` |
 | Desktop | Frente A | `tour-viewer/desktop/**`, `components/app-header/**` |
 | Edição | Frente C | `server-api/src/modules/virtual-tours/**`, `tour-wizard/**` |
@@ -326,13 +326,27 @@ cobrindo a alternância e as duas variações da barra.
   equirretangular para desenhar 104px.
 - Skeleton `#0B1420` com shimmer enquanto a miniatura não chega; erro de imagem
   cai no bloco vazio, sem ícone quebrado.
-- `role="tablist"` no trilho, `role="tab"` + `aria-selected` em cada miniatura.
+- ~~`role="tablist"` no trilho, `role="tab"` + `aria-selected` em cada
+  miniatura.~~ → `role="list"` e `aria-current="true"` na cena atual. O padrão
+  de abas promete um `tabpanel` que esta lista não controla (o palco é irmão
+  dela, na página) e navegação por setas com foco itinerante, que ninguém
+  escreveu. `aria-current` diz o que se quer dizer — "este é o item atual do
+  conjunto" — e é o que o `cenas-sheet` já usa para a MESMA cena, de modo que os
+  dois lugares se anunciam igual.
 - Tocar troca a cena **sem fechar nada**. A faixa some no modo imersivo e
   enquanto qualquer sheet estiver aberto.
 
 **Aceite:** rola na horizontal sem scrollbar visível e sem cortar legenda; cena
 atual marcada nos dois; recolhido sobrevive a F5 na mesma aba; nenhuma requisição
 de imagem sem `w`.
+
+**Entregue em 03/09/2026** — `tour-viewer/scenes/**`, 8 testes. Um componente
+para os dois layouts: o que muda entre faixa e rail é moldura e medida, e
+separá-los daria duas cópias da regra de qual cena está ativa. Ele injeta o
+`TourViewerStore` (a página o fornece) e recebe só `atualId` por `input`, que é
+a `cenaNaTela()` — a regra R4. Verificado no navegador: rail em `left:24px
+bottom:24px`, 640px, miniaturas 146×92, recolhido sobrevive a F5 de verdade, e
+arrastar o panorama continua girando a foto com a faixa na tela.
 
 ---
 
@@ -373,6 +387,26 @@ abrir um segundo sheet não empilha; nada quebra com 1 cena ou com 30.
 abre sem a nav interna; copiar dispara toast e mantém o sheet aberto; teste de
 unidade sobre a montagem do código nos três formatos.
 
+**Entregue em 03/09/2026** — `tour-viewer/sheets/embed/**` mais a leitura do
+parâmetro em `embed.page.ts`; 10 + 4 testes.
+
+Duas decisões que não estavam no escopo e valem para quem for ler o código:
+
+1. **O código que aparece e o código que se copia saem da MESMA lista.** O
+   `pedacos()` fatia o `<iframe>` em trechos já com a classe que os pinta, e
+   `codigo()` é a emenda desses trechos. É a única defesa contra o defeito
+   clássico deste sheet — o destaque de sintaxe e a string do clipboard
+   divergirem, e a pessoa colar no site um iframe diferente do que leu. O teste
+   compara o `textContent` do bloco APRESENTADO com `codigo()`.
+2. **O segmented control é `<input type="radio">` de verdade.** Navegação por
+   setas, anúncio "1 de 3" e grupo nomeado pelo `<legend>` vêm de fábrica; com
+   `<button role="radio">` seriam trinta linhas de teclado, e é sempre a seta que
+   fica faltando.
+
+Chave nova: `TOAST.COPY_ERROR`. Anunciar "Código copiado" quando a permissão de
+área de transferência foi negada é pior que ficar calado — a pessoa cola o
+conteúdo anterior sem saber.
+
 ---
 
 ### TV-5 · Apagar tour: sheet mobile, diálogo desktop e estados destrutivos
@@ -390,6 +424,27 @@ unidade sobre a montagem do código nos três formatos.
 
 **Aceite:** APAGAR nunca executa sem confirmação (teste); durante o loading o
 scrim não fecha; falha de rede não deixa a tela em estado ambíguo.
+
+**Entregue em 03/09/2026** — `tour-viewer/sheets/delete/**`, 12 testes.
+
+Três notas de implementação:
+
+1. **`[travado]` do shell, e não `backdropDismiss`.** Ele alimenta o
+   `canDismiss` do Ionic, o que recusa os TRÊS gestos de uma vez — scrim,
+   arrasto e Esc. Travar só o scrim deixaria os outros dois vivos, e é
+   exatamente no meio da requisição que fechar deixa a tela ambígua.
+2. **Guarda de reentrada no `confirmar()`.** `[travado]` não impede um segundo
+   toque no próprio botão; sem a guarda, dois toques disparam dois DELETE, e o
+   segundo volta 404 sobre um tour que o primeiro apagou — falha anunciada para
+   uma operação que deu certo.
+3. **O círculo da lixeira ficou ABAIXO do título, e não acima como no handoff.**
+   O título é do shell: é ele que vira o `<h2>` e o `aria-label` do nó com
+   `role="dialog"` no shadow DOM do Ionic. Inverter custaria um diálogo anônimo
+   ou um segundo slot no shell — e não mexer no shell é o que faz TV-4, TV-5 e
+   TV-6 serem arquivos novos.
+
+Verificado no navegador nas duas formas: bottom sheet a 390px e diálogo
+centrado de 480px a 1440px, com Cancelar à esquerda e sem grabber.
 
 ---
 
@@ -584,6 +639,24 @@ partir do commit-zero.
 
 Ordem de merge sugerida: TV-0 → TV-1 → TV-3 → TV-2 → TV-7 → TV-8 → TV-4 → TV-5 →
 TV-6 → TV-9 → TV-10 → TV-11 → TV-12.
+
+### Onde estamos, em 03/09/2026
+
+| Feito | Falta |
+|---|---|
+| TV-0, TV-2, TV-3, TV-4, TV-5, TV-7, TV-8, TV-10, TV-11 | TV-1, TV-6, TV-9, TV-12 |
+
+O que sobrou não é o que a tabela de alocação previa, e vale dizer por quê: a
+faixa de cenas (TV-2) e os dois sheets (TV-4, TV-5) saíram junto com a
+reconciliação da TV-3, porque era a mesma leitura de código. O que falta é o
+**chrome** — header, pill, tab bar, modo imersivo (TV-1) —, o sheet Gerenciar
+(TV-6), o layout desktop (TV-9) e o fechamento (TV-12).
+
+A tela hoje abre com a foto, os hotspots, a faixa de cenas e os três sheets
+montados. O que ainda não há é como CHEGAR aos sheets Incorporar e Apagar pela
+interface: eles esperam a tab bar da TV-1, e até lá só abrem por
+`store.abrirSheet(...)`. Os slots deles já estão marcados no
+`tour-viewer.page.html`.
 
 ---
 

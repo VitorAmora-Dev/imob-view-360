@@ -8,7 +8,7 @@ import {
   input,
   output,
 } from '@angular/core';
-import { TranslatePipe, TranslateService } from '@ngx-translate/core';
+import { TranslateService } from '@ngx-translate/core';
 import type { Vector3 } from 'three';
 import { PanoramicViewerComponent } from '../../components/panoramic-viewer/panoramic-viewer.component';
 // Do wizard, de propósito. A projeção é a MESMA matemática, já testada contra
@@ -98,7 +98,10 @@ interface Pin {
 @Component({
   selector: 'app-tv-hotspot-overlay',
   standalone: true,
-  imports: [TranslatePipe],
+  // Sem `imports`: quem traduz aqui é o `TranslateService`, no TypeScript, e
+  // não o pipe. O rótulo do pin é montado uma vez por cena e guardado no `Pin`,
+  // porque um pipe no template rodaria sessenta vezes por segundo dentro do
+  // laço de frame. O `NG8113` do compilador foi quem apontou a sobra.
   templateUrl: './tour-hotspot-overlay.component.html',
   styleUrls: ['./tour-hotspot-overlay.component.scss'],
 })
