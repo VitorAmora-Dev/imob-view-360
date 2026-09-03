@@ -38,6 +38,34 @@
   }
 }
 
+// Apagar tour, o último da lista.
+//
+// A margem em cima é o que o separa do resto: ele deixou de ser vizinho de
+// "Editar" na barra e não deve virar vizinho de "Baixar esta cena" aqui — a
+// distância é a única defesa contra o toque errado numa lista de alvos iguais.
+// A cor vem depois da distância, e não no lugar dela.
+.tv-manage__item--apagar {
+  margin-top: 8px;
+  border-top: 1px solid var(--tv-divider-sheet);
+  color: var(--tv-danger-text);
+
+  &:hover,
+  &:active {
+    background: var(--tv-danger-tint);
+  }
+
+  &:focus-visible {
+    outline-color: var(--tv-danger-text);
+  }
+
+  // O subtítulo herda o cinza dos outros itens; aqui ele é a frase que diz o
+  // que se perde, e apagada demais ela deixa de ser lida.
+  small {
+    color: var(--tv-danger-text);
+    opacity: 0.75;
+  }
+}
+
 .tv-manage__texto {
   min-width: 0;
   flex: 1 1 auto;

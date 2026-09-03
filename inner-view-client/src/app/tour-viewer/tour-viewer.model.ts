@@ -15,7 +15,16 @@ import { urlDaImagem } from '../models/panorama-image.util';
  */
 
 /** Qual bottom sheet está aberto. Nunca dois ao mesmo tempo — ver o store. */
-export type SheetKind = 'scenes' | 'embed' | 'delete' | 'manage' | null;
+export type SheetKind = 'scenes' | 'share' | 'delete' | 'manage' | null;
+
+/**
+ * As duas abas do sheet Compartilhar.
+ *
+ * `'link'` é a primeira, e é ela que a barra inferior abre: mandar o tour para
+ * alguém é o caso comum. `'embed'` é a antiga TV-4 inteira, que deixou de ser
+ * um sheet próprio — ver `TourEmbedPanelComponent`.
+ */
+export type ShareTab = 'link' | 'embed';
 
 /**
  * Formato do iframe no sheet Incorporar. Índice e não string porque é o que o
@@ -32,6 +41,55 @@ export const EMBED_FORMATOS: ReadonlyArray<{
   { rotuloKey: 'TOUR_VIEWER.EMBED.FORMAT_16_9', width: '960', height: '540' },
   { rotuloKey: 'TOUR_VIEWER.EMBED.FORMAT_SQUARE', width: '600', height: '600' },
 ];
+
+/** Um trecho do código do embed, já com a classe que o pinta. */
+export interface PedacoDoCodigo {
+  texto: string;
+  classe: string;
+}
+
+/**
+ * O `<iframe>` fatiado em trechos coloridos — e a ÚNICA descrição dele.
+ *
+ * O código que se LÊ (no painel) e o código que se COPIA (pelo rodapé do sheet)
+ * saem daqui, e é a única defesa possível contra o defeito clássico do embed: o
+ * destaque de sintaxe e a string do clipboard divergirem, e a pessoa colar no
+ * site um `<iframe>` diferente do que leu na tela. Ele mora no modelo, e não no
+ * componente, justamente porque hoje são DOIS componentes lendo o mesmo código —
+ * o painel desenha, o shell do sheet copia.
+ *
+ * O espaço que separa os atributos entra no TEXTO do trecho, e não como espaço
+ * entre elementos no template. O Angular remove nós de texto só de espaço em
+ * branco (é o `preserveWhitespaces: false` padrão), então o que ficasse no HTML
+ * sumiria na compilação e o código sairia grudado.
+ *
+ * Fatiado assim e não montado com `<span>` numa string para `[innerHTML]`:
+ * aquilo ligaria o sanitizador do Angular a um texto que contém o link do
+ * tour — mais trabalho por menos garantia.
+ */
+export function pedacosDoIframe(link: string, formato: EmbedFormat): PedacoDoCodigo[] {
+  const medidas = EMBED_FORMATOS[formato];
+  const atributos: ReadonlyArray<[string, string | null]> = [
+    ['src', link],
+    ['width', medidas.width],
+    ['height', medidas.height],
+    ['frameborder', '0'],
+    // Atributo booleano: existe sem valor, e o `null` é o que diz isso.
+    ['allowfullscreen', null],
+  ];
+
+  const pedacos: PedacoDoCodigo[] = [{ texto: '<iframe', classe: 'tv-embed__tag' }];
+
+  for (const [nome, valor] of atributos) {
+    pedacos.push({ texto: ` ${nome}`, classe: 'tv-embed__attr' });
+    if (valor !== null) {
+      pedacos.push({ texto: `="${valor}"`, classe: 'tv-embed__valor' });
+    }
+  }
+
+  pedacos.push({ texto: '></iframe>', classe: 'tv-embed__tag' });
+  return pedacos;
+}
 
 /**
  * Quanto tempo o toast fica no ar.

@@ -16,15 +16,13 @@ import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoram
 import { Property } from '../models/property.model';
 import { Panorama } from '../models/virtual-tour.model';
 import { TvHeaderComponent } from './chrome/tv-header.component';
-import { TvImmersiveToggleComponent } from './chrome/tv-immersive-toggle.component';
-import { TvScenePillComponent } from './chrome/tv-scene-pill.component';
 import { TvToastComponent } from './chrome/tv-toast.component';
 import { TourDesktopChromeComponent } from './desktop/tour-desktop-chrome.component';
 import { TourHotspotOverlayComponent } from './hotspots/tour-hotspot-overlay.component';
 import { TourScenesStripComponent } from './scenes/tour-scenes-strip.component';
 import { TourDeleteSheetComponent } from './sheets/delete/tour-delete-sheet.component';
-import { TourEmbedSheetComponent } from './sheets/embed/tour-embed-sheet.component';
 import { TourManageSheetComponent } from './sheets/manage/tour-manage-sheet.component';
+import { TourShareSheetComponent } from './sheets/share/tour-share-sheet.component';
 import { TourActionsBarComponent } from './tour-actions-bar/tour-actions-bar.component';
 import { TourViewerScene } from './tour-viewer.model';
 import { TourViewerStore } from './tour-viewer.store';
@@ -58,14 +56,12 @@ import { TourViewerStore } from './tour-viewer.store';
     PanoramicViewerComponent,
     TourDeleteSheetComponent,
     TourDesktopChromeComponent,
-    TourEmbedSheetComponent,
     TourHotspotOverlayComponent,
     TourScenesStripComponent,
     TourManageSheetComponent,
+    TourShareSheetComponent,
     TranslatePipe,
     TvHeaderComponent,
-    TvImmersiveToggleComponent,
-    TvScenePillComponent,
     TvToastComponent,
     TourActionsBarComponent,
   ],

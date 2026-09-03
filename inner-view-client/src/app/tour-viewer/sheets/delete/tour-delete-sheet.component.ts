@@ -58,6 +58,6 @@ export class TourDeleteSheetComponent {
 
   cancelar(): void {
     if (this.apagando()) return;
-    this.store.fecharSheet();
+    this.store.fecharSheet('delete');
   }
 }

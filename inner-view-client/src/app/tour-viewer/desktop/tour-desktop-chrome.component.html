@@ -57,6 +57,12 @@
     </button>
   }
 
+  <!--
+    O sheet que este botão abre é o Compartilhar, JÁ na aba Incorporar — a
+    reorganização dos menus transformou o antigo sheet Incorporar na segunda
+    aba dele. O rótulo continua "Incorporar" porque é o que este botão entrega:
+    o desktop tem cluster próprio, e não a barra de três ações do celular.
+  -->
   @if (!store.semCenas() || !podeEditar()) {
     <button
       type="button"
@@ -64,7 +70,7 @@
       data-action="embed"
       [attr.aria-label]="'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate"
       [title]="'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate"
-      (click)="store.abrirSheet('embed')">
+      (click)="store.abrirCompartilhamento('embed')">
       <ion-icon name="code-slash-outline" aria-hidden="true" />
       <span>{{ 'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate }}</span>
     </button>

@@ -37,18 +37,12 @@ describe('TourManageSheetComponent', () => {
   let fixture: ComponentFixture<TourManageSheetComponent>;
   let component: TourManageSheetComponent;
   let store: TourViewerStore;
-  let recordShare: jasmine.Spy;
   let publicarTour: jasmine.Spy;
   let obterImagem: jasmine.Spy;
-  let shareOriginal: PropertyDescriptor | undefined;
-  let clipboardOriginal: PropertyDescriptor | undefined;
 
   beforeEach(async () => {
-    recordShare = jasmine.createSpy('recordShare').and.returnValue(of({}));
     publicarTour = jasmine.createSpy('publicarTour').and.returnValue(of({ status: 'PUBLISHED' }));
     obterImagem = jasmine.createSpy('obter').and.resolveTo('blob:cena-1');
-    shareOriginal = Object.getOwnPropertyDescriptor(navigator, 'share');
-    clipboardOriginal = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
     await TestBed.configureTestingModule({
       imports: [TourManageSheetComponent],
@@ -59,10 +53,9 @@ describe('TourManageSheetComponent', () => {
         provideIonicAngular(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
         TourViewerStore,
-        {
-          provide: VirtualTourService,
-          useValue: { recordShare, publicarTour },
-        },
+        // O componente não fala mais com o serviço; quem fala é o store, que
+        // ele injeta — `publicar()` desce por ali.
+        { provide: VirtualTourService, useValue: { publicarTour } },
         { provide: PanoramaImageCache, useValue: { obter: obterImagem } },
       ],
     }).compileComponents();
@@ -76,10 +69,6 @@ describe('TourManageSheetComponent', () => {
   });
 
   afterEach(() => {
-    if (shareOriginal) Object.defineProperty(navigator, 'share', shareOriginal);
-    else Reflect.deleteProperty(navigator, 'share');
-    if (clipboardOriginal) Object.defineProperty(navigator, 'clipboard', clipboardOriginal);
-    else Reflect.deleteProperty(navigator, 'clipboard');
     fixture.destroy();
     TestBed.resetTestingModule();
   });
@@ -88,7 +77,7 @@ describe('TourManageSheetComponent', () => {
     expect(component.podePublicar()).toBeFalse();
     expect(component.podeBaixar()).toBeFalse();
     expect(component.podeEditar()).toBeTrue();
-    expect(component.podeCompartilhar()).toBeTrue();
+    expect(component.podeApagar()).toBeTrue();
   });
 
   it('leva Configurações para a etapa de informações da edição', () => {
@@ -114,18 +103,81 @@ describe('TourManageSheetComponent', () => {
     expect(store.toast()).toBe('TOUR_VIEWER.TOAST.PUBLISHED');
   });
 
-  it('copia como fallback e registra o compartilhamento', async () => {
-    const escrever = jasmine.createSpy('writeText').and.resolveTo();
-    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: { writeText: escrever },
+  /**
+   * Apagar desceu da barra inferior para o fim desta lista. O que NÃO muda é o
+   * invariante 4: daqui sai a pergunta, nunca o DELETE.
+   */
+  describe('apagar tour', () => {
+    it('leva à confirmação, e não apaga nada', () => {
+      component.apagar();
+
+      expect(store.sheet()).toBe('delete');
+      expect(store.apagando()).toBeFalse();
     });
 
-    await component.compartilhar();
+    /**
+     * O conteúdo do `<ng-template>` do `IonModal` só entra no DOM quando ele
+     * APRESENTA, e apresentar é assíncrono. O nó é capturado ANTES: ao
+     * apresentar, o Ionic TELEPORTA o `<ion-modal>` para o `<body>`, e
+     * `fixture.nativeElement.querySelector` passa a devolver `null`.
+     */
+    function apresentado(): Promise<HTMLElement> {
+      const no = fixture.nativeElement.querySelector('ion-modal') as HTMLElement;
+      const presente = new Promise<HTMLElement>((resolve) => {
+        no.addEventListener('didPresent', () => resolve(no), { once: true });
+      });
+      store.abrirSheet('manage');
+      fixture.detectChanges();
+      return presente;
+    }
 
-    expect(escrever).toHaveBeenCalledWith(`${window.location.origin}/embed/tour-1`);
-    expect(recordShare).toHaveBeenCalledWith('tour-1', 'clipboard');
+    /**
+     * O defeito que só o navegador mostrou, e o motivo de `fecharSheet()`
+     * receber o nome do sheet.
+     *
+     * Este teste precisa do modal APRESENTADO de verdade: o passo que quebrava
+     * era o `didDismiss` do Gerenciar, que o Ionic emite depois, de forma
+     * assíncrona, e que zerava o `sheet` recém-posto em 'delete'. Com o store
+     * dublado ou o modal fora do DOM, os dois lados passam.
+     */
+    it('a confirmação sobrevive ao didDismiss do próprio Gerenciar', async () => {
+      const no = await apresentado();
+      const saiu = new Promise<void>((resolve) => {
+        no.addEventListener('didDismiss', () => resolve(), { once: true });
+      });
+
+      (no.querySelector('.tv-manage__item--apagar') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      await saiu;
+
+      expect(store.sheet()).toBe('delete');
+    });
+
+    it('é o último item da lista, e o único fora da cor do texto comum', async () => {
+      const no = await apresentado();
+      const itens = Array.from(no.querySelectorAll('.tv-manage__item'));
+      const apagar = itens[itens.length - 1] as HTMLElement;
+
+      expect(apagar.classList).toContain('tv-manage__item--apagar');
+      expect(itens.filter((item) => item.classList.contains('tv-manage__item--apagar')).length)
+        .toBe(1);
+    });
+
+    /**
+     * "Compartilhar link" SAIU daqui: compartilhar virou botão da barra
+     * inferior, com sheet e abas. Duas portas para a mesma coisa era o que a
+     * reorganização veio desfazer, e o item que restou aqui seria o que
+     * ninguém lembraria de manter em dia.
+     */
+    it('não há mais item de compartilhar nesta lista', async () => {
+      const no = await apresentado();
+      const chaves = Array.from(no.querySelectorAll('.tv-manage__item strong')).map(
+        (elemento) => elemento.textContent?.trim(),
+      );
+
+      expect(chaves).not.toContain('TOUR_VIEWER.MANAGE.SHARE');
+      expect(chaves).toContain('TOUR_VIEWER.MANAGE.DELETE');
+    });
   });
 
   /** Prepara o `<a>` que o download cria, e devolve o espião do clique. */

@@ -32,16 +32,6 @@
       </button>
     }
 
-    @if (podeCompartilhar()) {
-      <button type="button" class="tv-manage__item" (click)="compartilhar()">
-        <span class="tv-manage__texto">
-          <strong>{{ 'TOUR_VIEWER.MANAGE.SHARE' | translate }}</strong>
-          <small>{{ 'TOUR_VIEWER.MANAGE.SHARE_SUB' | translate }}</small>
-        </span>
-        <span class="tv-manage__chevron" aria-hidden="true">›</span>
-      </button>
-    }
-
     @if (podeBaixar()) {
       <button type="button" class="tv-manage__item" (click)="baixarCena()">
         <span class="tv-manage__texto">
@@ -49,6 +39,31 @@
           <small>{{ 'TOUR_VIEWER.MANAGE.DOWNLOAD_SUB' | translate }}</small>
         </span>
         <span class="tv-manage__chevron" aria-hidden="true">›</span>
+      </button>
+    }
+
+    <!--
+      Apagar veio da barra inferior e desceu para o FIM desta lista, atrás de
+      um divisor e em vermelho.
+
+      As duas coisas são a mesma decisão: fora da barra ele deixou de estar a um
+      toque de distância, e o lugar dele aqui é o mais longe possível do
+      polegar que abriu o sheet. Continua sem confirmar nada — quem confirma é o
+      sheet de apagar, e é o invariante 4 em pé: `abrirSheet('delete')` SUBSTITUI
+      este sheet pelo de confirmação, e não empilha um sobre o outro.
+
+      Sem chevron, ao contrário dos outros: os de cima levam a algum lugar, este
+      abre uma pergunta.
+    -->
+    @if (podeApagar()) {
+      <button
+        type="button"
+        class="tv-manage__item tv-manage__item--apagar"
+        (click)="apagar()">
+        <span class="tv-manage__texto">
+          <strong>{{ 'TOUR_VIEWER.MANAGE.DELETE' | translate }}</strong>
+          <small>{{ 'TOUR_VIEWER.MANAGE.DELETE_SUB' | translate }}</small>
+        </span>
       </button>
     }
   </nav>

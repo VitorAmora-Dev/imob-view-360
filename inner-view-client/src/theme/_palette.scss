@@ -194,4 +194,18 @@
   --status-error-on-dark: #ff8484;
   --status-error-soft: #fee2e2;
   --status-error-border: #fecaca;
+
+  /* == Marcas de terceiros ================================================ */
+  // NÃO é uma cor do produto, e por isso não entra em nenhuma família acima: é
+  // a marca do WhatsApp, e existe só para o botão que abre o WhatsApp. Um
+  // canal de compartilhamento é reconhecido pela cor antes de o rótulo ser
+  // lido, e no Brasil ele é O canal — pintá-lo de cinza junto com "e-mail"
+  // custaria justamente o reconhecimento que faz o botão ser achado.
+  //
+  // Valor oficial da marca (#25d366), e é por isso que ele não deve ser
+  // "harmonizado" com a paleta: uma aproximação nossa seria uma marca alheia
+  // errada. Usado SÓ como preenchimento de ícone — nunca como texto, onde
+  // rende 1,9:1 sobre branco.
+  --channel-whatsapp: #25d366;
+  --channel-whatsapp-rgb: 37, 211, 102;
 }

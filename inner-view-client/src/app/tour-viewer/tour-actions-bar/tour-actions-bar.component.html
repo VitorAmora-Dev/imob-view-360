@@ -1,5 +1,11 @@
+<!--
+  No imersivo sobra UM botão, e é por `@if` e não por CSS: os outros dois
+  precisam sair da ordem de tabulação, não só da vista. Escondidos por opacidade
+  eles continuariam recebendo Tab, e o teclado passearia por "Editar" e
+  "Compartilhar" invisíveis antes de chegar ao único controle na tela.
+-->
 <div class="tv-actions__grid">
-  @if (canEdit()) {
+  @if (chromeVisible() && canEdit()) {
     <button
       type="button"
       class="tv-actions__button tv-actions__button--edit"
@@ -10,25 +16,26 @@
     </button>
   }
 
-  @if (hasScenes() || !canEdit()) {
-    <button
-      type="button"
-      class="tv-actions__button tv-actions__button--embed"
-      [attr.title]="'TOUR_VIEWER.ACTIONS.EMBED_LONG' | translate"
-      (click)="embedRequested.emit()">
-      <ion-icon name="code-slash-outline" aria-hidden="true"></ion-icon>
-      <span>{{ 'TOUR_VIEWER.ACTIONS.EMBED' | translate }}</span>
-    </button>
-  }
+  <button
+    type="button"
+    class="tv-actions__button tv-actions__button--visibility"
+    [attr.aria-label]="chaveDaVisibilidade() | translate"
+    [attr.title]="chaveDaVisibilidade() | translate"
+    (click)="visibilityToggled.emit()">
+    <ion-icon [name]="iconeDaVisibilidade()" aria-hidden="true"></ion-icon>
+    @if (chromeVisible()) {
+      <span>{{ chaveCurtaDaVisibilidade() | translate }}</span>
+    }
+  </button>
 
-  @if (canEdit()) {
+  @if (chromeVisible() && podeCompartilhar()) {
     <button
       type="button"
-      class="tv-actions__button tv-actions__button--delete"
-      [attr.aria-label]="'TOUR_VIEWER.ACTIONS.DELETE_ARIA' | translate"
-      (click)="deleteRequested.emit()">
-      <ion-icon name="trash-outline" aria-hidden="true"></ion-icon>
-      <span>{{ 'TOUR_VIEWER.ACTIONS.DELETE' | translate }}</span>
+      class="tv-actions__button tv-actions__button--share"
+      [attr.title]="'TOUR_VIEWER.ACTIONS.SHARE_LONG' | translate"
+      (click)="shareRequested.emit()">
+      <ion-icon name="share-social-outline" aria-hidden="true"></ion-icon>
+      <span>{{ 'TOUR_VIEWER.ACTIONS.SHARE' | translate }}</span>
     </button>
   }
 </div>

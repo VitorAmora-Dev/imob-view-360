@@ -103,7 +103,7 @@ describe('TourDeleteSheetComponent', () => {
   it('só está aberto quando o store diz que a vez é dele', () => {
     expect(sheet.aberto()).toBeTrue();
 
-    store.abrirSheet('embed');
+    store.abrirSheet('share');
     expect(sheet.aberto()).toBeFalse();
   });
 

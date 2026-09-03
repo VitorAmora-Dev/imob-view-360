@@ -1,0 +1,192 @@
+// O sheet Compartilhar: abas, aba do link e rodapé.
+//
+// Nada de moldura aqui: o fundo, o raio, a sombra, o grabber e o scrim são do
+// `TourSheetComponent`. O miolo da segunda aba é do `TourEmbedPanelComponent`.
+
+:host {
+  // O host não é caixa nenhuma: quem desenha é o `<ion-modal>`, que o Ionic
+  // move para o `<body>` ao apresentar. `contents` evita uma linha vazia no
+  // meio do palco.
+  display: contents;
+}
+
+// ---- abas -----------------------------------------------------------------
+
+.tv-share__abas {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--tv-fill);
+  // Grudadas no topo da área rolável: com o embed aberto o conteúdo passa da
+  // dobra, e as abas seriam a primeira coisa a sair da tela — justamente o
+  // controle de que se precisa para voltar.
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.tv-share__aba {
+  flex: 1;
+  min-height: var(--tv-tap);
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--tv-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--tv-dur-control) ease-out,
+    color var(--tv-dur-control) ease-out;
+
+  &.is-ativa {
+    background: var(--tv-accent);
+    color: var(--tv-accent-ink);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-accent);
+    outline-offset: 2px;
+  }
+}
+
+// ---- painéis --------------------------------------------------------------
+
+.tv-share__painel {
+  padding-top: 16px;
+}
+
+.tv-share__intro {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--tv-text-muted);
+}
+
+.tv-share__link {
+  margin: 0;
+  padding: 12px 13px;
+  border: 1px solid var(--tv-border-hairline);
+  border-radius: var(--tv-radius-primary);
+  background: var(--tv-code-bg);
+  font-family: var(--tv-font-family-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--tv-code-text);
+  // Uma URL não tem espaço onde quebrar; sem isto ela empurra o sheet para o
+  // lado e a tela inteira passa a rolar na horizontal.
+  word-break: break-all;
+  // O caminho de quando a área de transferência é negada — o toast de falha
+  // manda selecionar o texto, e ele precisa ser selecionável.
+  user-select: text;
+}
+
+// ---- canais ---------------------------------------------------------------
+
+.tv-share__canais {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.tv-share__canal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 74px;
+  padding: 10px 6px;
+  border: 1px solid var(--tv-border-hairline);
+  border-radius: var(--tv-radius-primary);
+  background: var(--tv-fill);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tv-text);
+  cursor: pointer;
+  transition: background var(--tv-dur-control) ease-out;
+
+  &:hover {
+    background: var(--tv-fill-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-accent);
+    outline-offset: 2px;
+  }
+}
+
+.tv-share__canal-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--tv-fill);
+  color: var(--tv-text-secondary);
+}
+
+// O verde do WhatsApp é a marca DELE, e é o que faz o botão ser reconhecido
+// antes de o rótulo ser lido.
+.tv-share__canal-icone--whatsapp {
+  background: var(--tv-whatsapp-tint);
+  color: var(--tv-whatsapp);
+}
+
+// ---- ações ----------------------------------------------------------------
+
+.tv-share__acoes {
+  display: flex;
+  gap: 9px;
+  padding-top: 14px;
+}
+
+.tv-share__botao {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--tv-radius-primary);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition:
+    background var(--tv-dur-control) ease-out,
+    filter var(--tv-dur-control) ease-out;
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-accent);
+    outline-offset: 2px;
+  }
+}
+
+// Copiar o CÓDIGO é a ação da aba de embed; copiar o link é a saída lateral. O
+// `flex: 1.4` contra `flex: 1` é a hierarquia dita em largura, e é o que
+// dispensa um segundo tom de accent para diferenciar os dois. Na aba do link o
+// primário fica sozinho e ocupa a linha inteira.
+.tv-share__botao--primario {
+  flex: 1.4;
+  background: var(--tv-accent);
+  color: var(--tv-accent-ink);
+  font-weight: 800;
+
+  &:hover {
+    filter: brightness(1.06);
+  }
+}
+
+.tv-share__botao--ghost {
+  flex: 1;
+  border: 1px solid var(--tv-border-control);
+  background: none;
+  color: var(--tv-text);
+  font-weight: 700;
+
+  &:hover {
+    background: var(--tv-fill);
+  }
+}

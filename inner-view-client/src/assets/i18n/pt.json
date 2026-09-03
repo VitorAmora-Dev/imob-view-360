@@ -441,12 +441,14 @@
     },
     "ACTIONS": {
       "EDIT": "EDITAR",
-      "EMBED": "EMBED",
-      "DELETE": "APAGAR",
       "EDIT_LONG": "Editar tour",
       "EMBED_LONG": "Incorporar",
       "PUBLISH_LONG": "Publicar",
-      "DELETE_ARIA": "Apagar tour"
+      "DELETE_ARIA": "Apagar tour",
+      "HIDE": "OCULTAR",
+      "SHOW": "MOSTRAR",
+      "SHARE": "COMPARTILHAR",
+      "SHARE_LONG": "Compartilhar tour"
     },
     "EMBED": {
       "TITLE": "Incorporar tour",
@@ -458,6 +460,16 @@
       "SHOW_CONTROLS": "Mostrar controles no embed",
       "COPY_CODE": "Copiar código",
       "COPY_LINK": "Copiar link"
+    },
+    "SHARE": {
+      "TITLE": "Compartilhar tour",
+      "TAB_LINK": "Compartilhar",
+      "TAB_EMBED": "Incorporar",
+      "DESCRIPTION": "Quem receber o link abre o tour sem precisar de conta.",
+      "LINK_LABEL": "Link público do tour",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "E-mail",
+      "MORE": "Mais opções"
     },
     "DELETE": {
       "TITLE": "Apagar “{{name}}”?",
@@ -473,10 +485,10 @@
       "PUBLISH_SUB": "Deixa o tour visível pelo link público",
       "SETTINGS": "Configurações do tour",
       "SETTINGS_SUB": "Nome e cena inicial",
-      "SHARE": "Compartilhar link",
-      "SHARE_SUB": "WhatsApp, e-mail ou copiar URL",
       "DOWNLOAD": "Baixar esta cena",
-      "DOWNLOAD_SUB": "Salva a foto 360º do cômodo atual"
+      "DOWNLOAD_SUB": "Salva a foto 360º do cômodo atual",
+      "DELETE": "Apagar tour",
+      "DELETE_SUB": "Remove as cenas e derruba o link público"
     },
     "HOTSPOT": {
       "GO_TO": "Ir para {{name}}"
