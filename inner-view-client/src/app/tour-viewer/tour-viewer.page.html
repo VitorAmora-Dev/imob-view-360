@@ -84,9 +84,19 @@
         </div>
 
         @if (store.faixaVisivel()) {
-          <div class="tv-slot tv-slot--cenas">
-            <!-- TV-2: faixa de miniaturas (mobile) e rail (desktop). -->
-          </div>
+          <!--
+            O próprio componente É o slot: a classe `tv-slot` no host é o que
+            lhe devolve o `pointer-events` que o chrome tira de todo mundo. Um
+            `<div>` a mais em volta seria uma caixa transparente sem essa
+            classe, e a faixa deixaria de receber toque.
+
+            `cenaNaTela()` e não `store.currentScene()`, pela regra R4: a
+            miniatura marcada é a do cômodo que está NA FOTO, não a do que
+            acabou de ser pedido e ainda leva segundos para chegar.
+          -->
+          <app-tour-scenes-strip
+            class="tv-slot tv-slot--cenas"
+            [atualId]="cenaNaTela()?.id ?? null" />
         }
 
         @if (store.chromeVisible()) {
