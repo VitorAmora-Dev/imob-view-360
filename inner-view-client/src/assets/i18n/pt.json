@@ -451,6 +451,7 @@
     "EMBED": {
       "TITLE": "Incorporar tour",
       "DESCRIPTION": "Cole o código no site do imóvel ou envie apenas o link público.",
+      "FORMAT_LABEL": "Formato do incorporado",
       "FORMAT_RESPONSIVE": "Responsivo",
       "FORMAT_16_9": "16:9",
       "FORMAT_SQUARE": "Quadrado",
@@ -484,6 +485,7 @@
       "OPENING_EDITOR": "Abrindo o editor…",
       "CODE_COPIED": "Código copiado",
       "LINK_COPIED": "Link copiado",
+      "COPY_ERROR": "Não foi possível copiar. Selecione o texto e copie.",
       "DELETE_ERROR": "Não foi possível apagar o tour",
       "DOWNLOAD_SUCCESS": "Download iniciado",
       "DOWNLOAD_ERROR": "Não foi possível baixar a imagem"

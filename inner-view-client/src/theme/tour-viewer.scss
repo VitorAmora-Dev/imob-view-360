@@ -52,10 +52,18 @@
   --tv-sheet-bg: var(--tour-bg);
   // Escurece o que estiver embaixo em vez de trazer um segundo tom de fundo.
   --tv-code-bg: rgba(var(--neutral-black-rgb), 0.35);
+  // O corpo do código do embed. Mais claro que o texto secundário porque isto
+  // é para LER caractere a caractere — é uma URL, e um `l` confundido com um
+  // `1` produz um iframe que não abre.
+  --tv-code-text: rgba(var(--neutral-white-rgb), 0.72);
   --tv-scrim: rgba(var(--tour-bg-rgb), 0.62);
 
   --tv-fill: rgba(var(--neutral-white-rgb), 0.07); //     fundo do EMBED
   --tv-fill-hover: rgba(var(--neutral-white-rgb), 0.13);
+  // O trilho do interruptor DESLIGADO. Fica acima de `--tv-border-control`
+  // (.16) de propósito: aqui ele é superfície, e não fio de borda — no mesmo
+  // valor, o interruptor desligado sumia dentro do fundo do sheet.
+  --tv-toggle-off: rgba(var(--neutral-white-rgb), 0.18);
 
   /* == Destrutivo ========================================================= */
   // A base é mais escura que o hover DE PROPÓSITO: o botão sólido de confirmar
@@ -173,6 +181,14 @@
   --tv-blur-cluster: 18px; //  clusters do desktop
   --tv-blur-tabbar: 22px;
   --tv-blur-scrim: 3px;
+
+  /* == Tipografia ========================================================= */
+  // O bloco de código do sheet Incorporar, e só ele (decisão D2). Mono DO
+  // SISTEMA: uma fonte de código baixada custaria um arquivo a mais no
+  // carregamento da tela inteira para servir a cinco linhas dentro de um sheet
+  // que a maioria nunca abre.
+  --tv-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, 'Liberation Mono', monospace;
 
   /* == Medidas de alvo ==================================================== */
   // Não são enfeite: são o motivo da refatoração. O mínimo do sistema é 44, e a

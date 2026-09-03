@@ -451,6 +451,7 @@
     "EMBED": {
       "TITLE": "Embed tour",
       "DESCRIPTION": "Paste the code on the property website, or just send the public link.",
+      "FORMAT_LABEL": "Embed format",
       "FORMAT_RESPONSIVE": "Responsive",
       "FORMAT_16_9": "16:9",
       "FORMAT_SQUARE": "Square",
@@ -484,6 +485,7 @@
       "OPENING_EDITOR": "Opening the editor...",
       "CODE_COPIED": "Code copied",
       "LINK_COPIED": "Link copied",
+      "COPY_ERROR": "Could not copy. Select the text and copy it.",
       "DELETE_ERROR": "The tour could not be deleted",
       "DOWNLOAD_SUCCESS": "Download started",
       "DOWNLOAD_ERROR": "The image could not be downloaded"

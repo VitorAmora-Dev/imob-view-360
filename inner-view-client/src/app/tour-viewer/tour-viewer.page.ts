@@ -17,6 +17,7 @@ import { Property } from '../models/property.model';
 import { Panorama } from '../models/virtual-tour.model';
 import { TourHotspotOverlayComponent } from './hotspots/tour-hotspot-overlay.component';
 import { TourScenesStripComponent } from './scenes/tour-scenes-strip.component';
+import { TourEmbedSheetComponent } from './sheets/embed/tour-embed-sheet.component';
 import { TourViewerScene } from './tour-viewer.model';
 import { TourViewerStore } from './tour-viewer.store';
 
@@ -47,6 +48,7 @@ import { TourViewerStore } from './tour-viewer.store';
     IonContent,
     IonSpinner,
     PanoramicViewerComponent,
+    TourEmbedSheetComponent,
     TourHotspotOverlayComponent,
     TourScenesStripComponent,
     TranslatePipe,

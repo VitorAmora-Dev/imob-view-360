@@ -1,0 +1,214 @@
+// O sheet Incorporar (TV-4). Medidas em `04-sheets.md` §2.
+//
+// Nada de moldura aqui: o fundo, o raio, a sombra, o grabber e o scrim são do
+// `TourSheetComponent`. Este arquivo desenha só o miolo.
+
+:host {
+  // O host não é caixa nenhuma: quem desenha é o `<ion-modal>`, que o Ionic
+  // move para o `<body>` ao apresentar. `contents` evita uma linha vazia no
+  // meio do palco.
+  display: contents;
+}
+
+// ---- seletor de formato ---------------------------------------------------
+
+.tv-embed__formatos {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--tv-fill);
+}
+
+// O grupo precisa de nome para o leitor de tela; a tela não precisa dele,
+// porque o sheet inteiro fala de incorporar.
+.tv-embed__legenda {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.tv-embed__formato {
+  position: relative;
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 9px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--tv-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--tv-dur-control) ease-out,
+    color var(--tv-dur-control) ease-out;
+
+  &.is-ativo {
+    background: var(--tv-accent);
+    color: var(--tv-accent-ink);
+  }
+}
+
+// O rádio cobre o rótulo inteiro em vez de sumir: assim ele continua sendo o
+// alvo de toque e o dono do foco, e não é preciso `for`/`id` numa lista gerada.
+.tv-embed__radio {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+// O anel de foco mora no irmão porque o `<input>` é invisível — sem isto,
+// navegar por teclado entre os três formatos não mostraria nada.
+.tv-embed__radio:focus-visible ~ span {
+  outline: 2px solid var(--tv-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+// ---- bloco de código ------------------------------------------------------
+
+.tv-embed__codigo {
+  display: block;
+  margin-top: 12px;
+  padding: 12px 13px;
+  border: 1px solid var(--tv-border-hairline);
+  border-radius: var(--tv-radius-primary);
+  background: var(--tv-code-bg);
+  font-family: var(--tv-font-family-mono);
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--tv-code-text);
+  // O link do tour não tem espaço onde quebrar; sem isto ele empurra o sheet
+  // para o lado e a tela inteira passa a rolar na horizontal.
+  word-break: break-all;
+  // Copiar pelo botão é o caminho; selecionar com o dedo é o caminho de quando
+  // a área de transferência é negada, e o toast de falha manda fazer isso.
+  user-select: text;
+}
+
+.tv-embed__tag,
+.tv-embed__attr {
+  color: var(--tv-accent-light);
+}
+
+// ---- interruptor ----------------------------------------------------------
+
+.tv-embed__toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  // A linha inteira é o alvo, e ela já passa dos 44px do dedo.
+  min-height: var(--tv-tap);
+  cursor: pointer;
+}
+
+.tv-embed__toggle-rotulo {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tv-text);
+}
+
+.tv-embed__switch {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tv-embed__trilho {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 27px;
+  border-radius: var(--tv-radius-pill);
+  background: var(--tv-toggle-off);
+  transition: background var(--tv-dur-control) ease-out;
+
+  // O botão do interruptor. Em `::after` porque ele é pura decoração: o estado
+  // de verdade está no `<input>`, que é quem o leitor de tela anuncia.
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    background: var(--tv-text);
+    transition: transform var(--tv-dur-control) ease-out;
+  }
+}
+
+.tv-embed__switch:checked ~ .tv-embed__trilho {
+  background: var(--tv-accent);
+
+  &::after {
+    transform: translateX(19px);
+  }
+}
+
+.tv-embed__switch:focus-visible ~ .tv-embed__trilho {
+  outline: 2px solid var(--tv-accent);
+  outline-offset: 3px;
+}
+
+// ---- ações ----------------------------------------------------------------
+
+.tv-embed__acoes {
+  display: flex;
+  gap: 9px;
+  padding-top: 14px;
+}
+
+.tv-embed__botao {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--tv-radius-primary);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition:
+    background var(--tv-dur-control) ease-out,
+    filter var(--tv-dur-control) ease-out;
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-accent);
+    outline-offset: 2px;
+  }
+}
+
+// Copiar o CÓDIGO é a ação da tela; copiar o link é a saída lateral. O
+// `flex: 1.4` contra `flex: 1` é a hierarquia dita em largura, e é o que
+// dispensa um segundo tom de accent para diferenciar os dois.
+.tv-embed__botao--primario {
+  flex: 1.4;
+  background: var(--tv-accent);
+  color: var(--tv-accent-ink);
+  font-weight: 800;
+
+  &:hover {
+    filter: brightness(1.06);
+  }
+}
+
+.tv-embed__botao--ghost {
+  flex: 1;
+  border: 1px solid var(--tv-border-control);
+  background: none;
+  color: var(--tv-text);
+  font-weight: 700;
+
+  &:hover {
+    background: var(--tv-fill);
+  }
+}
