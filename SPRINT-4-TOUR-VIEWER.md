@@ -209,6 +209,25 @@ leva segundos. Hotspots, badge ATUAL e qualquer coisa posicionada sobre a
 equirretangular pertencem à segunda. Ligar na primeira já custou um defeito em
 produção interna: os pins do destino boiando sobre a foto da origem, clicáveis.
 
+### Extensões do contrato aprovadas em 03/09
+
+O store diz que assinatura só muda "por PR anunciado". Este é o anúncio. Três
+adições, todas porque **duas tasks diferentes precisariam da mesma coisa** — e
+duas cópias divergem no primeiro ajuste:
+
+| O quê | Quem usa | Por que subiu para o contrato |
+|---|---|---|
+| `podePublicar()`, `publicando()`, `publicar()` no store | TV-6 (item da lista) e TV-9 (botão do cluster) | Mesmo motivo de `apagarTour()` já morar lá |
+| `VirtualTourService.recordShare(id, canal)` | TV-6 | A rota existe desde o sprint das métricas e nenhum cliente a chamava — o painel mostrava sempre zero |
+| `TOAST.PUBLISHED` e `TOAST.PUBLISH_ERROR` | TV-6 e TV-9 | i18n é do commit-zero; chave inventada na task vira `VIEWER.*` de novo |
+
+`publicar()` é o DEPOIS da decisão, como `apagarTour()`: não confirma nada e não
+mostra toast. E ele **remenda só o campo `status`** em vez de aceitar a resposta
+da rota — o `PATCH /virtual-tours/:id` devolve
+`{ id, status, propertyId, updatedAt }` e mais nada, então um `tour.set(resposta)`
+apagaria `panoramas` e esvaziaria a tela no instante em que a publicação dá
+certo. Tem teste guardando, validado por injeção.
+
 ---
 
 ## 4. Mapa de propriedade de arquivos
