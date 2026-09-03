@@ -31,8 +31,10 @@ import {
  * pelos componentes, porque é o único jeito de eles continuarem verdadeiros
  * quando a quarta frente chegar:
  *
- *   1. Sem chrome, sem faixa de cenas, sem hotspots e sem tab bar — desta
- *      sobra apenas o botão que devolve a interface. Ver `TourActionsBar`.
+ *   1. Sem chrome, sem faixa de cenas e sem tab bar — desta sobra apenas o
+ *      botão que devolve a interface. Ver `TourActionsBar`. Os HOTSPOTS não
+ *      entram nesta lista: ver `hotspotsVisiveis`, logo abaixo, que deixou de
+ *      existir de propósito.
  *   2. Sheet aberto esconde a faixa de cenas (evita duas listas na tela).
  *   3. Nunca dois sheets ao mesmo tempo.
  *   4. Ação destrutiva sempre passa por confirmação.
@@ -183,8 +185,26 @@ export class TourViewerStore {
     () => this.chromeVisible() && this.sheet() === null && !this.semCenas(),
   );
 
-  /** Os hotspots somem no imersivo — invariante 1, e é o mais fácil de esquecer. */
-  readonly hotspotsVisiveis = computed(() => this.chromeVisible());
+  /*
+   * NÃO existe `hotspotsVisiveis`, e a ausência é a decisão.
+   *
+   * Ela existia, valia `chromeVisible()`, e estava errada: "Ocultar interface"
+   * escondia junto os pontos de navegação entre cenas — o único jeito de sair
+   * do cômodo sem trazer a interface de volta. O modo imersivo deixava de ser
+   * "ver a foto sem os controles" e virava "ver a foto e não poder andar".
+   *
+   * A distinção é esta: o chrome é o app FALANDO da foto — título, contagem,
+   * ações, miniaturas. O hotspot é parte da foto: ele mora numa coordenada da
+   * equirretangular, aponta para uma porta que está ali, e o handoff o desenha
+   * como marca de chão justamente para pertencer à cena e não à moldura. Some
+   * a moldura; a porta fica.
+   *
+   * Escrito como comentário e não como `computed(() => true)` porque um sinal
+   * que nunca é falso convida a próxima pessoa a "consertá-lo" de volta para
+   * `chromeVisible()` — o nome pede uma condição. O que resta guardando os
+   * pins no template é `cenaNaTela()`, que é a regra de verdade: sem foto na
+   * tela não há onde projetar posição nenhuma.
+   */
 
   // ---- toast -------------------------------------------------------------
 
