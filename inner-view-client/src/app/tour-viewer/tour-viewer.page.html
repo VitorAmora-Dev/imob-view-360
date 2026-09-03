@@ -150,21 +150,27 @@
         dela — o Tab percorre voltar, título, "…", pill e ações antes de sair
         andando pela foto.
       -->
-      @if (store.hotspotsVisiveis()) {
-        <!--
-          `cenaNaTela()` e NÃO `store.currentScene()`: os pins pertencem a UMA
-          equirretangular, e o store vira no instante do toque enquanto a
-          textura ainda leva segundos para chegar. Ligados ao store, os pins do
-          DESTINO boiavam sobre a foto da ORIGEM — e clicáveis. O porquê
-          inteiro está no docstring de `cenaNaTela`.
-        -->
-        @if (cenaNaTela(); as cena) {
-          <app-tv-hotspot-overlay
-            class="tv-slot--hotspots"
-            [viewer]="viewerRef() ?? null"
-            [hotspots]="cena.hotspots"
-            (cenaEscolhida)="store.irParaCenaPorId($event)" />
-        }
+      <!--
+        SEM guarda de modo imersivo, e isso é deliberado — não reponha uma.
+        "Ocultar interface" esconde a moldura, não a foto, e o hotspot é parte
+        da foto: some o chrome e os pontos de navegação FICAM. Com eles
+        escondidos, o imersivo virava "ver a foto e não poder andar", porque
+        eles são o único jeito de trocar de cômodo sem trazer a interface de
+        volta. O porquê inteiro está no lugar onde `hotspotsVisiveis` morava,
+        no `TourViewerStore`.
+
+        `cenaNaTela()` e NÃO `store.currentScene()`: os pins pertencem a UMA
+        equirretangular, e o store vira no instante do toque enquanto a
+        textura ainda leva segundos para chegar. Ligados ao store, os pins do
+        DESTINO boiavam sobre a foto da ORIGEM — e clicáveis. O porquê
+        inteiro está no docstring de `cenaNaTela`.
+      -->
+      @if (cenaNaTela(); as cena) {
+        <app-tv-hotspot-overlay
+          class="tv-slot--hotspots"
+          [viewer]="viewerRef() ?? null"
+          [hotspots]="cena.hotspots"
+          (cenaEscolhida)="store.irParaCenaPorId($event)" />
       }
 
       <!-- ---- camada 4: sheets e toast ---------------------------------- -->

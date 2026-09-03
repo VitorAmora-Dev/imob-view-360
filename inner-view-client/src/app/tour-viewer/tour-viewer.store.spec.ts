@@ -87,12 +87,28 @@ describe('TourViewerStore', () => {
   });
 
   describe('invariantes da tela', () => {
-    it('sem chrome não há hotspot — nem faixa de cenas', () => {
+    it('sem chrome não há faixa de cenas', () => {
       store.alternarChrome();
 
       expect(store.chromeVisible()).toBeFalse();
-      expect(store.hotspotsVisiveis()).toBeFalse();
       expect(store.faixaVisivel()).toBeFalse();
+    });
+
+    /**
+     * O invariante 1 fala da MOLDURA, e não da foto.
+     *
+     * Havia um `hotspotsVisiveis` aqui valendo `chromeVisible()`, e ele estava
+     * errado: "Ocultar interface" levava junto os pontos de navegação, que são
+     * o único jeito de trocar de cômodo sem trazer a interface de volta. O
+     * store não tem mais opinião nenhuma sobre isso — quem guarda os pins é
+     * `cenaNaTela()`, na página, e é `tour-viewer.page.spec.ts` que prova que
+     * eles sobrevivem ao imersivo.
+     */
+    it('o store não tem sinal nenhum escondendo hotspot', () => {
+      store.alternarChrome();
+
+      expect((store as unknown as Record<string, unknown>)['hotspotsVisiveis'])
+        .toBeUndefined();
     });
 
     it('sheet aberto esconde a faixa, para não haver duas listas na tela', () => {

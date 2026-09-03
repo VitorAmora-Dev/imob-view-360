@@ -750,6 +750,43 @@ store.
 
 ---
 
+## 6c. TV-14 · "Ocultar interface" deixa os hotspots em paz — 03/09/2026
+
+Defeito relatado com o produto em mãos: o modo imersivo escondia junto os
+pontos de navegação entre cenas. Como o toque na foto é o *outro* jeito de sair
+do imersivo, quem ocultava a interface para ver o cômodo inteiro ficava sem como
+ANDAR até o cômodo seguinte — tinha que trazer a interface de volta primeiro. O
+imersivo deixava de ser "ver a foto sem os controles" e virava "ver a foto e não
+poder se mexer".
+
+Ele nasceu no invariante 1 do commit-zero, que listava "sem hotspots" junto com
+o resto do chrome. **A linha estava errada desde a TV-0**, e a distinção que
+faltava é esta: o chrome é o app FALANDO da foto — título, contagem, ações,
+miniaturas. O hotspot é parte da foto: mora numa coordenada da equirretangular,
+aponta para uma porta que está ali, e o handoff o desenha como marca de chão
+justamente para pertencer à cena e não à moldura. **Some a moldura; a porta
+fica.**
+
+O conserto é a remoção de `TourViewerStore.hotspotsVisiveis` e do `@if` que ela
+alimentava. O que resta guardando os pins é `cenaNaTela()`, que é a regra de
+verdade: sem foto na tela não há onde projetar posição nenhuma.
+
+Removido, e não deixado como `computed(() => true)`: um sinal que nunca é falso
+convida a próxima pessoa a "consertá-lo" de volta para `chromeVisible()`, porque
+o nome pede uma condição. No lugar dele ficou um comentário com o porquê, e o
+template tem um "não reponha uma guarda aqui" em cima do bloco.
+
+Um teste do `tour-viewer.page.spec.ts` afirmava o defeito (`sem chrome, sem
+camada de hotspots`) e foi substituído pelo bloco `modo imersivo`, que prova o
+contrário: a moldura vai embora, os pins ficam, e clicar num pin navega **sem**
+devolver a interface.
+
+Não há beco sem saída no caminho novo: mesmo caindo numa cena sem hotspot de
+volta (tour de mão única), o botão de mostrar a interface continua na tela — é a
+decisão D11 da TV-13 pagando por si.
+
+---
+
 ## 7. Fora de escopo deste sprint
 
 - Tela cheia e mapa de conexões: **removidos do produto** pelo handoff.
