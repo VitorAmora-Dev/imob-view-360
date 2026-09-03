@@ -110,10 +110,10 @@
   cursor: pointer;
   transition: border-color var(--tv-dur-control) ease-out;
 
-  // A cena que está NA TELA. `aria-current` como seletor, e não uma classe
+  // A cena que está NA TELA. `aria-selected` como seletor, e não uma classe
   // paralela: assim é impossível o anel accent e o anúncio do leitor de tela
   // discordarem — eles saem do mesmo atributo.
-  &[aria-current='true'] {
+  &[aria-selected='true'] {
     border-color: var(--tv-accent);
   }
 

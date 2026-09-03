@@ -27,10 +27,9 @@ import { WizardScene } from './tour-wizard.model';
  * navegador e o botão físico do Android — por isso os testes chamam
  * `page.aoVoltar()` diretamente, do jeito que o guard chamaria.
  *
- * Sem `detectChanges()` de propósito — mesma técnica de
- * `inner-view-page/inner-view-page.download.spec.ts`: o `ngOnInit` de cada
- * etapa não roda. O router continua provido porque a seta compacta navega para
- * a home em qualquer etapa do wizard.
+ * Sem `detectChanges()` de propósito: o `ngOnInit` de cada etapa não roda. O
+ * router continua provido porque a seta compacta navega para a home em qualquer
+ * etapa do wizard.
  */
 describe('TourWizardPage — sair sem perder trabalho', () => {
   function configurarTestBed(): void {
@@ -602,6 +601,51 @@ describe('TourWizardPage — sair sem perder trabalho', () => {
       await esperarMicrotarefas();
 
       expect(navegar).toHaveBeenCalledWith(['/home']);
+    });
+  });
+
+  describe('entrada de Configurações do tour', () => {
+    function montar(etapa: string | null): TourWizardPage {
+      TestBed.configureTestingModule({
+        providers: [
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+          provideRouter([]),
+          {
+            provide: ActivatedRoute,
+            useValue: {
+              snapshot: {
+                paramMap: convertToParamMap({ id: 'tour-1' }),
+                queryParamMap: convertToParamMap(etapa ? { etapa } : {}),
+              },
+            },
+          },
+        ],
+      });
+      return TestBed.createComponent(TourWizardPage).componentInstance;
+    }
+
+    afterEach(() => TestBed.resetTestingModule());
+
+    it('abre na etapa Informações somente quando ela foi pedida', async () => {
+      const page = montar('4');
+      spyOn(page.store, 'abrirParaEdicao').and.resolveTo();
+
+      page.ngOnInit();
+      await esperarMicrotarefas();
+
+      expect(page.store.step()).toBe(4);
+    });
+
+    it('preserva a etapa inicial da edição comum', async () => {
+      const page = montar(null);
+      spyOn(page.store, 'abrirParaEdicao').and.resolveTo();
+
+      page.ngOnInit();
+      await esperarMicrotarefas();
+
+      expect(page.store.step()).toBe(1);
     });
   });
 });

@@ -19,10 +19,12 @@ import { TvHeaderComponent } from './chrome/tv-header.component';
 import { TvImmersiveToggleComponent } from './chrome/tv-immersive-toggle.component';
 import { TvScenePillComponent } from './chrome/tv-scene-pill.component';
 import { TvToastComponent } from './chrome/tv-toast.component';
+import { TourDesktopChromeComponent } from './desktop/tour-desktop-chrome.component';
 import { TourHotspotOverlayComponent } from './hotspots/tour-hotspot-overlay.component';
 import { TourScenesStripComponent } from './scenes/tour-scenes-strip.component';
 import { TourDeleteSheetComponent } from './sheets/delete/tour-delete-sheet.component';
 import { TourEmbedSheetComponent } from './sheets/embed/tour-embed-sheet.component';
+import { TourManageSheetComponent } from './sheets/manage/tour-manage-sheet.component';
 import { TourActionsBarComponent } from './tour-actions-bar/tour-actions-bar.component';
 import { TourViewerScene } from './tour-viewer.model';
 import { TourViewerStore } from './tour-viewer.store';
@@ -55,9 +57,11 @@ import { TourViewerStore } from './tour-viewer.store';
     IonSpinner,
     PanoramicViewerComponent,
     TourDeleteSheetComponent,
+    TourDesktopChromeComponent,
     TourEmbedSheetComponent,
     TourHotspotOverlayComponent,
     TourScenesStripComponent,
+    TourManageSheetComponent,
     TranslatePipe,
     TvHeaderComponent,
     TvImmersiveToggleComponent,
@@ -108,6 +112,12 @@ export class TourViewerPage implements OnInit {
     const id = this.panoramaAtual();
     if (!id) return null;
     return this.store.scenes().find((cena) => cena.id === id) ?? null;
+  });
+
+  /** Panorama cru correspondente à textura que já terminou de carregar. */
+  readonly panoramaNaTela = computed<Panorama | null>(() => {
+    const id = this.panoramaAtual();
+    return this.store.panoramas().find((panorama) => panorama.id === id) ?? null;
   });
 
   /**

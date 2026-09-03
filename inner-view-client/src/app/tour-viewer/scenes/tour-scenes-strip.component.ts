@@ -36,12 +36,10 @@ const QUERY_TABLET = '(min-width: 768px) and (max-width: 1023px)';
  * para esquecer o `blob:` da miniatura.
  *
  * Ele INJETA o `TourViewerStore` em vez de receber tudo por `input`, ao
- * contrário do `CenasSheetComponent`. Os dois estão certos, e a diferença é o
- * número de consumidores: o sheet de cenas também serve a `inner-view-page`, a
- * tela legada, e por isso não pode conhecer o store desta aqui. Esta faixa
- * existe só dentro do visualizador, e o store é fornecido pela página que a
- * hospeda — pedir por `input` as sete coisas que ela lê dali seria plumbing sem
- * comprador.
+ * contrário do `CenasSheetComponent`. Os dois estão certos: o sheet é uma peça
+ * adaptável, reutilizável sem conhecer a página; esta faixa existe somente no
+ * visualizador, e o store é fornecido pela página que a hospeda — pedir por
+ * `input` as sete coisas que ela lê dali seria plumbing sem comprador.
  *
  * A exceção é `atualId`, que vem de fora justamente porque NÃO está no store:
  * é a `cenaNaTela()` da página, a foto que está no ar. Ver a regra R4 do
@@ -125,6 +123,30 @@ export class TourScenesStripComponent {
     // Trocar de cena pela faixa NÃO fecha nada e não abre nada: ela é a
     // navegação sempre à mão, e o handoff é explícito quanto a isso.
     this.store.irParaCenaPorId(cena.id);
+  }
+
+  /**
+   * Navegação de `tablist`: setas percorrem as cenas, Home/End chegam aos
+   * extremos e o foco acompanha a cena ativada. Toque e clique continuam
+   * passando pelo mesmo `escolher()`.
+   */
+  aoTeclar(evento: KeyboardEvent, indiceAtual: number): void {
+    const total = this.cenas().length;
+    if (!total) return;
+
+    let destino: number | null = null;
+    if (evento.key === 'ArrowRight') destino = (indiceAtual + 1) % total;
+    if (evento.key === 'ArrowLeft') destino = (indiceAtual - 1 + total) % total;
+    if (evento.key === 'Home') destino = 0;
+    if (evento.key === 'End') destino = total - 1;
+    if (destino === null) return;
+
+    evento.preventDefault();
+    this.escolher(this.cenas()[destino]);
+
+    const trilho = (evento.currentTarget as HTMLElement).closest('[role="tablist"]');
+    const abas = trilho?.querySelectorAll<HTMLElement>('[role="tab"]');
+    abas?.[destino]?.focus();
   }
 
   /** "Ver todas" abre o sheet que JÁ está montado na página — não outro. */

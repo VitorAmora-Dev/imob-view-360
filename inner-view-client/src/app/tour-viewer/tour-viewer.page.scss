@@ -165,6 +165,12 @@
   background: var(--tour-bg);
 }
 
+.tv-estado--vazio {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
 .tv-ghost {
   min-height: var(--tv-tap);
   padding: 0 18px;

@@ -98,7 +98,7 @@ describe('TourScenesStripComponent', () => {
     fixture.detectChanges();
 
     const marcadas = miniaturas().filter(
-      (b) => b.getAttribute('aria-current') === 'true',
+      (b) => b.getAttribute('aria-selected') === 'true',
     );
     expect(marcadas.length).toBe(1);
     expect(marcadas[0].dataset['cena']).toBe('a');
@@ -107,6 +107,20 @@ describe('TourScenesStripComponent', () => {
   it('tocar numa miniatura troca a cena', () => {
     miniaturas()[2].click();
     expect(store.currentScene()?.id).toBe('c');
+  });
+
+  it('expõe tablist e percorre as cenas com as setas', () => {
+    fixture.componentRef.setInput('atualId', 'a');
+    fixture.detectChanges();
+
+    const trilho = fixture.nativeElement.querySelector('[role="tablist"]');
+    expect(trilho).not.toBeNull();
+    expect(miniaturas().every((botao) => botao.getAttribute('role') === 'tab')).toBeTrue();
+
+    miniaturas()[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    fixture.detectChanges();
+
+    expect(store.currentScene()?.id).toBe('b');
   });
 
   /**

@@ -1,7 +1,8 @@
 <header
   class="app-header"
   [class.app-header--scrolled]="scrolled()"
-  [class.app-header--overlay]="variant === 'overlay'">
+  [class.app-header--overlay]="variant === 'overlay'"
+  [class.app-header--chrome-hidden]="variant === 'overlay' && !chromeVisible">
   <nav class="header-nav">
     <div class="header-lead">
       @if (backHref) {
@@ -22,6 +23,9 @@
       @if (pageTitle) {
         <span class="page-title">{{ pageTitle }}</span>
       }
+      <span class="header-breadcrumb">
+        <ng-content select="[headerBreadcrumb]"></ng-content>
+      </span>
     </div>
 
     <!-- Page-specific actions (e.g. the 360 viewer toolbar) -->
@@ -29,17 +33,27 @@
       <ng-content select="[headerActions]"></ng-content>
     </div>
 
-    @if (isAuthenticated()) {
+      @if (isAuthenticated()) {
       <div class="header-desktop">
-        @for (link of links; track link.href) {
-          <a
-            class="nav-link"
-            [routerLink]="link.href"
-            routerLinkActive="nav-link--active"
-            [routerLinkActiveOptions]="{ exact: true }">
-            {{ link.labelKey | translate }}
-          </a>
-        }
+        <div class="header-links">
+          @for (link of links; track link.href) {
+            <a
+              class="nav-link"
+              [routerLink]="link.href"
+              routerLinkActive="nav-link--active"
+              [routerLinkActiveOptions]="{ exact: true }">
+              {{ link.labelKey | translate }}
+            </a>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="circle-control icon-action header-more"
+          (click)="openNavPopover($event)"
+          [attr.aria-label]="'NAV.MENU' | translate">
+          <ion-icon name="ellipsis-horizontal"></ion-icon>
+        </button>
 
         <div class="header-divider"></div>
 
@@ -96,6 +110,21 @@
           <ion-icon name="checkmark-outline" slot="end"></ion-icon>
         }
       </ion-item>
+    </ion-list>
+  </ng-template>
+</ion-popover>
+
+<ion-popover
+  [isOpen]="isNavPopoverOpen"
+  [event]="navPopoverEvent"
+  (didDismiss)="isNavPopoverOpen = false">
+  <ng-template>
+    <ion-list lines="none">
+      @for (link of links; track link.href) {
+        <ion-item button [detail]="false" [routerLink]="link.href" (click)="isNavPopoverOpen = false">
+          <ion-label>{{ link.labelKey | translate }}</ion-label>
+        </ion-item>
+      }
     </ion-list>
   </ng-template>
 </ion-popover>

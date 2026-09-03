@@ -30,14 +30,6 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
-    // A tela antiga fica de pé enquanto a refatoração não fecha — é a única
-    // referência viva de upload inline e edição de hotspots na visualização.
-    // Some no último PR do sprint (TV-12), junto com esta rota.
-    path: 'inner-view-legado/:id',
-    loadComponent: () => import('./inner-view-page/inner-view-page.page').then(m => m.InnerViewPagePage),
-    canActivate: [authGuard],
-  },
-  {
     path: 'configuracoes',
     loadComponent: () =>
       import('./configuracoes/configuracoes.page').then(m => m.ConfiguracoesPage),

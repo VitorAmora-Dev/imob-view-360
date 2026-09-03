@@ -55,6 +55,10 @@
           (loadFailed)="aoFalharCena($event)"
           (canvasTapped)="aoTocarNaFoto()">
         </app-panoramic-viewer>
+      } @else {
+        <div class="tv-estado tv-estado--vazio" role="status">
+          <p>{{ 'TOUR_VIEWER.NO_SCENES' | translate }}</p>
+        </div>
       }
 
       <!-- ---- camada 1: scrims ------------------------------------------ -->
@@ -63,6 +67,8 @@
 
       <!-- ---- camada 3: chrome ------------------------------------------ -->
       <div class="tv-chrome">
+        <app-tour-desktop-chrome (editRequested)="editarTour()" />
+
         <div class="tv-slot tv-slot--header">
           <app-tv-header
             [tourName]="store.tourName()"
@@ -119,7 +125,6 @@
             (editRequested)="editarTour()"
             (embedRequested)="store.abrirSheet('embed')"
             (deleteRequested)="store.abrirSheet('delete')" />
-          <!-- TV-9: cluster de ações do tour (desktop). -->
         </div>
       </div>
 
@@ -163,7 +168,7 @@
       }
 
       <!-- ---- camada 4: sheets e toast ---------------------------------- -->
-      <!-- TV-6: Gerenciar. -->
+      <app-tour-manage-sheet [panoramaAtual]="panoramaNaTela()" />
 
       <!--
         Entram sem ligação nenhuma: eles leem o `TourViewerStore` que esta

@@ -271,6 +271,13 @@ export class TourWizardPage implements OnInit {
   private async abrirParaEdicao(tourId: string): Promise<void> {
     try {
       await this.store.abrirParaEdicao(tourId);
+
+      // O sheet Gerenciar pode pedir a etapa de Informações diretamente. A
+      // ausência (ou qualquer outro valor) preserva a entrada normal do botão
+      // Editar, sem mudar o fluxo de criação nem a retomada de rascunho.
+      if (this.route.snapshot.queryParamMap.get('etapa') === '4') {
+        this.store.step.set(4);
+      }
       return;
     } catch {
       // A pergunta fica fora do catch pelo mesmo motivo de `retomar()`.

@@ -50,28 +50,28 @@
   </header>
 
   <!--
-    `role="list"` explícito porque o `list-style: none` do SCSS tira a semântica
-    de lista no VoiceOver do Safari — é o mesmo motivo pelo qual o sheet de
-    cenas o declara.
-
-    E `aria-current` em vez de `role="tab"`/`aria-selected`: o padrão de abas
-    promete um `tabpanel` que esta lista não controla (o palco é irmão dela, na
-    página) e navegação por setas com foco itinerante, que ninguém escreveu
-    aqui. `aria-current="true"` diz exatamente o que se quer dizer — "este é o
-    item atual do conjunto" — e é o que o `cenas-sheet` já usa para a mesma
-    cena, de modo que os dois lugares se anunciam igual.
+    A TV-12 fecha o contrato de acessibilidade do handoff: a faixa é um
+    `tablist`, cada cena é uma `tab` e as setas fazem foco itinerante. O palco é
+    o painel visual controlado por este conjunto, mesmo estando fora do
+    componente por causa da camada Three.js.
   -->
-  <ul class="tv-cenas__trilho" role="list">
-    @for (cena of cenas(); track cena.id) {
-      <li class="tv-cenas__vaga">
+  <ul
+    class="tv-cenas__trilho"
+    role="tablist"
+    [attr.aria-label]="'TOUR_VIEWER.SCENES.SHEET_TITLE' | translate">
+    @for (cena of cenas(); track cena.id; let i = $index) {
+      <li class="tv-cenas__vaga" role="presentation">
         <button
           type="button"
           class="tv-cenas__item"
+          role="tab"
           [class.is-carregando]="!miniatura(cena)"
           [attr.data-cena]="cena.id"
-          [attr.aria-current]="cena.id === atualId() ? 'true' : null"
+          [attr.aria-selected]="cena.id === atualId()"
+          [attr.tabindex]="cena.id === atualId() || (!atualId() && i === 0) ? 0 : -1"
           [title]="cena.name"
-          (click)="escolher(cena)">
+          (click)="escolher(cena)"
+          (keydown)="aoTeclar($event, i)">
           <!--
             O `<img>` fica sempre no DOM, sem `@if`: enquanto o `blob:` não
             chega, `miniatura()` devolve `undefined`, o Angular não escreve o
