@@ -20,14 +20,6 @@
       }
     </div>
 
-    <button
-      type="button"
-      class="heart-btn"
-      [class.heart-btn--liked]="liked"
-      (click)="onLike($event)"
-      aria-label="Curtir">
-      <ion-icon [name]="liked ? 'heart' : 'heart-outline'"></ion-icon>
-    </button>
   </div>
 
   <div class="card-meta">
