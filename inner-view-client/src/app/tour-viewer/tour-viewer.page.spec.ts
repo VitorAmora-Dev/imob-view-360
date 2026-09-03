@@ -202,6 +202,68 @@ describe('TourViewerPage — camadas da tela', () => {
     expect(rotulosDosPins()).toEqual(['Sala']);
   });
 
+  /**
+   * "Ocultar interface" esconde a MOLDURA, não a foto.
+   *
+   * O defeito: o modo imersivo levava junto os pontos de navegação entre
+   * cenas. Como o toque na foto é o outro jeito de sair do imersivo, quem
+   * ocultasse a interface para ver o cômodo inteiro ficava sem como ANDAR até
+   * o cômodo seguinte — tinha que trazer a interface de volta primeiro. O
+   * imersivo deixava de ser "ver a foto sem os controles" e virava "ver a foto
+   * e não poder se mexer".
+   *
+   * O teste mora na página, e não no store, porque o que precisa ser provado é
+   * o overlay RENDERIZADO — o store não tem mais opinião nenhuma sobre isso.
+   */
+  describe('modo imersivo', () => {
+    function barraDeAcoes(): HTMLElement {
+      return fixture.nativeElement.querySelector('app-tour-actions-bar');
+    }
+
+    it('esconde a moldura e mantém os pontos de navegação', () => {
+      expect(rotulosDosPins()).toEqual(['Quarto']);
+
+      page.store.alternarChrome();
+      fixture.detectChanges();
+
+      // A moldura foi mesmo embora — senão o teste passaria sem imersivo algum.
+      expect(page.store.chromeVisible()).toBeFalse();
+      expect(barraDeAcoes().classList).toContain('is-imersivo');
+      expect(fixture.nativeElement.querySelector('app-tour-scenes-strip')).toBeNull();
+
+      // E os pins continuam lá.
+      expect(rotulosDosPins()).toEqual(['Quarto']);
+    });
+
+    it('e o pin continua levando para a outra cena', () => {
+      page.store.alternarChrome();
+      fixture.detectChanges();
+
+      const pin = fixture.nativeElement.querySelector('.tv-pin') as HTMLButtonElement;
+      pin.click();
+      fixture.detectChanges();
+
+      expect(page.store.currentSceneIndex()).toBe(1);
+      // Navegar por um pin não devolve a interface: quem está no imersivo
+      // pediu para ficar nele.
+      expect(page.store.chromeVisible()).toBeFalse();
+    });
+
+    /**
+     * O pin é um `<button>` sobre o canvas, e o viewer escuta o toque no
+     * PRÓPRIO canvas. Se o pin deixasse o evento passar, um toque nele
+     * navegaria E alternaria o chrome no mesmo gesto — a interface voltaria
+     * sozinha ao andar pelo tour.
+     */
+    it('o pin intercepta o toque, e a camada em volta não', () => {
+      const camada = fixture.nativeElement.querySelector('app-tv-hotspot-overlay');
+      const pin = fixture.nativeElement.querySelector('.tv-pin') as HTMLElement;
+
+      expect(getComputedStyle(camada).pointerEvents).toBe('none');
+      expect(getComputedStyle(pin).pointerEvents).toBe('auto');
+    });
+  });
+
   it('a falha atrasada de uma cena abandonada não cobre a cena que está boa', () => {
     page.store.irParaCena(1);
     fixture.detectChanges();
@@ -232,10 +294,6 @@ describe('TourViewerPage — camadas da tela', () => {
     expect(avisoDeErro()).toBeNull();
   });
 
-  it('sem chrome, sem camada de hotspots', () => {
-    page.store.alternarChrome();
-    fixture.detectChanges();
-
-    expect(overlay()).toBeNull();
-  });
+  // O caso "sem chrome, sem camada de hotspots" ERA testado aqui, e era o
+  // defeito: ver o bloco `modo imersivo` acima, que agora prova o contrário.
 });
