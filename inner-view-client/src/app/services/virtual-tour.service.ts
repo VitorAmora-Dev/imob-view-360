@@ -438,6 +438,27 @@ export class VirtualTourService {
     });
   }
 
+  /**
+   * Registra que o link do tour saiu para alguém.
+   *
+   * A rota existe desde o sprint das métricas e nenhum cliente a chamava — o
+   * painel de analytics mostra "shares" e o número era sempre zero. Quem for
+   * chamar é o "Compartilhar link" do sheet Gerenciar (TV-6).
+   *
+   * `channel` diz por onde foi: `'native'` quando a folha do sistema levou,
+   * `'clipboard'` quando o caminho foi copiar. É o que separa "mandei pelo
+   * WhatsApp" de "colei num e-mail", e sem ele os dois viram a mesma linha.
+   *
+   * Métrica, e não requisito: assine com `error: () => undefined`, como o
+   * `recordView`. Falhar aqui não pode impedir o link de sair.
+   */
+  recordShare(tourId: string, channel: string): Observable<unknown> {
+    return this.http.post(`${environment.apiUrl}/virtual-tours/${tourId}/shares`, {
+      sessionId: this.getSessionId(),
+      channel,
+    });
+  }
+
   private getSessionId(): string {
     let sessionId = localStorage.getItem(SESSION_ID_KEY);
     if (!sessionId) {

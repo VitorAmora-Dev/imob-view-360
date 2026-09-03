@@ -487,6 +487,8 @@
       "LINK_COPIED": "Link copiado",
       "COPY_ERROR": "Não foi possível copiar. Selecione o texto e copie.",
       "DELETE_ERROR": "Não foi possível apagar o tour",
+      "PUBLISHED": "Tour publicado",
+      "PUBLISH_ERROR": "Não foi possível publicar o tour",
       "DOWNLOAD_SUCCESS": "Download iniciado",
       "DOWNLOAD_ERROR": "Não foi possível baixar a imagem"
     }

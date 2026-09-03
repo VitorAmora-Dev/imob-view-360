@@ -1,5 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Panorama, VirtualTour } from '../models/virtual-tour.model';
@@ -131,6 +131,82 @@ describe('TourViewerStore', () => {
       store.embedShowControls.set(false);
 
       expect(store.linkPublico()).toBe(`${window.location.origin}/embed/t1?controles=0`);
+    });
+  });
+
+  /**
+   * O `publicar()` é do CONTRATO, e não de uma das telas: quem o chama são o
+   * item do sheet Gerenciar (TV-6) e o botão do cluster do desktop (TV-9).
+   * Duas cópias divergiriam no primeiro ajuste.
+   */
+  describe('publicar', () => {
+    let http: HttpTestingController;
+
+    beforeEach(() => {
+      http = TestBed.inject(HttpTestingController);
+    });
+
+    afterEach(() => http.verify());
+
+    const pedidoDePublicacao = () =>
+      http.expectOne((r) => r.method === 'PATCH' && r.url.endsWith('/virtual-tours/t1'));
+
+    it('só há o que publicar enquanto o tour é rascunho', () => {
+      expect(store.podePublicar()).toBeFalse();
+
+      store.tour.set({ ...TOUR, status: 'DRAFT' });
+
+      expect(store.podePublicar()).toBeTrue();
+    });
+
+    /**
+     * O defeito que este teste existe para impedir, e que só aparece no caminho
+     * de SUCESSO: `PATCH /virtual-tours/:id` devolve
+     * `{ id, status, propertyId, updatedAt }` e mais nada. Um `tour.set(resposta)`
+     * apagaria `panoramas`, e a tela esvaziaria — faixa de cenas vazia e viewer
+     * desmontado — no instante em que a publicação dá certo.
+     */
+    it('não perde as cenas, porque a rota devolve o tour sem elas', async () => {
+      store.tour.set({ ...TOUR, status: 'DRAFT' });
+
+      const publicando = store.publicar();
+      pedidoDePublicacao().flush({
+        id: 't1',
+        status: 'PUBLISHED',
+        propertyId: 'p1',
+        updatedAt: '',
+      });
+
+      expect(await publicando).toBeTrue();
+      expect(store.scenes().length).toBe(3);
+      expect(store.semCenas()).toBeFalse();
+      expect(store.podePublicar()).toBeFalse();
+    });
+
+    it('a falha devolve `false` e deixa o tour como estava', async () => {
+      store.tour.set({ ...TOUR, status: 'DRAFT' });
+
+      const publicando = store.publicar();
+      pedidoDePublicacao().error(new ProgressEvent('erro'));
+
+      expect(await publicando).toBeFalse();
+      expect(store.podePublicar()).toBeTrue();
+      expect(store.publicando()).toBeFalse();
+    });
+
+    /**
+     * Dois toques rápidos no item da lista não podem virar dois PATCH. O
+     * `http.verify()` do `afterEach` é quem denuncia o segundo.
+     */
+    it('um pedido em voo recusa o segundo', async () => {
+      store.tour.set({ ...TOUR, status: 'DRAFT' });
+
+      const primeiro = store.publicar();
+      const segundo = store.publicar();
+
+      expect(await segundo).toBeFalse();
+      pedidoDePublicacao().flush({ id: 't1', status: 'PUBLISHED' });
+      expect(await primeiro).toBeTrue();
     });
   });
 });

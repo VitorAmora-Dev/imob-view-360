@@ -194,6 +194,50 @@ export class TourViewerStore {
   /** O tour cuja visita já foi contada nesta abertura de tela. */
   private visitaContada: string | null = null;
 
+  readonly publicando = signal(false);
+
+  /**
+   * Há o que publicar: o tour ainda é rascunho.
+   *
+   * Decisão D8 — não existe `pendingChanges` e não vale uma coluna nova neste
+   * sprint. Com o modo edição (TV-11) o tour editado continua `PUBLISHED`,
+   * então na prática isto quase nunca é verdadeiro, e é o comportamento certo:
+   * o item some da lista em vez de aparecer desabilitado.
+   */
+  readonly podePublicar = computed(() => this.tour()?.status === 'DRAFT');
+
+  /**
+   * Publica o tour que ainda era rascunho.
+   *
+   * Mora aqui pelo mesmo motivo que `apagarTour()`: dois lugares o chamam — o
+   * item do sheet Gerenciar (TV-6) e o botão do cluster do desktop (TV-9) — e
+   * duas cópias divergiriam no primeiro ajuste.
+   *
+   * **NÃO substitua o tour pela resposta da rota.** O `PATCH /virtual-tours/:id`
+   * devolve `{ id, status, propertyId, updatedAt }` e mais nada: um
+   * `tour.set(resposta)` apagaria `panoramas` da tela inteira, e o sintoma
+   * seria a faixa de cenas esvaziando e o viewer desmontando no instante em que
+   * a publicação dá CERTO. Por isso só o campo que mudou é remendado aqui.
+   *
+   * Como `apagarTour()`, ele é o DEPOIS da decisão: não confirma nada e não
+   * mostra toast. Quem chamou é que sabe o que dizer.
+   */
+  async publicar(): Promise<boolean> {
+    const id = this.tourId();
+    if (!id || this.publicando()) return false;
+
+    this.publicando.set(true);
+    try {
+      await firstValueFrom(this.virtualTourService.publicarTour(id));
+      this.tour.update((atual) => (atual ? { ...atual, status: 'PUBLISHED' } : atual));
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.publicando.set(false);
+    }
+  }
+
   /**
    * Apaga o tour e volta para a listagem.
    *
