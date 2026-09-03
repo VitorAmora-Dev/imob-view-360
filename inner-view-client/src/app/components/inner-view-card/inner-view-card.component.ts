@@ -1,8 +1,8 @@
-import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
+import { Component, Input, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { IonCard, IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { heartOutline, heart, homeOutline } from 'ionicons/icons';
+import { homeOutline } from 'ionicons/icons';
 import { Property } from '../../models/property.model';
 import { environment } from '../../../environments/environment';
 
@@ -16,14 +16,10 @@ import { environment } from '../../../environments/environment';
 export class InnerViewCardComponent {
   @Input() item!: Property;
 
-  @Output() likeChange = new EventEmitter<boolean>();
-
-  liked = false;
-
   private router = inject(Router);
 
   constructor() {
-    addIcons({ heartOutline, heart, homeOutline });
+    addIcons({ homeOutline });
   }
 
   onCardClick() {
@@ -31,13 +27,6 @@ export class InnerViewCardComponent {
       state: { property: this.item },
     });
   }
-
-  onLike(event: Event) {
-    event.stopPropagation();
-    this.liked = !this.liked;
-    this.likeChange.emit(this.liked);
-  }
-
 
   get thumbnailUrl(): string {
     return `${environment.apiUrl}/virtual-tours/${this.item.virtualTour!.id}/thumbnail`;

@@ -83,6 +83,11 @@
       <p class="tw-scenes__count" aria-live="polite">
         {{ environmentCountKey() | translate: { n: store.scenes().length } }}
       </p>
+      @if (store.ambientesSemNome().length) {
+        <p class="tw-scenes__names-required" role="status">
+          {{ 'TOUR_WIZARD.STEP1.NEEDS_NAMES' | translate }}
+        </p>
+      }
     </header>
 
     <div
@@ -220,7 +225,7 @@
                       (click)="startRename($event, item.scene)">
                       <strong>
                         @if (!item.scene.room.trim() && item.number) {
-                          {{ 'TOUR_WIZARD.STEP1.BADGE_ROOM' | translate: { n: item.number } }}
+                          {{ 'TOUR_WIZARD.STEP1.NAME_PROMPT' | translate }}
                         } @else {
                           {{ item.displayName }}
                         }

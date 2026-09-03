@@ -19,6 +19,34 @@ import {
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
 import { TrashIconComponent } from '../../ui/trash-icon/trash-icon.component';
+import { DialogoDoWizard } from '../../ui/wizard-dialog/dialogo-do-wizard.service';
+import { PerguntaDoWizard } from '../../ui/wizard-dialog/wizard-dialog.model';
+
+const EXCLUIR_FOTO = 'excluir-foto';
+
+/**
+ * A foto pode ter custado uma captura inteira. O diálogo é o mesmo na criação
+ * e na edição porque, nos dois fluxos, `removeScene` descarta progresso real.
+ */
+const PERGUNTA_DE_EXCLUSAO_DA_FOTO: PerguntaDoWizard = {
+  tituloKey: 'TOUR_WIZARD.STEP1.DELETE_PHOTO_TITLE',
+  mensagemKey: 'TOUR_WIZARD.STEP1.DELETE_PHOTO_MESSAGE',
+  dispensavel: true,
+  fecharKey: 'TOUR_WIZARD.STEP1.DELETE_PHOTO_KEEP',
+  acoes: [
+    {
+      id: 'manter-foto',
+      rotuloKey: 'TOUR_WIZARD.STEP1.DELETE_PHOTO_KEEP',
+      tom: 'neutro',
+    },
+    {
+      id: EXCLUIR_FOTO,
+      rotuloKey: 'TOUR_WIZARD.STEP1.DELETE_PHOTO_CONFIRM',
+      tom: 'destrutivo',
+      icone: 'lixeira',
+    },
+  ],
+};
 
 interface SceneDeckItem {
   scene: WizardScene;
@@ -57,6 +85,7 @@ export class StepImagesComponent implements OnDestroy {
   readonly store = inject(TourDraftStore);
 
   private readonly modalController = inject(ModalController);
+  private readonly dialogo = inject(DialogoDoWizard);
 
   private readonly fileInput =
     viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
@@ -376,9 +405,15 @@ export class StepImagesComponent implements OnDestroy {
     (event.target as HTMLInputElement).blur();
   }
 
-  removeScene(event: Event, scene: WizardScene): void {
+  async removeScene(event: Event, scene: WizardScene): Promise<void> {
     event.stopPropagation();
     this.editingSceneId.set(null);
+    if (
+      (await this.dialogo.perguntar(PERGUNTA_DE_EXCLUSAO_DA_FOTO)) !==
+      EXCLUIR_FOTO
+    ) {
+      return;
+    }
     this.store.removeScene(scene.id);
   }
 

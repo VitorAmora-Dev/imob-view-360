@@ -84,26 +84,16 @@ describe('InnerViewCardComponent', () => {
   });
 
   /**
-   * O cartao ficou com UMA acao: curtir. Favoritar (estrela) saiu antes, e o
-   * embed saiu depois — ele disputava a linha do preco com o que o corretor
-   * veio ver, e continua inteiro em "Meus imoveis".
+   * O card inteiro leva ao imóvel. Ações secundárias ficam nas telas de gestão
+   * para não criarem alvos concorrentes sobre a foto da home.
    */
-  it('nao mostra favoritar nem embed', () => {
+  it('nao mostra favoritar, curtir nem embed', () => {
     const el = render(imovel({ virtualTour: { id: 't1', status: 'PUBLISHED' } }));
 
     expect(el.querySelector('ion-icon[name^="star"]')).toBeNull();
+    expect(el.querySelector('ion-icon[name^="heart"]')).toBeNull();
+    expect(el.querySelector('.heart-btn')).toBeNull();
     expect(el.querySelector('.embed-btn')).toBeNull();
     expect(el.querySelectorAll('ion-button').length).toBe(0);
-  });
-
-  it('o botao de curtir continua, e alterna de estado', () => {
-    const el = render(imovel());
-    const coracao = el.querySelector('.heart-btn') as HTMLButtonElement;
-    expect(coracao).not.toBeNull();
-
-    coracao.click();
-    fixture.detectChanges();
-
-    expect(coracao.classList).toContain('heart-btn--liked');
   });
 });

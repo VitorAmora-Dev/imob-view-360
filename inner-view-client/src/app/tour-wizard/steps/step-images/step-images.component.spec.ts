@@ -2,9 +2,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ModalController } from '@ionic/angular/standalone';
-import { provideTranslateService } from '@ngx-translate/core';
+import { TranslateService, provideTranslateService } from '@ngx-translate/core';
 import { TourDraftStore } from '../../tour-draft.store';
 import { WizardScene } from '../../tour-wizard.model';
+import { DialogoDoWizard } from '../../ui/wizard-dialog/dialogo-do-wizard.service';
 import { StepImagesComponent } from './step-images.component';
 
 describe('StepImagesComponent — escolha e galeria', () => {
@@ -12,6 +13,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
   let component: StepImagesComponent;
   let store: TourDraftStore;
   let modalController: jasmine.SpyObj<ModalController>;
+  let dialogo: DialogoDoWizard;
 
   function scene(id: string, over: Partial<WizardScene> = {}): WizardScene {
     return {
@@ -40,6 +42,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
       imports: [StepImagesComponent],
       providers: [
         TourDraftStore,
+        DialogoDoWizard,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
@@ -50,6 +53,20 @@ describe('StepImagesComponent — escolha e galeria', () => {
     fixture = TestBed.createComponent(StepImagesComponent);
     component = fixture.componentInstance;
     store = TestBed.inject(TourDraftStore);
+    dialogo = TestBed.inject(DialogoDoWizard);
+    TestBed.inject(TranslateService).setTranslation(
+      'pt',
+      {
+        TOUR_WIZARD: {
+          STEP1: {
+            NAME_PROMPT: 'Dê nome a esse ambiente',
+            NEEDS_NAMES: 'Dê nome a todos os ambiente antes de continuar',
+            TAKE_ANOTHER_PHOTO: 'Capturar próximo ambiente',
+          },
+        },
+      },
+      true,
+    );
     render();
   });
 
@@ -310,6 +327,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(actions.length).toBe(2);
     expect(actions[0].classList).toContain('tw-scene-action--gallery');
     expect(actions[1].classList).toContain('tw-scene-action--camera');
+    expect(actions[1].textContent).toContain('Capturar próximo ambiente');
   });
 
   it('navega pelas setas e pelo teclado mantendo a selecao sincronizada', () => {
@@ -392,17 +410,64 @@ describe('StepImagesComponent — escolha e galeria', () => {
     ).toContain('Sala de estar');
   }));
 
-  it('mostra a capa e remove o ambiente pelo icone sobre a imagem', () => {
+  it('na criação só remove a foto depois da confirmação', fakeAsync(() => {
     store.scenes.set([scene('capa'), scene('outra')]);
     store.selectedSceneId.set('capa');
     render();
 
     expect(fixture.nativeElement.querySelector('.tw-deck__cover')).not.toBeNull();
     fixture.nativeElement.querySelector('.tw-deck__remove').click();
+
+    expect(store.scenes().map((item) => item.id)).toEqual(['capa', 'outra']);
+    expect(dialogo.pergunta()?.tituloKey).toBe(
+      'TOUR_WIZARD.STEP1.DELETE_PHOTO_TITLE',
+    );
+
+    dialogo.escolher('excluir-foto');
+    tick();
     render();
 
     expect(store.scenes().map((item) => item.id)).toEqual(['outra']);
     expect(fixture.nativeElement.querySelector('.tw-scenes__editor')).toBeNull();
+  }));
+
+  it('na edição mantém ao cancelar e remove somente ao confirmar', fakeAsync(() => {
+    store.modo.set('edicao');
+    store.scenes.set([scene('capa')]);
+    store.selectedSceneId.set('capa');
+    render();
+
+    fixture.nativeElement.querySelector('.tw-deck__remove').click();
+    dialogo.escolher('manter-foto');
+    tick();
+    render();
+
+    expect(store.scenes().map((item) => item.id)).toEqual(['capa']);
+
+    fixture.nativeElement.querySelector('.tw-deck__remove').click();
+    dialogo.escolher('excluir-foto');
+    tick();
+    render();
+
+    expect(store.scenes()).toEqual([]);
+  }));
+
+  it('deixa explícito e persistente quando há ambientes sem nome', () => {
+    store.scenes.set([scene('sala', { room: '' })]);
+    store.selectedSceneId.set('sala');
+    render();
+
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__rename strong').textContent,
+    ).toContain('Dê nome a esse ambiente');
+    expect(
+      fixture.nativeElement.querySelector('.tw-scenes__names-required').textContent,
+    ).toContain('Dê nome a todos os ambiente antes de continuar');
+
+    store.renameScene('sala', 'Sala');
+    render();
+
+    expect(fixture.nativeElement.querySelector('.tw-scenes__names-required')).toBeNull();
   });
 
   it('troca o titulo visivel por um contador discreto de ambientes', () => {

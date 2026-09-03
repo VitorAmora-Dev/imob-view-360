@@ -1,5 +1,5 @@
 // Airbnb property-card: transparent flat card, photo-first with 14px clipping,
-// floating white badges + heart overlay, ink meta block beneath.
+// floating white badges and ink meta block beneath.
 
 :host {
   display: block;
@@ -61,32 +61,6 @@ ion-card.property-card {
   padding: 4px 10px;
   border-radius: 9999px;
   box-shadow: var(--app-shadow-tier);
-}
-
-.heart-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  border-radius: 9999px;
-  border: none;
-  padding: 0;
-  background: #ffffff;
-  box-shadow: var(--app-shadow-tier);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-
-  ion-icon {
-    font-size: 18px;
-    color: var(--app-ink);
-  }
-
-  &.heart-btn--liked ion-icon {
-    color: var(--ion-color-primary);
-  }
 }
 
 .card-meta {
