@@ -1,5 +1,11 @@
 # Briefing do sprint do visualizador
 
+> **ENCERRADO.** As treze tasks entraram na `main` no PR #51. O que sobra deste
+> arquivo é a parte que não expira: a base da branch, as quatro regras, a
+> diferença entre as duas rotas de imagem e a superfície do store. Os blocos de
+> task ficam como registro do que cada uma prometia — leia-os contra o código,
+> não no lugar dele.
+
 Cole a seção **"Antes de qualquer coisa"** mais o bloco da sua task na IA, junto
 com o ticket do Jira. Foi escrito para ser lido por quem nunca abriu este
 repositório.
@@ -8,7 +14,7 @@ Estado em 03/09/2026:
 
 | Feito | Falta |
 |---|---|
-| TV-0, TV-2, TV-3, TV-4, TV-5, TV-7, TV-8, TV-10, TV-11 | **TV-1**, **TV-6**, **TV-9**, **TV-12** |
+| as treze | — |
 
 A tela hoje abre com a foto, os hotspots, a faixa de cenas e os sheets Cenas,
 Incorporar e Apagar montados. Falta o **chrome** — header, pill de cena, tab bar
@@ -360,10 +366,10 @@ cluster; o rail continua onde estava.
 
 ### O que mudou desde que o escopo foi escrito
 
-- **A faixa de cenas não usa `role="tablist"`.** Ela usa `role="list"` +
-  `aria-current="true"`, e o porquê está registrado na seção 5 do plano, na
-  TV-2. O item da auditoria vira "a cena atual se anuncia como `aria-current`,
-  igual no rail, na faixa e no sheet".
+- ~~**A faixa de cenas não usa `role="tablist"`.**~~ **Superado na TV-12**: ela
+  voltou ao `tablist` do escopo original, agora com as setas escritas —
+  `ArrowLeft`/`ArrowRight`, `Home`/`End` e `tabindex` itinerante. Era essa a
+  condição da objeção da TV-2, e ela foi cumprida.
 - **Chaves de i18n acrescentadas durante o sprint**, que precisam de revisão em
   inglês: `SCENE_COUNT_ONE`, `EMBED.FORMAT_LABEL`, `TOAST.COPY_ERROR`,
   `TOAST.PUBLISHED`, `TOAST.PUBLISH_ERROR`.

@@ -4,7 +4,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { TourSheetComponent } from '../../../components/tour-sheet/tour-sheet.component';
 import { Panorama } from '../../../models/virtual-tour.model';
-import { urlDaImagem } from '../../../models/panorama-image.util';
+import { PanoramaImageCache } from '../../../services/panorama-image-cache.service';
 import { VirtualTourService } from '../../../services/virtual-tour.service';
 import { TourViewerStore } from '../../tour-viewer.store';
 import { panoramaFilename } from './panorama-download.util';
@@ -33,6 +33,7 @@ export class TourManageSheetComponent {
   private readonly store = inject(TourViewerStore);
   private readonly router = inject(Router);
   private readonly virtualTourService = inject(VirtualTourService);
+  private readonly imagens = inject(PanoramaImageCache);
 
   readonly paradas = PARADAS;
   readonly aberto = computed(() => this.store.sheet() === 'manage');
@@ -97,25 +98,38 @@ export class TourManageSheetComponent {
   }
 
   /**
-   * Migração do download da página antiga: a URL é a mesma do viewer e tende a
-   * vir do cache do navegador, sem transportar a imagem dentro do JSON.
+   * Migração do download da página antiga — pelo cache autenticado, e NÃO pela
+   * rota pública que a página antiga usava.
+   *
+   * `urlDaImagem()` aponta para `/panoramas/:id/image`, que não tem guard e por
+   * isso filtra `virtualTour: { status: 'PUBLISHED' }` na consulta: em tour
+   * rascunho ela devolve 404. A página antiga nunca viu rascunho; esta vê — e o
+   * caso dói justamente aqui, porque "Publicar tour" só aparece em `DRAFT`, de
+   * modo que os dois itens ficam lado a lado nesta mesma lista e um deles
+   * quebrava exatamente quando o outro estava visível.
+   *
+   * `PanoramaImageCache` passa pela rota `/preview`, que é autenticada e serve
+   * rascunho. `'treated'` é a mesma variante que está na tela, e a rota já cai
+   * na original quando a IA ainda não tratou o cômodo.
+   *
+   * **Sem `revokeObjectURL` aqui.** O `blob:` é do cache, que é
+   * `providedIn: 'root'` e o compartilha com o viewer e com o wizard; revogá-lo
+   * apagaria a imagem debaixo de quem ainda a está mostrando. Quem libera é o
+   * `liberar()` do próprio cache.
    */
   async baixarCena(): Promise<void> {
     const panorama = this.panoramaAtual();
     if (!panorama) return;
 
     try {
-      const resposta = await fetch(urlDaImagem(panorama));
-      if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+      const blobUrl = await this.imagens.obter(panorama.id, 'treated');
 
-      const blobUrl = URL.createObjectURL(await resposta.blob());
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = panoramaFilename(this.store.tourName(), panorama.roomName);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(blobUrl);
       this.store.mostrarToast('TOUR_VIEWER.TOAST.DOWNLOAD_SUCCESS');
     } catch {
       this.store.mostrarToast('TOUR_VIEWER.TOAST.DOWNLOAD_ERROR');

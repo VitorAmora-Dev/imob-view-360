@@ -345,13 +345,19 @@ cobrindo a alternância e as duas variações da barra.
   equirretangular para desenhar 104px.
 - Skeleton `#0B1420` com shimmer enquanto a miniatura não chega; erro de imagem
   cai no bloco vazio, sem ícone quebrado.
-- ~~`role="tablist"` no trilho, `role="tab"` + `aria-selected` em cada
-  miniatura.~~ → `role="list"` e `aria-current="true"` na cena atual. O padrão
-  de abas promete um `tabpanel` que esta lista não controla (o palco é irmão
-  dela, na página) e navegação por setas com foco itinerante, que ninguém
-  escreveu. `aria-current` diz o que se quer dizer — "este é o item atual do
-  conjunto" — e é o que o `cenas-sheet` já usa para a MESMA cena, de modo que os
-  dois lugares se anunciam igual.
+- `role="tablist"` no trilho, `role="tab"` + `aria-selected` em cada miniatura.
+
+  **Esta linha foi contestada e depois confirmada, e vale registrar o
+  caminho.** A TV-2 entregou `role="list"` + `aria-current`, com o argumento de
+  que o padrão de abas promete duas coisas que ninguém tinha escrito: um
+  `tabpanel` e navegação por setas com foco itinerante. A TV-12 voltou ao
+  `tablist` **escrevendo as setas** — `ArrowLeft`/`ArrowRight`, `Home`/`End`,
+  `tabindex` itinerante e `role="presentation"` nos `<li>`. Com a promessa
+  cumprida, o escopo original é o certo: o `tablist` ainda dá "aba 3 de 6", que
+  o `aria-current` não dá.
+
+  O que falta para o padrão fechar é `aria-controls` apontando para o palco —
+  ele vive fora do componente, e o comentário no template registra isso.
 - Tocar troca a cena **sem fechar nada**. A faixa some no modo imersivo e
   enquanto qualquer sheet estiver aberto.
 
