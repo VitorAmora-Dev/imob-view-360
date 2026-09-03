@@ -8,6 +8,7 @@ import { of } from 'rxjs';
 
 import { Panorama, VirtualTour } from '../../../models/virtual-tour.model';
 import { PanoramaImageCache } from '../../../services/panorama-image-cache.service';
+import { PanoramaWatermarkService } from '../../../services/panorama-watermark.service';
 import { VirtualTourService } from '../../../services/virtual-tour.service';
 import { TourViewerStore } from '../../tour-viewer.store';
 import { TourManageSheetComponent } from './tour-manage-sheet.component';
@@ -39,10 +40,14 @@ describe('TourManageSheetComponent', () => {
   let store: TourViewerStore;
   let publicarTour: jasmine.Spy;
   let obterImagem: jasmine.Spy;
+  let aplicarMarca: jasmine.Spy;
 
   beforeEach(async () => {
     publicarTour = jasmine.createSpy('publicarTour').and.returnValue(of({ status: 'PUBLISHED' }));
     obterImagem = jasmine.createSpy('obter').and.resolveTo('blob:cena-1');
+    aplicarMarca = jasmine.createSpy('applyFromObjectUrl').and.resolveTo(
+      new Blob(['watermarked'], { type: 'image/jpeg' }),
+    );
 
     await TestBed.configureTestingModule({
       imports: [TourManageSheetComponent],
@@ -57,6 +62,7 @@ describe('TourManageSheetComponent', () => {
         // ele injeta — `publicar()` desce por ali.
         { provide: VirtualTourService, useValue: { publicarTour } },
         { provide: PanoramaImageCache, useValue: { obter: obterImagem } },
+        { provide: PanoramaWatermarkService, useValue: { applyFromObjectUrl: aplicarMarca } },
       ],
     }).compileComponents();
 
@@ -191,11 +197,17 @@ describe('TourManageSheetComponent', () => {
   it('mantém o download da cena atual', async () => {
     fixture.componentRef.setInput('panoramaAtual', PANORAMA);
     const { anchor, click } = ancoraDeDownload();
+    const criarUrl = spyOn(URL, 'createObjectURL').and.returnValue('blob:com-marca');
+    const revogar = spyOn(URL, 'revokeObjectURL');
 
     await component.baixarCena();
 
+    expect(aplicarMarca).toHaveBeenCalledOnceWith('blob:cena-1');
+    expect(criarUrl).toHaveBeenCalled();
     expect(click).toHaveBeenCalled();
+    expect(anchor.href).toContain('blob:com-marca');
     expect(anchor.download).toBe('Casa Azul - Sala.jpg');
+    expect(revogar).toHaveBeenCalledOnceWith('blob:com-marca');
     expect(store.toast()).toBe('TOUR_VIEWER.TOAST.DOWNLOAD_SUCCESS');
   });
 
@@ -217,12 +229,15 @@ describe('TourManageSheetComponent', () => {
     fixture.componentRef.setInput('panoramaAtual', PANORAMA);
     const buscaDireta = spyOn(window, 'fetch');
     const { anchor } = ancoraDeDownload();
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:com-marca');
+    spyOn(URL, 'revokeObjectURL');
 
     await component.baixarCena();
 
     expect(obterImagem).toHaveBeenCalledWith('cena-1', 'treated');
     expect(buscaDireta).not.toHaveBeenCalled();
-    expect(anchor.href).toContain('blob:cena-1');
+    expect(aplicarMarca).toHaveBeenCalledOnceWith('blob:cena-1');
+    expect(anchor.href).toContain('blob:com-marca');
     expect(store.toast()).toBe('TOUR_VIEWER.TOAST.DOWNLOAD_SUCCESS');
   });
 
@@ -231,14 +246,16 @@ describe('TourManageSheetComponent', () => {
    * viewer e com o wizard. Revogar aqui apagaria a foto debaixo de quem ainda
    * a está mostrando — a tela ficaria branca depois de um download.
    */
-  it('não revoga o `blob:`, que não é dele', async () => {
+  it('preserva o `blob:` do cache e revoga somente a cópia marcada', async () => {
     fixture.componentRef.setInput('panoramaAtual', PANORAMA);
     const revogar = spyOn(URL, 'revokeObjectURL');
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:com-marca');
     ancoraDeDownload();
 
     await component.baixarCena();
 
-    expect(revogar).not.toHaveBeenCalled();
+    expect(revogar).toHaveBeenCalledOnceWith('blob:com-marca');
+    expect(revogar).not.toHaveBeenCalledWith('blob:cena-1');
   });
 
   it('a falha do download vira aviso, e não silêncio', async () => {

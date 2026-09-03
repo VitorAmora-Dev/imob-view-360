@@ -5,6 +5,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { TourSheetComponent } from '../../../components/tour-sheet/tour-sheet.component';
 import { Panorama } from '../../../models/virtual-tour.model';
 import { PanoramaImageCache } from '../../../services/panorama-image-cache.service';
+import { PanoramaWatermarkService } from '../../../services/panorama-watermark.service';
 import { TourViewerStore } from '../../tour-viewer.store';
 import { panoramaFilename } from './panorama-download.util';
 
@@ -38,6 +39,7 @@ export class TourManageSheetComponent {
   private readonly store = inject(TourViewerStore);
   private readonly router = inject(Router);
   private readonly imagens = inject(PanoramaImageCache);
+  private readonly marcaDagua = inject(PanoramaWatermarkService);
 
   readonly paradas = PARADAS;
   readonly aberto = computed(() => this.store.sheet() === 'manage');
@@ -105,24 +107,29 @@ export class TourManageSheetComponent {
    * rascunho. `'treated'` é a mesma variante que está na tela, e a rota já cai
    * na original quando a IA ainda não tratou o cômodo.
    *
-   * **Sem `revokeObjectURL` aqui.** O `blob:` é do cache, que é
-   * `providedIn: 'root'` e o compartilha com o viewer e com o wizard; revogá-lo
-   * apagaria a imagem debaixo de quem ainda a está mostrando. Quem libera é o
-   * `liberar()` do próprio cache.
+   * O `blob:` de origem continua pertencendo ao cache e nunca é revogado aqui.
+   * A cópia marcada ganha outro object URL, usado só pelo download e liberado
+   * assim que o clique é disparado.
    */
   async baixarCena(): Promise<void> {
     const panorama = this.panoramaAtual();
     if (!panorama) return;
 
     try {
-      const blobUrl = await this.imagens.obter(panorama.id, 'treated');
+      const sourceUrl = await this.imagens.obter(panorama.id, 'treated');
+      const watermarkedBlob = await this.marcaDagua.applyFromObjectUrl(sourceUrl);
+      const downloadUrl = URL.createObjectURL(watermarkedBlob);
 
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = panoramaFilename(this.store.tourName(), panorama.roomName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      try {
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = panoramaFilename(this.store.tourName(), panorama.roomName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } finally {
+        URL.revokeObjectURL(downloadUrl);
+      }
       this.store.mostrarToast('TOUR_VIEWER.TOAST.DOWNLOAD_SUCCESS');
     } catch {
       this.store.mostrarToast('TOUR_VIEWER.TOAST.DOWNLOAD_ERROR');
