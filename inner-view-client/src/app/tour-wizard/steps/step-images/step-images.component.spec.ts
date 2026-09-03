@@ -61,6 +61,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
           STEP1: {
             NAME_PROMPT: 'Dê nome a esse ambiente',
             NEEDS_NAMES: 'Dê nome a todos os ambiente antes de continuar',
+            TAKE_ANOTHER_PHOTO: 'Capturar próximo ambiente',
           },
         },
       },
@@ -326,6 +327,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(actions.length).toBe(2);
     expect(actions[0].classList).toContain('tw-scene-action--gallery');
     expect(actions[1].classList).toContain('tw-scene-action--camera');
+    expect(actions[1].textContent).toContain('Capturar próximo ambiente');
   });
 
   it('navega pelas setas e pelo teclado mantendo a selecao sincronizada', () => {
