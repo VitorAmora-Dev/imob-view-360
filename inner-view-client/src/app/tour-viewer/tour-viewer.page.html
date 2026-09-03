@@ -147,15 +147,17 @@
       }
 
       <!-- ---- camada 4: sheets e toast ---------------------------------- -->
-      <!-- TV-5: Apagar.  TV-6: Gerenciar. -->
+      <!-- TV-6: Gerenciar. -->
 
       <!--
-        Entra sem ligação nenhuma: ele lê o `TourViewerStore` que esta página
-        fornece, e é `store.sheet()` que diz se a vez é dele. Sem `@if` em
-        volta — quem monta e desmonta o `<ion-modal>` é o `isOpen` lá dentro, e
-        um `@if` aqui destruiria o componente no meio da animação de saída.
+        Entram sem ligação nenhuma: eles leem o `TourViewerStore` que esta
+        página fornece, e é `store.sheet()` que diz de quem é a vez. Sem `@if`
+        em volta — quem monta e desmonta o `<ion-modal>` é o `isOpen` lá
+        dentro, e um `@if` aqui destruiria o componente no meio da animação de
+        saída.
       -->
       <app-tour-embed-sheet />
+      <app-tour-delete-sheet />
 
       <!--
         O sheet Cenas veio da TV-3, que nasceu fora desta tela. `[aberto]` sai

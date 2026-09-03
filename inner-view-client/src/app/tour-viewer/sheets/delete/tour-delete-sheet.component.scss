@@ -1,0 +1,111 @@
+@use '../../../../theme/tour-viewer-mixins' as tv;
+
+// O sheet Apagar (TV-5). Medidas em `04-sheets.md` §3.
+//
+// Este é o ÚNICO vermelho sólido da tela. Em todo o resto do visualizador o
+// destrutivo é discreto — `--tv-danger-tint` com texto claro —, e o sólido fica
+// reservado para o botão que executa. É o que impede a tab bar de gritar
+// "APAGAR" o tempo todo e, ao mesmo tempo, o que faz este botão pesar.
+
+:host {
+  // Quem desenha é o `<ion-modal>`, que o Ionic move para o `<body>`.
+  display: contents;
+}
+
+.tv-apagar__icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: var(--tv-danger-icon-bg);
+  color: var(--tv-danger-text);
+}
+
+.tv-apagar__corpo {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--tv-text-muted);
+}
+
+.tv-apagar__aviso {
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  border: 1px solid var(--tv-danger-border);
+  border-radius: 13px;
+  background: var(--tv-danger-tint-soft);
+  color: var(--tv-danger-text);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+// ---- ações ----------------------------------------------------------------
+
+.tv-apagar__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 14px;
+}
+
+.tv-apagar__botao {
+  min-height: 50px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--tv-radius-primary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--tv-dur-control) ease-out;
+
+  &:focus-visible {
+    outline: 2px solid var(--tv-accent);
+    outline-offset: 2px;
+  }
+
+  // Durante o "Apagando…" os dois botões param de responder. O cursor volta ao
+  // normal porque `pointer` sobre um botão inerte promete uma resposta que não
+  // vem — e é justamente aqui que a pessoa fica batendo no botão.
+  &:disabled {
+    opacity: 0.65;
+    cursor: default;
+  }
+}
+
+.tv-apagar__botao--confirmar {
+  background: var(--tv-danger);
+  color: var(--tv-text);
+  font-weight: 800;
+
+  // O hover CLAREIA, ao contrário do resto do app: a base já é o vermelho
+  // escuro, e escurecer mais o afastaria do texto branco por cima.
+  &:hover:not(:disabled) {
+    background: var(--tv-danger-hover);
+  }
+}
+
+.tv-apagar__botao--cancelar {
+  border: 1px solid var(--tv-border-control);
+  background: none;
+  color: var(--tv-text);
+  font-weight: 700;
+
+  &:hover:not(:disabled) {
+    background: var(--tv-fill);
+  }
+}
+
+// No diálogo centrado do desktop os botões ficam em linha, com o Cancelar à
+// esquerda (`05-desktop.md`). `row-reverse` e não uma segunda ordem no HTML:
+// a ordem do DOM é a do celular, e ela é a que decide o alcance do polegar.
+@include tv.tv-desktop {
+  .tv-apagar__acoes {
+    flex-direction: row-reverse;
+  }
+
+  .tv-apagar__botao {
+    flex: 1;
+  }
+}
