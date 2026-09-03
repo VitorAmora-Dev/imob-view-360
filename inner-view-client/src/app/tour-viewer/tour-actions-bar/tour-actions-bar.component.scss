@@ -7,19 +7,30 @@
   background: var(--tv-tabbar-bg);
   backdrop-filter: blur(var(--tv-blur-tabbar));
   -webkit-backdrop-filter: blur(var(--tv-blur-tabbar));
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
   transition:
-    opacity var(--tv-dur-chrome) ease,
-    transform var(--tv-dur-chrome) ease,
-    visibility var(--tv-dur-chrome) ease;
+    background var(--tv-dur-chrome) ease,
+    border-color var(--tv-dur-chrome) ease,
+    padding var(--tv-dur-chrome) ease;
 
   // O slot da página soma `--ion-safe-area-bottom`; repetir `env()` aqui
   // dobraria a área segura no iPhone.
-  &.is-hidden {
-    @include tv.tv-oculto-no-imersivo;
-  }
+}
+
+// ---- imersivo -------------------------------------------------------------
+//
+// A BARRA some; o botão de voltar à interface fica. Sem a placa, sem a borda e
+// sem o desfoque, o que resta é um controle flutuante sobre a foto — que é
+// exatamente o que havia antes da reorganização, um pouco mais abaixo na tela.
+//
+// `background: none` e não `opacity`: um vidro a 0.86 com opacidade baixa ainda
+// é uma faixa cinza sobre o panorama, e o modo imersivo existe para não haver
+// faixa nenhuma.
+:host(.is-imersivo) {
+  padding: 0 0 14px;
+  border-top-color: transparent;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .tv-actions__grid {
@@ -79,7 +90,8 @@
   }
 }
 
-.tv-actions__button--embed {
+.tv-actions__button--visibility,
+.tv-actions__button--share {
   background: var(--tv-fill);
   color: var(--tv-text);
 
@@ -89,13 +101,32 @@
   }
 }
 
-.tv-actions__button--delete {
-  background: var(--tv-danger-tint);
-  color: var(--tv-danger-text);
+// O botão sozinho do imersivo: redondo, centrado e de vidro, como o flutuante
+// que ele substitui. A grade vira uma caixa que não estica, senão o `1fr`
+// esticaria o único botão de ponta a ponta da tela.
+//
+// `pointer-events` é a parte que não é enfeite: sem placa, a faixa continua
+// sendo um retângulo de ponta a ponta da tela, e um retângulo transparente com
+// `pointer-events: auto` engole o arrasto do panorama do mesmo jeito que um
+// opaco — transparência não conta para hit test. O ARRASTO é o gesto principal
+// desta tela; devolvê-lo é obrigatório. Quem intercepta passa a ser só o botão.
+// A metade de cima do par mora em `tour-viewer.page.scss`, no `.tv-slot`.
+:host(.is-imersivo) .tv-actions__grid {
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+:host(.is-imersivo) .tv-actions__button--visibility {
+  @include tv.tv-vidro(var(--tv-glass-1), var(--tv-blur-control));
+  width: var(--tv-size-tab);
+  border-radius: 50%;
+  box-shadow: var(--tv-shadow-float);
+  pointer-events: auto;
 
   &:hover,
   &:active {
-    background: var(--tv-danger-tint-hover);
+    background: var(--tv-glass-1-hover);
   }
 }
 

@@ -667,21 +667,86 @@ TV-6 → TV-9 → TV-10 → TV-11 → TV-12.
 
 ### Onde estamos, em 03/09/2026
 
-| Feito | Falta |
+**TV-0 a TV-12 estão na `main`** (PR #51 e o PR do download de cena em
+rascunho). A tela abre com a foto, os hotspots, a faixa de cenas, o chrome
+mobile, o cluster do desktop e os quatro sheets — todos alcançáveis pela
+interface.
+
+---
+
+## 6b. TV-13 · Reorganização dos menus — 03/09/2026
+
+Pedido depois de a tela estar no ar, com o produto em mãos: a barra inferior
+tinha EDITAR / EMBED / APAGAR, e havia mais três controles espalhados pela tela
+(ocultar, gerenciar, selecionar cenas). Duas coisas estavam erradas ao mesmo
+tempo — a barra levava a ação destrutiva no alcance do polegar, e a tela tinha
+duas portas para a mesma lista de cenas.
+
+### O que a tela passou a ter
+
+| Antes | Agora |
 |---|---|
-| TV-0, TV-2, TV-3, TV-4, TV-5, TV-7, TV-8, TV-10, TV-11 | TV-1, TV-6, TV-9, TV-12 |
+| Barra: EDITAR · EMBED · APAGAR | Barra: **EDITAR · OCULTAR · COMPARTILHAR** |
+| Olho flutuante à direita, acima da barra | Sumiu — virou o OCULTAR da barra |
+| Pill de cena no topo esquerdo | Sumiu — a faixa de cenas (TV-2) já fazia isso |
+| Sheet Incorporar, próprio | Aba 2 do sheet **Compartilhar** |
+| "Compartilhar link" no Gerenciar | Sumiu — virou a aba 1 do Compartilhar |
+| APAGAR na barra | Último item do sheet **Gerenciar** |
+| "…" no topo direito | Igual: gerenciar tour |
 
-O que sobrou não é o que a tabela de alocação previa, e vale dizer por quê: a
-faixa de cenas (TV-2) e os dois sheets (TV-4, TV-5) saíram junto com a
-reconciliação da TV-3, porque era a mesma leitura de código. O que falta é o
-**chrome** — header, pill, tab bar, modo imersivo (TV-1) —, o sheet Gerenciar
-(TV-6), o layout desktop (TV-9) e o fechamento (TV-12).
+### As três decisões que não estavam no pedido
 
-A tela hoje abre com a foto, os hotspots, a faixa de cenas e os três sheets
-montados. O que ainda não há é como CHEGAR aos sheets Incorporar e Apagar pela
-interface: eles esperam a tab bar da TV-1, e até lá só abrem por
-`store.abrirSheet(...)`. Os slots deles já estão marcados no
-`tour-viewer.page.html`.
+**D11 — A barra não some inteira no modo imersivo.** O botão de ocultar era
+flutuante e sobrevivia ao imersivo justamente porque era ele o caminho de volta.
+Trazido para a barra, ele herdou o problema: com a barra sumindo por inteiro, o
+único jeito de recuperar a interface seria um toque na foto — que não tem
+afordância nenhuma e ninguém descobre. O que some no imersivo é a BARRA (placa
+de vidro, borda e os outros dois botões); sobra um botão redondo de vidro, do
+tamanho e no espírito do flutuante que ele substitui. **O invariante 1 do
+`TourViewerStore` foi reescrito para dizer isso.**
+
+O par de `pointer-events` que vem junto não é enfeite: sem a placa, a faixa
+continua sendo um retângulo de ponta a ponta da tela, e um retângulo
+transparente com `pointer-events: auto` engole o arrasto do panorama exatamente
+como um opaco — transparência não conta para hit test. A regra que devolve o
+toque mora em `tour-viewer.page.scss` (no slot, com a âncora `.tv-chrome >`, ou
+perde na especificidade) e a que o recupera para o botão mora no SCSS do
+componente. Os dois lados têm teste.
+
+**D12 — "Compartilhar link" saiu do Gerenciar.** O critério só mandava mover
+APAGAR para dentro do Gerenciar; tirar o compartilhar de lá é decisão nossa.
+Com um botão dedicado na barra e um sheet com abas, o item do Gerenciar seria a
+segunda porta para a mesma coisa — a duplicação que esta reorganização veio
+desfazer, e a que ninguém lembraria de manter em dia. O código dele (folha
+nativa + fallback de cópia + métrica) foi MOVIDO, não duplicado.
+
+**D13 — O desktop mudou só o que era forçado.** O cluster do desktop (TV-9) é
+outro desenho: ele tem Publicar no meio das ações e olho próprio, e não tem o
+botão "…". O "Incorporar" dele passou a abrir o Compartilhar já na aba
+Incorporar, porque o sheet antigo deixou de existir; o resto ficou. Levar a
+reorganização inteira para lá exigiria dar ao desktop um ponto de entrada para o
+Gerenciar, senão apagar um tour ficaria impossível na largura grande — é ticket
+próprio, e está anotado em "Fora de escopo".
+
+### Onde o código foi parar
+
+| Arquivo | O quê |
+|---|---|
+| `sheets/share/tour-share-sheet.component.*` | **novo** — o sheet, as abas e o rodapé |
+| `sheets/share/tour-embed-panel.component.*` | o miolo da TV-4, movido de `sheets/embed/` |
+| `tour-actions-bar/*` | a barra nova, com o estado imersivo |
+| `sheets/manage/*` | entrou Apagar, saiu Compartilhar |
+| `chrome/tv-scene-pill.*`, `chrome/tv-immersive-toggle.*` | **apagados** |
+| `tour-viewer.model.ts` | `SheetKind` `'embed'`→`'share'`, `ShareTab`, `pedacosDoIframe()` |
+| `tour-viewer.store.ts` | `shareTab`, `abrirCompartilhamento()`, `pedacosDoEmbed`, `codigoDoEmbed` |
+| `theme/_palette.scss`, `theme/tour-viewer.scss` | o verde do WhatsApp, L0 e L2 |
+
+A promessa da TV-4 — "o que se lê é o que se copia" — ficou mais frágil e por
+isso subiu de camada. O bloco de código e o botão "Copiar código" deixaram de
+ser o mesmo componente (o rodapé é do shell, porque `[rodape]` é projeção e só
+alcança filho direto), então o `<iframe>` passou a ser montado por
+`pedacosDoIframe()` no modelo, com os dois lados lendo o mesmo `computed` do
+store.
 
 ---
 
@@ -694,3 +759,6 @@ interface: eles esperam a tab bar da TV-1, e até lá só abrem por
 - Auto-ocultar o chrome depois de 4s de inatividade (opcional no handoff).
 - Hotspots do tipo `info`, ainda cortados desde o sprint 3.
 - Qualquer mudança na rota `/embed/:id` além do `?controles=0`.
+- Levar a reorganização de menus (TV-13) para o cluster do desktop: exige um
+  ponto de entrada para o Gerenciar na largura grande, que hoje não existe.
+  Ver D13.

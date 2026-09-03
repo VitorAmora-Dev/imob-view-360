@@ -1,8 +1,7 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { TvHeaderComponent } from './tv-header.component';
-import { TvScenePillComponent } from './tv-scene-pill.component';
 
 describe('Chrome móvel do tour', () => {
   beforeEach(() => {
@@ -38,18 +37,9 @@ describe('Chrome móvel do tour', () => {
     fixture.destroy();
   });
 
-  it('a pill mede 36px e deixa de receber foco no imersivo', () => {
-    const fixture: ComponentFixture<TvScenePillComponent> =
-      TestBed.createComponent(TvScenePillComponent);
-    fixture.componentRef.setInput('sceneName', 'Sala de estar');
-    fixture.componentRef.setInput('chromeVisible', false);
-    fixture.detectChanges();
-
-    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
-    expect(getComputedStyle(button).height).toBe('36px');
-    expect(button.classList).toContain('is-hidden');
-    expect(button.hasAttribute('inert')).toBeTrue();
-
-    fixture.destroy();
-  });
+  // A pill de cena e o botão flutuante de ocultar saíram da tela com a
+  // reorganização dos menus: a faixa de cenas assumiu a primeira e a barra de
+  // ações assumiu o segundo. O que cada um garantia continua testado — a faixa
+  // em `tour-scenes-strip.component.spec.ts`, o ocultar em
+  // `tour-actions-bar.component.spec.ts`.
 });

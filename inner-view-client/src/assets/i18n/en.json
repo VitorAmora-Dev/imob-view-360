@@ -441,12 +441,14 @@
     },
     "ACTIONS": {
       "EDIT": "EDIT",
-      "EMBED": "EMBED",
-      "DELETE": "DELETE",
       "EDIT_LONG": "Edit tour",
       "EMBED_LONG": "Embed",
       "PUBLISH_LONG": "Publish",
-      "DELETE_ARIA": "Delete tour"
+      "DELETE_ARIA": "Delete tour",
+      "HIDE": "HIDE",
+      "SHOW": "SHOW",
+      "SHARE": "SHARE",
+      "SHARE_LONG": "Share tour"
     },
     "EMBED": {
       "TITLE": "Embed tour",
@@ -458,6 +460,16 @@
       "SHOW_CONTROLS": "Show controls in the embed",
       "COPY_CODE": "Copy code",
       "COPY_LINK": "Copy link"
+    },
+    "SHARE": {
+      "TITLE": "Share tour",
+      "TAB_LINK": "Share",
+      "TAB_EMBED": "Embed",
+      "DESCRIPTION": "Anyone with the link opens the tour without an account.",
+      "LINK_LABEL": "Public tour link",
+      "WHATSAPP": "WhatsApp",
+      "EMAIL": "Email",
+      "MORE": "More options"
     },
     "DELETE": {
       "TITLE": "Delete \"{{name}}\"?",
@@ -473,10 +485,10 @@
       "PUBLISH_SUB": "Makes the tour reachable through the public link",
       "SETTINGS": "Tour settings",
       "SETTINGS_SUB": "Name and starting scene",
-      "SHARE": "Share link",
-      "SHARE_SUB": "WhatsApp, email or copy URL",
       "DOWNLOAD": "Download this scene",
-      "DOWNLOAD_SUB": "Saves the 360 photo of the current room"
+      "DOWNLOAD_SUB": "Saves the 360 photo of the current room",
+      "DELETE": "Delete tour",
+      "DELETE_SUB": "Removes the scenes and takes down the public link"
     },
     "HOTSPOT": {
       "GO_TO": "Go to {{name}}"

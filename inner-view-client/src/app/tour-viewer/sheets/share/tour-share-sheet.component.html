@@ -1,0 +1,145 @@
+<app-tour-sheet
+  [isOpen]="aberto()"
+  [variante]="'adaptavel'"
+  [titulo]="'TOUR_VIEWER.SHARE.TITLE' | translate"
+  [breakpoints]="paradas"
+  [initialBreakpoint]="paradas[1]"
+  (fechado)="fechar()">
+
+  <!--
+    `tablist` de verdade, com foco itinerante: só a aba ativa tem `tabindex=0`,
+    e as setas percorrem o resto. Sem isso o Tab pararia em cada aba antes de
+    chegar ao conteúdo — e são as setas que o leitor de tela anuncia como o
+    jeito de trocar de painel.
+
+    Não há `@if` escondendo o painel inativo: `[hidden]` tira do fluxo E da
+    ordem de tabulação, e mantém no DOM o formato já escolhido do embed. Com
+    `@if`, trocar de aba e voltar destruiria e recriaria o painel — o rádio
+    marcado sobreviveria (mora no store), mas o `<code>` perderia a seleção que
+    a pessoa tivesse feito com o dedo, que é justamente o caminho de quando a
+    área de transferência é negada.
+  -->
+  <div
+    class="tv-share__abas"
+    role="tablist"
+    [attr.aria-label]="'TOUR_VIEWER.SHARE.TITLE' | translate">
+    @for (aba of abas; track aba.id; let i = $index) {
+      <button
+        type="button"
+        class="tv-share__aba"
+        role="tab"
+        [id]="idDaAba(aba.id)"
+        [class.is-ativa]="aba.id === abaAtual()"
+        [attr.aria-selected]="aba.id === abaAtual()"
+        [attr.aria-controls]="idDoPainel(aba.id)"
+        [attr.tabindex]="aba.id === abaAtual() ? 0 : -1"
+        (click)="escolherAba(aba.id)"
+        (keydown)="aoTeclar($event, i)">
+        {{ aba.rotuloKey | translate }}
+      </button>
+    }
+  </div>
+
+  <!-- ---- aba 1: compartilhar ------------------------------------------- -->
+  <div
+    class="tv-share__painel"
+    role="tabpanel"
+    [id]="idDoPainel('link')"
+    [attr.aria-labelledby]="idDaAba('link')"
+    [hidden]="abaAtual() !== 'link'">
+    <p class="tv-share__intro">{{ 'TOUR_VIEWER.SHARE.DESCRIPTION' | translate }}</p>
+
+    <!--
+      O link à vista, e não só atrás do botão de copiar: é ele que diz para
+      onde a pessoa está mandando alguém, e é o que sobra quando a área de
+      transferência é negada — daí o `user-select: text` no SCSS.
+    -->
+    <p class="tv-share__link" [attr.aria-label]="'TOUR_VIEWER.SHARE.LINK_LABEL' | translate">
+      {{ link() }}
+    </p>
+
+    <div class="tv-share__canais">
+      <button type="button" class="tv-share__canal" (click)="abrirWhatsApp()">
+        <span class="tv-share__canal-icone tv-share__canal-icone--whatsapp" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path
+              fill="currentColor"
+              d="M12 2a10 10 0 0 0-8.7 14.9L2 22l5.3-1.4A10 10 0 1 0 12 2Zm5.1 14.2c-.2.6-1.2 1.2-1.7 1.2-.5.1-1 .1-1.6-.1a12 12 0 0 1-5.9-5c-.4-.7-.7-1.5-.7-2.3 0-.8.4-1.4.6-1.6.2-.2.4-.3.6-.3h.5c.2 0 .4 0 .5.4l.7 1.7c.1.2 0 .4-.1.5l-.3.4c-.1.1-.3.3-.1.5.2.4.7 1.1 1.4 1.7.9.8 1.6 1 1.8 1.1.2.1.4.1.5-.1l.6-.7c.2-.2.3-.2.5-.1l1.6.8c.2.1.4.2.4.3.1.2.1.6 0 .9Z" />
+          </svg>
+        </span>
+        {{ 'TOUR_VIEWER.SHARE.WHATSAPP' | translate }}
+      </button>
+
+      <button type="button" class="tv-share__canal" (click)="abrirEmail()">
+        <span class="tv-share__canal-icone" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linejoin="round"
+              d="M3 6.5h18v11H3zM3 7l9 6 9-6" />
+          </svg>
+        </span>
+        {{ 'TOUR_VIEWER.SHARE.EMAIL' | translate }}
+      </button>
+
+      @if (temFolhaNativa) {
+        <button type="button" class="tv-share__canal" (click)="compartilhar()">
+          <span class="tv-share__canal-icone" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 3v11M12 3 8.5 6.5M12 3l3.5 3.5M5 12v7.5h14V12" />
+            </svg>
+          </span>
+          {{ 'TOUR_VIEWER.SHARE.MORE' | translate }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ---- aba 2: incorporar ---------------------------------------------- -->
+  <div
+    class="tv-share__painel"
+    role="tabpanel"
+    [id]="idDoPainel('embed')"
+    [attr.aria-labelledby]="idDaAba('embed')"
+    [hidden]="abaAtual() !== 'embed'">
+    <app-tour-embed-panel />
+  </div>
+
+  <!--
+    UM rodapé para as duas abas, e não um por painel: o `[rodape]` do shell é
+    projeção de conteúdo, e só alcança filho DIRETO deste template. O botão
+    principal troca com a aba; "Copiar link" fica nas duas, porque é o pedido
+    que aparece nos dois contextos.
+  -->
+  <div rodape class="tv-share__acoes">
+    @if (abaAtual() === 'embed') {
+      <button
+        type="button"
+        class="tv-share__botao tv-share__botao--primario"
+        (click)="copiar(codigo(), 'TOUR_VIEWER.TOAST.CODE_COPIED', 'embed')">
+        {{ 'TOUR_VIEWER.EMBED.COPY_CODE' | translate }}
+      </button>
+      <button
+        type="button"
+        class="tv-share__botao tv-share__botao--ghost"
+        (click)="copiar(link(), 'TOUR_VIEWER.TOAST.LINK_COPIED', 'clipboard')">
+        {{ 'TOUR_VIEWER.EMBED.COPY_LINK' | translate }}
+      </button>
+    } @else {
+      <button
+        type="button"
+        class="tv-share__botao tv-share__botao--primario"
+        (click)="copiar(link(), 'TOUR_VIEWER.TOAST.LINK_COPIED', 'clipboard')">
+        {{ 'TOUR_VIEWER.EMBED.COPY_LINK' | translate }}
+      </button>
+    }
+  </div>
+</app-tour-sheet>

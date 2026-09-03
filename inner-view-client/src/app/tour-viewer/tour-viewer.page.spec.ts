@@ -118,6 +118,32 @@ describe('TourViewerPage — camadas da tela', () => {
     }
   });
 
+  /**
+   * O mesmo defeito da camada de hotspots, um andar abaixo — e agora com a
+   * barra de ações, que deixou de sumir por inteiro no imersivo para poder
+   * carregar o botão que devolve a interface.
+   *
+   * `.tv-chrome > .tv-slot` dá `pointer-events: auto` a TODO slot, e o slot das
+   * ações é uma faixa de ponta a ponta da tela. Sem a placa de vidro ela fica
+   * invisível — mas transparência não conta para hit test, e ela continuaria
+   * engolindo o arrasto do panorama nos 70px de baixo, que é justamente onde o
+   * polegar começa o gesto. A regra que devolve o toque precisa VENCER a que o
+   * tira, e é por isso que ela repete a âncora `.tv-chrome >`.
+   */
+  it('no imersivo a faixa das ações devolve o arrasto ao panorama', () => {
+    const slot = fixture.nativeElement.querySelector('.tv-slot--acoes') as HTMLElement;
+    expect(getComputedStyle(slot).pointerEvents).toBe('auto');
+
+    page.store.chromeVisible.set(false);
+    fixture.detectChanges();
+
+    expect(slot.classList).toContain('is-imersivo');
+    expect(getComputedStyle(slot).pointerEvents).toBe('none');
+    // E o botão que sobrou continua clicável, senão não há volta.
+    const botao = slot.querySelector('.tv-actions__button--visibility') as HTMLElement;
+    expect(getComputedStyle(botao).pointerEvents).toBe('auto');
+  });
+
   it('os hotspots vêm DEPOIS do chrome na ordem de tabulação', () => {
     // O handoff pede o Tab passando por voltar, título, pill e ações antes de
     // sair andando pela foto. Quem decide isso é a ordem no DOM; a pilha visual

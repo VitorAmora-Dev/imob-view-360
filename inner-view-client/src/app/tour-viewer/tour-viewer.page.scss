@@ -102,15 +102,21 @@
   pointer-events: none;
 }
 
-.tv-slot--olho {
-  position: absolute;
-  right: 12px;
-  top: 210px;
-}
-
 .tv-slot--acoes {
   // A tab bar encosta no fim da tela; o respiro do iPhone entra por baixo dela.
   padding-bottom: var(--ion-safe-area-bottom, 0);
+}
+
+// No imersivo a barra vira um botão redondo sobre a foto, mas o SLOT continua
+// tão largo quanto a tela. Um retângulo transparente com `pointer-events: auto`
+// engole o arrasto do panorama exatamente como um opaco — transparência não
+// conta para hit test. Aqui a faixa devolve o toque; lá no SCSS do componente é
+// o botão que o recupera para si.
+//
+// A regra precisa da mesma âncora `.tv-chrome >` da de cima: sem ela perde na
+// especificidade para a regra que dá `auto` a todo slot, e não faz nada.
+.tv-chrome > .tv-slot--acoes.is-imersivo {
+  pointer-events: none;
 }
 
 // ---- sheets e toast -------------------------------------------------------

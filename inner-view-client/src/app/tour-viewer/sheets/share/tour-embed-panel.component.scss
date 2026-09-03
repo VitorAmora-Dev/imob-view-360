@@ -1,13 +1,18 @@
-// O sheet Incorporar (TV-4). Medidas em `04-sheets.md` §2.
+// A aba "Incorporar" do sheet Compartilhar. Medidas em `04-sheets.md` §2.
 //
 // Nada de moldura aqui: o fundo, o raio, a sombra, o grabber e o scrim são do
-// `TourSheetComponent`. Este arquivo desenha só o miolo.
+// `TourSheetComponent`, e as abas e o rodapé são do `TourShareSheetComponent`.
+// Este arquivo desenha só o miolo da segunda aba.
 
 :host {
-  // O host não é caixa nenhuma: quem desenha é o `<ion-modal>`, que o Ionic
-  // move para o `<body>` ao apresentar. `contents` evita uma linha vazia no
-  // meio do palco.
-  display: contents;
+  display: block;
+}
+
+.tv-embed__intro {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--tv-text-muted);
 }
 
 // ---- seletor de formato ---------------------------------------------------
@@ -23,7 +28,7 @@
 }
 
 // O grupo precisa de nome para o leitor de tela; a tela não precisa dele,
-// porque o sheet inteiro fala de incorporar.
+// porque a aba inteira fala de incorporar.
 .tv-embed__legenda {
   position: absolute;
   width: 1px;
@@ -160,55 +165,4 @@
 .tv-embed__switch:focus-visible ~ .tv-embed__trilho {
   outline: 2px solid var(--tv-accent);
   outline-offset: 3px;
-}
-
-// ---- ações ----------------------------------------------------------------
-
-.tv-embed__acoes {
-  display: flex;
-  gap: 9px;
-  padding-top: 14px;
-}
-
-.tv-embed__botao {
-  min-height: 48px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: var(--tv-radius-primary);
-  font-size: 13.5px;
-  cursor: pointer;
-  transition:
-    background var(--tv-dur-control) ease-out,
-    filter var(--tv-dur-control) ease-out;
-
-  &:focus-visible {
-    outline: 2px solid var(--tv-accent);
-    outline-offset: 2px;
-  }
-}
-
-// Copiar o CÓDIGO é a ação da tela; copiar o link é a saída lateral. O
-// `flex: 1.4` contra `flex: 1` é a hierarquia dita em largura, e é o que
-// dispensa um segundo tom de accent para diferenciar os dois.
-.tv-embed__botao--primario {
-  flex: 1.4;
-  background: var(--tv-accent);
-  color: var(--tv-accent-ink);
-  font-weight: 800;
-
-  &:hover {
-    filter: brightness(1.06);
-  }
-}
-
-.tv-embed__botao--ghost {
-  flex: 1;
-  border: 1px solid var(--tv-border-control);
-  background: none;
-  color: var(--tv-text);
-  font-weight: 700;
-
-  &:hover {
-    background: var(--tv-fill);
-  }
 }

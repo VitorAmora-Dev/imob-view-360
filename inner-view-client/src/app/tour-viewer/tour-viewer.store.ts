@@ -7,10 +7,12 @@ import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import {
   EmbedFormat,
+  ShareTab,
   SheetKind,
   TOAST_MS,
   TourViewerScene,
   cenasDoTour,
+  pedacosDoIframe,
 } from './tour-viewer.model';
 
 /**
@@ -29,7 +31,8 @@ import {
  * pelos componentes, porque é o único jeito de eles continuarem verdadeiros
  * quando a quarta frente chegar:
  *
- *   1. Sem chrome, sem faixa de cenas, sem tab bar, sem pill e sem hotspots.
+ *   1. Sem chrome, sem faixa de cenas, sem hotspots e sem tab bar — desta
+ *      sobra apenas o botão que devolve a interface. Ver `TourActionsBar`.
  *   2. Sheet aberto esconde a faixa de cenas (evita duas listas na tela).
  *   3. Nunca dois sheets ao mesmo tempo.
  *   4. Ação destrutiva sempre passa por confirmação.
@@ -72,7 +75,8 @@ export class TourViewerStore {
    * Tour existe mas não tem cômodo nenhum.
    *
    * Estado real: dá para apagar o último panorama e continuar na tela. A faixa
-   * e a pill somem, e a tab bar fica com EDITAR e APAGAR — ver `02-mobile.md`.
+   * some, e a tab bar fica com EDITAR e OCULTAR — sem cena não há o que
+   * compartilhar.
    */
   readonly semCenas = computed(() => this.scenes().length === 0);
 
@@ -119,7 +123,49 @@ export class TourViewerStore {
     this.sheet.set(qual);
   }
 
-  fecharSheet(): void {
+  /** Qual aba do sheet Compartilhar está na frente. */
+  readonly shareTab = signal<ShareTab>('link');
+
+  /**
+   * Abre o Compartilhar JÁ na aba certa, num passo só.
+   *
+   * Dois lugares o abrem por portas diferentes — o COMPARTILHAR da barra
+   * inferior, que quer a aba do link, e o "Incorporar" do cluster do desktop,
+   * que quer a de embed. Sem este método cada um faria `shareTab.set()` seguido
+   * de `abrirSheet('share')`, e o dia em que alguém esquecesse a primeira linha
+   * o sheet abriria na aba que a visita ANTERIOR deixou.
+   *
+   * Por isso ele sempre grava a aba, inclusive no valor padrão: a aba não é
+   * memória entre aberturas, é consequência de por onde se entrou.
+   */
+  abrirCompartilhamento(aba: ShareTab = 'link'): void {
+    this.shareTab.set(aba);
+    this.sheet.set('share');
+  }
+
+  /**
+   * Fecha o sheet — mas só se `qual` ainda for o da vez.
+   *
+   * O parâmetro existe por um defeito que só apareceu no navegador, quando
+   * "Apagar tour" desceu para dentro do sheet Gerenciar. A sequência é esta:
+   *
+   *   1. o item chama `abrirSheet('delete')`, e o store passa a dizer 'delete';
+   *   2. o Gerenciar vê `aberto()` virar `false` e manda o `IonModal` fechar;
+   *   3. o Ionic emite `didDismiss` — DEPOIS, e de forma assíncrona;
+   *   4. o ouvinte do Gerenciar chamava `fecharSheet()` sem argumento e
+   *      zerava o store, apagando o sheet que o passo 1 tinha acabado de abrir.
+   *
+   * O sintoma era os dois sheets sumirem e a confirmação nunca aparecer: a
+   * ação destrutiva ficava inalcançável, sem erro nenhum no console. Nenhum
+   * teste de unidade pegava, porque o passo 3 só existe com o modal
+   * apresentado de verdade.
+   *
+   * Com o argumento, o `didDismiss` do sheet que está SAINDO não fala pelo que
+   * está entrando. Sem argumento, continua sendo "fecha o que estiver aberto",
+   * que é o que quem fecha por conta própria quer dizer.
+   */
+  fecharSheet(qual?: Exclude<SheetKind, null>): void {
+    if (qual && this.sheet() !== qual) return;
     this.sheet.set(null);
   }
 
@@ -177,6 +223,24 @@ export class TourViewerStore {
     const base = `${window.location.origin}/embed/${id}`;
     return this.embedShowControls() ? base : `${base}?controles=0`;
   });
+
+  /**
+   * O `<iframe>` que o painel de embed DESENHA e que o rodapé do sheet COPIA.
+   *
+   * Mora no store porque os dois componentes são irmãos, e não pai e filho: o
+   * `TourShareSheetComponent` tem o botão "Copiar código" no rodapé (fora da
+   * área rolável, de propósito), e o `TourEmbedPanelComponent` tem o bloco de
+   * código. Cada um montando o seu é exatamente a divergência que
+   * `pedacosDoIframe()` existe para impedir.
+   */
+  readonly pedacosDoEmbed = computed(() =>
+    pedacosDoIframe(this.linkPublico(), this.embedFormat()),
+  );
+
+  /** O que vai para a área de transferência: os mesmos trechos, emendados. */
+  readonly codigoDoEmbed = computed(() =>
+    this.pedacosDoEmbed().map((pedaco) => pedaco.texto).join(''),
+  );
 
   // ---- rail do desktop ---------------------------------------------------
 

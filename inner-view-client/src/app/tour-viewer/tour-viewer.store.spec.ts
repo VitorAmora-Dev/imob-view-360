@@ -104,10 +104,28 @@ describe('TourViewerStore', () => {
     });
 
     it('abrir um segundo sheet substitui o primeiro', () => {
-      store.abrirSheet('embed');
+      store.abrirSheet('share');
       store.abrirSheet('delete');
 
       expect(store.sheet()).toBe('delete');
+    });
+
+    /**
+     * A aba do Compartilhar é consequência de por onde se entrou, e não memória
+     * entre aberturas. Sem gravá-la em toda abertura, o COMPARTILHAR da barra
+     * inferior abriria na tela de `<iframe>` para quem tivesse usado o
+     * "Incorporar" do desktop antes.
+     */
+    it('abrir o compartilhar grava a aba, inclusive no valor padrão', () => {
+      store.abrirCompartilhamento('embed');
+      expect(store.sheet()).toBe('share');
+      expect(store.shareTab()).toBe('embed');
+
+      store.fecharSheet();
+      store.abrirCompartilhamento();
+
+      expect(store.sheet()).toBe('share');
+      expect(store.shareTab()).toBe('link');
     });
 
     it('tour sem cenas não mostra faixa', () => {
@@ -131,6 +149,27 @@ describe('TourViewerStore', () => {
       store.embedShowControls.set(false);
 
       expect(store.linkPublico()).toBe(`${window.location.origin}/embed/t1?controles=0`);
+    });
+
+    /**
+     * O bloco de código do painel e o botão "Copiar código" do rodapé do sheet
+     * são componentes IRMÃOS desde a reorganização. Os dois leem daqui, e é
+     * isso que impede o texto copiado de divergir do texto lido.
+     */
+    it('o código do embed acompanha link e formato, de uma fonte só', () => {
+      store.tour.set(TOUR);
+
+      expect(store.codigoDoEmbed()).toBe(
+        store.pedacosDoEmbed().map((pedaco) => pedaco.texto).join(''),
+      );
+      expect(store.codigoDoEmbed()).toContain(`src="${store.linkPublico()}"`);
+      expect(store.codigoDoEmbed()).toContain('width="100%"');
+
+      store.embedFormat.set(1);
+      expect(store.codigoDoEmbed()).toContain('width="960"');
+
+      store.embedShowControls.set(false);
+      expect(store.codigoDoEmbed()).toContain('?controles=0');
     });
   });
 

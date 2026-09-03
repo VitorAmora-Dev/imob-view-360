@@ -5,7 +5,6 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { TourSheetComponent } from '../../../components/tour-sheet/tour-sheet.component';
 import { Panorama } from '../../../models/virtual-tour.model';
 import { PanoramaImageCache } from '../../../services/panorama-image-cache.service';
-import { VirtualTourService } from '../../../services/virtual-tour.service';
 import { TourViewerStore } from '../../tour-viewer.store';
 import { panoramaFilename } from './panorama-download.util';
 
@@ -15,9 +14,15 @@ const PARADAS = [0, 0.62];
 /**
  * Escape hatch do visualizador: ações menos frequentes vivem nesta lista.
  *
- * O componente não duplica decisões do contrato. Publicar, permissões, link e
- * sheet aberto vêm do `TourViewerStore`; daqui saem apenas os efeitos que
- * pertencem a um item da lista.
+ * O componente não duplica decisões do contrato. Publicar, permissões e sheet
+ * aberto vêm do `TourViewerStore`; daqui saem apenas os efeitos que pertencem a
+ * um item da lista.
+ *
+ * A reorganização dos menus mexeu nas duas pontas desta lista. "Compartilhar
+ * link" SAIU: compartilhar virou botão próprio na barra inferior, com sheet e
+ * abas, e mantê-lo aqui deixaria duas portas para a mesma coisa — que é
+ * exatamente a duplicação que a reorganização veio desfazer. "Apagar tour"
+ * ENTROU, vindo da barra inferior, e é hoje o último item.
  */
 @Component({
   selector: 'app-tour-manage-sheet',
@@ -32,7 +37,6 @@ export class TourManageSheetComponent {
 
   private readonly store = inject(TourViewerStore);
   private readonly router = inject(Router);
-  private readonly virtualTourService = inject(VirtualTourService);
   private readonly imagens = inject(PanoramaImageCache);
 
   readonly paradas = PARADAS;
@@ -40,7 +44,7 @@ export class TourManageSheetComponent {
   readonly podeEditar = this.store.podeEditar;
   readonly podePublicar = this.store.podePublicar;
   readonly publicando = this.store.publicando;
-  readonly podeCompartilhar = computed(() => Boolean(this.store.tourId() && this.store.linkPublico()));
+  readonly podeApagar = this.store.podeEditar;
   readonly podeBaixar = computed(() => this.panoramaAtual() !== null);
 
   async publicar(): Promise<void> {
@@ -52,7 +56,7 @@ export class TourManageSheetComponent {
       return;
     }
 
-    this.store.fecharSheet();
+    this.store.fecharSheet('manage');
     this.store.mostrarToast('TOUR_VIEWER.TOAST.PUBLISHED');
   }
 
@@ -61,40 +65,29 @@ export class TourManageSheetComponent {
     const id = this.store.tourId();
     if (!id) return;
 
-    this.store.fecharSheet();
+    this.store.fecharSheet('manage');
     this.store.mostrarToast('TOUR_VIEWER.TOAST.OPENING_EDITOR');
     void this.router.navigate(['/tour', id, 'editar'], { queryParams: { etapa: 4 } });
   }
 
   /**
-   * Usa a folha nativa quando disponível e copia como fallback.
+   * Leva à confirmação, e nunca ao DELETE.
    *
-   * A métrica é intencionalmente best effort: falhar ao contá-la nunca impede
-   * o link de sair. Cancelar a folha nativa segue o padrão já usado na tela de
-   * publicação e oferece a cópia como segundo caminho.
+   * `abrirSheet` SUBSTITUI o sheet aberto — este some e o de confirmar entra no
+   * lugar. É o invariante 3 (nunca dois sheets) e o 4 (ação destrutiva sempre
+   * confirmada) sendo respeitados pela mesma linha.
+   *
+   * Sem `fecharSheet()` antes: seriam dois `set` no mesmo tique, e o primeiro
+   * pediria ao Ionic para desapresentar um modal que o segundo já mandou
+   * substituir — o híbrido que o shell do sheet documenta.
+   *
+   * A OUTRA metade deste caminho está em `TourViewerStore.fecharSheet`: o
+   * `didDismiss` deste sheet chega DEPOIS, quando o store já diz 'delete', e
+   * antes do argumento ele zerava o sheet recém-aberto. O sintoma era a
+   * confirmação nunca aparecer — só apareceu no navegador.
    */
-  async compartilhar(): Promise<void> {
-    const id = this.store.tourId();
-    const url = this.store.linkPublico();
-    if (!id || !url) return;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ url });
-        this.registrarCompartilhamento(id, 'native');
-        return;
-      } catch {
-        // Cancelamento ou indisponibilidade da folha: ainda é possível copiar.
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      this.registrarCompartilhamento(id, 'clipboard');
-      this.store.mostrarToast('TOUR_VIEWER.TOAST.LINK_COPIED');
-    } catch {
-      this.store.mostrarToast('TOUR_VIEWER.TOAST.COPY_ERROR');
-    }
+  apagar(): void {
+    this.store.abrirSheet('delete');
   }
 
   /**
@@ -136,11 +129,8 @@ export class TourManageSheetComponent {
     }
   }
 
+  /** O NOME do sheet vai junto: ver `TourViewerStore.fecharSheet`. */
   fechar(): void {
-    this.store.fecharSheet();
-  }
-
-  private registrarCompartilhamento(tourId: string, canal: 'native' | 'clipboard'): void {
-    this.virtualTourService.recordShare(tourId, canal).subscribe({ error: () => undefined });
+    this.store.fecharSheet('manage');
   }
 }

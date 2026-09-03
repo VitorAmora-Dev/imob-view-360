@@ -84,22 +84,13 @@
           </div>
         }
 
-        <div class="tv-slot tv-slot--pill">
-          @if (store.currentScene(); as scene) {
-            <app-tv-scene-pill
-              [sceneName]="scene.name"
-              [chromeVisible]="store.chromeVisible()"
-              (openScenes)="store.abrirSheet('scenes')" />
-          }
-        </div>
-
+        <!--
+          Sem pill de cena e sem botão flutuante de olho: a faixa de cenas lá
+          embaixo substituiu a primeira, e o segundo virou o OCULTAR da barra
+          de ações. Duas listas de cenas na mesma tela era o que a
+          reorganização veio tirar.
+        -->
         <div class="tv-espaco"></div>
-
-        <div class="tv-slot tv-slot--olho">
-          <app-tv-immersive-toggle
-            [chromeVisible]="store.chromeVisible()"
-            (toggled)="store.alternarChrome()" />
-        </div>
 
         @if (store.faixaVisivel()) {
           <!--
@@ -117,14 +108,23 @@
             [atualId]="cenaNaTela()?.id ?? null" />
         }
 
-        <div class="tv-slot tv-slot--acoes">
+        <!--
+          `is-imersivo` no SLOT, e não só no componente: no imersivo a barra
+          perde a placa mas continua sendo um retângulo de ponta a ponta, e é
+          esta div que carrega o `pointer-events: auto` do chrome. Sem a
+          classe aqui, ela engoliria o arrasto do panorama na faixa de baixo —
+          o par da regra está no SCSS do componente.
+        -->
+        <div
+          class="tv-slot tv-slot--acoes"
+          [class.is-imersivo]="!store.chromeVisible()">
           <app-tour-actions-bar
             [canEdit]="store.podeEditar()"
             [hasScenes]="!store.semCenas()"
             [chromeVisible]="store.chromeVisible()"
             (editRequested)="editarTour()"
-            (embedRequested)="store.abrirSheet('embed')"
-            (deleteRequested)="store.abrirSheet('delete')" />
+            (visibilityToggled)="store.alternarChrome()"
+            (shareRequested)="store.abrirCompartilhamento()" />
         </div>
       </div>
 
@@ -177,7 +177,7 @@
         dentro, e um `@if` aqui destruiria o componente no meio da animação de
         saída.
       -->
-      <app-tour-embed-sheet />
+      <app-tour-share-sheet />
       <app-tour-delete-sheet />
 
       <!--
@@ -194,7 +194,7 @@
         [cenas]="store.panoramas()"
         [atualId]="cenaNaTela()?.id ?? null"
         (selecionada)="store.irParaCenaPorId($event.id)"
-        (fechado)="store.fecharSheet()" />
+        (fechado)="store.fecharSheet('scenes')" />
 
       @if (store.toast(); as chave) {
         <div class="tv-slot tv-slot--toast">

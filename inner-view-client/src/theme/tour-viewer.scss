@@ -80,6 +80,13 @@
   --tv-danger-border-strong: rgba(var(--status-error-rgb), 0.3);
   --tv-danger-icon-bg: rgba(var(--status-error-rgb), 0.15);
 
+  /* == Canais de compartilhamento ========================================= */
+  // O único lugar do visualizador que usa cor de marca alheia — ver
+  // `--channel-whatsapp` em `_palette.scss`. Ícone sobre o tint, e não texto
+  // sobre o fundo do sheet: o verde da marca não passa contraste como letra.
+  --tv-whatsapp: var(--channel-whatsapp);
+  --tv-whatsapp-tint: rgba(var(--channel-whatsapp-rgb), 0.16);
+
   /* == Aviso (faixa de offline) =========================================== */
   --tv-warn-soft: rgba(var(--status-warning-rgb), 0.15);
   --tv-warn-text: var(--status-warning);
