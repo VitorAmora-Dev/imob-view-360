@@ -168,6 +168,49 @@ re-apontada já no commit-zero. A página antiga vira `inner-view-legado`
 
 ---
 
+## 3b. Reconciliação de 02/09 — leia antes de abrir qualquer branch
+
+A TV-3 foi entregue a partir da `main`, e não da `feature/tour-viewer`. Sem o
+commit-zero ela não enxergava `TourViewerPage`, `TourViewerStore`, os tokens
+`--tv-*` nem o bloco `TOUR_VIEWER` — então reinventou os quatro. Nada disso foi
+erro de quem escreveu: **o TV-0 nunca foi mesclado, e levou junto o handoff de
+design**, que só existe naquela branch. Quem trabalhou da `main` não tinha como
+ver nem o contrato nem a referência visual.
+
+Já está reconciliado. As quatro regras abaixo existem para não repetir.
+
+### R1 · A base é a ponta da pilha, nunca a `main`
+
+Branch nova sai de **`feature/tour-wizard-edicao`**. É a única árvore que tem, ao
+mesmo tempo, o contrato do TV-0, a TV-3 encaixada e o
+`design_handoff_tour_viewer/`. Sair da `main` custa um dia de reencaixe.
+
+### R2 · i18n: um bloco por TELA, com o nome da tela, chaves em inglês
+
+Tudo desta tela em **`TOUR_VIEWER.*`**. `VIEWER.*` **não** é o bloco desta tela —
+é o do `PanoramicViewerComponent`, o componente 360 compartilhado por sete
+telas; ele tem uma chave (`ROOMS`) e continua com uma.
+
+Nome de chave em inglês: das 355 do arquivo, 348 são. `SHEET_TITLE`, não
+`TITULO`.
+
+### R3 · Um sheet por vez é do `TourViewerStore`, e só dele
+
+`store.sheet()` (tipado, `SheetKind`), `store.abrirSheet('...')`,
+`store.fecharSheet()`. **Não crie um segundo coordenador.** O shell
+`TourSheetComponent` e cada sheet recebem `[isOpen]`/`[aberto]` e emitem
+`(fechado)` — quem sabe qual está aberto é a tela, não o sheet.
+
+### R4 · O que se desenha sobre a foto lê `cenaNaTela()`, não `currentScene()`
+
+`store.currentScene()` é a **intenção**: vira no instante do toque.
+`page.cenaNaTela()` é a **realidade**: vira quando a textura chega, o que num 4G
+leva segundos. Hotspots, badge ATUAL e qualquer coisa posicionada sobre a
+equirretangular pertencem à segunda. Ligar na primeira já custou um defeito em
+produção interna: os pins do destino boiando sobre a foto da origem, clicáveis.
+
+---
+
 ## 4. Mapa de propriedade de arquivos
 
 Regra: cada task só escreve nos arquivos da sua linha. Arquivo de duas frentes é
