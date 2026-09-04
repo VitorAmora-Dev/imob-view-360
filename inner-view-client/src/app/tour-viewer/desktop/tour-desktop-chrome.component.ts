@@ -34,8 +34,6 @@ export class TourDesktopChromeComponent {
 
   readonly store = inject(TourViewerStore);
   readonly podeEditar = computed(() => this.canEdit() ?? this.store.podeEditar());
-  readonly indiceDaCena = computed(() => this.store.currentSceneIndex() + 1);
-  readonly totalDeCenas = computed(() => this.store.scenes().length);
   readonly chaveDoOlho = computed(() =>
     this.store.chromeVisible() ? 'TOUR_VIEWER.HIDE_UI' : 'TOUR_VIEWER.SHOW_UI',
   );

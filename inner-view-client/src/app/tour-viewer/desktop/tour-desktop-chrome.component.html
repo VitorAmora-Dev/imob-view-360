@@ -10,24 +10,6 @@
   </span>
 </app-header>
 
-@if (store.currentScene(); as cena) {
-  <div class="tv-desktop__contexto" [class.is-hidden]="!store.chromeVisible()">
-    <button
-      type="button"
-      class="tv-desktop__pill"
-      [attr.aria-label]="'TOUR_VIEWER.SCENES.OPEN_LIST' | translate"
-      [title]="'TOUR_VIEWER.SCENES.OPEN_LIST' | translate"
-      (click)="store.abrirSheet('scenes')">
-      <span class="tv-desktop__dot" aria-hidden="true"></span>
-      <span class="tv-desktop__nome">{{ cena.name }}</span>
-      <span class="tv-desktop__chevron" aria-hidden="true">⌄</span>
-    </button>
-    <span class="tv-desktop__contagem">
-      {{ 'TOUR_VIEWER.SCENE_OF' | translate: { n: indiceDaCena(), total: totalDeCenas() } }}
-    </span>
-  </div>
-}
-
 <div class="tv-desktop__visualizacao">
   <button
     type="button"

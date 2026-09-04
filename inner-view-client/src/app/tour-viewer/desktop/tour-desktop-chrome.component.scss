@@ -14,7 +14,6 @@
 }
 
 .tv-desktop__header,
-.tv-desktop__contexto,
 .tv-desktop__visualizacao,
 .tv-desktop__acoes {
   pointer-events: auto;
@@ -43,63 +42,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-}
-
-.tv-desktop__contexto {
-  position: absolute;
-  top: 86px;
-  left: 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: opacity var(--tv-dur-chrome) ease, transform var(--tv-dur-chrome) ease;
-}
-
-.tv-desktop__pill {
-  display: inline-flex;
-  max-width: min(360px, 52vw);
-  height: 40px;
-  align-items: center;
-  gap: 9px;
-  padding: 0 14px 0 13px;
-  border: 1.5px solid var(--tv-accent);
-  border-radius: var(--tv-radius-pill);
-  background: var(--tv-glass-3);
-  backdrop-filter: blur(var(--tv-blur-pill));
-  color: var(--tv-text);
-  cursor: pointer;
-
-  &:hover {
-    background: var(--tv-glass-1-hover);
-  }
-}
-
-.tv-desktop__dot {
-  flex: 0 0 9px;
-  width: 9px;
-  height: 9px;
-  border-radius: var(--tv-radius-pill);
-  background: var(--tv-accent);
-}
-
-.tv-desktop__nome {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 13.5px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tv-desktop__chevron {
-  font-size: 15px;
-  opacity: 0.75;
-}
-
-.tv-desktop__contagem {
-  color: var(--tv-text-tertiary);
-  font-size: 12.5px;
-  font-weight: 600;
 }
 
 .tv-desktop__visualizacao,
