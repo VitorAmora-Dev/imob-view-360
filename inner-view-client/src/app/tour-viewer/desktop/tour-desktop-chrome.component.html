@@ -58,6 +58,21 @@
     </button>
   }
 
+  @if (panoramaAtual()) {
+    <button
+      type="button"
+      class="tv-desktop__acao"
+      data-action="download"
+      [attr.aria-label]="'TOUR_VIEWER.ACTIONS.DOWNLOAD_LONG' | translate"
+      [attr.aria-busy]="baixando()"
+      [disabled]="baixando()"
+      [title]="'TOUR_VIEWER.ACTIONS.DOWNLOAD_LONG' | translate"
+      (click)="baixarCena()">
+      <ion-icon name="download-outline" aria-hidden="true" />
+      <span>{{ 'TOUR_VIEWER.ACTIONS.DOWNLOAD_LONG' | translate }}</span>
+    </button>
+  }
+
   @if (podeEditar() && store.podePublicar() && !store.semCenas()) {
     <button
       type="button"

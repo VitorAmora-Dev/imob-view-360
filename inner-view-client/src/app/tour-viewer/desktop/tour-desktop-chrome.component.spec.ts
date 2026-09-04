@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideIonicAngular } from '@ionic/angular/standalone';
@@ -8,6 +9,7 @@ import { of } from 'rxjs';
 
 import { Panorama, VirtualTour } from '../../models/virtual-tour.model';
 import { VirtualTourService } from '../../services/virtual-tour.service';
+import { PanoramaDownloadService } from '../sheets/manage/panorama-download.service';
 import { TourViewerStore } from '../tour-viewer.store';
 import { TourDesktopChromeComponent } from './tour-desktop-chrome.component';
 
@@ -35,8 +37,13 @@ function tour(status: 'DRAFT' | 'PUBLISHED'): VirtualTour {
 describe('TourDesktopChromeComponent', () => {
   let fixture: ComponentFixture<TourDesktopChromeComponent>;
   let store: TourViewerStore;
+  let baixar: jasmine.Spy;
+  const baixando = signal(false);
 
   beforeEach(async () => {
+    baixar = jasmine.createSpy('baixar').and.resolveTo(true);
+    baixando.set(false);
+
     await TestBed.configureTestingModule({
       imports: [TourDesktopChromeComponent],
       providers: [
@@ -50,6 +57,10 @@ describe('TourDesktopChromeComponent', () => {
           provide: VirtualTourService,
           useValue: { publicarTour: () => of({ status: 'PUBLISHED' }) },
         },
+        {
+          provide: PanoramaDownloadService,
+          useValue: { baixar, baixando: baixando.asReadonly() },
+        },
       ],
     }).compileComponents();
 
@@ -57,6 +68,7 @@ describe('TourDesktopChromeComponent', () => {
     store = TestBed.inject(TourViewerStore);
     store.property.set({ title: 'Casa Azul' } as never);
     store.tour.set(tour('DRAFT'));
+    fixture.componentRef.setInput('panoramaAtual', CENA);
     fixture.detectChanges();
   });
 
@@ -69,6 +81,7 @@ describe('TourDesktopChromeComponent', () => {
     expect(header.querySelector('.tv-desktop__acao')).toBeNull();
     expect(acoes.querySelector('[data-action="edit"]')).not.toBeNull();
     expect(acoes.querySelector('[data-action="embed"]')).not.toBeNull();
+    expect(acoes.querySelector('[data-action="download"]')).not.toBeNull();
     expect(acoes.querySelector('[data-action="publish"]')).not.toBeNull();
     expect(acoes.querySelector('.tv-desktop__divisor')).not.toBeNull();
   });
@@ -88,14 +101,49 @@ describe('TourDesktopChromeComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-action="publish"]')).toBeNull();
   });
 
-  it('sem permissão de edição mantém somente Incorporar', () => {
+  it('sem permissão de edição mantém Incorporar e Baixar cena', () => {
     fixture.componentRef.setInput('canEdit', false);
     fixture.detectChanges();
 
     const acoes = Array.from(
       fixture.nativeElement.querySelectorAll('.tv-desktop__acoes [data-action]'),
     ) as HTMLElement[];
-    expect(acoes.map((acao) => acao.dataset['action'])).toEqual(['embed']);
+    expect(acoes.map((acao) => acao.dataset['action'])).toEqual(['embed', 'download']);
+  });
+
+  it('baixa a cena realmente exibida com nome de arquivo legível', async () => {
+    await fixture.componentInstance.baixarCena();
+
+    expect(baixar).toHaveBeenCalledOnceWith('cena-1', 'Casa Azul - Sala.jpg');
+    expect(store.toast()).toBe('TOUR_VIEWER.TOAST.DOWNLOAD_SUCCESS');
+  });
+
+  it('esconde Baixar cena enquanto nenhuma panorâmica terminou de carregar', () => {
+    fixture.componentRef.setInput('panoramaAtual', null);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-action="download"]')).toBeNull();
+  });
+
+  it('desabilita Baixar cena enquanto outro download está em andamento', () => {
+    baixando.set(true);
+    fixture.detectChanges();
+
+    const botao = fixture.nativeElement.querySelector(
+      '[data-action="download"]',
+    ) as HTMLButtonElement;
+    expect(botao.disabled).toBeTrue();
+    expect(botao.getAttribute('aria-busy')).toBe('true');
+
+    botao.click();
+    expect(baixar).not.toHaveBeenCalled();
+  });
+
+  it('avisa quando o download falha', async () => {
+    baixar.and.rejectWith(new Error('offline'));
+    await fixture.componentInstance.baixarCena();
+
+    expect(store.toast()).toBe('TOUR_VIEWER.TOAST.DOWNLOAD_ERROR');
   });
 
   it('o olho alterna o modo imersivo e mantém aria-pressed', () => {

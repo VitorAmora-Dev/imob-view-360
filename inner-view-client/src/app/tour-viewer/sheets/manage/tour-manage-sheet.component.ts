@@ -4,9 +4,8 @@ import { TranslatePipe } from '@ngx-translate/core';
 
 import { TourSheetComponent } from '../../../components/tour-sheet/tour-sheet.component';
 import { Panorama } from '../../../models/virtual-tour.model';
-import { PanoramaImageCache } from '../../../services/panorama-image-cache.service';
-import { PanoramaWatermarkService } from '../../../services/panorama-watermark.service';
 import { TourViewerStore } from '../../tour-viewer.store';
+import { PanoramaDownloadService } from './panorama-download.service';
 import { panoramaFilename } from './panorama-download.util';
 
 /** Altura suficiente para a lista completa sem esconder o último item. */
@@ -38,8 +37,7 @@ export class TourManageSheetComponent {
 
   private readonly store = inject(TourViewerStore);
   private readonly router = inject(Router);
-  private readonly imagens = inject(PanoramaImageCache);
-  private readonly marcaDagua = inject(PanoramaWatermarkService);
+  private readonly download = inject(PanoramaDownloadService);
 
   readonly paradas = PARADAS;
   readonly aberto = computed(() => this.store.sheet() === 'manage');
@@ -48,6 +46,7 @@ export class TourManageSheetComponent {
   readonly publicando = this.store.publicando;
   readonly podeApagar = this.store.podeEditar;
   readonly podeBaixar = computed(() => this.panoramaAtual() !== null);
+  readonly baixando = this.download.baixando;
 
   async publicar(): Promise<void> {
     if (this.publicando()) return;
@@ -107,30 +106,20 @@ export class TourManageSheetComponent {
    * rascunho. `'treated'` é a mesma variante que está na tela, e a rota já cai
    * na original quando a IA ainda não tratou o cômodo.
    *
-   * O `blob:` de origem continua pertencendo ao cache e nunca é revogado aqui.
-   * A cópia marcada ganha outro object URL, usado só pelo download e liberado
-   * assim que o clique é disparado.
+   * O efeito mora no `PanoramaDownloadService` porque esta mesma ação também
+   * existe no cluster desktop. Assim rota, marca d'água e object URLs não
+   * ganham duas implementações que podem divergir.
    */
   async baixarCena(): Promise<void> {
     const panorama = this.panoramaAtual();
-    if (!panorama) return;
+    if (!panorama || this.baixando()) return;
 
     try {
-      const sourceUrl = await this.imagens.obter(panorama.id, 'treated');
-      const watermarkedBlob = await this.marcaDagua.applyFromObjectUrl(sourceUrl);
-      const downloadUrl = URL.createObjectURL(watermarkedBlob);
-
-      try {
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = panoramaFilename(this.store.tourName(), panorama.roomName);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-      } finally {
-        URL.revokeObjectURL(downloadUrl);
-      }
-      this.store.mostrarToast('TOUR_VIEWER.TOAST.DOWNLOAD_SUCCESS');
+      const iniciou = await this.download.baixar(
+        panorama.id,
+        panoramaFilename(this.store.tourName(), panorama.roomName),
+      );
+      if (iniciou) this.store.mostrarToast('TOUR_VIEWER.TOAST.DOWNLOAD_SUCCESS');
     } catch {
       this.store.mostrarToast('TOUR_VIEWER.TOAST.DOWNLOAD_ERROR');
     }
