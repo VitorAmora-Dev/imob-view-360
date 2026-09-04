@@ -8,6 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { IonContent, IonSpinner } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -15,6 +16,7 @@ import { CenasSheetComponent } from '../components/cenas-sheet/cenas-sheet.compo
 import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 import { Property } from '../models/property.model';
 import { Panorama } from '../models/virtual-tour.model';
+import { NavegacaoEntreTelas } from '../services/navegacao-entre-telas.service';
 import { TvHeaderComponent } from './chrome/tv-header.component';
 import { TvToastComponent } from './chrome/tv-toast.component';
 import { TourDesktopChromeComponent } from './desktop/tour-desktop-chrome.component';
@@ -137,6 +139,7 @@ export class TourViewerPage implements OnInit {
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly navegacao = inject(NavegacaoEntreTelas);
 
   constructor() {
     /**
@@ -175,6 +178,36 @@ export class TourViewerPage implements OnInit {
       window.removeEventListener('online', aoMudarRede);
       window.removeEventListener('offline', aoMudarRede);
     });
+
+    /**
+     * A tela voltou a aparecer — e o tour pode ter mudado enquanto ela esteve
+     * fora.
+     *
+     * O app usa `<ion-router-outlet>`, que MANTÉM a página na pilha: sair daqui
+     * para o wizard e voltar reusa esta mesma instância, e o `ngOnInit` abaixo
+     * — que é quem chama `carregar()` — não roda de novo. O corretor salvava a
+     * edição, era devolvido para cá pelo próprio salvamento (ver `edicaoSalva`
+     * na página do wizard) e via o tour como ele era ANTES de editar. Só ir até
+     * a home e entrar outra vez mostrava o resultado, porque só aí a página era
+     * destruída e criada de novo.
+     *
+     * A regra já existia no `NavegacaoEntreTelas`, escrita para a home;
+     * faltava esta tela ser consumidora dela.
+     *
+     * O critério é o caminho DESTE imóvel, e não o prefixo `/inner-view-page/`:
+     * com prefixo, ir do tour de um imóvel para o de outro não contaria como
+     * ter saído, e voltar também não recarregaria — o mesmo defeito num lugar
+     * novo.
+     *
+     * `recarregar()` e não `carregar(id)`: é o caminho que o "Tentar de novo"
+     * já usa, e ele não repassa o imóvel que veio em memória da home — que é o
+     * ponto, porque aquele objeto é justamente o desatualizado.
+     */
+    const idDoImovel = this.route.snapshot.paramMap.get('id');
+    this.navegacao
+      .aoVoltarPara((caminho) => caminho === `/inner-view-page/${idDoImovel}`)
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => void this.store.recarregar());
   }
 
   ngOnInit(): void {
