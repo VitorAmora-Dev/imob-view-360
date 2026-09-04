@@ -182,4 +182,80 @@ describe('PassagensStore', () => {
     expect(passagens.atual()).toBeNull();
     expect(passagens.acabou()).toBeTrue();
   });
+
+  /**
+   * Confirmar uma passagem GRAVA.
+   *
+   * A etapa 3 nao tinha gravacao nenhuma: `marcar()` escreve pelo editor, que
+   * so mexe em memoria, e o salvamento acontecia apenas nas FRONTEIRAS — trocar
+   * de etapa, sair pelo dialogo, o app ir para segundo plano. Quem marcava os
+   * pontos e ia conferir o tour antes de sair via as passagens sumidas, e as
+   * via aparecer minutos depois: a gravacao so COMECAVA quando ele saia, e o
+   * hotspot e o ultimo item dela (ver `salvarRascunhoAgora`).
+   *
+   * O agravante era a etapa nao ter como avisar: no celular ela roda em
+   * `imersivo`, que esconde o rodape — e o rodape e onde mora
+   * `estadoDoSalvamento`.
+   */
+  describe('a gravacao', () => {
+    it('confirmar uma passagem manda gravar', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+      const salvar = spyOn(draft, 'salvarRascunho').and.resolveTo();
+
+      passagens.marcar(0.4, 0.6);
+      passagens.confirmar();
+
+      expect(salvar).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * A ULTIMA passagem nao tem proxima, entao `confirmar()` nao chama
+     * `irPara()` — e era ali que uma gravacao ingenua ficaria pendurada. E
+     * justamente a confirmacao mais importante: e a que fecha a fila e leva a
+     * tela para a revisao, que anuncia "as N passagens estao posicionadas".
+     */
+    it('a ultima passagem, que nao tem proxima, tambem grava', () => {
+      montar([
+        cena('sala', ['cozinha'], [ponto('h1', 'cozinha')]),
+        cena('cozinha', ['sala']),
+      ]);
+      const salvar = spyOn(draft, 'salvarRascunho').and.resolveTo();
+
+      passagens.marcar(0.4, 0.6);
+      passagens.confirmar();
+
+      expect(passagens.acabou()).toBeTrue();
+      expect(salvar).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * Sem ponto marcado nao ha o que gravar. `confirmar()` ja sai cedo nesse
+     * caso, e a gravacao nao pode ficar ANTES dessa saida: cada toque num botao
+     * que nao confirma nada varreria o tour inteiro na rede.
+     */
+    it('confirmar sem ponto marcado nao grava', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+      const salvar = spyOn(draft, 'salvarRascunho').and.resolveTo();
+
+      passagens.confirmar();
+
+      expect(salvar).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Falha de rede nao pode subir como rejeicao sem dono: quem chama
+     * `confirmar()` e um `(click)` de template, e uma promise rejeitada ali
+     * vira `unhandledrejection` no console. Quem relata a falha e o
+     * `estadoDoSalvamento`, que a barra observa.
+     */
+    it('falha de rede nao estoura na cara de quem confirmou', async () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+      spyOn(draft, 'salvarRascunho').and.rejectWith(new Error('rede fora'));
+
+      passagens.marcar(0.4, 0.6);
+
+      expect(() => passagens.confirmar()).not.toThrow();
+      await Promise.resolve();
+    });
+  });
 });

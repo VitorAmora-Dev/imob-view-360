@@ -101,12 +101,38 @@ export class PassagensStore {
   }
 
   /**
-   * Confirma e anda para a próxima pendente.
+   * Confirma, GRAVA, e anda para a próxima pendente.
    *
    * A próxima costuma ser a seguinte no índice, e aí o corretor permanece na
    * mesma foto — que é o que o pedido descreve. Quando os destinos daquele
    * ambiente acabam, a próxima pendente já é de outra foto, e `irPara`
    * sincroniza a cena.
+   *
+   * A gravação está aqui porque esta etapa não tinha nenhuma: `marcar()`
+   * escreve pelo `HotspotEditorStore`, que só mexe em memória, e o salvamento
+   * acontecia apenas nas FRONTEIRAS do wizard — trocar de etapa, sair pelo
+   * diálogo, o app ir para segundo plano. Quem marcava os pontos e ia conferir
+   * o tour antes de sair encontrava as passagens sumidas, e as via aparecer
+   * minutos depois: a gravação só COMEÇAVA quando ele saía, e o hotspot é o
+   * último item dela — ver `salvarRascunhoAgora`, que deixa os pontos para
+   * depois de todos os PATCHes de panorama de propósito.
+   *
+   * E a etapa não tinha como avisar: no celular ela roda em `imersivo`, que
+   * esconde o rodapé, e o rodapé é onde mora `estadoDoSalvamento`.
+   *
+   * Aqui e não em `marcar()`: marcar acontece a cada toque, inclusive nos que
+   * só corrigem a posição do mesmo ponto. Uma gravação por toque varreria o
+   * tour inteiro na rede a cada arrasto. `confirmar()` é o gesto que diz "esta
+   * passagem está pronta" — uma por passagem, e nenhuma à toa.
+   *
+   * DEPOIS da saída de cima, e não antes: sem ponto marcado não há o que
+   * gravar.
+   *
+   * Fogo-e-esquece, como as outras portas de auto-save: quem chama é um
+   * `(click)` de template, e uma promise rejeitada ali vira
+   * `unhandledrejection` no console do corretor. Quem relata falha é o
+   * `estadoDoSalvamento`, que a barra observa — e ela reaparece assim que a
+   * fila acaba.
    */
   confirmar(): void {
     const passagem = this.atual();
@@ -114,5 +140,7 @@ export class PassagensStore {
 
     const proxima = primeiraPendente(this.fila());
     if (proxima >= 0) this.irPara(proxima);
+
+    void this.draft.salvarRascunho().catch(() => undefined);
   }
 }
