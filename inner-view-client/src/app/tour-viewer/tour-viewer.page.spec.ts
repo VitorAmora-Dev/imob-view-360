@@ -6,6 +6,9 @@ import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 import { Panorama, VirtualTour } from '../models/virtual-tour.model';
 import { TourViewerPage } from './tour-viewer.page';
+import { TourViewerStore } from './tour-viewer.store';
+import { NavegacaoEntreTelas } from '../services/navegacao-entre-telas.service';
+import { Subject } from 'rxjs';
 
 /**
  * O que só se descobre com a tela montada e as folhas de estilo aplicadas.
@@ -296,4 +299,86 @@ describe('TourViewerPage — camadas da tela', () => {
 
   // O caso "sem chrome, sem camada de hotspots" ERA testado aqui, e era o
   // defeito: ver o bloco `modo imersivo` acima, que agora prova o contrário.
+});
+
+/**
+ * A tela voltou a aparecer — e o tour pode ter mudado enquanto ela esteve fora.
+ *
+ * O app usa `<ion-router-outlet>`, que MANTEM a pagina na pilha: sair daqui
+ * para o wizard e voltar reusa esta mesma instancia, e `ngOnInit` — que e onde
+ * `carregar()` e chamado — nao roda de novo. O corretor salvava a edicao, era
+ * devolvido para ca pelo proprio salvamento (ver `edicaoSalva` na pagina do
+ * wizard) e via o tour como ele era ANTES de editar. So ir ate a home e entrar
+ * outra vez mostrava o resultado, porque so ai a pagina era destruida e criada.
+ *
+ * A regra ja existia no `NavegacaoEntreTelas`, escrita para a home; faltava
+ * esta tela ser consumidora dela.
+ */
+describe('TourViewerPage — voltar de outra tela', () => {
+  let fixture: ComponentFixture<TourViewerPage>;
+  let voltou: Subject<void>;
+  let ehEstaTela: ((caminho: string) => boolean) | null;
+
+  beforeEach(async () => {
+    voltou = new Subject<void>();
+    ehEstaTela = null;
+
+    await TestBed.configureTestingModule({
+      imports: [TourViewerPage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        provideIonicAngular(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'p1' }) } },
+        },
+        {
+          // Duble do servico, e nao eventos de Router de verdade: o que
+          // interessa aqui e o que ESTA TELA faz com o aviso de retorno. Quando
+          // o aviso chega e assunto do spec do proprio `NavegacaoEntreTelas`.
+          provide: NavegacaoEntreTelas,
+          useValue: {
+            aoVoltarPara: (eh: (caminho: string) => boolean) => {
+              ehEstaTela = eh;
+              return voltou.asObservable();
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(TourViewerPage);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    fixture?.destroy();
+    TestBed.resetTestingModule();
+  });
+
+  it('recarrega o tour quando a tela volta a aparecer', () => {
+    const store = fixture.debugElement.injector.get(TourViewerStore);
+    const recarregar = spyOn(store, 'recarregar').and.resolveTo();
+
+    voltou.next();
+
+    expect(recarregar).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * O criterio e o caminho DESTE imovel, e nao o prefixo da rota.
+   *
+   * Com prefixo, ir do tour de um imovel para o de outro nao contaria como ter
+   * saido — e voltar tambem nao recarregaria, que e o mesmo defeito num lugar
+   * novo. `/home` esta aqui para prender o caso obvio.
+   */
+  it('so reconhece a tela deste imovel', () => {
+    expect(ehEstaTela).not.toBeNull();
+    expect(ehEstaTela!('/inner-view-page/p1')).toBeTrue();
+    expect(ehEstaTela!('/inner-view-page/p2')).toBeFalse();
+    expect(ehEstaTela!('/home')).toBeFalse();
+  });
 });
