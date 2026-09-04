@@ -75,7 +75,19 @@
 }
 
 .tv-header__gerenciar {
+  // `flex` e nao o `grid` herdado de `.tv-header__circular`: em grid os tres
+  // pontos virariam tres LINHAS, porque `grid-auto-flow` e `row`.
   display: flex;
+  // E por trocar o display, este botao precisa centralizar o eixo principal
+  // por conta propria.
+  //
+  // `.tv-header__circular` centraliza com `place-items: center`, que e atalho
+  // de `align-items` + `justify-items`. Em flexbox `justify-items` NAO existe:
+  // some, e o que resta e o `justify-content` padrao, `flex-start`. Os tres
+  // pontos somam 16,5px numa caixa de 40px, entao ficavam encostados na borda
+  // esquerda — 1px de folga de um lado e 22,5px do outro, medido no teste que
+  // acompanha esta linha. So no celular, porque no desktop o `:host` some.
+  justify-content: center;
   gap: 3px;
   opacity: 1;
   visibility: visible;

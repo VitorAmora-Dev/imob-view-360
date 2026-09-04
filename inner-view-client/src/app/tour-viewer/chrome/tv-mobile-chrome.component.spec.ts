@@ -15,6 +15,51 @@ describe('Chrome móvel do tour', () => {
 
   afterEach(() => TestBed.resetTestingModule());
 
+  /**
+   * Os tres pontos ficam no CENTRO do botao.
+   *
+   * `.tv-header__circular` centraliza com `display: grid` + `place-items:
+   * center`, e `.tv-header__gerenciar` troca o display para `flex` sem dizer
+   * mais nada. `place-items` e atalho de `align-items` + `justify-items`, e
+   * `justify-items` nao existe em flexbox: sobra o `justify-content` padrao,
+   * `flex-start`. Os pontos somam 16,5px numa caixa de 40px e ficam encostados
+   * na borda esquerda.
+   *
+   * Medido, e nao inspecionado por propriedade: o defeito nasceu de DUAS regras
+   * concordando em separado e discordando juntas, e uma asserção sobre
+   * `justify-content` passaria com qualquer outro jeito de centralizar. O que
+   * precisa ser verdade e a posicao.
+   */
+  it('os tres pontos ficam centrados no botao de gerenciar', () => {
+    const fixture = TestBed.createComponent(TvHeaderComponent);
+    fixture.componentRef.setInput('tourName', 'Cobertura Vila Nova');
+    fixture.componentRef.setInput('sceneCount', 6);
+    fixture.componentRef.setInput('chromeVisible', true);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const gerenciar = host.querySelector('.tv-header__gerenciar') as HTMLElement;
+    const pontos = Array.from(gerenciar.querySelectorAll('span'));
+    const caixa = gerenciar.getBoundingClientRect();
+    const primeiro = pontos[0].getBoundingClientRect();
+    const ultimo = pontos[pontos.length - 1].getBoundingClientRect();
+
+    const folgaEsquerda = primeiro.left - caixa.left;
+    const folgaDireita = caixa.right - ultimo.right;
+    const folgaTopo = primeiro.top - caixa.top;
+    const folgaBase = caixa.bottom - primeiro.bottom;
+
+    expect(pontos.length).toBe(3);
+    expect(Math.abs(folgaEsquerda - folgaDireita))
+      .withContext(`horizontal: ${folgaEsquerda} a esquerda, ${folgaDireita} a direita`)
+      .toBeLessThanOrEqual(0.5);
+    expect(Math.abs(folgaTopo - folgaBase))
+      .withContext(`vertical: ${folgaTopo} acima, ${folgaBase} abaixo`)
+      .toBeLessThanOrEqual(0.5);
+
+    fixture.destroy();
+  });
+
   it('no imersivo esconde título e gerenciar, mas preserva voltar', () => {
     const fixture = TestBed.createComponent(TvHeaderComponent);
     fixture.componentRef.setInput('tourName', 'Cobertura Vila Nova');
