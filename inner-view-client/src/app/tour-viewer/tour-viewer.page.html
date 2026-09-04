@@ -38,7 +38,7 @@
       <!-- ---- camada 0: a foto ------------------------------------------ -->
       @if (!store.semCenas()) {
         <!--
-          `roomNav` desligada: a navegação entre cômodos agora é a pill + a
+          `roomNav` desligada: a navegação entre cômodos agora é feita pela
           faixa de cenas, e duas listas na mesma tela é o que a refatoração
           veio tirar. Continua ligada em `/embed`, que não tem chrome nenhum.
 
@@ -147,7 +147,7 @@
         DEPOIS do chrome no DOM, e ainda assim ATRÁS dele na tela: a pilha é
         decidida por z-index (2 aqui, 3 no chrome), não pela ordem dos nós. O
         que a ordem decide é a tabulação, e o handoff pede os hotspots no fim
-        dela — o Tab percorre voltar, título, "…", pill e ações antes de sair
+        dela — o Tab percorre voltar, título, "…", cenas e ações antes de sair
         andando pela foto.
       -->
       <!--

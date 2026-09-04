@@ -148,7 +148,7 @@ describe('TourViewerPage — camadas da tela', () => {
   });
 
   it('os hotspots vêm DEPOIS do chrome na ordem de tabulação', () => {
-    // O handoff pede o Tab passando por voltar, título, pill e ações antes de
+    // O handoff pede o Tab passando por voltar, título, cenas e ações antes de
     // sair andando pela foto. Quem decide isso é a ordem no DOM; a pilha visual
     // continua sendo do z-index.
     const chrome = fixture.nativeElement.querySelector('.tv-chrome') as HTMLElement;

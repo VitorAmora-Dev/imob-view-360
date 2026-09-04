@@ -73,6 +73,14 @@ describe('TourDesktopChromeComponent', () => {
     expect(acoes.querySelector('.tv-desktop__divisor')).not.toBeNull();
   });
 
+  it('não exibe um segundo navegador de cenas no canto superior esquerdo', () => {
+    expect(fixture.nativeElement.querySelector('.tv-desktop__contexto')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tv-desktop__pill')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[aria-label="TOUR_VIEWER.SCENES.OPEN_LIST"]'),
+    ).toBeNull();
+  });
+
   it('esconde Publicar quando o tour já está publicado', () => {
     store.tour.set(tour('PUBLISHED'));
     fixture.detectChanges();
