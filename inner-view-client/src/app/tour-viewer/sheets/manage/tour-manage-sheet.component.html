@@ -33,7 +33,12 @@
     }
 
     @if (podeBaixar()) {
-      <button type="button" class="tv-manage__item" (click)="baixarCena()">
+      <button
+        type="button"
+        class="tv-manage__item"
+        [attr.aria-busy]="baixando()"
+        [disabled]="baixando()"
+        (click)="baixarCena()">
         <span class="tv-manage__texto">
           <strong>{{ 'TOUR_VIEWER.MANAGE.DOWNLOAD' | translate }}</strong>
           <small>{{ 'TOUR_VIEWER.MANAGE.DOWNLOAD_SUB' | translate }}</small>

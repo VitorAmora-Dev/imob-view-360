@@ -67,7 +67,9 @@
 
       <!-- ---- camada 3: chrome ------------------------------------------ -->
       <div class="tv-chrome">
-        <app-tour-desktop-chrome (editRequested)="editarTour()" />
+        <app-tour-desktop-chrome
+          [panoramaAtual]="panoramaNaTela()"
+          (editRequested)="editarTour()" />
 
         <div class="tv-slot tv-slot--header">
           <app-tv-header
