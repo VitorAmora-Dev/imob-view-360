@@ -40,6 +40,25 @@
   gap: 6px;
 }
 
+// Deitar a tela só existe no celular. Num monitor a janela já é larga, e o
+// palco nem gira lá — o `@media` do `.tv-palco--deitado` tem o mesmo corte, e
+// oferecer um botão que não faz nada é pior que não oferecer botão.
+//
+// `display: none` e não `@if` no template, ao contrário do que a barra faz com
+// EDITAR e COMPARTILHAR no imersivo: o critério aqui é a LARGURA da janela, que
+// o CSS conhece e o TypeScript só saberia com um listener de resize. E ninguém
+// tabula por um controle que não existe naquela largura, porque a regra vale
+// para o elemento inteiro.
+.tv-actions__button--orientation {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .tv-actions__button--orientation {
+    display: flex;
+  }
+}
+
 .tv-actions__button {
   display: flex;
   flex-direction: column;

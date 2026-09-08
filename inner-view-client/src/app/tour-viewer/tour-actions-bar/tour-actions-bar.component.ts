@@ -2,7 +2,14 @@ import { Component, computed, input, output } from '@angular/core';
 import { IonIcon } from '@ionic/angular/standalone';
 import { TranslatePipe } from '@ngx-translate/core';
 import { addIcons } from 'ionicons';
-import { eyeOffOutline, eyeOutline, pencilOutline, shareSocialOutline } from 'ionicons/icons';
+import {
+  eyeOffOutline,
+  eyeOutline,
+  pencilOutline,
+  phoneLandscapeOutline,
+  phonePortraitOutline,
+  shareSocialOutline,
+} from 'ionicons/icons';
 
 /**
  * Ações do tour no alcance do polegar: EDITAR, OCULTAR e COMPARTILHAR.
@@ -33,10 +40,12 @@ export class TourActionsBarComponent {
   readonly canEdit = input.required<boolean>();
   readonly hasScenes = input.required<boolean>();
   readonly chromeVisible = input.required<boolean>();
+  readonly deitado = input.required<boolean>();
 
   readonly editRequested = output<void>();
   readonly shareRequested = output<void>();
   readonly visibilityToggled = output<void>();
+  readonly orientationToggled = output<void>();
 
   /**
    * Tour sem cena nenhuma não tem o que compartilhar: quem recebesse o link
@@ -67,7 +76,33 @@ export class TourActionsBarComponent {
     this.chromeVisible() ? 'eye-off-outline' : 'eye-outline',
   );
 
+  /**
+   * Deitar a tela: o mesmo par rótulo/ícone da visibilidade, pelo mesmo motivo.
+   *
+   * Sai no imersivo, e não fica junto do de ocultar: o invariante desta barra é
+   * que o imersivo deixa UM botão, e ele já é o caminho de volta para os dois —
+   * devolver a interface traz este botão de novo.
+   */
+  readonly chaveDaOrientacao = computed(() =>
+    this.deitado() ? 'TOUR_VIEWER.ACTIONS.PORTRAIT_LONG' : 'TOUR_VIEWER.ACTIONS.LANDSCAPE_LONG',
+  );
+
+  readonly chaveCurtaDaOrientacao = computed(() =>
+    this.deitado() ? 'TOUR_VIEWER.ACTIONS.PORTRAIT' : 'TOUR_VIEWER.ACTIONS.LANDSCAPE',
+  );
+
+  readonly iconeDaOrientacao = computed(() =>
+    this.deitado() ? 'phone-portrait-outline' : 'phone-landscape-outline',
+  );
+
   constructor() {
-    addIcons({ pencilOutline, eyeOutline, eyeOffOutline, shareSocialOutline });
+    addIcons({
+      pencilOutline,
+      eyeOutline,
+      eyeOffOutline,
+      shareSocialOutline,
+      phoneLandscapeOutline,
+      phonePortraitOutline,
+    });
   }
 }
