@@ -28,6 +28,27 @@
     }
   </button>
 
+  <!--
+    Sai no imersivo como editar e compartilhar, e NÃO fica junto do de ocultar.
+    O imersivo continua com um botão só — a regra que o comentário do topo
+    explica —, e o caminho de volta do modo deitado é o de sempre: o toque que
+    devolve a interface traz este botão junto.
+
+    Só existe no celular; o corte de largura está no SCSS, no mesmo @media que
+    governa o giro do palco.
+  -->
+  @if (chromeVisible()) {
+    <button
+      type="button"
+      class="tv-actions__button tv-actions__button--orientation"
+      [attr.aria-label]="chaveDaOrientacao() | translate"
+      [attr.title]="chaveDaOrientacao() | translate"
+      (click)="orientationToggled.emit()">
+      <ion-icon [name]="iconeDaOrientacao()" aria-hidden="true"></ion-icon>
+      <span>{{ chaveCurtaDaOrientacao() | translate }}</span>
+    </button>
+  }
+
   @if (chromeVisible() && podeCompartilhar()) {
     <button
       type="button"

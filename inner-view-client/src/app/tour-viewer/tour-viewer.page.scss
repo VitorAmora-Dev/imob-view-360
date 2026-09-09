@@ -21,6 +21,48 @@
   background: var(--tour-bg);
 }
 
+// ---- modo paisagem --------------------------------------------------------
+//
+// O palco inteiro gira, e não só a foto: hotspots, cabeçalho, faixa de cenas e
+// barra de ações são todos filhos dele, e giram juntos sem uma linha de conta
+// nova. Os pins em especial são posicionados em pixels do CANVAS
+// (`projectToScreen`), então girar o container leva os dois grudados.
+//
+// A caixa recebe as dimensões TROCADAS e a origem no canto superior esquerdo.
+// A conta fecha na viewport: `(0,0)` local vai parar em `(100vw, 0)` e o canto
+// oposto em `(0, 100vh)` — cobre a tela exatamente, sem sobra e sem rolagem.
+//
+// Só no celular. Num monitor a janela já é larga, e girar seria mobiliário sem
+// função. Mesmo corte do resto do app.
+@media (max-width: 767px) {
+  .tv-palco--deitado {
+    width: 100vh;
+    height: 100vw;
+    transform-origin: top left;
+    transform: rotate(90deg) translateY(-100%);
+  }
+
+  // A área segura muda de LADO, e as insets não sabem disso.
+  //
+  // A viewport continua em pé — o giro é nosso, não do sistema —, então o
+  // navegador segue chamando o notch de `top` e o home indicator de `bottom`.
+  // Seguindo o mesmo `rotate(90deg)` da regra acima, a borda de cima do palco
+  // vai parar na DIREITA da tela e a de baixo na ESQUERDA; logo o notch encosta
+  // na borda ESQUERDA do palco e o home indicator na DIREITA.
+  //
+  // Daí a troca: o respiro sai do eixo vertical do palco, onde já não há o que
+  // evitar, e vai para o horizontal.
+  .tv-palco--deitado .tv-chrome {
+    padding-top: 0;
+    padding-left: var(--ion-safe-area-top, 0);
+    padding-right: var(--ion-safe-area-bottom, 0);
+  }
+
+  .tv-palco--deitado .tv-slot--acoes {
+    padding-bottom: 0;
+  }
+}
+
 .tv-pano {
   position: absolute;
   inset: 0;

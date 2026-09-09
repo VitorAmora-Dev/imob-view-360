@@ -118,10 +118,31 @@ export class TourViewerStore {
   readonly chromeVisible = signal(true);
 
   /**
+   * A tela deitada — o modo paisagem.
+   *
+   * NÃO é persistido de propósito. É postura de momento, não preferência: o
+   * corretor deita para olhar um cômodo e levanta para mexer no resto. Guardar
+   * isso faria a tela abrir de lado numa visita em que ele está com o telefone
+   * em pé, e o botão para desfazer estaria girado 90 graus junto com ela.
+   */
+  readonly deitado = signal(false);
+
+  alternarDeitado(): void {
+    this.deitado.update((atual) => !atual);
+  }
+
+  /**
    * Abrir um sheet SUBSTITUI o que estiver aberto — invariante 3. Como é um
    * `set` e não uma pilha, não há como empilhar dois nem por engano.
    */
   abrirSheet(qual: Exclude<SheetKind, null>): void {
+    // Levanta a tela ANTES de abrir.
+    //
+    // Os sheets são `ion-modal`, e o Ionic TELEPORTA o modal aberto para o
+    // `<ion-app>` — fora do palco, que é quem recebe o giro. Sem esta linha, o
+    // corretor com o telefone deitado recebe o "Compartilhar" em pé, de lado, e
+    // não há como girar só ele de volta.
+    this.deitado.set(false);
     this.sheet.set(qual);
   }
 
@@ -142,7 +163,10 @@ export class TourViewerStore {
    */
   abrirCompartilhamento(aba: ShareTab = 'link'): void {
     this.shareTab.set(aba);
-    this.sheet.set('share');
+    // Pela MESMA porta, e não com um `sheet.set` próprio: `abrirSheet` é quem
+    // sabe que abrir um sheet levanta a tela deitada, e uma segunda porta seria
+    // a que esquece disso.
+    this.abrirSheet('share');
   }
 
   /**
