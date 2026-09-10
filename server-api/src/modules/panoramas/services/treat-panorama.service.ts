@@ -5,6 +5,7 @@ import {
   ALTURA_MODELO,
   LARGURA_MODELO,
   MODELO,
+  ResultadoMontagem,
   amostrarAnel,
   custoDaFalha,
   montarPanorama,
@@ -48,8 +49,24 @@ const FAIXA_DA_VOLTA = 48;
  */
 const MINIMO_DE_FOTOS = 4;
 
-/** Quantos panoramas de um mesmo tour são montados ao mesmo tempo. */
-const CONCORRENCIA = 3;
+/**
+ * Largura das fotos de referência mandadas ao modelo.
+ *
+ * Elas são referência de CONTEÚDO, não de resolução: mandá-las em 1536×2048
+ * encheria o corpo da requisição sem o modelo aproveitar nada.
+ */
+const LARGURA_DA_REFERENCIA = 768;
+
+/**
+ * Quantos panoramas de um mesmo tour são montados ao mesmo tempo.
+ *
+ * Era 3, e três montagens simultâneas multiplicam por três o pico de memória
+ * desta rota. Em 10/09/2026 a instância de produção estourou o limite e foi
+ * reiniciada com UMA montagem em curso — a margem para três não existe. Um
+ * tour de seis cômodos passa a levar ~6 min em vez de ~2, e é a única coisa
+ * que se perde: o resultado de cada panorama é idêntico.
+ */
+const CONCORRENCIA = 1;
 
 export interface ResultadoTratamento {
   status: 'DONE' | 'SKIPPED' | 'FAILED';
@@ -144,24 +161,32 @@ export class TreatPanoramaService implements OnModuleInit {
   async execute(panoramaId: string): Promise<ResultadoTratamento> {
     const inicio = Date.now();
 
-    const panorama = await this.prisma.panorama.findUnique({
+    // Nenhuma coluna de imagem aqui. A consulta antiga trazia o `imageData` de
+    // TODAS as fotos da captura, e `amostrarAnel` descartava a maioria logo em
+    // seguida: numa captura de 24, nove imagens iam ao heap para nada. O heap é
+    // o recurso que acabou primeiro em produção.
+    const existe = await this.prisma.panorama.count({
       where: { id: panoramaId },
-      select: {
-        id: true,
-        imageData: true,
-        captureFrames: {
-          select: { index: true, imageData: true },
-          // Ordem angular: o prompt afirma que a referência k cobre a k-ésima
-          // fatia da largura, e `index` é a ordem do disparo no anel.
-          orderBy: { index: 'asc' },
-        },
-      },
     });
-    if (!panorama) throw new NotFoundException('Panorama não encontrado.');
+    if (existe === 0) throw new NotFoundException('Panorama não encontrado.');
 
-    if (panorama.captureFrames.length < MINIMO_DE_FOTOS) {
+    const daCaptura = await this.prisma.captureFrame.findMany({
+      where: { panoramaId },
+      select: { id: true },
+      // Ordem angular: o prompt afirma que a referência k cobre a k-ésima
+      // fatia da largura, e `index` é a ordem do disparo no anel.
+      orderBy: { index: 'asc' },
+    });
+
+    if (daCaptura.length < MINIMO_DE_FOTOS) {
       return this.dispensar(panoramaId, 'sem fotos originais suficientes', inicio);
     }
+
+    // A escolha acontece ANTES de qualquer imagem sair do banco. `amostrarAnel`
+    // cobre a volta inteira quando a captura passa do teto da API — o prompt
+    // afirma qual faixa cada referência cobre, e cortar as últimas deixaria
+    // essa afirmação falsa.
+    const escolhidas = amostrarAnel(daCaptura).map((f) => f.id);
 
     await this.prisma.panorama.update({
       where: { id: panoramaId },
@@ -169,7 +194,7 @@ export class TreatPanoramaService implements OnModuleInit {
     });
 
     try {
-      return await this.montar(panorama, inicio);
+      return await this.montar(panoramaId, escolhidas, inicio);
     } catch (erro) {
       const mensagem = erro instanceof Error ? erro.message : String(erro);
 
@@ -194,7 +219,7 @@ export class TreatPanoramaService implements OnModuleInit {
 
       return {
         status: 'FAILED',
-        fotos: panorama.captureFrames.length,
+        fotos: escolhidas.length,
         saltoAntes: 0,
         saltoDepois: 0,
         custoUSD,
@@ -204,30 +229,18 @@ export class TreatPanoramaService implements OnModuleInit {
   }
 
   private async montar(
-    panorama: { id: string; imageData: string; captureFrames: Array<{ imageData: string }> },
+    panoramaId: string,
+    escolhidas: string[],
     inicio: number,
   ): Promise<ResultadoTratamento> {
-    const originalBuf = Buffer.from(base64Puro(panorama.imageData), 'base64');
-    const meta = await sharp(originalBuf).metadata();
-    if (!meta.width || !meta.height) throw new Error('Panorama sem dimensões legíveis.');
-
-    const reduzido = await sharp(originalBuf)
-      .resize(LARGURA_MODELO, ALTURA_MODELO, { fit: 'fill', kernel: 'lanczos3' })
-      .png()
-      .toBuffer();
-
-    // As fotos são referência de conteúdo, não de resolução: mandá-las em
-    // 1536×2048 encheria o corpo da requisição sem o modelo aproveitar nada.
-    // `amostrarAnel` cobre a volta inteira quando a captura passa do teto da
-    // API — o prompt afirma qual faixa cada referência cobre, e cortar as
-    // últimas deixaria essa afirmação falsa.
-    const fotos = await Promise.all(
-      amostrarAnel(panorama.captureFrames).map((f) =>
-        sharp(Buffer.from(base64Puro(f.imageData), 'base64')).resize({ width: 768 }).png().toBuffer(),
-      ),
+    // O pedido ao modelo vive num escopo próprio de propósito. Quando ele
+    // volta, o equirect original, o PNG reduzido e as referências já não são
+    // alcançáveis, e o coletor pode devolvê-los ANTES da parte mais pesada do
+    // que vem depois — os dois rasters e o redimensionamento final.
+    const { r, largura, altura, quantasFotos } = await this.pedirMontagem(
+      panoramaId,
+      escolhidas,
     );
-
-    const r = await montarPanorama({ panorama: reduzido, fotos });
 
     const cru = await pngParaRaster(r.imagem);
     const saltoAntes = saltoNaVolta(cru);
@@ -236,12 +249,12 @@ export class TreatPanoramaService implements OnModuleInit {
 
     // De volta ao tamanho que o visualizador já espera.
     const finalJpeg = await sharp(await rasterParaJpeg(costurado, 96))
-      .resize(meta.width, meta.height, { fit: 'fill', kernel: 'lanczos3' })
+      .resize(largura, altura, { fit: 'fill', kernel: 'lanczos3' })
       .jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
       .toBuffer();
 
     await this.prisma.panorama.update({
-      where: { id: panorama.id },
+      where: { id: panoramaId },
       data: {
         treatedImageData: `data:image/jpeg;base64,${finalJpeg.toString('base64')}`,
         treatmentStatus: 'DONE',
@@ -250,14 +263,14 @@ export class TreatPanoramaService implements OnModuleInit {
         treatmentMeta: {
           rota: 'montagem-360',
           modelo: MODELO,
-          fotos: fotos.length,
+          fotos: quantasFotos,
           tamanhoPedido: `${LARGURA_MODELO}x${ALTURA_MODELO}`,
           // O que o modelo DEVOLVEU. Diferente do pedido, o resize final abaixo
           // esconde a diferença: o tour abre normalmente, com aparência boa ou
           // borrada conforme o caso, e nada no banco denunciaria. Esta linha é o
           // único lugar onde um fallback silencioso de tamanho apareceria.
           tamanhoDevolvido: `${cru.width}x${cru.height}`,
-          tamanhoFinal: `${meta.width}x${meta.height}`,
+          tamanhoFinal: `${largura}x${altura}`,
           saltoNaVolta: { antes: saltoAntes, depois: saltoDepois },
           custoUSD: r.custoUSD,
           tentativas: r.tentativas,
@@ -269,17 +282,109 @@ export class TreatPanoramaService implements OnModuleInit {
     });
 
     this.logger.log(
-      `${panorama.id}: montado com ${fotos.length} fotos · volta ${saltoAntes.toFixed(1)}→${saltoDepois.toFixed(1)} · ${(r.ms / 1000).toFixed(0)}s`,
+      `${panoramaId}: montado com ${quantasFotos} fotos · volta ${saltoAntes.toFixed(1)}→${saltoDepois.toFixed(1)} · ${(r.ms / 1000).toFixed(0)}s`,
     );
 
     return {
       status: 'DONE',
-      fotos: fotos.length,
+      fotos: quantasFotos,
       saltoAntes,
       saltoDepois,
       custoUSD: r.custoUSD,
       ms: Date.now() - inicio,
     };
+  }
+
+  /**
+   * Prepara as imagens e chama o modelo.
+   *
+   * Separado de `montar` pelo ESCOPO, não pela leitura: é o `return` daqui que
+   * torna inalcançável tudo o que foi mandado na requisição.
+   */
+  private async pedirMontagem(
+    panoramaId: string,
+    escolhidas: string[],
+  ): Promise<{
+    r: ResultadoMontagem;
+    largura: number;
+    altura: number;
+    quantasFotos: number;
+  }> {
+    const { reduzido, largura, altura } =
+      await this.equirectParaOModelo(panoramaId);
+    const fotos = await this.referencias(escolhidas);
+
+    return {
+      r: await montarPanorama({ panorama: reduzido, fotos }),
+      largura,
+      altura,
+      quantasFotos: fotos.length,
+    };
+  }
+
+  /**
+   * O equirect no tamanho que o modelo aceita, mais as dimensões do original.
+   *
+   * O buffer do original e a string base64 que o carregou morrem neste
+   * `return`. Antes eles seguiam vivos durante a chamada de ~60 s à API, sem
+   * ninguém para lê-los: só as duas dimensões são usadas depois.
+   */
+  private async equirectParaOModelo(
+    panoramaId: string,
+  ): Promise<{ reduzido: Buffer; largura: number; altura: number }> {
+    const original = await this.prisma.panorama.findUnique({
+      where: { id: panoramaId },
+      select: { imageData: true },
+    });
+    if (!original) throw new NotFoundException('Panorama não encontrado.');
+
+    const originalBuf = Buffer.from(base64Puro(original.imageData), 'base64');
+    const meta = await sharp(originalBuf).metadata();
+    if (!meta.width || !meta.height)
+      throw new Error('Panorama sem dimensões legíveis.');
+
+    return {
+      reduzido: await sharp(originalBuf)
+        .resize(LARGURA_MODELO, ALTURA_MODELO, {
+          fit: 'fill',
+          kernel: 'lanczos3',
+        })
+        .png()
+        .toBuffer(),
+      largura: meta.width,
+      altura: meta.height,
+    };
+  }
+
+  /**
+   * As fotos de referência, convertidas UMA POR VEZ.
+   *
+   * Eram convertidas com `Promise.all`, e quinze `sharp` simultâneos decodificam
+   * quinze JPEG de 1536×2048 ao mesmo tempo. Medido em 09/2026: pico de 84 MB
+   * em paralelo contra 33 MB em série, para um resultado idêntico byte a byte.
+   * Numa caixa de 512 MB essa diferença é o processo.
+   *
+   * O `shift` no laço não é enfeite: ele solta o base64 de cada foto assim que
+   * ela vira PNG, em vez de manter as quinze strings vivas até o fim.
+   */
+  private async referencias(escolhidas: string[]): Promise<Buffer[]> {
+    const linhas = await this.prisma.captureFrame.findMany({
+      where: { id: { in: escolhidas } },
+      select: { imageData: true },
+      orderBy: { index: 'asc' },
+    });
+
+    const fotos: Buffer[] = [];
+    for (let linha = linhas.shift(); linha; linha = linhas.shift()) {
+      fotos.push(
+        await sharp(Buffer.from(base64Puro(linha.imageData), 'base64'))
+          .resize({ width: LARGURA_DA_REFERENCIA })
+          .png()
+          .toBuffer(),
+      );
+    }
+
+    return fotos;
   }
 
   private async dispensar(
