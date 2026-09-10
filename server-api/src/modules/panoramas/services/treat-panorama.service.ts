@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import sharp from 'sharp';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
+import { Raster } from '../../../shared/imaging/cubemap';
 import {
   ALTURA_MODELO,
   LARGURA_MODELO,
@@ -56,6 +57,9 @@ const MINIMO_DE_FOTOS = 4;
  * encheria o corpo da requisição sem o modelo aproveitar nada.
  */
 const LARGURA_DA_REFERENCIA = 768;
+
+/** Qualidade do JPEG gravado. Era aplicada depois de um reencode a 96. */
+const QUALIDADE_FINAL = 92;
 
 /**
  * Quantos panoramas de um mesmo tour são montados ao mesmo tempo.
@@ -247,11 +251,9 @@ export class TreatPanoramaService implements OnModuleInit {
     const costurado = costurarVolta(cru, FAIXA_DA_VOLTA);
     const saltoDepois = saltoNaVolta(costurado);
 
-    // De volta ao tamanho que o visualizador já espera.
-    const finalJpeg = await sharp(await rasterParaJpeg(costurado, 96))
-      .resize(largura, altura, { fit: 'fill', kernel: 'lanczos3' })
-      .jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
-      .toBuffer();
+    const larguraFinal = Math.min(largura, costurado.width);
+    const alturaFinal = Math.min(altura, costurado.height);
+    const finalJpeg = await gravavel(costurado, larguraFinal, alturaFinal);
 
     await this.prisma.panorama.update({
       where: { id: panoramaId },
@@ -270,7 +272,7 @@ export class TreatPanoramaService implements OnModuleInit {
           // borrada conforme o caso, e nada no banco denunciaria. Esta linha é o
           // único lugar onde um fallback silencioso de tamanho apareceria.
           tamanhoDevolvido: `${cru.width}x${cru.height}`,
-          tamanhoFinal: `${largura}x${altura}`,
+          tamanhoFinal: `${larguraFinal}x${alturaFinal}`,
           saltoNaVolta: { antes: saltoAntes, depois: saltoDepois },
           custoUSD: r.custoUSD,
           tentativas: r.tentativas,
@@ -399,4 +401,46 @@ export class TreatPanoramaService implements OnModuleInit {
     });
     return { status: 'SKIPPED', fotos: 0, saltoAntes: 0, saltoDepois: 0, custoUSD: 0, ms: Date.now() - inicio };
   }
+}
+
+/**
+ * O JPEG que vai para o banco.
+ *
+ * A rota gravava o resultado AMPLIADO de volta ao tamanho do original: o modelo
+ * devolve 3840×1920 e isso era esticado para 5120×2560. A ampliação não
+ * acrescenta detalhe nenhum, porque interpola o que já tinha vindo, e era o pico
+ * de memória da montagem inteira — o `sharp` aloca a saída de 39 MB no exato
+ * instante em que os dois rasters ainda estão vivos.
+ *
+ * Medido em 10/09/2026, só na cauda da montagem:
+ *
+ *   com a ampliação    198 MB de pico, 23,6 MB gravados
+ *   sem a ampliação    127 MB de pico, 14,4 MB gravados
+ *
+ * Era ela que estourava os 512 MB da instância, e nenhuma outra economia dessa
+ * cauda chegou perto: as micro-otimizações de cópia mediram 3,5 MB, que é ruído.
+ * Guardar no tamanho que o modelo devolveu também encolhe a coluna, o que alivia
+ * as leituras de TOAST na rota de imagem.
+ *
+ * De quebra, o caminho comum passou a encodar o JPEG UMA vez. Antes o raster
+ * virava JPEG a 96 só para ser reaberto e reencodado a 92, e essa geração a mais
+ * custava qualidade sem devolver nada.
+ *
+ * O redimensionamento continua existindo para o caso contrário: um original
+ * MENOR que a saída do modelo, em que gravar 3840 de largura seria inventar
+ * pixel do mesmo jeito. Só nesse caminho o JPEG é encodado duas vezes.
+ */
+async function gravavel(
+  costurado: Raster,
+  largura: number,
+  altura: number,
+): Promise<Buffer> {
+  if (largura === costurado.width && altura === costurado.height) {
+    return rasterParaJpeg(costurado, QUALIDADE_FINAL);
+  }
+
+  return sharp(await rasterParaJpeg(costurado, 96))
+    .resize(largura, altura, { fit: 'fill', kernel: 'lanczos3' })
+    .jpeg({ quality: QUALIDADE_FINAL, chromaSubsampling: '4:4:4' })
+    .toBuffer();
 }
