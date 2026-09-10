@@ -2,6 +2,7 @@ import 'dotenv/config';
 import compression from 'compression';
 import sharp from 'sharp';
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -17,6 +18,7 @@ import {
   parseOriginList,
   swaggerCspMiddleware,
 } from './config/security.config';
+import { alocadorSemAjuste } from './shared/memoria';
 
 /**
  * O sharp guarda 50 MB de operações em cache por padrão, e essa memória é
@@ -28,6 +30,14 @@ import {
  * não tem por que abrir mão do cache.
  */
 sharp.cache(false);
+
+/**
+ * O aviso do alocador sai antes de tudo: se ele estiver faltando, a instância
+ * vai morrer no meio de uma captura e a linha precisa estar no topo do log
+ * daquele processo, não perdida no meio das rotas mapeadas.
+ */
+const semAjuste = alocadorSemAjuste();
+if (semAjuste) new Logger('Memoria').warn(semAjuste);
 
 async function bootstrap() {
   // bodyParser: false para que os parsers abaixo rodem antes do roteador do Nest

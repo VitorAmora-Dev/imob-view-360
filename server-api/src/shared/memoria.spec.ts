@@ -1,4 +1,9 @@
-import { devolverMemoria, emMB } from './memoria';
+import {
+  LIMIAR_DE_MMAP,
+  alocadorSemAjuste,
+  devolverMemoria,
+  emMB,
+} from './memoria';
 
 /**
  * Estes casos medem memória de verdade, e por isso são mais barulhentos que a
@@ -69,5 +74,34 @@ describe('emMB', () => {
     const mb = (n: number) => n * 1024 * 1024;
 
     expect(emMB({ antes: mb(200), depois: mb(200) })).toBe('200→200 MB');
+  });
+});
+
+/**
+ * A unica peca da correcao que nao mora neste repositorio: o glibc le a
+ * variavel na partida do processo, antes de qualquer linha de TypeScript. Sem
+ * um aviso no boot, uma instancia nova voltaria a morrer no terceiro comodo
+ * sem nada no codigo para explicar.
+ */
+describe('alocadorSemAjuste', () => {
+  it('avisa no Linux sem o limiar fixado', () => {
+    const aviso = alocadorSemAjuste('linux', {});
+
+    expect(aviso).toContain('MALLOC_MMAP_THRESHOLD_');
+    // O numero entra na mensagem: quem le o log nao deve precisar procurar.
+    expect(aviso).toContain(String(LIMIAR_DE_MMAP));
+  });
+
+  it('cala quando o limiar esta definido', () => {
+    expect(
+      alocadorSemAjuste('linux', { MALLOC_MMAP_THRESHOLD_: '1048576' }),
+    ).toBeNull();
+  });
+
+  it('cala fora do Linux, onde o alocador e outro', () => {
+    // A bancada do Windows devolve a memoria sem ajuste nenhum. Avisar ali
+    // seria ensinar a ignorar o aviso.
+    expect(alocadorSemAjuste('win32', {})).toBeNull();
+    expect(alocadorSemAjuste('darwin', {})).toBeNull();
   });
 });
