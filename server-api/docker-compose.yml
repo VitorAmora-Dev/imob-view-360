@@ -32,6 +32,13 @@ services:
       # aceita a captura e dispensa todo panorama em SKIPPED. O `:-` mantém o
       # compose subindo sem a chave — o serviço já é opcional por construção.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # O glibc sobe sozinho o limiar de `mmap` conforme vê blocos grandes
+      # sendo liberados, e a partir daí os rasters da montagem saem da arena —
+      # que só encolhe pelo topo. Medido em container de 512 MB, três montagens
+      # seguidas: sem esta linha o pico dobra (209 para 400 MB) e não volta.
+      # Precisa ser variável de ambiente: o glibc a lê antes do processo subir.
+      # Ver src/shared/memoria.ts.
+      MALLOC_MMAP_THRESHOLD_: '1048576'
     depends_on:
       db:
         condition: service_healthy
