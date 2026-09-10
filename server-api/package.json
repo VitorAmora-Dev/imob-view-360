@@ -95,7 +95,7 @@
       "/node_modules/",
       "/dist/",
       "/scripts/",
-      "/src/shared/imaging/"
+      "/src/shared/"
     ],
     "modulePaths": [
       "<rootDir>"

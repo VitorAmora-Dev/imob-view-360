@@ -13,6 +13,7 @@ import {
 } from '../../../shared/imaging/montagem-360';
 import { costurarVolta, saltoNaVolta } from '../../../shared/imaging/volta';
 import { pngParaRaster, rasterParaJpeg } from '../../../shared/imaging/raster';
+import { devolverMemoria, emMB } from '../../../shared/memoria';
 import { base64Puro } from '../panorama-image';
 
 /**
@@ -154,6 +155,17 @@ export class TreatPanoramaService implements OnModuleInit {
         .finally(() => {
           this.emAndamento--;
           this.conhecidos.delete(panoramaId);
+
+          // Aqui, e não dentro de `montar`: só neste ponto os buffers da
+          // montagem já saíram de todos os escopos que os alcançavam. Sem esta
+          // linha o lixo de um cômodo continua residente durante o próximo, e
+          // os dois SOMAM — foi assim que a instância morreu na segunda
+          // montagem em 10/09/2026. Ver `shared/memoria.ts` para a medição.
+          //
+          // Vale para todo desfecho, inclusive dispensa e falha: a montagem que
+          // falhou é justamente a que já alocou tudo.
+          this.logger.log(`${panoramaId}: memória ${emMB(devolverMemoria())}`);
+
           this.fila.shift()?.();
         });
     };
