@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import compression from 'compression';
+import sharp from 'sharp';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -16,6 +17,17 @@ import {
   parseOriginList,
   swaggerCspMiddleware,
 } from './config/security.config';
+
+/**
+ * O sharp guarda 50 MB de operações em cache por padrão, e essa memória é
+ * residente. Numa instância de 512 MB é um décimo da caixa gasto para acelerar
+ * repetições que a rota de imagem já resolve com o cache de miniatura dela.
+ *
+ * Fica aqui, e não junto do código de imagem, porque o alvo é o PROCESSO da
+ * API: o CLI `yarn tratar-panorama` roda numa máquina com memória de sobra e
+ * não tem por que abrir mão do cache.
+ */
+sharp.cache(false);
 
 async function bootstrap() {
   // bodyParser: false para que os parsers abaixo rodem antes do roteador do Nest
