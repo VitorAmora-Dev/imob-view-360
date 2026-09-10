@@ -5,6 +5,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Panorama } from '../../models/virtual-tour.model';
 import { urlDaImagem } from '../../models/panorama-image.util';
+import {
+  RotacaoDaTela,
+  deltaNoQuadroDoPalco,
+  girarEsfera,
+} from './arrasto-girado';
 
 /**
  * Deslocamento, em px, acima do qual o gesto conta como arrasto e não clique.
@@ -260,6 +265,24 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    */
   @Input() revealUrl: string | null = null;
 
+  /**
+   * Giro que o PALCO recebe por CSS, em graus. Zero é a tela em pé.
+   *
+   * O componente não gira nada: quem aplica o `transform` é a página do tour,
+   * porque o giro precisa levar junto hotspots, cabeçalho e faixa de cenas, que
+   * moram fora daqui. O que ele faz com esta entrada é conta — remedir o canvas
+   * e trocar quem move a câmera.
+   *
+   * Com 90 o `OrbitControls` sai de cena e o arrasto passa por
+   * `arrasto-girado.ts`. O motivo está lá; o resumo é que o giro deixa o
+   * arrasto horizontal chegar como vertical, e o `OrbitControls` mandaria isso
+   * para o ângulo polar, que é grampeado — meio giro depois o dedo bateria numa
+   * parede.
+   *
+   * O padrão é 0, então embed, wizard, captura e upload não sentem nada.
+   */
+  @Input() rotacaoDaTela: RotacaoDaTela = 0;
+
   @Output() panoramaChange = new EventEmitter<Panorama>();
   @Output() hotspotPlaced = new EventEmitter<{ positionX: number; positionY: number }>();
 
@@ -470,6 +493,13 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
         this.loadInitialPanorama();
       }
     }
+    // Sem o `!firstChange` que o `panoramas` acima usa: aplicar de novo o mesmo
+    // giro nao custa nada, e o guarda so criaria a armadilha de a PRIMEIRA
+    // definicao da entrada — que e `firstChange` mesmo vindo depois do init —
+    // passar em silencio.
+    if (changes['rotacaoDaTela'] && this.initialized) {
+      this.aplicarRotacaoDaTela();
+    }
     if (changes['revealUrl'] && this.initialized) {
       this.revelar();
     }
@@ -511,6 +541,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.renderer?.domElement.removeEventListener('click', this.onCanvasClick);
     this.renderer?.domElement.removeEventListener('pointerdown', this.onPointerDown);
     this.renderer?.domElement.removeEventListener('pointerup', this.onPointerUp);
+    this.desligarArrastoGirado();
     window.removeEventListener('resize', this.onWindowResize);
     this.frameCallbacks.clear();
     this.clearHotspots();
@@ -678,6 +709,11 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
     this.renderer.domElement.addEventListener('pointerup', this.onPointerUp);
     window.addEventListener('resize', this.onWindowResize);
+
+    // Aqui e nao so no `ngOnChanges`: a cena pode nascer com a tela ja deitada
+    // — a pagina fica em cache do `ion-router-outlet`, e voltar a ela recria o
+    // viewer com o estado que o corretor deixou.
+    this.aplicarRotacaoDaTela();
 
     this.animate();
   }
@@ -921,6 +957,120 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     // chance de responder: um toque que troca de cômodo não pode TAMBÉM
     // esconder a interface.
     this.canvasTapped.emit();
+  };
+
+  /* ---- modo paisagem ---------------------------------------------------- */
+
+  /** O ponteiro que está arrastando, ou `null`. Um dedo de cada vez. */
+  private ponteiroDoArrasto: number | null = null;
+  private ultimoPontoDoArrasto = { x: 0, y: 0 };
+  private readonly esferaDoArrasto = new THREE.Spherical();
+
+  /**
+   * Troca quem move a câmera, e remede o canvas.
+   *
+   * Os dois caminhos nunca ficam vivos ao mesmo tempo: `controls.enabled`
+   * desliga um no mesmo instante em que os listeners ligam o outro. É o que
+   * permite ter um handler próprio sem criar uma segunda fonte de verdade.
+   */
+  private aplicarRotacaoDaTela(): void {
+    const deitado = this.rotacaoDaTela !== 0;
+
+    this.controls.enabled = !deitado;
+    this.desligarArrastoGirado();
+    if (deitado) this.ligarArrastoGirado();
+
+    // No quadro seguinte, e não agora: quem gira o palco é uma classe de CSS na
+    // página, e medir antes de o navegador refazer o layout devolveria a caixa
+    // antiga — o canvas nasceria com a proporção trocada.
+    requestAnimationFrame(() => {
+      if (this.initialized) this.onWindowResize();
+    });
+  }
+
+  private ligarArrastoGirado(): void {
+    const canvas = this.renderer?.domElement;
+    if (!canvas) return;
+
+    canvas.addEventListener('pointerdown', this.aoComecarArrasto);
+    canvas.addEventListener('pointermove', this.aoArrastar);
+    canvas.addEventListener('pointerup', this.aoTerminarArrasto);
+    canvas.addEventListener('pointercancel', this.aoTerminarArrasto);
+  }
+
+  private desligarArrastoGirado(): void {
+    const canvas = this.renderer?.domElement;
+    if (!canvas) return;
+
+    canvas.removeEventListener('pointerdown', this.aoComecarArrasto);
+    canvas.removeEventListener('pointermove', this.aoArrastar);
+    canvas.removeEventListener('pointerup', this.aoTerminarArrasto);
+    canvas.removeEventListener('pointercancel', this.aoTerminarArrasto);
+    this.ponteiroDoArrasto = null;
+  }
+
+  private readonly aoComecarArrasto = (evento: PointerEvent) => {
+    if (this.ponteiroDoArrasto !== null) return;
+
+    this.ponteiroDoArrasto = evento.pointerId;
+    this.ultimoPontoDoArrasto = { x: evento.clientX, y: evento.clientY };
+
+    // A esfera é LIDA da câmera a cada gesto, e não guardada entre eles: quem
+    // mexeu na câmera no meio do caminho pode ter sido a troca de cômodo ou o
+    // próprio `OrbitControls` antes de a tela deitar. Ler mantém os dois modos
+    // partindo de onde o outro parou.
+    this.esferaDoArrasto.setFromVector3(
+      this.camera.position.clone().sub(this.controls.target),
+    );
+
+    // Captura para o gesto sobreviver ao dedo sair do canvas — sem ela, girar
+    // até a borda e continuar arrastando solta a foto no meio do movimento.
+    //
+    // Num ponteiro SINTÉTICO — teste, automação — não há o que capturar, e o
+    // navegador lança `NotFoundError`. Deixar passar derrubaria o arrasto
+    // inteiro por causa de um conforto: sem captura o gesto ainda funciona,
+    // só termina se o dedo sair do canvas.
+    try {
+      this.renderer.domElement.setPointerCapture(evento.pointerId);
+    } catch {
+      // segue sem captura
+    }
+  };
+
+  private readonly aoArrastar = (evento: PointerEvent) => {
+    if (evento.pointerId !== this.ponteiroDoArrasto) return;
+
+    const dvx = evento.clientX - this.ultimoPontoDoArrasto.x;
+    const dvy = evento.clientY - this.ultimoPontoDoArrasto.y;
+    this.ultimoPontoDoArrasto = { x: evento.clientX, y: evento.clientY };
+
+    const { dx, dy } = deltaNoQuadroDoPalco(dvx, dvy, this.rotacaoDaTela);
+
+    // `rotateSpeed` vem do próprio controle, e não de uma constante daqui: se
+    // alguém mudar a sensibilidade lá em cima, os dois modos mudam juntos.
+    girarEsfera(
+      this.esferaDoArrasto,
+      dx,
+      dy,
+      this.renderer.domElement.clientHeight,
+      this.controls.rotateSpeed,
+    );
+
+    this.camera.position
+      .setFromSpherical(this.esferaDoArrasto)
+      .add(this.controls.target);
+    this.camera.lookAt(this.controls.target);
+  };
+
+  private readonly aoTerminarArrasto = (evento: PointerEvent) => {
+    if (evento.pointerId !== this.ponteiroDoArrasto) return;
+
+    this.ponteiroDoArrasto = null;
+    // `hasPointerCapture` antes de soltar: num `pointercancel` o navegador já
+    // tirou a captura, e liberar de novo lança.
+    if (this.renderer.domElement.hasPointerCapture(evento.pointerId)) {
+      this.renderer.domElement.releasePointerCapture(evento.pointerId);
+    }
   };
 
   private readonly onWindowResize = () => {

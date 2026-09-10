@@ -458,7 +458,11 @@
       "HIDE": "OCULTAR",
       "SHOW": "MOSTRAR",
       "SHARE": "COMPARTILHAR",
-      "SHARE_LONG": "Compartilhar tour"
+      "SHARE_LONG": "Compartilhar tour",
+      "LANDSCAPE": "DEITAR",
+      "LANDSCAPE_LONG": "Deitar a tela",
+      "PORTRAIT": "LEVANTAR",
+      "PORTRAIT_LONG": "Voltar à vertical"
     },
     "EMBED": {
       "TITLE": "Incorporar tour",

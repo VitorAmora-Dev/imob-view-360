@@ -111,6 +111,42 @@ describe('TourViewerStore', () => {
         .toBeUndefined();
     });
 
+    /**
+     * Os sheets sao `ion-modal`, e o Ionic TELEPORTA o modal aberto para o
+     * `<ion-app>` — fora do palco, que e quem recebe o giro do modo paisagem.
+     * Sem levantar a tela antes, o corretor com o telefone deitado recebe o
+     * "Compartilhar" em pe, de lado, e nao ha como girar so ele de volta.
+     */
+    it('abrir um sheet levanta a tela deitada', () => {
+      store.alternarDeitado();
+      expect(store.deitado()).toBeTrue();
+
+      store.abrirSheet('manage');
+
+      expect(store.deitado()).toBeFalse();
+    });
+
+    /** O Compartilhar entra pela mesma porta — nao por um `sheet.set` proprio. */
+    it('o compartilhar tambem levanta a tela, e ja na aba pedida', () => {
+      store.alternarDeitado();
+
+      store.abrirCompartilhamento('embed');
+
+      expect(store.deitado()).toBeFalse();
+      expect(store.sheet()).toBe('share');
+      expect(store.shareTab()).toBe('embed');
+    });
+
+    it('deitar e levantar alterna, e comeca em pe', () => {
+      expect(store.deitado()).toBeFalse();
+
+      store.alternarDeitado();
+      expect(store.deitado()).toBeTrue();
+
+      store.alternarDeitado();
+      expect(store.deitado()).toBeFalse();
+    });
+
     it('sheet aberto esconde a faixa, para não haver duas listas na tela', () => {
       store.abrirSheet('scenes');
 

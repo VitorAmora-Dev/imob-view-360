@@ -458,7 +458,11 @@
       "HIDE": "HIDE",
       "SHOW": "SHOW",
       "SHARE": "SHARE",
-      "SHARE_LONG": "Share tour"
+      "SHARE_LONG": "Share tour",
+      "LANDSCAPE": "ROTATE",
+      "LANDSCAPE_LONG": "Rotate to landscape",
+      "PORTRAIT": "UPRIGHT",
+      "PORTRAIT_LONG": "Back to portrait"
     },
     "EMBED": {
       "TITLE": "Embed tour",

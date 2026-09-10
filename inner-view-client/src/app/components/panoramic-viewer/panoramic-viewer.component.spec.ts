@@ -642,3 +642,172 @@ describe('PanoramicViewerComponent — superfície da tela de visualização', (
     expect(falhas).toBeGreaterThan(0);
   });
 });
+
+/**
+ * O modo paisagem: o arrasto quando o palco esta girado por CSS.
+ *
+ * A conta mora em `arrasto-girado.ts` e tem spec proprio, sem WebGL. O que
+ * estes casos provam e a LIGACAO — que a entrada troca mesmo quem move a
+ * camera, e que o resultado e azimute, nao elevacao.
+ *
+ * E a diferenca que salva o recurso. Com o aparelho deitado, o arrasto que a
+ * pessoa faz na horizontal chega ao viewport como VERTICAL; se ele fosse parar
+ * no angulo polar — que e grampeado — o dedo bateria numa parede meio giro
+ * depois. E o sintoma engana: como a imagem tambem esta girada, o polar
+ * PARECE movimento horizontal e passa num teste rapido.
+ */
+describe('PanoramicViewerComponent — modo paisagem', () => {
+  let fixture: ComponentFixture<PanoramicViewerComponent>;
+  let component: PanoramicViewerComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PanoramicViewerComponent],
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PanoramicViewerComponent);
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  async function deitar(): Promise<HTMLCanvasElement> {
+    fixture.detectChanges();
+    await afterInit();
+
+    fixture.componentRef.setInput('rotacaoDaTela', 90);
+    fixture.detectChanges();
+    // O remedir e adiado um quadro de proposito — ver `aplicarRotacaoDaTela`.
+    await afterInit();
+
+    return (fixture.nativeElement as HTMLElement).querySelector('canvas')!;
+  }
+
+  /** Onde a camera esta olhando, em coordenadas esfericas. */
+  function mira(): THREE.Spherical {
+    return new THREE.Spherical().setFromVector3(component.viewerCamera!.position.clone());
+  }
+
+  /** Um arrasto na VIEWPORT, do jeito que o dedo o entrega. */
+  function arrastar(canvas: HTMLCanvasElement, dvx: number, dvy: number): void {
+    const comum = { pointerId: 1, bubbles: true, clientX: 100, clientY: 100 };
+
+    canvas.dispatchEvent(new PointerEvent('pointerdown', comum));
+    canvas.dispatchEvent(
+      new PointerEvent('pointermove', { ...comum, clientX: 100 + dvx, clientY: 100 + dvy }),
+    );
+    canvas.dispatchEvent(
+      new PointerEvent('pointerup', { ...comum, clientX: 100 + dvx, clientY: 100 + dvy }),
+    );
+  }
+
+  it('arrasto vertical na viewport vira AZIMUTE, e nao elevacao', async () => {
+    const canvas = await deitar();
+    const antes = mira();
+
+    arrastar(canvas, 0, 120);
+
+    const depois = mira();
+    expect(Math.abs(depois.theta - antes.theta)).toBeGreaterThan(0.05);
+    expect(depois.phi).toBeCloseTo(antes.phi, 6);
+  });
+
+  it('arrasto horizontal na viewport vira ELEVACAO', async () => {
+    const canvas = await deitar();
+    const antes = mira();
+
+    arrastar(canvas, 120, 0);
+
+    const depois = mira();
+    expect(Math.abs(depois.phi - antes.phi)).toBeGreaterThan(0.05);
+    expect(depois.theta).toBeCloseTo(antes.theta, 6);
+  });
+
+  /**
+   * O caso que separa o recurso certo do que "parecia certo": deitado, a pessoa
+   * gira para o lado quantas voltas quiser. Se isto passasse pelo polar, a
+   * soma pararia perto de meio giro e nao chegaria nem a uma volta.
+   */
+  /**
+   * Quanto cada passo mexeu, passo a passo.
+   *
+   * Nao da para somar voltas lendo a camera: `theta` sai de um `atan2` e volta
+   * sempre enrolado em (-π, π]. O que distingue um eixo livre de um grampeado
+   * nao e o total — e se o movimento PARA. Por isso a medida e o tamanho de
+   * cada passo, e nao a soma deles.
+   */
+  function passos(
+    canvas: HTMLCanvasElement,
+    dvx: number,
+    dvy: number,
+    quantos: number,
+    angulo: (m: THREE.Spherical) => number,
+  ): number[] {
+    const andados: number[] = [];
+    let anterior = angulo(mira());
+
+    for (let i = 0; i < quantos; i++) {
+      arrastar(canvas, dvx, dvy);
+      const agora = angulo(mira());
+      andados.push(Math.abs(agora - anterior));
+      anterior = agora;
+    }
+
+    return andados;
+  }
+
+  /**
+   * O caso que separa o recurso certo do que "parecia certo".
+   *
+   * Deitado, a pessoa gira para o lado quantas voltas quiser: TODO passo anda.
+   * O contraste esta no caso seguinte — o eixo que o arrasto NAO usa satura.
+   */
+  it('deitado, o giro lateral nao tem parede', async () => {
+    const canvas = await deitar();
+    // Um oitavo de volta por passo: `2π · (h/8 · 0.5) / h`.
+    const passo = canvas.clientHeight / 8;
+
+    const andados = passos(canvas, 0, passo, 10, (m) => m.theta);
+
+    expect(andados.filter((d) => d < 0.01).length).toBe(0);
+  });
+
+  /**
+   * O outro lado da mesma moeda: a elevacao SATURA, e e por isso que mandar o
+   * arrasto lateral para ela deixaria o recurso quebrado de um jeito que so
+   * aparece meio giro depois — quando o dedo bate na parede.
+   */
+  it('a elevacao satura, que e a parede que o giro lateral evita', async () => {
+    const canvas = await deitar();
+    const passo = canvas.clientHeight / 8;
+
+    const andados = passos(canvas, passo, 0, 10, (m) => m.phi);
+
+    expect(andados.filter((d) => d < 0.01).length).toBeGreaterThan(0);
+    expect(andados[andados.length - 1]).toBeLessThan(0.01);
+  });
+
+  /**
+   * Levantar a tela devolve a camera ao `OrbitControls`. Sem desligar o handler
+   * proprio, os dois moveriam a camera no mesmo gesto.
+   */
+  it('voltar para a vertical desliga o arrasto girado', async () => {
+    const canvas = await deitar();
+
+    fixture.componentRef.setInput('rotacaoDaTela', 0);
+    fixture.detectChanges();
+    await afterInit();
+
+    const antes = mira();
+    // So o `pointermove`: sem o `pointerdown` do handler proprio nao ha gesto
+    // em curso, e o do OrbitControls so escuta o `document` depois do dele.
+    canvas.dispatchEvent(
+      new PointerEvent('pointermove', { pointerId: 1, bubbles: true, clientX: 400, clientY: 400 }),
+    );
+
+    const depois = mira();
+    expect(depois.theta).toBeCloseTo(antes.theta, 10);
+    expect(depois.phi).toBeCloseTo(antes.phi, 10);
+  });
+});
