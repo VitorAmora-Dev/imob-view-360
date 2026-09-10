@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { TreatPanoramaService } from '../src/modules/panoramas/services/treat-panorama.service';
+import { base64Puro } from '../src/modules/panoramas/panorama-image';
 import { seedTwoTenants, TenantFixture, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
 
@@ -75,9 +76,18 @@ async function jpeg(
   return `data:image/jpeg;base64,${buffer.toString('base64')}`;
 }
 
+const SAIDA_DO_MODELO = { largura: 384, altura: 192 };
+
+/**
+ * O original é maior que a saída do modelo de propósito: é a proporção real,
+ * onde o stitcher entrega 5120×2560 e o modelo devolve 3840×1920.
+ */
+const ORIGINAL_PADRAO = { largura: 512, altura: 256 };
+
 async function seedCaptura(
   tenant: TenantFixture,
   quantasFotos: number,
+  original = ORIGINAL_PADRAO,
 ): Promise<string> {
   const tour = await prisma.virtualTour.create({
     data: { propertyId: tenant.propertyId },
@@ -85,7 +95,7 @@ async function seedCaptura(
   const panorama = await prisma.panorama.create({
     data: {
       roomName: 'Sala',
-      imageData: await jpeg(256, 128, 120),
+      imageData: await jpeg(original.largura, original.altura, 120),
       virtualTourId: tour.id,
       initialPanorama: true,
     },
@@ -119,8 +129,8 @@ describe('montagem por IA — o que sai do banco', () => {
     pedirMontagem.mockImplementation(async () => ({
       imagem: await sharp({
         create: {
-          width: 384,
-          height: 192,
+          width: SAIDA_DO_MODELO.largura,
+          height: SAIDA_DO_MODELO.altura,
           channels: 3,
           background: { r: 90, g: 90, b: 90 },
         },
@@ -220,6 +230,50 @@ describe('montagem por IA — o que sai do banco', () => {
 
     expect(r.status).toBe('SKIPPED');
     expect(pedirMontagem).not.toHaveBeenCalled();
+  });
+
+  /** As dimensões REAIS do que ficou guardado, lidas da própria imagem. */
+  async function tamanhoDaTratada(
+    panoramaId: string,
+  ): Promise<{ width?: number; height?: number }> {
+    const { treatedImageData } = await prisma.panorama.findUniqueOrThrow({
+      where: { id: panoramaId },
+      select: { treatedImageData: true },
+    });
+    const meta = await sharp(
+      Buffer.from(base64Puro(treatedImageData!), 'base64'),
+    ).metadata();
+    return { width: meta.width, height: meta.height };
+  }
+
+  it('grava no tamanho que o modelo devolveu, sem ampliar de volta', async () => {
+    // A rota esticava 3840×1920 de volta para 5120×2560. Isso não acrescentava
+    // detalhe — interpolava o que já tinha vindo — e era o pico de memória da
+    // montagem inteira, medido em 198 MB contra 127 MB sem a ampliação. Foi ela
+    // que estourou os 512 MB da instância em 10/09/2026.
+    const panoramaId = await seedCaptura(tenants.a, 8);
+
+    await servico.execute(panoramaId);
+
+    expect(await tamanhoDaTratada(panoramaId)).toEqual({
+      width: SAIDA_DO_MODELO.largura,
+      height: SAIDA_DO_MODELO.altura,
+    });
+  });
+
+  it('encolhe quando o original é MENOR que a saída do modelo', async () => {
+    // O contrário do caso acima, e o motivo de o redimensionamento continuar
+    // existindo: gravar 384 de largura a partir de um original de 256 seria
+    // inventar pixel do mesmo jeito.
+    const menor = { largura: 256, altura: 128 };
+    const panoramaId = await seedCaptura(tenants.a, 8, menor);
+
+    await servico.execute(panoramaId);
+
+    expect(await tamanhoDaTratada(panoramaId)).toEqual({
+      width: menor.largura,
+      height: menor.altura,
+    });
   });
 
   it('o original nunca é sobrescrito', async () => {
