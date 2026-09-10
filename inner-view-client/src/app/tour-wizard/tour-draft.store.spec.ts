@@ -764,6 +764,46 @@ describe('TourDraftStore (contrato)', () => {
       await expectAsync(store.tratarCaptura(captura())).toBeResolvedTo(null);
     });
 
+    /**
+     * O caso que um tour publicado pagou, em 10/09/2026: a sala saiu duplicada,
+     * uma cópia tratada e outra crua.
+     *
+     * A partir do `addPanorama` existe uma linha no servidor, com as fotos
+     * originais e a montagem por IA a caminho. Devolver `null` daqui descartava
+     * o id dela; a cena ficava sem `serverPanoramaId`, e `salvarRascunho` — que
+     * cria um panorama para toda cena que não tem um — criava OUTRO para o
+     * mesmo cômodo.
+     *
+     * O download da imagem tratada é o passo que falha na vida real: ele baixa
+     * a panorâmica inteira por rede móvel, depois de o servidor já ter feito o
+     * trabalho caro.
+     */
+    it('falha DEPOIS de criar o cômodo não descarta o id dele', async () => {
+      const store = newStore();
+      const { tours } = comRede();
+      (tours.baixarPreview as jasmine.Spy).and.returnValue(
+        throwError(() => new Error('conexão caiu no download')),
+      );
+
+      const r = await store.tratarCaptura(captura());
+
+      // Sem tratamento, mas COM o id: o modal avisa e o cômodo continua sendo
+      // aquele que já está no servidor.
+      expect(r).toEqual({ panoramaId: 'pan-0', treatedUrl: '' });
+    });
+
+    it('vale para qualquer passo depois da criação, não só o download', async () => {
+      const store = newStore();
+      const { tours } = comRede();
+      (tours.montarTour as jasmine.Spy).and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+
+      const r = await store.tratarCaptura(captura());
+
+      expect(r).toEqual({ panoramaId: 'pan-0', treatedUrl: '' });
+    });
+
     it('para de esperar assim que ESTE cômodo termina', async () => {
       // O andamento é por tour. Sem olhar a entrada deste id, o laço esperaria
       // os cômodos anteriores terminarem de novo, a cada captura.
@@ -1044,6 +1084,33 @@ describe('TourDraftStore (contrato)', () => {
       await store.salvarRascunho();
 
       expect(subir.calls.mostRecent().args[1].roomName).toBe('Ambiente 1');
+    });
+
+    /**
+     * O outro lado do defeito da duplicata — ver os casos de `tratarCaptura`.
+     *
+     * Criar um panorama para toda cena sem `serverPanoramaId` é o certo para a
+     * cena que veio de arquivo, e era a armadilha para a que veio da captura: o
+     * cômodo já existia no servidor, com as fotos e a montagem paga, e ganhava
+     * um irmão cru.
+     */
+    it('não cria um segundo panorama para o cômodo que já existe', async () => {
+      const store = storeWith(scene('s1', { serverPanoramaId: 'pan-0' }));
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const subir = spyOn(tours, 'addPanorama');
+      spyOn(tours, 'atualizarPanorama').and.returnValue(
+        of({ id: 'pan-0' } as unknown) as ReturnType<
+          VirtualTourService['atualizarPanorama']
+        >,
+      );
+      spyOn(TestBed.inject(PropertyService), 'updateProperty').and.returnValue(
+        of({} as unknown) as ReturnType<PropertyService['updateProperty']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(subir).not.toHaveBeenCalled();
     });
 
     it('grava o nome digitado, quando existe um', async () => {
