@@ -598,6 +598,11 @@ export class TourDraftStore {
     frames: CaptureFrameUpload[];
     geometry: CaptureGeometry | null;
   }): Promise<{ panoramaId: string; treatedUrl: string } | null> {
+    // Guardado FORA do `try` de propósito: a partir do `addPanorama` existe uma
+    // linha no servidor, e o `catch` precisa saber disso. Ver o comentário lá
+    // embaixo — é a diferença entre um cômodo e dois.
+    let panoramaId: string | null = null;
+
     try {
       const tourId = await this.garantirRascunho();
 
@@ -612,6 +617,7 @@ export class TourDraftStore {
           ...(captura.geometry ?? {}),
         }),
       );
+      panoramaId = panorama.id;
 
       const { uploaded } = await this.virtualTourService.uploadCaptureFrames(
         panorama.id,
@@ -633,7 +639,23 @@ export class TourDraftStore {
       );
       return { panoramaId: panorama.id, treatedUrl: URL.createObjectURL(blob) };
     } catch {
-      return null;
+      // O id só é descartado quando NÃO há o que descartar.
+      //
+      // Devolver `null` depois do `addPanorama` jogava fora o id de uma linha
+      // que EXISTE no servidor, com as fotos originais e a montagem por IA a
+      // caminho. A cena ficava sem `serverPanoramaId`, e `salvarRascunhoAgora`
+      // — que cria um panorama para toda cena que não tem um — criava OUTRO
+      // para o mesmo cômodo. O tour saía com a sala duplicada: uma cópia
+      // tratada, com as fotos, e outra crua e sem fotos.
+      //
+      // Aconteceu em campo em 10/09/2026. O servidor tratou o cômodo em 66 s,
+      // dentro dos 120 s que o modal espera, e ainda assim o app anunciou
+      // "não foi possível melhorar" — porque o que falhou foi o passo seguinte,
+      // o download da imagem tratada, e a falha dele levava o id junto.
+      //
+      // `null` continua valendo para a falha ANTERIOR à criação: aí não há
+      // linha nenhuma, e a cena precisa mesmo ser criada no salvamento.
+      return panoramaId ? { panoramaId, treatedUrl: '' } : null;
     }
   }
 
