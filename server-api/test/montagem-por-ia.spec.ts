@@ -15,14 +15,27 @@ jest.mock('../src/shared/imaging/montagem-360', () => {
   return { ...real, montarPanorama: jest.fn() };
 });
 
+/**
+ * A coleta de verdade roda (é ela que devolve a memória); o duble existe só
+ * para poder afirmar QUANDO ela acontece. Ver `src/shared/memoria.spec.ts`
+ * para a prova de que ela devolve.
+ */
+jest.mock('../src/shared/memoria', () => {
+  const real = jest.requireActual('../src/shared/memoria');
+  return { ...real, devolverMemoria: jest.fn(real.devolverMemoria) };
+});
+
 import {
   amostrarAnel,
   montarPanorama,
 } from '../src/shared/imaging/montagem-360';
+import { devolverMemoria } from '../src/shared/memoria';
 
 const pedirMontagem = montarPanorama as jest.MockedFunction<
   typeof montarPanorama
 >;
+
+const coletar = devolverMemoria as jest.MockedFunction<typeof devolverMemoria>;
 
 /** Uma consulta que o serviço fez, do jeito que ele a fez. */
 interface ConsultaObservada {
@@ -118,6 +131,35 @@ async function seedCaptura(
   }
 
   return panorama.id;
+}
+
+/**
+ * `agendar` não devolve promessa de propósito — quem captura não espera a IA.
+ * Para observar a fila de fora sobra perguntar até a resposta mudar.
+ */
+async function ate(pronto: () => boolean, limiteMs = 15000): Promise<void> {
+  const prazo = Date.now() + limiteMs;
+  while (!pronto()) {
+    if (Date.now() > prazo) throw new Error('a fila não terminou a tempo');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+/**
+ * `agendar` fica inerte sem chave — é assim que o serviço não quebra o boot de
+ * quem não usa IA. Os casos de fila precisam dela ligada, e precisam devolver o
+ * ambiente como estava mesmo quando falham.
+ */
+async function comFilaLigada(caso: () => Promise<void>): Promise<void> {
+  const chave = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = 'sk-de-teste';
+  coletar.mockClear();
+  try {
+    await caso();
+  } finally {
+    if (chave === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = chave;
+  }
 }
 
 describe('montagem por IA — o que sai do banco', () => {
@@ -273,6 +315,67 @@ describe('montagem por IA — o que sai do banco', () => {
     expect(await tamanhoDaTratada(panoramaId)).toEqual({
       width: menor.largura,
       height: menor.altura,
+    });
+  });
+
+  /**
+   * O que matou a instância em 10/09/2026, depois de os dois picos já terem
+   * sido cortados: o lixo de uma montagem continuava residente durante a
+   * seguinte, e as duas SOMAVAM.
+   *
+   * ```
+   * 18:02  158 MB   processo novo
+   * 18:09  271 MB   um tour de 9 cômodos é aberto
+   * 18:29  368 MB   primeira montagem termina — e nada volta
+   * 18:40  411 MB   segunda montagem começa, e estoura os 512 MB
+   * ```
+   *
+   * Coletar ao fim de CADA trabalho transforma essa soma num máximo.
+   */
+  it('devolve a memória ao fim de cada montagem', async () => {
+    await comFilaLigada(async () => {
+      // Um imóvel tem no máximo um tour, então os dois cômodos vêm de tenants
+      // diferentes. Para a fila, que é do processo, dá no mesmo.
+      servico.agendar(await seedCaptura(tenants.a, 8));
+      servico.agendar(await seedCaptura(tenants.b, 8));
+      await ate(() => coletar.mock.calls.length === 2);
+
+      expect(pedirMontagem).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  /**
+   * Uma captura curta é dispensada sem chamar o modelo — e ainda assim passou
+   * pelo serviço. Devolver memória só no caminho feliz deixaria o processo
+   * carregando o lixo de todo cômodo dispensado até a próxima montagem.
+   */
+  it('devolve a memória mesmo quando o cômodo é dispensado', async () => {
+    await comFilaLigada(async () => {
+      servico.agendar(await seedCaptura(tenants.a, 2));
+      await ate(() => coletar.mock.calls.length === 1);
+
+      expect(pedirMontagem).not.toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * O caso que mais precisa da coleta: a montagem que falha já alocou tudo —
+   * as referências, o pedido, muitas vezes a resposta do modelo — e some sem
+   * gravar nada. Pular a devolução aqui seria guardar o pior lixo do sistema.
+   */
+  it('devolve a memória mesmo quando a montagem falha', async () => {
+    await comFilaLigada(async () => {
+      pedirMontagem.mockRejectedValue(new Error('modelo fora do ar'));
+      const panoramaId = await seedCaptura(tenants.a, 8);
+
+      servico.agendar(panoramaId);
+      await ate(() => coletar.mock.calls.length === 1);
+
+      const depois = await prisma.panorama.findUniqueOrThrow({
+        where: { id: panoramaId },
+        select: { treatmentStatus: true },
+      });
+      expect(depois.treatmentStatus).toBe('FAILED');
     });
   });
 
