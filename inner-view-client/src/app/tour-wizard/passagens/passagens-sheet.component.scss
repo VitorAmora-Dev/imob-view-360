@@ -7,9 +7,10 @@
   background: var(--app-surface-soft);
 }
 
+// Só o voltar, e no tamanho dele: esticá-lo na largura toda o faria parecer a
+// ação principal da etapa, que é confirmar — e confirmar não mora mais aqui.
 .ps__acoes {
-  display: grid;
-  grid-template-columns: minmax(112px, 0.42fr) minmax(0, 1fr);
+  display: flex;
   gap: 12px;
 }
 
@@ -65,24 +66,9 @@
   color: var(--app-body);
 }
 
-.ps__acao {
-  min-height: 52px;
-  padding: 16px;
-  border: 0;
-  border-radius: var(--app-radius-lg);
-  background: var(--ion-color-primary);
-  font-size: 16.5px;
-  font-weight: 800;
-  color: var(--ion-color-primary-contrast);
-
-  &:disabled {
-    background: var(--app-primary-disabled);
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-}
 
 .ps__voltar {
+  flex: 0 0 auto;
   min-height: 52px;
   padding: 8px 14px;
   border: 1px solid var(--app-hairline);

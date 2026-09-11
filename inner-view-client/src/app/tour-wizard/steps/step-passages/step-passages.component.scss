@@ -22,6 +22,39 @@
   pointer-events: none;
 }
 
+/*
+  O confirmar ocupa a MESMA caixa da instrucao que ele substitui: um so lugar
+  na tela responde "o que fazer agora", e a troca acontece sem nada se mexer.
+
+  E `pointer-events` NAO e herdado daqui do vizinho de cima: a instrucao e uma
+  placa informativa e precisa deixar o arrasto passar; este e um botao e
+  precisa receber o toque. Copiar o `none` para ca daria um botao desenhado,
+  visivel e morto, sem uma linha no console — ha teste prendendo os dois lados.
+
+  `z-index` porque a camada de pontos do wizard cobre o palco inteiro: sem ele
+  o botao fica desenhado por cima e clicavel por baixo.
+*/
+.sp__confirmar {
+  position: absolute;
+  inset: auto 14px 14px;
+  z-index: 2;
+  min-height: 52px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--app-radius-lg);
+  background: var(--ion-color-primary);
+  box-shadow: var(--tw-shadow-card);
+  font-size: 16.5px;
+  font-weight: 800;
+  color: var(--ion-color-primary-contrast);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 3px solid var(--tw-focus-ring);
+    outline-offset: 3px;
+  }
+}
+
 app-passagens-sheet {
   z-index: 1;
 }
