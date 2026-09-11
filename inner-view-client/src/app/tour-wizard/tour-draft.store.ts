@@ -983,6 +983,22 @@ export class TourDraftStore {
   readonly carregando = signal(false);
 
   /**
+   * Há uma passagem MARCADA e ainda não confirmada na etapa 3.
+   *
+   * Mora aqui, e não no `PassagensStore`, porque duas telas precisam da mesma
+   * resposta e uma delas não alcança a outra: a etapa decide se mostra o
+   * confirmar ou a revisão, e a PÁGINA decide se some com a barra — e o
+   * `PassagensStore` é fornecido pelo componente da etapa (ver `imersivo`).
+   *
+   * O padrão é FALSO, e o sentido da pergunta foi escolhido por causa disso:
+   * "há confirmação pendente" começa em não. Um tour que chega do servidor com
+   * todos os pontos gravados — rascunho retomado, tour em edição — não tem o
+   * que confirmar, porque ninguém acabou de marcar nada, e abre direto na
+   * revisão. Só `marcar()` liga isto, e só `confirmar()` desliga.
+   */
+  readonly passagemPorConfirmar = signal(false);
+
+  /**
    * A edição foi salva e a tela pode ir embora.
    *
    * Existe porque em edição não há tela de sucesso: o tour já estava
@@ -1833,6 +1849,10 @@ export class TourDraftStore {
     this.rascunhoPropertyId.set(null);
     this.modo.set('criacao');
     this.edicaoSalva.set(false);
+    // Uma passagem marcada e nao confirmada nao pode atravessar para a captura
+    // seguinte: ela prende a etapa 3 do proximo tour em tela cheia, esperando
+    // uma confirmacao de um ponto que nao existe mais.
+    this.passagemPorConfirmar.set(false);
     this.hotspotsParaApagar.set([]);
     this.miniaturas.set({});
     this.miniaturasQueFalharam.clear();
