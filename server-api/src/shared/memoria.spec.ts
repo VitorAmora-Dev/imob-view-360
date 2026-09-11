@@ -84,8 +84,10 @@ describe('emMB', () => {
  * sem nada no codigo para explicar.
  */
 describe('alocadorSemAjuste', () => {
-  it('avisa no Linux sem o limiar fixado', () => {
-    const aviso = alocadorSemAjuste('linux', {});
+  const comGlibc = { plataforma: 'linux', glibc: () => true };
+
+  it('avisa na glibc sem o limiar fixado', () => {
+    const aviso = alocadorSemAjuste({ ...comGlibc, ambiente: {} });
 
     expect(aviso).toContain('MALLOC_MMAP_THRESHOLD_');
     // O numero entra na mensagem: quem le o log nao deve precisar procurar.
@@ -94,14 +96,49 @@ describe('alocadorSemAjuste', () => {
 
   it('cala quando o limiar esta definido', () => {
     expect(
-      alocadorSemAjuste('linux', { MALLOC_MMAP_THRESHOLD_: '1048576' }),
+      alocadorSemAjuste({
+        ...comGlibc,
+        ambiente: { MALLOC_MMAP_THRESHOLD_: '1048576' },
+      }),
     ).toBeNull();
   });
 
   it('cala fora do Linux, onde o alocador e outro', () => {
     // A bancada do Windows devolve a memoria sem ajuste nenhum. Avisar ali
     // seria ensinar a ignorar o aviso.
-    expect(alocadorSemAjuste('win32', {})).toBeNull();
-    expect(alocadorSemAjuste('darwin', {})).toBeNull();
+    expect(alocadorSemAjuste({ plataforma: 'win32', ambiente: {} })).toBeNull();
+    expect(
+      alocadorSemAjuste({ plataforma: 'darwin', ambiente: {} }),
+    ).toBeNull();
+  });
+
+  /**
+   * O Dockerfile deste repositorio e Alpine. Ali o alocador e o musl, a
+   * variavel nao faz efeito nenhum, e a bancada mostra a memoria voltando
+   * sozinha: pico 189 MB, volta 132, plano nas tres montagens.
+   */
+  it('cala no musl, que devolve a memoria sozinho', () => {
+    expect(
+      alocadorSemAjuste({
+        plataforma: 'linux',
+        ambiente: {},
+        glibc: () => false,
+      }),
+    ).toBeNull();
+  });
+
+  it('so consulta o alocador depois de descartar os casos baratos', () => {
+    // Montar o relatorio do processo custa; nao pode acontecer por causa de um
+    // boot em Windows nem quando a variavel ja esta la.
+    const glibc = jest.fn(() => true);
+
+    alocadorSemAjuste({ plataforma: 'win32', ambiente: {}, glibc });
+    alocadorSemAjuste({
+      plataforma: 'linux',
+      ambiente: { MALLOC_MMAP_THRESHOLD_: '1048576' },
+      glibc,
+    });
+
+    expect(glibc).not.toHaveBeenCalled();
   });
 });
