@@ -208,12 +208,19 @@ export class TourWizardPage implements OnInit {
    * da etapa, e a página não o alcança. Haver passagem pendente é exatamente
    * o caso em que a etapa monta o visualizador.
    */
-  readonly imersivo = computed(
-    () =>
-      this.store.step() === 3 &&
-      !this.store.published() &&
-      filaDePassagens(this.store.scenes()).some((p) => !p.feita),
-  );
+  readonly imersivo = computed(() => {
+    if (this.store.step() !== 3 || this.store.published()) return false;
+
+    const fila = filaDePassagens(this.store.scenes());
+    // Sem fila a etapa e um paragrafo pedindo para voltar e conectar — e sem
+    // barra nao haveria com o que voltar.
+    if (!fila.length) return false;
+
+    // A segunda parcela e o ULTIMO ponto, marcado e ainda por confirmar: ali a
+    // fila ja esta vazia, mas a tela de colocacao continua no ar esperando a
+    // decisao. Sem isto a barra voltava por cima dela no meio do gesto.
+    return fila.some((p) => !p.feita) || this.store.passagemPorConfirmar();
+  });
 
   constructor() {
     // `visibilitychange`, e não `beforeunload`: navegador de celular ignora ou
