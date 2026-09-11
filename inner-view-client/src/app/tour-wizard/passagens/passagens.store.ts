@@ -37,6 +37,22 @@ export class PassagensStore {
 
   readonly acabou = computed(() => primeiraPendente(this.fila()) === -1);
 
+  /**
+   * A fila acabou E nao ha confirmacao pendente — o gatilho da revisao.
+   *
+   * `acabou()` sozinho era esse gatilho, e nisso estava o defeito: ele fica
+   * verdadeiro no INSTANTE em que o ultimo ponto e marcado. Marcar o ultimo —
+   * inclusive um toque sem querer no lugar errado — pulava direto para "as N
+   * passagens estao posicionadas". As outras N-1 tinham botao de confirmar; so
+   * a que fecha a etapa nao tinha.
+   *
+   * A conjuncao, e nao so o sinal: se a pessoa refizer um ponto depois de tudo
+   * pronto, `acabou()` volta a ser falso e a revisao sai de cena sozinha.
+   */
+  readonly revisando = computed(
+    () => this.acabou() && !this.draft.passagemPorConfirmar(),
+  );
+
   /** As outras pendentes da mesma foto: a lista do painel inferior. */
   readonly pendentes = computed(() => pendentesDoAmbiente(this.fila(), this.i()));
 
@@ -77,11 +93,17 @@ export class PassagensStore {
     );
     if (existente) {
       this.editor.update(existente.id, { u, v });
-      return;
+    } else {
+      const id = this.editor.add(u, v);
+      // Sem cena selecionada o editor nao grava nada. Nao houve marca, entao
+      // nao ha o que confirmar.
+      if (!id) return;
+      this.editor.update(id, { target: passagem.destino.id });
     }
 
-    const id = this.editor.add(u, v);
-    if (id) this.editor.update(id, { target: passagem.destino.id });
+    // O ponto existe e espera um confirmar. E o que segura a revisao, e o que
+    // mantem a etapa com a tela inteira ate a pessoa decidir.
+    this.draft.passagemPorConfirmar.set(true);
   }
 
   /**
@@ -137,6 +159,8 @@ export class PassagensStore {
   confirmar(): void {
     const passagem = this.atual();
     if (!passagem?.feita) return;
+
+    this.draft.passagemPorConfirmar.set(false);
 
     const proxima = primeiraPendente(this.fila());
     if (proxima >= 0) this.irPara(proxima);

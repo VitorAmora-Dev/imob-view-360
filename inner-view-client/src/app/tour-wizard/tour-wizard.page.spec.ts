@@ -822,6 +822,26 @@ describe('TourWizardPage — modo imersivo da etapa de passagens', () => {
     expect(page.imersivo()).toBeFalse();
   });
 
+  /**
+   * Marcar o ULTIMO ponto esvazia a fila, e so por isso a barra voltava — com
+   * a tela de colocacao ainda no ar, esperando um confirmar. A barra e o
+   * padding do corpo entravam por cima de um `.sp` de `100dvh`, e o desenho
+   * quebrava no meio do gesto.
+   *
+   * Enquanto ha confirmacao pendente a etapa continua com a tela inteira.
+   */
+  it('com a ultima marcada e por confirmar, a foto continua com a tela', () => {
+    const page = montar();
+    page.store.scenes.set([
+      cenaLigada('sala', ['cozinha'], ['cozinha']),
+      cenaLigada('cozinha', ['sala'], ['sala']),
+    ]);
+    page.store.step.set(3);
+    page.store.passagemPorConfirmar.set(true);
+
+    expect(page.imersivo()).toBeTrue();
+  });
+
   it('fora da etapa de passagens nao ha modo imersivo', () => {
     const page = montar();
     page.store.scenes.set([

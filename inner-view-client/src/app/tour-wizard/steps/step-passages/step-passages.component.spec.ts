@@ -433,6 +433,81 @@ describe('StepPassagesComponent', () => {
     });
   });
 
+  /**
+   * A ULTIMA passagem tambem se confirma.
+   *
+   * `acabou()` fica verdadeiro no instante em que o ultimo ponto e marcado, e
+   * era ele quem abria a revisao. Resultado: marcar o ultimo ponto — inclusive
+   * um toque sem querer no lugar errado — pulava direto para "as N passagens
+   * estao posicionadas", sem passar por confirmacao nenhuma. As outras N-1
+   * tinham botao; so a que fecha a etapa nao tinha.
+   *
+   * Agora a revisao espera um confirmar explicito. Um tour que CHEGA com tudo
+   * posicionado continua abrindo direto nela: ali nao ha nada a confirmar,
+   * porque ninguem acabou de marcar nada.
+   */
+  describe('a ultima passagem', () => {
+    const duas = () => [cena('sala', ['cozinha']), cena('cozinha', ['sala'])];
+
+    function marcar() {
+      fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.5 });
+      fixture.detectChanges();
+    }
+
+    /** Marca a primeira, confirma, e marca a ultima — sem confirmar. */
+    function ateMarcarAUltima() {
+      marcar();
+      passagens.confirmar();
+      fixture.detectChanges();
+      marcar();
+    }
+
+    const revisao = () => el().querySelector('.sp--revisao');
+
+    it('marcar a ultima NAO pula para a revisao', () => {
+      montar(duas());
+
+      ateMarcarAUltima();
+
+      expect(passagens.acabou()).toBeTrue();
+      expect(revisao()).toBeNull();
+      expect(el().textContent).not.toContain('TOUR_WIZARD.PASSAGES.DONE');
+    });
+
+    it('a ultima tambem oferece o confirmar', () => {
+      montar(duas());
+
+      ateMarcarAUltima();
+
+      expect(confirmar()?.textContent).toContain('TOUR_WIZARD.PASSAGES.CONFIRM');
+    });
+
+    it('confirmar a ultima e o que abre a revisao', () => {
+      montar(duas());
+      ateMarcarAUltima();
+
+      confirmar()!.click();
+      fixture.detectChanges();
+
+      expect(revisao()).not.toBeNull();
+      expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.DONE');
+    });
+
+    /**
+     * O rascunho retomado e o tour em edicao chegam com os pontos ja gravados.
+     * Ali a etapa nao tem o que pedir: quem marcou foi outra sessao.
+     */
+    it('um tour que ja chega posicionado abre direto na revisao', () => {
+      montar([
+        cena('sala', ['cozinha'], [ponto('h1', 'cozinha')]),
+        cena('cozinha', ['sala'], [ponto('h2', 'sala')]),
+      ]);
+
+      expect(revisao()).not.toBeNull();
+      expect(confirmar()).toBeNull();
+    });
+  });
+
   it('sem conexao nenhuma, manda voltar e conectar', () => {
     montar([cena('sala'), cena('cozinha')]);
     expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.EMPTY');
