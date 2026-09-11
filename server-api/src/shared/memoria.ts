@@ -153,6 +153,23 @@ export function emMB({ antes, depois }: Devolucao): string {
 export const LIMIAR_DE_MMAP = 1048576;
 
 /**
+ * Se este processo está ligado à glibc.
+ *
+ * `glibcVersionRuntime` só aparece no relatório quando está; no musl do Alpine
+ * o campo não vem. É a forma de distinguir os dois sem sair para o shell.
+ *
+ * O relatório inteiro é caro de montar, e por isso isto é chamado uma vez, no
+ * boot.
+ */
+function comGlibc(): boolean {
+  const relatorio = process.report?.getReport() as {
+    header?: { glibcVersionRuntime?: string };
+  };
+
+  return Boolean(relatorio?.header?.glibcVersionRuntime);
+}
+
+/**
  * A mensagem de aviso quando o processo sobe sem o limiar fixado, ou `null`
  * quando não há o que avisar.
  *
@@ -164,17 +181,27 @@ export const LIMIAR_DE_MMAP = 1048576;
  * sem nada no código para explicar. Uma linha no boot é o que impede isso de
  * virar conhecimento perdido.
  *
- * Plataforma e ambiente entram por parâmetro para o teste não precisar mexer em
- * `process`.
+ * O que o define é o ALOCADOR, não o sistema. A primeira versão disto olhava só
+ * `process.platform === 'linux'` e teria gritado dentro do Dockerfile deste
+ * repositório, que é Alpine: ali o alocador é o musl, a variável não faz nada, e
+ * a bancada mostra a memória voltando sozinha — pico 189 MB, volta 132, plano
+ * nas três montagens, sem ajuste nenhum. Aviso que manda mexer no que não
+ * adianta é aviso que ensina a ignorar avisos.
+ *
+ * Tudo entra por parâmetro para o teste não precisar mexer em `process`.
  */
-export function alocadorSemAjuste(
-  plataforma: string = process.platform,
-  ambiente: NodeJS.ProcessEnv = process.env,
-): string | null {
-  // O limiar dinâmico é do glibc. Em macOS e Windows o alocador é outro, e a
-  // bancada do Windows mostra a memória voltando sem ajuste nenhum.
+export function alocadorSemAjuste({
+  plataforma = process.platform,
+  ambiente = process.env,
+  glibc = comGlibc,
+}: {
+  plataforma?: string;
+  ambiente?: NodeJS.ProcessEnv;
+  glibc?: () => boolean;
+} = {}): string | null {
   if (plataforma !== 'linux') return null;
   if (ambiente['MALLOC_MMAP_THRESHOLD_']) return null;
+  if (!glibc()) return null;
 
   return (
     `MALLOC_MMAP_THRESHOLD_ não está definida. Sem ela o alocador do glibc ` +
