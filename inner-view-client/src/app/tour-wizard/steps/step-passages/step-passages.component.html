@@ -101,6 +101,21 @@
           <app-owl-loader />
           <p>{{ 'TOUR_WIZARD.PASSAGES.LOADING' | translate }}</p>
         </div>
+      } @else if (temPonto()) {
+        <!--
+          Marcado o ponto, a instrucao ja cumpriu o que tinha a dizer e o
+          confirmar toma o lugar dela — a mesma caixa, sobre a foto.
+
+          Ele morava na gaveta, ABAIXO do palco, e no celular ficava fora de
+          vista: marcar e confirmar sao um gesto so, e pediam uma rolagem no
+          meio. Aqui ele nasce onde o dedo acabou de tocar.
+        -->
+        <button
+          type="button"
+          class="sp__confirmar"
+          (click)="passagens.confirmar()">
+          {{ 'TOUR_WIZARD.PASSAGES.CONFIRM' | translate }}
+        </button>
       } @else {
         <app-guided-banner
           class="sp__banner"
@@ -115,7 +130,6 @@
       [feitas]="passagens.feitas()"
       [total]="passagens.total()"
       [temPonto]="temPonto()"
-      (confirmar)="passagens.confirmar()"
       (refazer)="passagens.refazer()"
       (voltar)="voltarParaOrdenacao()" />
   </div>

@@ -62,6 +62,8 @@ describe('StepPassagesComponent', () => {
 
   const el = () => fixture.nativeElement as HTMLElement;
   const botao = () => el().querySelector('.ps__acao') as HTMLButtonElement | null;
+  const confirmar = () =>
+    el().querySelector('.sp__confirmar') as HTMLButtonElement | null;
 
   function espiaoDoReset(): jasmine.Spy {
     TestBed.tick();
@@ -81,18 +83,19 @@ describe('StepPassagesComponent', () => {
     expect(el().querySelector('.ps__nomes')).toBeNull();
   });
 
-  it('sem ponto, o primario fica travado', () => {
+  it('sem ponto nao ha confirmar em lugar nenhum', () => {
     montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
-    expect(botao()?.disabled).toBeTrue();
+    expect(confirmar()).toBeNull();
+    expect(botao()).toBeNull();
   });
 
-  it('marcar libera o primario', () => {
+  it('marcar libera o confirmar e o refazer', () => {
     montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
 
     fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.5 });
     fixture.detectChanges();
 
-    expect(botao()?.disabled).toBeFalse();
+    expect(confirmar()).not.toBeNull();
     expect(el().querySelector('.ps__refazer')).not.toBeNull();
   });
 
@@ -346,6 +349,90 @@ describe('StepPassagesComponent', () => {
     expect(el().querySelector('app-guided-banner')).not.toBeNull();
   });
 
+  /**
+   * O confirmar no LUGAR da instrucao, e nao embaixo da foto.
+   *
+   * Ele morava na gaveta, abaixo do palco, e no celular ficava fora de vista:
+   * marcar o ponto e confirmar sao um gesto so, e pediam uma rolagem no meio.
+   * Agora a instrucao sai quando o ponto entra, e o botao nasce onde ela
+   * estava — no alcance do dedo que acabou de tocar.
+   */
+  describe('o confirmar no lugar da instrucao', () => {
+    function marcar() {
+      fixture.componentInstance.onPlaced({ positionX: 0.3, positionY: 0.5 });
+      fixture.detectChanges();
+    }
+
+    it('no inicio mostra a instrucao, e nenhum confirmar', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+
+      expect(el().querySelector('app-guided-banner')).not.toBeNull();
+      expect(confirmar()).toBeNull();
+    });
+
+    it('marcar troca a instrucao pelo confirmar', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+
+      marcar();
+
+      expect(el().querySelector('app-guided-banner')).toBeNull();
+      expect(confirmar()?.textContent).toContain('TOUR_WIZARD.PASSAGES.CONFIRM');
+    });
+
+    /**
+     * DENTRO do palco, e nao na gaveta: e o palco que esta a vista sem rolar,
+     * e e disso que a tarefa trata. Um confirmar correto que nasca no lugar
+     * errado nao conserta nada.
+     */
+    it('o confirmar nasce sobre a foto, e nao abaixo dela', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+
+      marcar();
+
+      const palco = el().querySelector('.sp__pano') as HTMLElement;
+      expect(palco.contains(confirmar())).toBeTrue();
+      expect(el().querySelector('app-passagens-sheet')?.contains(confirmar()))
+        .toBeFalse();
+    });
+
+    /**
+     * A instrucao que ele substitui tem `pointer-events: none`, para nao
+     * engolir o arrasto que gira a foto. Herdar essa regra daria um botao
+     * desenhado, visivel e morto — e nada no console denunciaria.
+     */
+    it('o confirmar recebe toque; a instrucao, nao', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+
+      const instrucao = el().querySelector('app-guided-banner') as HTMLElement;
+      expect(getComputedStyle(instrucao).pointerEvents).toBe('none');
+
+      marcar();
+
+      expect(getComputedStyle(confirmar()!).pointerEvents).not.toBe('none');
+    });
+
+    it('confirmar avanca, e a instrucao volta para a proxima passagem', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+      expect(passagens.total()).toBe(2);
+
+      marcar();
+      confirmar()!.click();
+      fixture.detectChanges();
+
+      expect(passagens.indice()).toBe(1);
+      expect(confirmar()).toBeNull();
+      expect(el().querySelector('app-guided-banner')).not.toBeNull();
+    });
+
+    it('a gaveta nao carrega mais um confirmar', () => {
+      montar([cena('sala', ['cozinha']), cena('cozinha', ['sala'])]);
+
+      marcar();
+
+      expect(el().querySelector('.ps__acao')).toBeNull();
+    });
+  });
+
   it('sem conexao nenhuma, manda voltar e conectar', () => {
     montar([cena('sala'), cena('cozinha')]);
     expect(el().textContent).toContain('TOUR_WIZARD.PASSAGES.EMPTY');
@@ -361,7 +448,6 @@ describe('StepPassagesComponent', () => {
     expect(voltar).not.toBeNull();
     expect(acoes).not.toBeNull();
     expect(acoes.querySelector('.ps__voltar')).toBe(voltar);
-    expect(acoes.querySelector('.ps__acao')).toBe(botao());
 
     voltar.click();
     expect(draft.step()).toBe(2);

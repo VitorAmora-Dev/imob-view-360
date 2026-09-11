@@ -26,7 +26,6 @@ export class PassagensSheetComponent {
   readonly total = input.required<number>();
   readonly temPonto = input.required<boolean>();
 
-  readonly confirmar = output<void>();
   readonly refazer = output<void>();
   readonly voltar = output<void>();
 
