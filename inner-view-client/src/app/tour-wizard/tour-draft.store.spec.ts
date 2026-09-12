@@ -628,6 +628,156 @@ describe('TourDraftStore (contrato)', () => {
    * com menos de quatro fotos originais e ainda prende o id na guarda de
    * idempotência, o que transforma a chamada seguinte num no-op silencioso.
    */
+  describe('acompanharTratamentos', () => {
+    /**
+     * Uma volta só do laço, com o estado que o caso quiser, e o controle da
+     * promessa nas mãos do teste: o laço real dorme entre as voltas, e
+     * `fakeAsync` com um `await` de rede dentro é mais frágil do que preciso.
+     */
+    function comAndamento(
+      panoramas: { id: string; status: string }[],
+      terminado = true,
+    ): VirtualTourService {
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'acompanharMontagem').and.callFake(
+        async (_id: string, aoAvancar: (a: never) => void) => {
+          aoAvancar({
+            total: panoramas.length,
+            prontos: panoramas.filter((p) => p.status === 'DONE').length,
+            falhas: 0,
+            dispensados: 0,
+            terminado,
+            panoramas,
+          } as never);
+          return null as never;
+        },
+      );
+      spyOn(tours, 'baixarPreview').and.returnValue(
+        of(new Blob(['tratada'])) as ReturnType<VirtualTourService['baixarPreview']>,
+      );
+      return tours;
+    }
+
+    beforeEach(() => {
+      spyOn(URL, 'createObjectURL').and.returnValue('blob:tratada');
+    });
+
+    it('leva a cena de treating a done e troca a foto', async () => {
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'pano-1', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+      comAndamento([{ id: 'pano-1', status: 'DONE' }]);
+
+      store.acompanharTratamentos();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(store.scenes()[0].aiState).toBe('done');
+      expect(store.scenes()[0].treatedImageUrl).toBe('blob:tratada');
+      expect(store.emTratamento()).toEqual([]);
+    });
+
+    it('abre UM laço só, mesmo chamado três vezes', () => {
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'pano-1', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+      const tours = comAndamento([{ id: 'pano-1', status: 'PROCESSING' }], false);
+
+      store.acompanharTratamentos();
+      store.acompanharTratamentos();
+      store.acompanharTratamentos();
+
+      // Um laço por captura abriria N conexões baixando o tour INTEIRO a cada
+      // poucos segundos para olhar uma linha só.
+      expect(tours.acompanharMontagem).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * O caso que o pedido original teria transformado em armadilha. Os dois são
+     * terminais no servidor e NUNCA viram `DONE`: dispensa acontece com menos
+     * de quatro fotos de referência, e falha é falha.
+     */
+    it('FAILED e SKIPPED atravessam como terminais', async () => {
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'p1', aiState: 'treating' }),
+        scene('b', { serverPanoramaId: 'p2', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+      comAndamento([
+        { id: 'p1', status: 'FAILED' },
+        { id: 'p2', status: 'SKIPPED' },
+      ]);
+
+      store.acompanharTratamentos();
+      await Promise.resolve();
+
+      expect(store.scenes().map((s) => s.aiState)).toEqual(['failed', 'skipped']);
+      expect(store.emTratamento()).toEqual([]);
+    });
+
+    it('PROCESSING não apaga o treating que já está lá', async () => {
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'p1', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+
+      // O laço fica VIVO: avisa e continua rodando. Um duble que resolvesse
+      // aqui simularia o fim do acompanhamento, e o fim derruba o cômodo em
+      // curso para `failed` de propósito — é o caso do teste seguinte, não
+      // deste.
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'acompanharMontagem').and.callFake(
+        (_id: string, aoAvancar: (a: never) => void) => {
+          aoAvancar({
+            total: 1, prontos: 0, falhas: 0, dispensados: 0, terminado: false,
+            panoramas: [{ id: 'p1', status: 'PROCESSING' }],
+          } as never);
+          return new Promise<never>(() => undefined);
+        },
+      );
+
+      store.acompanharTratamentos();
+      await Promise.resolve();
+
+      expect(store.scenes()[0].aiState).toBe('treating');
+    });
+
+    /**
+     * Sem isto a trava da etapa 1 seria ETERNA — o mesmo defeito que ela existe
+     * para corrigir. A montagem segue no servidor; o que acabou é o
+     * acompanhamento.
+     */
+    it('o fim do laço com cômodo em curso derruba para failed local', async () => {
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'p1', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+      // O laço devolve sem nunca ter visto estado terminal: é o que acontece
+      // quando o teto de dez minutos estoura.
+      const tours = TestBed.inject(VirtualTourService);
+      spyOn(tours, 'acompanharMontagem').and.resolveTo(null as never);
+
+      store.acompanharTratamentos();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(store.scenes()[0].aiState).toBe('failed');
+      expect(store.emTratamento()).toEqual([]);
+    });
+
+    it('sem rascunho não há tour para acompanhar', () => {
+      const store = storeWith(scene('a', { aiState: 'treating' }));
+      const tours = TestBed.inject(VirtualTourService);
+      const espia = spyOn(tours, 'acompanharMontagem');
+
+      store.acompanharTratamentos();
+
+      expect(espia).not.toHaveBeenCalled();
+    });
+  });
+
   describe('enviarCaptura e tratarCaptura', () => {
     interface Dublês {
       tours: VirtualTourService;

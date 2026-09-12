@@ -61,6 +61,25 @@ const MAX_PUBLISH_BYTES = 34 * 1024 * 1024;
 const MINIMO_DE_REFERENCIAS = 4;
 
 /**
+ * Teto do acompanhamento em segundo plano.
+ *
+ * Generoso porque ninguém está parado olhando — o que estoura aqui é caso
+ * patológico, não espera normal. Passado o teto, a cena cai para `'failed'`
+ * LOCAL: ver `acompanharTratamentos`. A montagem em si continua no servidor, e
+ * uma retomada posterior encontra o resultado.
+ */
+const TETO_DO_ACOMPANHAMENTO_MS = 10 * 60 * 1000;
+
+/**
+ * O passo do laço, com e sem alguém olhando a espera.
+ *
+ * Dez segundos com o corretor fotografando o cômodo seguinte é rede e bateria
+ * em campo para uma resposta que ninguém está esperando ver naquele instante.
+ */
+const INTERVALO_OLHANDO_MS = 3000;
+const INTERVALO_DE_FUNDO_MS = 10_000;
+
+/**
  * Teto da espera com o corretor parado olhando o loader.
  *
  * A montagem leva ~60s por cômodo. Dois minutos cobrem uma que demorou mais
@@ -708,6 +727,110 @@ export class TourDraftStore {
       // O cômodo existe e a montagem está a caminho; o que falhou foi trazer a
       // imagem. Ver o `catch` de `enviarCaptura`: o id nunca é descartado.
       return { panoramaId: enviado.panoramaId, treatedUrl: '' };
+    }
+  }
+
+  /**
+   * Há alguém de olho numa espera de montagem agora.
+   *
+   * Só aperta o passo do laço. Quem liga e desliga é o modal de captura, por
+   * `componentProps`: ele não alcança este store, porque o `ModalController`
+   * o cria fora da árvore da página.
+   */
+  readonly alguemOlhando = signal(false);
+
+  /** As cenas que ainda esperam a IA. É a fonte da trava da etapa 1. */
+  readonly emTratamento = computed(() =>
+    this.scenes().filter((s) => s.aiState === 'treating'),
+  );
+
+  /** Um laço por tour. `null` quando não há nenhum vivo. */
+  private acompanhamento: AbortController | null = null;
+
+  /**
+   * Passa a acompanhar a montagem deste tour, se já não estiver.
+   *
+   * Idempotente de propósito: quem chama é cada captura confirmada, e um laço
+   * por captura abriria N conexões baixando o tour INTEIRO a cada poucos
+   * segundos para olhar uma linha só. `acompanharMontagem` já é por tour e já
+   * devolve a lista cômodo a cômodo — é exatamente a forma que isto reusa.
+   *
+   * É este método que torna `'treating'` um estado honesto. Ele já existiu e
+   * foi removido porque ninguém o encerrava: o selo acendia e não saía mais.
+   * Agora sai, inclusive no estouro do teto.
+   */
+  acompanharTratamentos(): void {
+    if (this.acompanhamento) return;
+    const tourId = this.rascunhoTourId();
+    if (!tourId) return;
+
+    const controle = new AbortController();
+    this.acompanhamento = controle;
+    const encerrar = () => controle.abort();
+    this.abortar.signal.addEventListener('abort', encerrar, { once: true });
+
+    void this.virtualTourService
+      .acompanharMontagem(tourId, (andamento) => this.aplicarAndamento(andamento), {
+        sinal: controle.signal,
+        limiteMs: TETO_DO_ACOMPANHAMENTO_MS,
+        // FUNÇÃO, e não número: o serviço resolve o passo a cada volta. Com um
+        // número, o valor ficaria congelado no do instante em que o laço
+        // nasceu — e ele nasce quando o corretor está saindo do preview.
+        intervaloMs: () =>
+          this.alguemOlhando() ? INTERVALO_OLHANDO_MS : INTERVALO_DE_FUNDO_MS,
+      })
+      .finally(() => {
+        this.abortar.signal.removeEventListener('abort', encerrar);
+        this.acompanhamento = null;
+
+        // Estourou o teto — ou a tela morreu — com cômodo ainda em curso:
+        // derruba para terminal local. Sem isto a trava da etapa 1 seria
+        // ETERNA, que é o mesmo defeito que ela existe para corrigir. A
+        // montagem segue no servidor; o que acabou aqui é só o acompanhamento.
+        for (const cena of this.emTratamento()) {
+          this.patchScene(cena.id, (s) => ({ ...s, aiState: 'failed' }));
+        }
+      });
+  }
+
+  /** Traduz uma volta do acompanhamento para as cenas. */
+  private aplicarAndamento(andamento: AndamentoDaMontagem): void {
+    for (const p of andamento.panoramas) {
+      const cena = this.scenes().find((s) => s.serverPanoramaId === p.id);
+      if (!cena || cena.aiState !== 'treating') continue;
+
+      // `p.status`, e não `p.treatmentStatus`: `AndamentoDoPanorama` é
+      // `{ id, status }`. O nome da coluna do Prisma fica no servidor.
+      const estado = ESTADO_DA_IA[p.status] ?? 'idle';
+      // Só estado TERMINAL atravessa: `PENDING` e `PROCESSING` são o cômodo
+      // ainda na fila, e gravá-los apagaria o `'treating'` que já está lá.
+      if (estado === 'treating' || estado === 'idle') continue;
+
+      this.patchScene(cena.id, (s) => ({ ...s, aiState: estado }));
+      if (estado === 'done') void this.baixarTratada(cena.id, p.id);
+    }
+  }
+
+  /**
+   * Troca a foto da cena pela versão tratada.
+   *
+   * O `objectURL` fica pendurado na cena e é revogado no descarte — uma
+   * equirretangular por cômodo é grande o bastante para o vazamento aparecer
+   * no aparelho antes do fim de um tour de oito.
+   */
+  private async baixarTratada(sceneId: string, panoramaId: string): Promise<void> {
+    try {
+      const blob = await firstValueFrom(
+        this.virtualTourService.baixarPreview(panoramaId, 'treated'),
+      );
+      this.patchScene(sceneId, (s) => ({
+        ...s,
+        treatedImageUrl: URL.createObjectURL(blob),
+      }));
+    } catch {
+      // A montagem existe no servidor; o que falhou foi TRAZER a imagem. O
+      // estado terminal já foi gravado e a trava já liberou — o cômodo segue
+      // com o panorama costurado, que é servível.
     }
   }
 

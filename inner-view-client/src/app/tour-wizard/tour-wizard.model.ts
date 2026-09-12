@@ -102,13 +102,28 @@ export type WizardSceneState = 'reading' | 'ready' | 'rejected';
  * `step-images`, gravando `done` quando o modal devolve foto tratada; os
  * demais valores só aparecem numa retomada, traduzidos do `treatmentStatus`.
  *
- * Enquanto os dois existiam, a retomada os produzia a partir do `PENDING` que
- * é o `@default` da coluna — e como nenhuma tela do wizard acompanha montagem,
- * o selo "Melhorando com IA…" acendia em foto que nunca seria tratada e não
- * saía mais. Um estado que ninguém alcança e ninguém encerra é onde a mentira
- * cabe.
+ * `'treating'` já esteve aqui, foi removido, e volta agora — com a condição que
+ * faltava. O motivo da remoção fica registrado porque continua valendo como
+ * regra: *"como nenhuma tela do wizard acompanha montagem, o selo 'Melhorando
+ * com IA…' acendia em foto que nunca seria tratada e não saía mais. Um estado
+ * que ninguém alcança e ninguém encerra é onde a mentira cabe."*
+ *
+ * Quem alcança agora é `TourDraftStore.acompanharTratamentos`, e quem encerra é
+ * ele também: por estado terminal do servidor, ou pelo teto de dez minutos, que
+ * derruba para `'failed'`. O estado deixou de ser mentira possível porque passou
+ * a ter dono.
+ *
+ * `PENDING` continua virando `'idle'`, e NÃO `'treating'`: é o `@default` da
+ * coluna, e toda foto vinda de arquivo nasce assim sem nunca ser tratada. Foi
+ * por traduzi-lo errado que o selo apareceu, da primeira vez, justamente em
+ * cima do cômodo que nunca teria tratamento nenhum.
  */
-export type WizardSceneAiState = 'idle' | 'done' | 'failed' | 'skipped';
+export type WizardSceneAiState =
+  | 'idle'
+  | 'treating'
+  | 'done'
+  | 'failed'
+  | 'skipped';
 
 /**
  * Por que o arquivo foi RECUSADO. Só o que é impossível de aproveitar: um PDF
