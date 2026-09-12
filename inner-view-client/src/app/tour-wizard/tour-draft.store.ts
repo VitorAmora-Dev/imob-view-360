@@ -77,6 +77,15 @@ const TETO_DO_ACOMPANHAMENTO_MS = 10 * 60 * 1000;
  * em campo para uma resposta que ninguém está esperando ver naquele instante.
  */
 const INTERVALO_OLHANDO_MS = 3000;
+
+/**
+ * Teto da espera que alguém pode estar VENDO — a do preview da captura.
+ *
+ * Bem menor que o do acompanhamento de fundo: lá o corretor foi embora e o
+ * laço pode insistir; aqui ele pode estar olhando a tela, e insistir por dez
+ * minutos seria prometer uma troca de foto que talvez nunca venha.
+ */
+const TETO_DA_ESPERA_VISIVEL_MS = 2 * 60 * 1000;
 const INTERVALO_DE_FUNDO_MS = 10_000;
 
 /**
@@ -748,6 +757,63 @@ export class TourDraftStore {
           this.patchScene(cena.id, (s) => ({ ...s, aiState: 'failed' }));
         }
       });
+  }
+
+  /**
+   * A foto tratada deste panorama, quando ela ficar pronta.
+   *
+   * Para o modal de captura, que mostra o costurado e troca por esta quando
+   * ela chega. NÃO é a espera antiga de volta: ninguém fica parado por ela —
+   * a tela já está no ar, com nome, botões e a foto costurada, e quem não
+   * quiser esperar sai antes.
+   *
+   * Existe separado de `acompanharTratamentos` por um motivo concreto: aquele
+   * casa panoramas com CENAS, e enquanto o modal está aberto a cena ainda não
+   * existe — ela nasce na confirmação. O cômodo em preview é invisível para
+   * ele.
+   *
+   * Teto de dois minutos, e não os dez do acompanhamento de fundo: passado
+   * isso o corretor ou já saiu, ou está olhando uma tela que não vai mudar.
+   * Devolve `null` em falha, dispensa e estouro — quem chama já tem o
+   * costurado e segue com ele.
+   */
+  async fotoTratada(panoramaId: string): Promise<string | null> {
+    const tourId = this.rascunhoTourId();
+    if (!tourId) return null;
+
+    const controle = new AbortController();
+    const encerrar = () => controle.abort();
+    this.abortar.signal.addEventListener('abort', encerrar, { once: true });
+
+    let pronto = false;
+    try {
+      await this.virtualTourService.acompanharMontagem(
+        tourId,
+        (andamento) => {
+          const meu = andamento.panoramas.find((p) => p.id === panoramaId);
+          if (!meu || meu.status === 'PENDING' || meu.status === 'PROCESSING') return;
+          pronto = meu.status === 'DONE';
+          // Só ESTE cômodo interessa: os outros já foram tratados nas
+          // capturas anteriores, e esperar por eles seria esperar de novo.
+          controle.abort();
+        },
+        { sinal: controle.signal, limiteMs: TETO_DA_ESPERA_VISIVEL_MS },
+      );
+    } catch {
+      return null;
+    } finally {
+      this.abortar.signal.removeEventListener('abort', encerrar);
+    }
+
+    if (!pronto) return null;
+    try {
+      const blob = await firstValueFrom(
+        this.virtualTourService.baixarPreview(panoramaId, 'treated'),
+      );
+      return URL.createObjectURL(blob);
+    } catch {
+      return null;
+    }
   }
 
   /** Traduz uma volta do acompanhamento para as cenas. */

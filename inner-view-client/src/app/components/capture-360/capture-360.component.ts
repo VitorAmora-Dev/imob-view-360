@@ -175,9 +175,8 @@ export class Capture360Component implements OnDestroy {
    */
   private originalImageData = '';
 
-  /** Id do panorama no servidor, criado durante a espera do tratamento. */
+  /** Id do panorama no servidor, criado pelo envio da captura. */
   private serverPanoramaId: string | null = null;
-  private treatedUrl = '';
 
   /**
    * A IA não melhorou este cômodo — rede fora, tempo estourado ou dispensa do
@@ -204,6 +203,14 @@ export class Capture360Component implements OnDestroy {
   }) => Promise<EnvioDaCaptura | null>;
 
   /**
+   * A foto tratada deste panorama, quando ficar pronta.
+   *
+   * Devolve `null` quando a IA não melhorou, falhou ou demorou demais — aí a
+   * tela fica com o panorama costurado, que é servível, e diz isso.
+   */
+  aoTratar?: (panoramaId: string) => Promise<string | null>;
+
+  /**
    * Avisa o wizard de que há alguém de olho numa espera de montagem.
    *
    * Só aperta o passo do acompanhamento enquanto esta tela está no ar, para
@@ -223,6 +230,14 @@ export class Capture360Component implements OnDestroy {
    * envio termina enquanto a pessoa digita o nome.
    */
   private envio: Promise<EnvioDaCaptura | null> | null = null;
+
+  /**
+   * A tratada, se ela chegou ANTES de o corretor confirmar.
+   *
+   * Viaja no `dismiss`: a cena nasce pronta e o acompanhamento do wizard não
+   * precisa buscar nem baixar de novo o que esta tela já tem em mãos.
+   */
+  private treatedUrl = '';
   private candidates: Candidate[] = [];
   private lastCandidateMs = 0;
   private rafId: number | null = null;
@@ -288,10 +303,11 @@ export class Capture360Component implements OnDestroy {
         // Já existe quando o envio rodou: o cômodo subiu antes de ter nome, e
         // o wizard não precisa subi-lo de novo no publicar.
         serverPanoramaId: this.serverPanoramaId,
-        // A foto tratada não vem mais por aqui — ela chega depois, pelo
-        // acompanhamento do store. O que viaja é só a notícia de que há uma a
-        // caminho, para o wizard saber o que acompanhar.
+        // Uma das duas, nunca as duas: ou a foto tratada já chegou nesta
+        // tela e a cena nasce pronta, ou só a notícia de que há uma a caminho,
+        // e aí o acompanhamento de fundo a busca.
         emTratamento: enviado?.tratamentoPedido ?? false,
+        treatedUrl: this.treatedUrl,
         continuar,
       },
       'confirm',
@@ -577,6 +593,45 @@ export class Capture360Component implements OnDestroy {
       frames,
       geometry: this.geometry,
     }).catch(() => null);
+
+    void this.trocarQuandoChegar();
+  }
+
+  /**
+   * Espera a montagem sem prender ninguém, e troca a foto quando ela chega.
+   *
+   * É a outra metade do selo. Sem isto ele acende e NUNCA apaga — o cômodo
+   * fica "melhorando com IA" para sempre na tela, e a promessa de ver a foto
+   * boa trocar sozinha nunca se cumpre. Foi assim que este modal foi parar em
+   * produção na primeira versão desta entrega.
+   *
+   * Quem sai antes não perde nada: o cômodo já subiu, o servidor termina
+   * sozinho e o card da etapa 1 recebe a foto pelo acompanhamento de fundo.
+   */
+  private async trocarQuandoChegar(): Promise<void> {
+    const enviado = this.envio ? await this.envio : null;
+
+    // Sem montagem a caminho não há o que esperar: ou o envio falhou, ou o
+    // servidor vai dispensar por ter poucas fotos de referência.
+    if (!enviado?.tratamentoPedido || !this.aoTratar) {
+      this.zone.run(() => {
+        this.tratando.set(false);
+        this.naoMelhorou.set(true);
+      });
+      return;
+    }
+
+    const url = await this.aoTratar(enviado.panoramaId).catch(() => null);
+
+    this.zone.run(() => {
+      this.tratando.set(false);
+      this.naoMelhorou.set(!url);
+      if (!url) return;
+      this.treatedUrl = url;
+      // O costurado continua guardado em `originalImageData`: é ele que sobe
+      // e que alimenta o "ver original" da etapa 2.
+      this.mostrarPreview(url);
+    });
   }
 
   private mostrarPreview(imageUrl: string): void {
