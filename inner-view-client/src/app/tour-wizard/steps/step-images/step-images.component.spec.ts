@@ -33,6 +33,30 @@ describe('StepImagesComponent — escolha e galeria', () => {
     fixture.detectChanges();
   }
 
+  /**
+   * A cor que o navegador do teste realmente pinta para um token do tema.
+   *
+   * `background-color` e não `color`, pelo mesmo motivo que o contrato da
+   * paleta documenta: `color` é herdado, então uma cadeia de `var()` quebrada
+   * voltaria como o preto herdado do body e passaria por uma cor legítima.
+   * `background-color` quebrado vira `transparent`, que é inconfundível.
+   *
+   * Os tokens resolvem aqui porque o `angular.json` carrega `variables.scss` e
+   * `tour-wizard.scss` também no target de teste.
+   */
+  function corDe(token: string): string {
+    const sonda = document.createElement('div');
+    sonda.style.backgroundColor = `var(${token})`;
+    document.body.appendChild(sonda);
+    const cor = getComputedStyle(sonda).backgroundColor;
+    sonda.remove();
+    return cor;
+  }
+
+  function acoes(): HTMLElement[] {
+    return Array.from(fixture.nativeElement.querySelectorAll('.tw-scene-action'));
+  }
+
   beforeEach(() => {
     modalController = jasmine.createSpyObj<ModalController>('ModalController', [
       'create',
@@ -339,6 +363,46 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(actions[0].classList).toContain('tw-scene-action--gallery');
     expect(actions[1].classList).toContain('tw-scene-action--camera');
     expect(actions[1].textContent).toContain('Capturar próximo ambiente');
+  });
+
+  /**
+   * O azul do "Capturar" sumia assim que a primeira foto entrava.
+   *
+   * A tela de decisão pinta a dupla como `tw-btn--bordered` + `tw-btn--primary`:
+   * cartão branco e botão azul. A galeria que a substitui troca as duas por
+   * `tw-scene-action`, e o modificador `--camera` não tinha regra nenhuma — as
+   * duas nasciam com o mesmo `--tw-surface`.
+   *
+   * Mede a COR QUE O NAVEGADOR PINTA, e não a classe: a classe `--camera` já
+   * estava no HTML durante todo o tempo em que o defeito esteve no ar, e o
+   * teste vizinho, que a afirma, passava verde.
+   */
+  it('mantém o "Capturar próximo ambiente" azul depois da primeira foto', () => {
+    store.scenes.set([scene('sala')]);
+    render();
+
+    const [galeria, camera] = acoes();
+
+    expect(getComputedStyle(camera).backgroundColor).toBe(corDe('--tw-brand'));
+    expect(getComputedStyle(galeria).backgroundColor).toBe(corDe('--tw-surface'));
+  });
+
+  /**
+   * O fundo sozinho não resolve: a etiqueta é cinza-claro e a pílula do ícone
+   * tem fundo azul-pálido, os dois pensados para cartão branco. Deixados como
+   * estavam, o azul cheio engoliria ambos.
+   */
+  it('adapta a etiqueta e a pílula do ícone ao fundo azul', () => {
+    store.scenes.set([scene('sala')]);
+    render();
+
+    const camera = acoes()[1];
+    const etiqueta = camera.querySelector<HTMLElement>('.tw-scene-action__eyebrow')!;
+    const pilula = camera.querySelector<HTMLElement>('.tw-scene-action__icon')!;
+
+    expect(getComputedStyle(etiqueta).color).toBe(corDe('--tw-on-brand-muted'));
+    expect(getComputedStyle(pilula).backgroundColor).toBe(corDe('--tw-on-brand'));
+    expect(getComputedStyle(pilula).color).toBe(corDe('--tw-brand'));
   });
 
   it('navega pelas setas e pelo teclado mantendo a selecao sincronizada', () => {

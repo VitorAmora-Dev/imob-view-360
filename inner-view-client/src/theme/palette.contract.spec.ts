@@ -170,6 +170,7 @@ describe('Contrato da paleta', () => {
       ['vermelho de texto sobre o fundo do sheet', '--tv-danger-text', '--tv-sheet-bg'],
       ['branco sobre o botão sólido de apagar', '--tv-text', '--tv-danger'],
       ['sucesso sobre branco', '--status-success-text', '--neutral-white'],
+      ['tinta sobre a superfície da marca', '--tw-on-brand', '--tw-brand'],
     ];
 
     for (const [nome, fg, bg] of texto) {
@@ -220,6 +221,29 @@ describe('Contrato da paleta', () => {
     it('o teal claro segue reprovando com branco — é por isso que existe o -dark', () => {
       expect(contraste(token('--brand-accent'), token('--neutral-white'))).toBeLessThan(4.5);
       expect(contraste(token('--brand-accent-dark'), token('--neutral-white'))).toBeGreaterThanOrEqual(4.5);
+    });
+
+    /**
+     * A tinta apagada sobre a marca, que a tabela acima não sabe medir.
+     *
+     * `contraste()` lê os canais e ignora o alpha, de modo que branco a 0,20 e
+     * branco a 0,90 dariam a mesma conta — por isso este par sai da tabela e
+     * passa por `sobre()`, que compõe a cor de verdade.
+     *
+     * O número não é decorativo. Quem pinta este token é a etiqueta "Câmera" do
+     * cartão de captura, com 11px: texto normal, piso de 4,5:1. Em 0,78, que é
+     * a opacidade que a mão pede primeiro, o par rende 4,23:1 e REPROVA. O
+     * teste existe para que a próxima mão que arredondar a opacidade para baixo
+     * descubra aqui, e não no aparelho de alguém.
+     */
+    it('a tinta apagada sobre a marca aguenta texto de 11px', () => {
+      const razao = contraste(
+        sobre(token('--tw-on-brand-muted'), token('--tw-brand')),
+        token('--tw-brand'),
+      );
+      expect(razao)
+        .withContext(`--tw-on-brand-muted sobre --tw-brand rendeu ${razao.toFixed(2)}:1`)
+        .toBeGreaterThanOrEqual(4.5);
     });
 
     /**
