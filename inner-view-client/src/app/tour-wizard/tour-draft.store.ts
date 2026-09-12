@@ -593,24 +593,22 @@ export class TourDraftStore {
   }
 
   /**
-   * Sobe um cômodo recém-capturado e espera a IA montá-lo.
+   * Sobe a captura ao servidor e PEDE a montagem por IA. Não espera por ela.
    *
-   * Chamado PELO MODAL DE CAPTURA, que segura a tela com o loader enquanto isto
-   * roda — por isso é a única coisa neste store que faz o usuário esperar de
-   * propósito. A alternativa, tratar em segundo plano enquanto ele fotografa o
-   * próximo cômodo, escondia melhor a espera mas entregava a ele o panorama
-   * cru no momento em que ele mais olha para o resultado: logo depois de girar
-   * 360° com o celular na mão.
+   * O corte é aqui, e não antes, por um defeito concreto: a partir do
+   * `addPanorama` existe uma linha no servidor, e a cena precisa sair daqui
+   * com o `serverPanoramaId` dela. Sem ele, `salvarRascunhoAgora` — que cria
+   * um panorama para toda cena que não tem um — criaria OUTRO para o mesmo
+   * cômodo, e o tour sairia com a sala duplicada.
    *
-   * Devolve `null` quando não deu — rede fora, tempo estourado, IA desabilitada
-   * no servidor. Quem chama mostra o panorama costurado e segue: falhar aqui
-   * degrada a qualidade do tour, nunca o impede.
+   * `tratamentoPedido` é falso quando o servidor vai dispensar por ter menos
+   * de `MINIMO_DE_REFERENCIAS` fotos: aí não há montagem para acompanhar.
    */
-  async tratarCaptura(captura: {
+  async enviarCaptura(captura: {
     imageData: string;
     frames: CaptureFrameUpload[];
     geometry: CaptureGeometry | null;
-  }): Promise<{ panoramaId: string; treatedUrl: string } | null> {
+  }): Promise<{ panoramaId: string; tratamentoPedido: boolean } | null> {
     // Guardado FORA do `try` de propósito: a partir do `addPanorama` existe uma
     // linha no servidor, e o `catch` precisa saber disso. Ver o comentário lá
     // embaixo — é a diferença entre um cômodo e dois.
@@ -639,18 +637,11 @@ export class TourDraftStore {
       // Menos de quatro referências e o servidor dispensa em vez de tratar.
       // Pedir a montagem gastaria uma ida à rede para receber um SKIPPED.
       if (uploaded < MINIMO_DE_REFERENCIAS) {
-        return { panoramaId: panorama.id, treatedUrl: '' };
+        return { panoramaId: panorama.id, tratamentoPedido: false };
       }
 
       await firstValueFrom(this.virtualTourService.montarTour(tourId));
-
-      const pronto = await this.esperarPanorama(tourId, panorama.id);
-      if (!pronto) return { panoramaId: panorama.id, treatedUrl: '' };
-
-      const blob = await firstValueFrom(
-        this.virtualTourService.baixarPreview(panorama.id, 'treated'),
-      );
-      return { panoramaId: panorama.id, treatedUrl: URL.createObjectURL(blob) };
+      return { panoramaId: panorama.id, tratamentoPedido: true };
     } catch {
       // O id só é descartado quando NÃO há o que descartar.
       //
@@ -662,13 +653,61 @@ export class TourDraftStore {
       // tratada, com as fotos, e outra crua e sem fotos.
       //
       // Aconteceu em campo em 10/09/2026. O servidor tratou o cômodo em 66 s,
-      // dentro dos 120 s que o modal espera, e ainda assim o app anunciou
+      // dentro dos 120 s que o modal esperava, e ainda assim o app anunciou
       // "não foi possível melhorar" — porque o que falhou foi o passo seguinte,
       // o download da imagem tratada, e a falha dele levava o id junto.
       //
       // `null` continua valendo para a falha ANTERIOR à criação: aí não há
       // linha nenhuma, e a cena precisa mesmo ser criada no salvamento.
-      return panoramaId ? { panoramaId, treatedUrl: '' } : null;
+      return panoramaId ? { panoramaId, tratamentoPedido: false } : null;
+    }
+  }
+
+  /**
+   * Sobe um cômodo recém-capturado e espera a IA montá-lo.
+   *
+   * Composição sobre `enviarCaptura`, e não mais o método inteiro: o que
+   * sobrou aqui é só a ESPERA, que é a parte que sai de cena quando o modal
+   * deixa de segurar a tela.
+   *
+   * Chamado pelo modal de captura, que segura a tela com o loader enquanto isto
+   * roda. A alternativa, tratar em segundo plano enquanto ele fotografa o
+   * próximo cômodo, escondia melhor a espera mas entregava a ele o panorama
+   * cru no momento em que ele mais olha para o resultado.
+   *
+   * Devolve `null` quando não deu — rede fora, tempo estourado, IA desabilitada
+   * no servidor. Quem chama mostra o panorama costurado e segue: falhar aqui
+   * degrada a qualidade do tour, nunca o impede.
+   */
+  async tratarCaptura(captura: {
+    imageData: string;
+    frames: CaptureFrameUpload[];
+    geometry: CaptureGeometry | null;
+  }): Promise<{ panoramaId: string; treatedUrl: string } | null> {
+    const enviado = await this.enviarCaptura(captura);
+    if (!enviado) return null;
+    if (!enviado.tratamentoPedido) {
+      return { panoramaId: enviado.panoramaId, treatedUrl: '' };
+    }
+
+    try {
+      const tourId = this.rascunhoTourId();
+      if (!tourId) return { panoramaId: enviado.panoramaId, treatedUrl: '' };
+
+      const pronto = await this.esperarPanorama(tourId, enviado.panoramaId);
+      if (!pronto) return { panoramaId: enviado.panoramaId, treatedUrl: '' };
+
+      const blob = await firstValueFrom(
+        this.virtualTourService.baixarPreview(enviado.panoramaId, 'treated'),
+      );
+      return {
+        panoramaId: enviado.panoramaId,
+        treatedUrl: URL.createObjectURL(blob),
+      };
+    } catch {
+      // O cômodo existe e a montagem está a caminho; o que falhou foi trazer a
+      // imagem. Ver o `catch` de `enviarCaptura`: o id nunca é descartado.
+      return { panoramaId: enviado.panoramaId, treatedUrl: '' };
     }
   }
 

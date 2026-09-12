@@ -628,7 +628,7 @@ describe('TourDraftStore (contrato)', () => {
    * com menos de quatro fotos originais e ainda prende o id na guarda de
    * idempotência, o que transforma a chamada seguinte num no-op silencioso.
    */
-  describe('tratarCaptura', () => {
+  describe('enviarCaptura e tratarCaptura', () => {
     interface Dublês {
       tours: VirtualTourService;
       chamadas: string[];
@@ -826,6 +826,76 @@ describe('TourDraftStore (contrato)', () => {
 
       const r = await store.tratarCaptura(captura());
       expect(r?.treatedUrl).toBe('blob:tratada');
+    });
+
+    /**
+     * O corte que deixa a espera da IA sair do caminho do corretor.
+     *
+     * `enviarCaptura` vai até PEDIR a montagem e volta. O que ficou de fora é
+     * exatamente a demora de que a task reclama: esperar o servidor terminar e
+     * baixar a foto tratada. Quem faz isso agora é o acompanhador do store, e
+     * ninguém fica parado olhando.
+     */
+    it('enviarCaptura volta assim que a montagem foi PEDIDA', async () => {
+      const store = newStore();
+      const { tours, chamadas } = comRede();
+
+      const r = await store.enviarCaptura(captura());
+
+      expect(chamadas).toEqual([
+        'createProperty',
+        'createTour',
+        'addPanorama',
+        'uploadCaptureFrames',
+        'montarTour',
+      ]);
+      // As duas peças da espera não foram tocadas.
+      expect(tours.acompanharMontagem).not.toHaveBeenCalled();
+      expect(chamadas).not.toContain('baixarPreview');
+      expect(r).toEqual({ panoramaId: 'pan-0', tratamentoPedido: true });
+    });
+
+    it('enviarCaptura não pede montagem quando quase nenhuma foto subiu', async () => {
+      const store = newStore();
+      const { tours, chamadas } = comRede();
+      (tours.uploadCaptureFrames as jasmine.Spy).and.resolveTo({
+        uploaded: 2,
+        total: 8,
+      });
+
+      const r = await store.enviarCaptura(captura());
+
+      expect(chamadas).not.toContain('montarTour');
+      // `tratamentoPedido: false` e não um id nulo: o cômodo EXISTE no servidor,
+      // só não vai ser tratado. Quem acompanha não tem o que esperar por ele.
+      expect(r).toEqual({ panoramaId: 'pan-0', tratamentoPedido: false });
+    });
+
+    /**
+     * O mesmo invariante do caso de 10/09/2026, agora na peça nova: falhar
+     * depois de a linha existir não pode descartar o id dela, senão o
+     * salvamento cria um segundo panorama para o mesmo cômodo.
+     */
+    it('enviarCaptura mantém o id quando a falha vem DEPOIS da criação', async () => {
+      const store = newStore();
+      const { tours } = comRede();
+      (tours.montarTour as jasmine.Spy).and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+
+      const r = await store.enviarCaptura(captura());
+
+      expect(r).toEqual({ panoramaId: 'pan-0', tratamentoPedido: false });
+    });
+
+    it('enviarCaptura devolve null quando nem chegou a criar a linha', async () => {
+      const store = newStore();
+      const { tours } = comRede();
+      (tours.addPanorama as jasmine.Spy).and.returnValue(
+        throwError(() => new Error('rede caiu')),
+      );
+
+      await expectAsync(store.enviarCaptura(captura())).toBeResolvedTo(null);
     });
   });
 
