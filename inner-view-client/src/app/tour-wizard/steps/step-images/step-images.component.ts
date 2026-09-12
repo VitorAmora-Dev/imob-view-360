@@ -448,6 +448,9 @@ export class StepImagesComponent implements OnDestroy {
         // O modal não alcança o store — ver o comentário acima. Este é o
         // caminho de volta para ele dizer "tem alguém olhando esta espera".
         aoOlhar: (olhando: boolean) => this.store.alguemOlhando.set(olhando),
+        // E este é como a foto tratada chega até ele, para trocar a costurada
+        // sem sair da tela.
+        aoTratar: (panoramaId: string) => this.store.fotoTratada(panoramaId),
       },
     });
     await modal.present();
@@ -459,6 +462,7 @@ export class StepImagesComponent implements OnDestroy {
       room: string;
       serverPanoramaId: string | null;
       emTratamento: boolean;
+      treatedUrl: string;
       continuar: boolean;
     }>();
     if (role !== 'confirm' || !data?.imageData) return;
@@ -488,7 +492,13 @@ export class StepImagesComponent implements OnDestroy {
       // ter nome. A foto TRATADA não vem junto — ela chega depois, pelo
       // acompanhamento do store, e troca a imagem no card.
       ...(data.serverPanoramaId ? { serverPanoramaId: data.serverPanoramaId } : {}),
-      ...(data.emTratamento ? { aiState: 'treating' as const } : {}),
+      // Quem esperou no preview já viu a foto tratada: a cena nasce pronta, e
+      // o acompanhamento não tem o que buscar nem o que baixar de novo.
+      ...(data.treatedUrl
+        ? { treatedImageUrl: data.treatedUrl, aiState: 'done' as const }
+        : data.emTratamento
+          ? { aiState: 'treating' as const }
+          : {}),
     });
 
     const scenes = this.store.scenes();
@@ -498,7 +508,7 @@ export class StepImagesComponent implements OnDestroy {
 
     // A cena entrou em tratamento: garante que existe alguém acompanhando.
     // Idempotente, então chamar a cada captura não abre laço novo.
-    if (data.emTratamento) this.store.acompanharTratamentos();
+    if (data.emTratamento && !data.treatedUrl) this.store.acompanharTratamentos();
 
     // "Capturar próximo cômodo": o mesmo gesto confirma e reabre a câmera.
     // Depois do foco e da galeria de propósito — se a pessoa cancelar a
