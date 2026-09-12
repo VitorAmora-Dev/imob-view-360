@@ -243,20 +243,27 @@ export class TourDraftStore {
   readonly temImagem = computed(() => this.readyScenes().length > 0);
 
   /**
-   * A etapa 2 é opcional quando não há segundo ambiente — e só então.
+   * Etapas que fazem sentido para a quantidade atual de ambientes.
    *
-   * Vale para o texto da barra de progresso, para o subtítulo da etapa e para o
-   * botão "Pular": os três diziam "opcional" sem condição nenhuma, e agora
-   * dizem a mesma coisa a partir do mesmo lugar. Três cópias da regra é como
-   * uma delas fica para trás.
+   * Com um único ambiente não existe destino para uma passagem. Nesse caso a
+   * etapa 3 some do fluxo inteiro, em vez de abrir uma tela vazia que só pode
+   * ser pulada.
    */
-  readonly etapaPassagensOpcional = computed(
-    () => this.readyScenes().length < 2,
+  readonly etapas = computed<readonly WizardStep[]>(() =>
+    this.readyScenes().length === 1 ? [1, 2, 4] : [1, 2, 3, 4],
   );
 
-  /** Dica da barra de progresso. Ver `etapaPassagensOpcional`. */
+  readonly totalEtapas = computed(() => this.etapas().length);
+
+  /** Posição visual da etapa atual dentro do fluxo, que pode ter 3 ou 4 etapas. */
+  readonly posicaoEtapa = computed(() => {
+    const indice = this.etapas().indexOf(this.step());
+    return indice >= 0 ? indice + 1 : 1;
+  });
+
+  /** A etapa 3 só é alcançável quando as passagens são obrigatórias. */
   readonly hintKey = computed(() =>
-    this.step() === 3 && !this.etapaPassagensOpcional()
+    this.step() === 3
       ? 'TOUR_WIZARD.COMMON.HINT_3_REQUIRED'
       : `TOUR_WIZARD.COMMON.HINT_${this.step()}`,
   );
@@ -326,7 +333,9 @@ export class TourDraftStore {
   );
 
   readonly progressPct = computed(() =>
-    this.published() ? 100 : (this.step() / TOTAL_ETAPAS) * 100,
+    this.published()
+      ? 100
+      : (this.posicaoEtapa() / this.totalEtapas()) * 100,
   );
 
   /** Capa do tour: a primeira cena válida. */
@@ -354,6 +363,7 @@ export class TourDraftStore {
    * Os chips bloqueados do stepper não respondem ao clique.
    */
   canReach(step: WizardStep): boolean {
+    if (!this.etapas().includes(step)) return false;
     return step <= this.step() || this.canAdvance();
   }
 
@@ -408,13 +418,16 @@ export class TourDraftStore {
       this.showErrors.set(true);
       return;
     }
-    this.irPara((current + 1) as WizardStep);
+    const proxima = this.etapas().find((step) => step > current);
+    if (proxima) this.irPara(proxima);
   }
 
   back(): void {
     const current = this.step();
     if (current === 1) return;
-    this.irPara((current - 1) as WizardStep);
+    const anteriores = this.etapas().filter((step) => step < current);
+    const anterior = anteriores[anteriores.length - 1];
+    if (anterior) this.irPara(anterior);
   }
 
   // ---- cenas -------------------------------------------------------------

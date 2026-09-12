@@ -146,23 +146,6 @@ describe('WizardActionsComponent', () => {
     });
   });
 
-  describe('"Pular"', () => {
-    it('aparece na etapa de passagens quando ha um ambiente so', () => {
-      const { barra } = em(3, [cena('sala')]);
-      expect(barra.showSkip()).toBeTrue();
-    });
-
-    it('nao aparece na ordenacao', () => {
-      const { barra } = em(2, [cena('sala')]);
-      expect(barra.showSkip()).toBeFalse();
-    });
-
-    it('some assim que ha um segundo ambiente', () => {
-      const { barra } = em(3, LIGADAS());
-      expect(barra.showSkip()).toBeFalse();
-    });
-  });
-
   it('oculta a explicacao longa na etapa 1 e preserva o motivo no botao', () => {
     const semNome = { ...cena('sala'), room: '' };
     const { barra, fixture } = em(1, [semNome]);

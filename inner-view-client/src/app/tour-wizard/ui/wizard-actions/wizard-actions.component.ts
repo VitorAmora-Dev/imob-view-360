@@ -43,24 +43,6 @@ export class WizardActionsComponent implements OnDestroy {
       : 'TOUR_WIZARD.COMMON.PUBLISH';
   });
 
-  /**
-   * "Pular" só existe na etapa de PASSAGENS, e só enquanto ela é de fato
-   * pulável — ou seja, com UM ambiente, onde não há destino possível.
-   *
-   * Apontava para a etapa 2, que hoje é a ordenação: o botão aparecia na tela
-   * errada, oferecendo pular o que nem era pulável.
-   *
-   * Com dois ou mais, pular passou a ser mentira: o visitante não teria como
-   * sair do ambiente inicial, porque o viewer não tem outra navegação. Um botão
-   * que oferece um caminho bloqueado é pior do que botão nenhum.
-   *
-   * E some assim que o ambiente ganha um ponto: com um ponto criado, pular
-   * deixa de ser a saída óbvia e o botão vira ruído ao lado de "Próximo".
-   */
-  readonly showSkip = computed(
-    () => this.store.step() === 3 && this.store.etapaPassagensOpcional(),
-  );
-
   readonly primaryDisabled = computed(
     () => !this.store.canAdvance() || this.store.publishing(),
   );

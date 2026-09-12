@@ -5,17 +5,18 @@
   devolve.
 -->
 <ol class="tw-chips" role="list">
-  @for (n of steps; track n) {
+  @for (n of store.etapas(); track n; let posicao = $index) {
     <li>
       <button
         type="button"
         class="tw-chip"
+        [attr.data-step]="n"
         [attr.data-state]="stateOf(n)"
         [attr.aria-current]="stateOf(n) === 'current' ? 'step' : null"
         [attr.aria-disabled]="stateOf(n) === 'blocked' ? 'true' : null"
         (click)="onChip(n)">
         <span class="tw-chip__dot" aria-hidden="true">
-          {{ stateOf(n) === 'done' ? '✓' : n }}
+          {{ stateOf(n) === 'done' ? '✓' : posicao + 1 }}
         </span>
         <span class="tw-chip__label">
           {{ 'TOUR_WIZARD.COMMON.STEP_' + n | translate }}
@@ -32,9 +33,9 @@
 <div
   class="tw-progress"
   role="progressbar"
-  [attr.aria-valuenow]="store.step()"
+  [attr.aria-valuenow]="store.posicaoEtapa()"
   aria-valuemin="1"
-  aria-valuemax="4"
-  [attr.aria-valuetext]="'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.step(), total: total }">
+  [attr.aria-valuemax]="store.totalEtapas()"
+  [attr.aria-valuetext]="'TOUR_WIZARD.COMMON.STEP_OF' | translate: { step: store.posicaoEtapa(), total: store.totalEtapas() }">
   <div class="tw-progress__fill" [style.width.%]="store.progressPct()"></div>
 </div>

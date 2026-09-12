@@ -40,12 +40,6 @@
 
 <span class="tw-actions__spacer"></span>
 
-@if (showSkip()) {
-  <button type="button" class="tw-btn tw-btn--ghost" (click)="store.next()">
-    {{ 'TOUR_WIZARD.COMMON.SKIP' | translate }}
-  </button>
-}
-
 <!--
   Desabilitado enquanto não houver imagem. O `title` explica o porquê no hover;
   a mesma frase aparece como dica na barra de progresso, para quem nunca passa

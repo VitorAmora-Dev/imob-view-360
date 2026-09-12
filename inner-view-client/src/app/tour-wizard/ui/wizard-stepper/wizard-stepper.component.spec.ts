@@ -41,13 +41,17 @@ describe('WizardStepperComponent', () => {
    * próprio — tudo que ele decide sai do store — e um fixture aqui testaria o
    * renderizador do Angular, não a regra.
    */
-  function makeStepper(withImage: boolean): {
+  function makeStepper(sceneCount: number): {
     stepper: WizardStepperComponent;
     store: TourDraftStore;
   } {
     const store = TestBed.inject(TourDraftStore);
-    if (withImage) {
-      store.scenes.set([scene('a')]);
+    if (sceneCount) {
+      store.scenes.set(
+        Array.from({ length: sceneCount }, (_, index) =>
+          scene(String.fromCharCode(97 + index)),
+        ),
+      );
       store.selectedSceneId.set('a');
     }
     const stepper = Object.create(
@@ -58,30 +62,48 @@ describe('WizardStepperComponent', () => {
   }
 
   function statesOf(stepper: WizardStepperComponent): ChipState[] {
-    return [1, 2, 3].map((n) => stepper.stateOf(n as 1 | 2 | 3));
+    return [1, 2, 3, 4].map((n) =>
+      stepper.stateOf(n as 1 | 2 | 3 | 4),
+    );
   }
 
   it('bloqueia as etapas seguintes enquanto não há imagem', () => {
-    const { stepper } = makeStepper(false);
+    const { stepper } = makeStepper(0);
 
-    expect(statesOf(stepper)).toEqual(['current', 'blocked', 'blocked']);
+    expect(statesOf(stepper)).toEqual([
+      'current',
+      'blocked',
+      'blocked',
+      'blocked',
+    ]);
   });
 
-  it('libera as etapas seguintes assim que entra uma imagem', () => {
-    const { stepper } = makeStepper(true);
+  it('omite passagens e libera as outras etapas quando entra uma imagem', () => {
+    const { stepper, store } = makeStepper(1);
 
-    expect(statesOf(stepper)).toEqual(['current', 'reachable', 'reachable']);
+    expect(store.etapas()).toEqual([1, 2, 4]);
+    expect(statesOf(stepper)).toEqual([
+      'current',
+      'reachable',
+      'blocked',
+      'reachable',
+    ]);
   });
 
   it('marca como concluída toda etapa já deixada para trás', () => {
-    const { stepper, store } = makeStepper(true);
+    const { stepper, store } = makeStepper(2);
     store.goTo(3);
 
-    expect(statesOf(stepper)).toEqual(['done', 'done', 'current']);
+    expect(statesOf(stepper)).toEqual([
+      'done',
+      'done',
+      'current',
+      'blocked',
+    ]);
   });
 
   it('não navega ao clicar num chip bloqueado', () => {
-    const { stepper, store } = makeStepper(false);
+    const { stepper, store } = makeStepper(0);
 
     stepper.onChip(3);
 
@@ -89,7 +111,7 @@ describe('WizardStepperComponent', () => {
   });
 
   it('navega ao clicar num chip alcançável', () => {
-    const { stepper, store } = makeStepper(true);
+    const { stepper, store } = makeStepper(1);
 
     stepper.onChip(2);
 
@@ -97,7 +119,7 @@ describe('WizardStepperComponent', () => {
   });
 
   it('volta à etapa 1 quando a última imagem é removida', () => {
-    const { stepper, store } = makeStepper(true);
+    const { stepper, store } = makeStepper(1);
     store.goTo(2);
 
     // O corretor apagou a única imagem estando na etapa 2. Ficar ali deixaria
@@ -105,11 +127,16 @@ describe('WizardStepperComponent', () => {
     store.removeScene('a');
 
     expect(store.step()).toBe(1);
-    expect(statesOf(stepper)).toEqual(['current', 'blocked', 'blocked']);
+    expect(statesOf(stepper)).toEqual([
+      'current',
+      'blocked',
+      'blocked',
+      'blocked',
+    ]);
   });
 
   it('deixa voltar a uma etapa já concluída', () => {
-    const { stepper, store } = makeStepper(true);
+    const { stepper, store } = makeStepper(2);
     store.goTo(3);
 
     expect(stepper.stateOf(1)).toBe('done');
@@ -119,8 +146,27 @@ describe('WizardStepperComponent', () => {
     expect(store.step()).toBe(1);
   });
 
+  it('não renderiza o chip de passagens quando há somente um ambiente', () => {
+    makeStepper(1);
+    const fixture = TestBed.createComponent(WizardStepperComponent);
+
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const steps = Array.from(
+      element.querySelectorAll<HTMLButtonElement>('.tw-chip'),
+      (chip) => Number(chip.dataset['step']),
+    );
+    const dots = Array.from(
+      element.querySelectorAll<HTMLElement>('.tw-chip__dot'),
+      (dot) => dot.textContent?.trim(),
+    );
+    expect(steps).toEqual([1, 2, 4]);
+    expect(dots).toEqual(['1', '2', '3']);
+  });
+
   it('mantem os metadados textuais ocultos em todas as etapas', () => {
-    const { store } = makeStepper(true);
+    const { store } = makeStepper(1);
     const fixture = TestBed.createComponent(WizardStepperComponent);
 
     fixture.detectChanges();

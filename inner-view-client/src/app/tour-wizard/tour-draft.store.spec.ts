@@ -144,7 +144,7 @@ describe('TourDraftStore (contrato)', () => {
 
   describe('alcançabilidade das etapas pelo stepper', () => {
     it('deixa voltar a qualquer etapa já visitada', () => {
-      const store = storeWith(scene('a'));
+      const store = storeWith(scene('a'), scene('b'));
       store.goTo(3);
 
       expect(store.canReach(1)).toBe(true);
@@ -269,13 +269,13 @@ describe('TourDraftStore (contrato)', () => {
       target,
     });
 
-    it('com um ambiente só, segue opcional', () => {
-      // Não há destino possível: cobrar ligação seria cobrar o impossível.
+    it('com um ambiente só, a etapa de passagens fica fora do fluxo', () => {
+      // Não há destino possível: exibir uma tela só para pulá-la não ajuda.
       const store = storeWith(scene('a'));
       store.goTo(3);
 
-      expect(store.canAdvance()).toBe(true);
-      expect(store.etapaPassagensOpcional()).toBe(true);
+      expect(store.canReach(3)).toBe(false);
+      expect(store.step()).toBe(1);
     });
 
     it('trava com dois ambientes sem ligação', () => {
@@ -3257,10 +3257,44 @@ describe('TourDraftStore — quatro etapas', () => {
   });
 
   it('o progresso chega a 100 so na ultima etapa', () => {
-    store.step.set(3);
-    expect(store.progressPct()).toBe(75);
+    store.step.set(2);
+    expect(store.progressPct()).toBeCloseTo(200 / 3);
     store.step.set(4);
     expect(store.progressPct()).toBe(100);
+  });
+
+  it('com dois ambientes, preserva as quatro etapas do progresso', () => {
+    store.scenes.update((scenes) => [
+      ...scenes,
+      {
+        ...scenes[0],
+        id: 'cozinha',
+        room: 'Cozinha',
+        fileName: 'cozinha.jpg',
+        order: 1,
+      },
+    ]);
+    store.step.set(3);
+
+    expect(store.totalEtapas()).toBe(4);
+    expect(store.posicaoEtapa()).toBe(3);
+    expect(store.progressPct()).toBe(75);
+  });
+
+  it('next pula passagens quando existe somente um ambiente', () => {
+    store.step.set(2);
+
+    store.next();
+
+    expect(store.step()).toBe(4);
+  });
+
+  it('back pula passagens quando existe somente um ambiente', () => {
+    store.step.set(4);
+
+    store.back();
+
+    expect(store.step()).toBe(2);
   });
 
   // Publicar mudou de etapa: era a 3, agora e a 4. Sem isto, `next()` na etapa
@@ -3282,7 +3316,17 @@ describe('TourDraftStore — quatro etapas', () => {
     expect(publicar).toHaveBeenCalled();
   });
 
-  it('back desce uma etapa, e para na 1', () => {
+  it('back desce uma etapa quando passagens faz parte do fluxo, e para na 1', () => {
+    store.scenes.update((scenes) => [
+      ...scenes,
+      {
+        ...scenes[0],
+        id: 'cozinha',
+        room: 'Cozinha',
+        fileName: 'cozinha.jpg',
+        order: 1,
+      },
+    ]);
     store.step.set(4);
     store.back();
     expect(store.step()).toBe(3);
