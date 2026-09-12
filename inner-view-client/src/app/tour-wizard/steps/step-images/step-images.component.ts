@@ -443,8 +443,11 @@ export class StepImagesComponent implements OnDestroy {
       // `ModalController` cria o componente fora da árvore da página, então ele
       // não enxerga o `TourDraftStore`, que é provido lá.
       componentProps: {
-        tratar: (captura: Parameters<TourDraftStore['tratarCaptura']>[0]) =>
-          this.store.tratarCaptura(captura),
+        enviar: (captura: Parameters<TourDraftStore['enviarCaptura']>[0]) =>
+          this.store.enviarCaptura(captura),
+        // O modal não alcança o store — ver o comentário acima. Este é o
+        // caminho de volta para ele dizer "tem alguém olhando esta espera".
+        aoOlhar: (olhando: boolean) => this.store.alguemOlhando.set(olhando),
       },
     });
     await modal.present();
@@ -455,7 +458,8 @@ export class StepImagesComponent implements OnDestroy {
       geometry: CaptureGeometry | null;
       room: string;
       serverPanoramaId: string | null;
-      treatedUrl: string;
+      emTratamento: boolean;
+      continuar: boolean;
     }>();
     if (role !== 'confirm' || !data?.imageData) return;
 
@@ -480,16 +484,27 @@ export class StepImagesComponent implements OnDestroy {
       imageData: data.imageData,
       frames: data.frames,
       geometry: data.geometry,
-      // O cômodo já existe no servidor e já passou pela IA: isso aconteceu
-      // dentro do modal, enquanto o corretor esperava, antes de ele dar nome.
+      // O cômodo já existe no servidor: ele subiu dentro do modal, antes de
+      // ter nome. A foto TRATADA não vem junto — ela chega depois, pelo
+      // acompanhamento do store, e troca a imagem no card.
       ...(data.serverPanoramaId ? { serverPanoramaId: data.serverPanoramaId } : {}),
-      ...(data.treatedUrl ? { treatedImageUrl: data.treatedUrl, aiState: 'done' as const } : {}),
+      ...(data.emTratamento ? { aiState: 'treating' as const } : {}),
     });
 
     const scenes = this.store.scenes();
     const added = scenes[scenes.length - 1];
     if (added) this.focusScene(added, true);
     if (wasEmpty) this.focusGallery();
+
+    // A cena entrou em tratamento: garante que existe alguém acompanhando.
+    // Idempotente, então chamar a cada captura não abre laço novo.
+    if (data.emTratamento) this.store.acompanharTratamentos();
+
+    // "Capturar próximo cômodo": o mesmo gesto confirma e reabre a câmera.
+    // Depois do foco e da galeria de propósito — se a pessoa cancelar a
+    // próxima captura, ela volta para uma tela que já mostra o cômodo que
+    // acabou de confirmar, e não para o estado anterior a ele.
+    if (data.continuar) void this.openCapture();
   }
 
   private addFiles(files: File[]): void {

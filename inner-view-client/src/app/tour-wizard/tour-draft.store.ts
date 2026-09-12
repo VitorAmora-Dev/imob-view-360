@@ -61,14 +61,23 @@ const MAX_PUBLISH_BYTES = 34 * 1024 * 1024;
 const MINIMO_DE_REFERENCIAS = 4;
 
 /**
- * Teto da espera com o corretor parado olhando o loader.
+ * Teto do acompanhamento em segundo plano.
  *
- * A montagem leva ~60s por cômodo. Dois minutos cobrem uma que demorou mais
- * que o normal sem transformar a captura numa tela travada — passado isso, o
- * panorama costurado é entregue e ele segue. O `acompanharMontagem` admite dez
- * minutos por padrão, que serve para segundo plano e não para isto.
+ * Generoso porque ninguém está parado olhando — o que estoura aqui é caso
+ * patológico, não espera normal. Passado o teto, a cena cai para `'failed'`
+ * LOCAL: ver `acompanharTratamentos`. A montagem em si continua no servidor, e
+ * uma retomada posterior encontra o resultado.
  */
-const LIMITE_DA_ESPERA_MS = 2 * 60 * 1000;
+const TETO_DO_ACOMPANHAMENTO_MS = 10 * 60 * 1000;
+
+/**
+ * O passo do laço, com e sem alguém olhando a espera.
+ *
+ * Dez segundos com o corretor fotografando o cômodo seguinte é rede e bateria
+ * em campo para uma resposta que ninguém está esperando ver naquele instante.
+ */
+const INTERVALO_OLHANDO_MS = 3000;
+const INTERVALO_DE_FUNDO_MS = 10_000;
 
 /**
  * Largura que o rail, o card compacto e o resumo pedem ao servidor.
@@ -162,7 +171,7 @@ const NOME_MARCADOR_DE_AMBIENTE = /^Ambiente \d+$/;
  */
 const ESTADO_DA_IA: Record<TreatmentStatus, WizardSceneAiState> = {
   PENDING: 'idle',
-  PROCESSING: 'idle',
+  PROCESSING: 'treating',
   DONE: 'done',
   FAILED: 'failed',
   SKIPPED: 'skipped',
@@ -313,7 +322,22 @@ export class TourDraftStore {
    */
   readonly canAdvance = computed(() => {
     if (!this.temImagem()) return false;
-    if (this.step() === 1) return this.ambientesSemNome().length === 0;
+    // A etapa 1 cobra DUAS coisas: nome e nenhuma montagem em curso.
+    //
+    // "Em curso", e NÃO "tratado". `failed` e `skipped` são terminais no
+    // servidor e nunca virarão `done` — dispensa acontece com menos de quatro
+    // fotos de referência, e falha é falha. Cobrar "tratado" prenderia o
+    // corretor nesta etapa para sempre, e ele já não está mais no imóvel para
+    // refotografar. O card mostra o aviso, e o wizard deixa passar.
+    //
+    // A trava existe porque a etapa 2 monta o tour a partir das fotos, e um
+    // cômodo que ainda vai mudar de imagem no meio do caminho faria o corretor
+    // conectar uma foto e publicar outra.
+    if (this.step() === 1) {
+      return (
+        this.ambientesSemNome().length === 0 && this.emTratamento().length === 0
+      );
+    }
     // Cada etapa cobra a alcançabilidade pela fonte que ELA produz.
     //
     // A ordenação cobra as conexões escolhidas, e não os pontos posicionados:
@@ -593,24 +617,22 @@ export class TourDraftStore {
   }
 
   /**
-   * Sobe um cômodo recém-capturado e espera a IA montá-lo.
+   * Sobe a captura ao servidor e PEDE a montagem por IA. Não espera por ela.
    *
-   * Chamado PELO MODAL DE CAPTURA, que segura a tela com o loader enquanto isto
-   * roda — por isso é a única coisa neste store que faz o usuário esperar de
-   * propósito. A alternativa, tratar em segundo plano enquanto ele fotografa o
-   * próximo cômodo, escondia melhor a espera mas entregava a ele o panorama
-   * cru no momento em que ele mais olha para o resultado: logo depois de girar
-   * 360° com o celular na mão.
+   * O corte é aqui, e não antes, por um defeito concreto: a partir do
+   * `addPanorama` existe uma linha no servidor, e a cena precisa sair daqui
+   * com o `serverPanoramaId` dela. Sem ele, `salvarRascunhoAgora` — que cria
+   * um panorama para toda cena que não tem um — criaria OUTRO para o mesmo
+   * cômodo, e o tour sairia com a sala duplicada.
    *
-   * Devolve `null` quando não deu — rede fora, tempo estourado, IA desabilitada
-   * no servidor. Quem chama mostra o panorama costurado e segue: falhar aqui
-   * degrada a qualidade do tour, nunca o impede.
+   * `tratamentoPedido` é falso quando o servidor vai dispensar por ter menos
+   * de `MINIMO_DE_REFERENCIAS` fotos: aí não há montagem para acompanhar.
    */
-  async tratarCaptura(captura: {
+  async enviarCaptura(captura: {
     imageData: string;
     frames: CaptureFrameUpload[];
     geometry: CaptureGeometry | null;
-  }): Promise<{ panoramaId: string; treatedUrl: string } | null> {
+  }): Promise<{ panoramaId: string; tratamentoPedido: boolean } | null> {
     // Guardado FORA do `try` de propósito: a partir do `addPanorama` existe uma
     // linha no servidor, e o `catch` precisa saber disso. Ver o comentário lá
     // embaixo — é a diferença entre um cômodo e dois.
@@ -639,18 +661,11 @@ export class TourDraftStore {
       // Menos de quatro referências e o servidor dispensa em vez de tratar.
       // Pedir a montagem gastaria uma ida à rede para receber um SKIPPED.
       if (uploaded < MINIMO_DE_REFERENCIAS) {
-        return { panoramaId: panorama.id, treatedUrl: '' };
+        return { panoramaId: panorama.id, tratamentoPedido: false };
       }
 
       await firstValueFrom(this.virtualTourService.montarTour(tourId));
-
-      const pronto = await this.esperarPanorama(tourId, panorama.id);
-      if (!pronto) return { panoramaId: panorama.id, treatedUrl: '' };
-
-      const blob = await firstValueFrom(
-        this.virtualTourService.baixarPreview(panorama.id, 'treated'),
-      );
-      return { panoramaId: panorama.id, treatedUrl: URL.createObjectURL(blob) };
+      return { panoramaId: panorama.id, tratamentoPedido: true };
     } catch {
       // O id só é descartado quando NÃO há o que descartar.
       //
@@ -662,54 +677,118 @@ export class TourDraftStore {
       // tratada, com as fotos, e outra crua e sem fotos.
       //
       // Aconteceu em campo em 10/09/2026. O servidor tratou o cômodo em 66 s,
-      // dentro dos 120 s que o modal espera, e ainda assim o app anunciou
+      // dentro dos 120 s que o modal esperava, e ainda assim o app anunciou
       // "não foi possível melhorar" — porque o que falhou foi o passo seguinte,
       // o download da imagem tratada, e a falha dele levava o id junto.
       //
       // `null` continua valendo para a falha ANTERIOR à criação: aí não há
       // linha nenhuma, e a cena precisa mesmo ser criada no salvamento.
-      return panoramaId ? { panoramaId, treatedUrl: '' } : null;
+      return panoramaId ? { panoramaId, tratamentoPedido: false } : null;
     }
   }
 
   /**
-   * Espera ESTE panorama chegar a um estado terminal.
+   * Há alguém de olho numa espera de montagem agora.
    *
-   * O andamento é por tour, então o laço olha a entrada deste id dentro dele —
-   * é para isso que o servidor passou a devolver a lista cômodo a cômodo.
-   *
-   * O teto é curto de propósito. O `acompanharMontagem` admite dez minutos, que
-   * serve para um acompanhamento em segundo plano e é inaceitável com alguém
-   * parado olhando: passado o limite, é melhor entregar o panorama costurado do
-   * que continuar segurando a tela.
+   * Só aperta o passo do laço. Quem liga e desliga é o modal de captura, por
+   * `componentProps`: ele não alcança este store, porque o `ModalController`
+   * o cria fora da árvore da página.
    */
-  private async esperarPanorama(tourId: string, panoramaId: string): Promise<boolean> {
-    // Controlador próprio para poder encerrar o laço no instante em que ESTE
-    // cômodo termina, sem esperar os outros do tour. Também repassa a tela
-    // morrendo, via `this.abortar`.
+  readonly alguemOlhando = signal(false);
+
+  /** As cenas que ainda esperam a IA. É a fonte da trava da etapa 1. */
+  readonly emTratamento = computed(() =>
+    this.scenes().filter((s) => s.aiState === 'treating'),
+  );
+
+  /** Um laço por tour. `null` quando não há nenhum vivo. */
+  private acompanhamento: AbortController | null = null;
+
+  /**
+   * Passa a acompanhar a montagem deste tour, se já não estiver.
+   *
+   * Idempotente de propósito: quem chama é cada captura confirmada, e um laço
+   * por captura abriria N conexões baixando o tour INTEIRO a cada poucos
+   * segundos para olhar uma linha só. `acompanharMontagem` já é por tour e já
+   * devolve a lista cômodo a cômodo — é exatamente a forma que isto reusa.
+   *
+   * É este método que torna `'treating'` um estado honesto. Ele já existiu e
+   * foi removido porque ninguém o encerrava: o selo acendia e não saía mais.
+   * Agora sai, inclusive no estouro do teto.
+   */
+  acompanharTratamentos(): void {
+    if (this.acompanhamento) return;
+    const tourId = this.rascunhoTourId();
+    if (!tourId) return;
+
     const controle = new AbortController();
+    this.acompanhamento = controle;
     const encerrar = () => controle.abort();
     this.abortar.signal.addEventListener('abort', encerrar, { once: true });
 
-    let terminou = false;
-    try {
-      await this.virtualTourService.acompanharMontagem(
-        tourId,
-        (andamento) => {
-          const meu = andamento.panoramas.find((p) => p.id === panoramaId);
-          if (meu && meu.status !== 'PENDING' && meu.status !== 'PROCESSING') {
-            terminou = meu.status === 'DONE';
-            // Só este cômodo interessa: os outros já foram tratados nas
-            // capturas anteriores, e esperar por eles seria esperar de novo.
-            controle.abort();
-          }
-        },
-        { sinal: controle.signal, limiteMs: LIMITE_DA_ESPERA_MS },
-      );
-    } finally {
-      this.abortar.signal.removeEventListener('abort', encerrar);
+    void this.virtualTourService
+      .acompanharMontagem(tourId, (andamento) => this.aplicarAndamento(andamento), {
+        sinal: controle.signal,
+        limiteMs: TETO_DO_ACOMPANHAMENTO_MS,
+        // FUNÇÃO, e não número: o serviço resolve o passo a cada volta. Com um
+        // número, o valor ficaria congelado no do instante em que o laço
+        // nasceu — e ele nasce quando o corretor está saindo do preview.
+        intervaloMs: () =>
+          this.alguemOlhando() ? INTERVALO_OLHANDO_MS : INTERVALO_DE_FUNDO_MS,
+      })
+      .finally(() => {
+        this.abortar.signal.removeEventListener('abort', encerrar);
+        this.acompanhamento = null;
+
+        // Estourou o teto — ou a tela morreu — com cômodo ainda em curso:
+        // derruba para terminal local. Sem isto a trava da etapa 1 seria
+        // ETERNA, que é o mesmo defeito que ela existe para corrigir. A
+        // montagem segue no servidor; o que acabou aqui é só o acompanhamento.
+        for (const cena of this.emTratamento()) {
+          this.patchScene(cena.id, (s) => ({ ...s, aiState: 'failed' }));
+        }
+      });
+  }
+
+  /** Traduz uma volta do acompanhamento para as cenas. */
+  private aplicarAndamento(andamento: AndamentoDaMontagem): void {
+    for (const p of andamento.panoramas) {
+      const cena = this.scenes().find((s) => s.serverPanoramaId === p.id);
+      if (!cena || cena.aiState !== 'treating') continue;
+
+      // `p.status`, e não `p.treatmentStatus`: `AndamentoDoPanorama` é
+      // `{ id, status }`. O nome da coluna do Prisma fica no servidor.
+      const estado = ESTADO_DA_IA[p.status] ?? 'idle';
+      // Só estado TERMINAL atravessa: `PENDING` e `PROCESSING` são o cômodo
+      // ainda na fila, e gravá-los apagaria o `'treating'` que já está lá.
+      if (estado === 'treating' || estado === 'idle') continue;
+
+      this.patchScene(cena.id, (s) => ({ ...s, aiState: estado }));
+      if (estado === 'done') void this.baixarTratada(cena.id, p.id);
     }
-    return terminou;
+  }
+
+  /**
+   * Troca a foto da cena pela versão tratada.
+   *
+   * O `objectURL` fica pendurado na cena e é revogado no descarte — uma
+   * equirretangular por cômodo é grande o bastante para o vazamento aparecer
+   * no aparelho antes do fim de um tour de oito.
+   */
+  private async baixarTratada(sceneId: string, panoramaId: string): Promise<void> {
+    try {
+      const blob = await firstValueFrom(
+        this.virtualTourService.baixarPreview(panoramaId, 'treated'),
+      );
+      this.patchScene(sceneId, (s) => ({
+        ...s,
+        treatedImageUrl: URL.createObjectURL(blob),
+      }));
+    } catch {
+      // A montagem existe no servidor; o que falhou foi TRAZER a imagem. O
+      // estado terminal já foi gravado e a trava já liberou — o cômodo segue
+      // com o panorama costurado, que é servível.
+    }
   }
 
   renameScene(id: string, room: string): void {
@@ -733,9 +812,14 @@ export class TourDraftStore {
     // que ainda nem é público, e prender a remoção da tela numa ida à rede
     // seria pior. O que sobrar é varrido por `yarn limpar-rascunhos`.
     const alvo = this.scenes().find((s) => s.id === id);
-    // O `blob:` da imagem tratada foi criado no modal de captura e vive fora do
-    // ciclo do Angular: sem revogar, cada cômodo removido deixa alguns MB
-    // presos até a aba fechar.
+    // O `blob:` da imagem tratada vive fora do ciclo do Angular: sem revogar,
+    // cada cômodo removido deixa alguns MB presos até a aba fechar.
+    //
+    // Quem o cria mudou de lugar e isto ficou MAIS importante, não menos. Era
+    // o modal de captura, que só existia enquanto o corretor esperava; agora é
+    // `baixarTratada`, do acompanhamento, que roda com a tela viva por todo o
+    // tour. Um tour de oito cômodos passa a segurar oito equirretangulares
+    // inteiras se ninguém as devolver.
     if (alvo?.treatedImageUrl) URL.revokeObjectURL(alvo.treatedImageUrl);
 
     const remoto = alvo?.serverPanoramaId;
@@ -1160,6 +1244,15 @@ export class TourDraftStore {
     this.hotspotsParaApagar.set([]);
     this.selectedSceneId.set(cenas[0]?.id ?? null);
     this.step.set(1);
+
+    // Rascunho retomado no meio de uma montagem volta a ser acompanhado.
+    //
+    // Conserta uma limitação antiga: sem isto o cômodo em `PROCESSING`
+    // aparecia como se nada estivesse acontecendo, e o resultado só chegava
+    // numa retomada POSTERIOR. Agora ele chega enquanto a tela vive — e, sem
+    // ninguém acompanhando, a trava da etapa 1 também nunca liberaria, porque
+    // `'treating'` é o que ela segura.
+    if (this.emTratamento().length) this.acompanharTratamentos();
 
     const endereco = rascunho.property.address;
     // Campo marcador volta VAZIO, campo escolhido volta como está — e quem diz
@@ -1837,7 +1930,8 @@ export class TourDraftStore {
   /** "Criar outro tour": volta tudo ao estado inicial. */
   reset(): void {
     // Mesma razão do `removeScene`: os blobs das imagens tratadas não somem
-    // sozinhos quando a lista é zerada.
+    // sozinhos quando a lista é zerada, e agora nascem do acompanhamento em
+    // vez do modal — com a tela viva por todo o tour.
     for (const scene of this.scenes()) {
       if (scene.treatedImageUrl) URL.revokeObjectURL(scene.treatedImageUrl);
     }

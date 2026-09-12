@@ -28,15 +28,20 @@ type CaptureState =
   | 'intro'
   | 'capturing'
   | 'stitching'
-  | 'treating'
   | 'preview'
   | 'error';
 
-/** O que o wizard precisa devolver para o modal poder mostrar a foto tratada. */
-export interface TratamentoDaCaptura {
+/** O que o wizard devolve quando o cômodo termina de SUBIR. */
+export interface EnvioDaCaptura {
   panoramaId: string;
-  /** Vazio quando a IA não pôde melhorar — o modal cai no panorama costurado. */
-  treatedUrl: string;
+  /**
+   * A montagem por IA foi pedida e está a caminho.
+   *
+   * Falso quando o servidor vai dispensar por ter menos fotos de referência
+   * que o mínimo: aí não há montagem para ninguém acompanhar, e o cômodo fica
+   * com o panorama costurado mesmo.
+   */
+  tratamentoPedido: boolean;
 }
 
 interface Candidate {
@@ -182,19 +187,42 @@ export class Capture360Component implements OnDestroy {
   readonly naoMelhorou = signal(false);
 
   /**
-   * Quem sabe subir e tratar a captura. Injetado pelo wizard via
+   * Quem sabe SUBIR a captura e pedir a montagem. Injetado pelo wizard via
    * `componentProps` em vez de resolvido por injeção: este modal é criado pelo
    * `ModalController`, que não enxerga os provedores da página do wizard —
    * `TourDraftStore` mora lá.
    *
+   * Subir, e não tratar: a espera da IA deixou de acontecer aqui dentro.
+   *
    * Ausente quando não há wizard por trás (bancada de diagnóstico). Aí o modal
    * pula direto para o preview, com o panorama costurado.
    */
-  tratar?: (captura: {
+  enviar?: (captura: {
     imageData: string;
     frames: CaptureFrameUpload[];
     geometry: CaptureGeometry | null;
-  }) => Promise<TratamentoDaCaptura | null>;
+  }) => Promise<EnvioDaCaptura | null>;
+
+  /**
+   * Avisa o wizard de que há alguém de olho numa espera de montagem.
+   *
+   * Só aperta o passo do acompanhamento enquanto esta tela está no ar, para
+   * que a foto tratada troque enquanto a pessoa ainda pode vê-la trocar.
+   */
+  aoOlhar?: (olhando: boolean) => void;
+
+  /** A IA ainda está montando este cômodo. Acende o selo sobre o preview. */
+  readonly tratando = signal(false);
+
+  /**
+   * O envio em curso. `usePanorama` espera por ele, e SÓ por ele.
+   *
+   * Existe porque sair antes de o servidor responder deixaria a cena sem
+   * `serverPanoramaId`, e o salvamento do rascunho — que cria um panorama para
+   * toda cena que não tem um — criaria OUTRO para o mesmo cômodo. Na prática o
+   * envio termina enquanto a pessoa digita o nome.
+   */
+  private envio: Promise<EnvioDaCaptura | null> | null = null;
   private candidates: Candidate[] = [];
   private lastCandidateMs = 0;
   private rafId: number | null = null;
@@ -212,21 +240,37 @@ export class Capture360Component implements OnDestroy {
   ngOnDestroy(): void {
     window.removeEventListener('resize', this.onResize);
     this.teardownSources();
+    // Aqui, e não no `dismiss`: fechar pelo X, pelo gesto de voltar do Android
+    // e pelos botões são três caminhos, e só este passa por todos. Deixar
+    // ligado prenderia o acompanhamento no passo rápido para sempre.
+    this.aoOlhar?.(false);
   }
 
   cancel(): void {
     this.modalCtrl.dismiss(null, 'cancel');
   }
 
-  usePanorama(): void {
-    // `originalImageData` e não o que está na tela: o preview mostra a versão
-    // tratada, mas quem sobe e quem alimenta o "ver original" da etapa 2 é o
-    // panorama como a costura o entregou.
+  /**
+   * Confirma o cômodo. Com `continuar`, já reabre a câmera no próximo.
+   *
+   * Espera o ENVIO, e nunca a IA. Na prática ele terminou enquanto a pessoa
+   * digitava o nome; quando não terminou, esperar aqui é o que impede a cena
+   * de nascer sem `serverPanoramaId` — e o salvamento do rascunho, que cria um
+   * panorama para toda cena que não tem um, de criar um SEGUNDO para o mesmo
+   * cômodo. O tour saía com a sala duplicada, uma cópia tratada e outra crua.
+   */
+  async usePanorama(continuar = false): Promise<void> {
+    // `originalImageData` e não o que está na tela: o preview pode já estar
+    // mostrando a versão tratada, mas quem sobe e quem alimenta o "ver
+    // original" da etapa 2 é o panorama como a costura o entregou.
     const imageData = this.originalImageData;
     if (!imageData) {
       this.modalCtrl.dismiss(null, 'cancel');
       return;
     }
+
+    const enviado = this.envio ? await this.envio : null;
+    this.serverPanoramaId = enviado?.panoramaId ?? this.serverPanoramaId;
     // The originals ride along so the caller can archive them once the
     // panorama has an id. They stay Blobs: expanding a whole capture to base64
     // here would cost more memory than the stitch itself.
@@ -241,10 +285,14 @@ export class Capture360Component implements OnDestroy {
         frames,
         geometry: this.geometry,
         room: this.roomName().trim(),
-        // Já existem quando o tratamento rodou: o cômodo subiu antes de ter
-        // nome, e o wizard não precisa subi-lo de novo no publicar.
+        // Já existe quando o envio rodou: o cômodo subiu antes de ter nome, e
+        // o wizard não precisa subi-lo de novo no publicar.
         serverPanoramaId: this.serverPanoramaId,
-        treatedUrl: this.treatedUrl,
+        // A foto tratada não vem mais por aqui — ela chega depois, pelo
+        // acompanhamento do store. O que viaja é só a notícia de que há uma a
+        // caminho, para o wizard saber o que acompanhar.
+        emTratamento: enviado?.tratamentoPedido ?? false,
+        continuar,
       },
       'confirm',
     );
@@ -480,47 +528,55 @@ export class Capture360Component implements OnDestroy {
   }
 
   /**
-   * Segura a tela enquanto a IA monta o cômodo, e só então mostra a foto.
+   * Entrega o preview e deixa a IA para trás.
    *
-   * É esta espera que faz o corretor ver o resultado BOM no momento em que ele
-   * está olhando — logo depois de girar 360° com o celular. Tratar em segundo
-   * plano escondia melhor a espera, mas entregava o panorama cru justamente no
-   * instante de maior atenção, e era por ele que o produto era julgado.
+   * Este método SEGURAVA a tela até a montagem terminar, para que o corretor
+   * visse o resultado bom no instante de maior atenção — logo depois de girar
+   * 360° com o celular. A razão era boa e o custo virou grande: a espera chega
+   * a um minuto e meio por cômodo, paga uma vez por cômodo, em pé, dentro do
+   * imóvel.
    *
-   * O caminho sem `tratar` existe para a bancada de diagnóstico, que abre este
+   * Agora o preview entra com o panorama COSTURADO e um selo dizendo que a IA
+   * ainda está melhorando, e a tratada troca a foto por baixo quando chega.
+   * Isso responde à objeção que derrubou a primeira tentativa de segundo
+   * plano: o que ela entregava era o cru SEM AVISO, e ele se lia como
+   * resultado final. Com o selo, ele se lê como provisório — e quem esperar
+   * dez segundos vê a foto boa aparecer sozinha.
+   *
+   * O ENVIO continua aguardado, só que em `usePanorama` e não aqui: ver o
+   * campo `envio`.
+   *
+   * O caminho sem `enviar` existe para a bancada de diagnóstico, que abre este
    * modal fora do wizard.
    */
-  private async tratarEEntao(costurado: string): Promise<void> {
+  private tratarEEntao(costurado: string): void {
     const frames: CaptureFrameUpload[] = this.stitchedShots.map((shot, index) => ({
       index,
       blob: shot.frame.blob,
       quaternion: shot.quaternion,
     }));
 
-    if (!this.tratar || !frames.length) {
-      this.mostrarPreview(costurado);
+    if (!this.enviar || !frames.length) {
+      this.zone.run(() => this.mostrarPreview(costurado));
       return;
     }
 
-    this.zone.run(() => this.state.set('treating'));
-    try {
-      const r = await this.tratar({
-        imageData: costurado,
-        frames,
-        geometry: this.geometry,
-      });
-      this.serverPanoramaId = r?.panoramaId ?? null;
-      this.treatedUrl = r?.treatedUrl ?? '';
-    } catch {
-      this.treatedUrl = '';
-    }
-
     this.zone.run(() => {
-      this.naoMelhorou.set(!this.treatedUrl);
-      // Mostra a tratada quando ela existe; o costurado é o fallback e segue
-      // guardado em `originalImageData` de qualquer forma.
-      this.mostrarPreview(this.treatedUrl || costurado);
+      this.tratando.set(true);
+      // Alguém está de olho NESTA espera: aperta o passo do acompanhamento,
+      // para que a troca da foto aconteça enquanto a pessoa ainda está aqui.
+      this.aoOlhar?.(true);
+      this.mostrarPreview(costurado);
     });
+
+    // Sem `await`: é isto que devolve a tela ao corretor. O `catch` mora na
+    // promessa guardada, e não num `try` aqui, porque quem a consome é
+    // `usePanorama` — uma rejeição solta viraria `unhandledrejection`.
+    this.envio = this.enviar({
+      imageData: costurado,
+      frames,
+      geometry: this.geometry,
+    }).catch(() => null);
   }
 
   private mostrarPreview(imageUrl: string): void {

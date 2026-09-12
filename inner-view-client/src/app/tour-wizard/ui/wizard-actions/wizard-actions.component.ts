@@ -62,6 +62,12 @@ export class WizardActionsComponent implements OnDestroy {
    */
   readonly motivoBloqueio = computed(() => {
     if (!this.store.temImagem()) return 'TOUR_WIZARD.COMMON.NEEDS_IMAGE';
+    // Antes do nome de propósito: nomear é coisa que ele resolve num toque,
+    // esperar a IA não. Dizer "faltam nomes" a quem já nomeou tudo e está
+    // olhando um selo girando manda procurar o problema no lugar errado.
+    if (this.store.step() === 1 && this.store.emTratamento().length) {
+      return 'TOUR_WIZARD.COMMON.NEEDS_TREATMENT';
+    }
     if (this.store.step() === 1 && this.store.ambientesSemNome().length) {
       return 'TOUR_WIZARD.STEP1.NEEDS_NAMES';
     }

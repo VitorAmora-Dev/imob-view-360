@@ -79,8 +79,9 @@
     "EMPTY_CTA": "Start a capture"
   },
   "CAPTURE": {
-    "TRATANDO_TITULO": "Enhancing your panorama",
-    "TRATANDO": "AI is fixing the seams and parallax. This takes about a minute.",
+    "TRATANDO_SELO": "Enhancing with AI…",
+    "PODE_CONTINUAR": "Don't worry, you can keep going",
+    "PROXIMO_COMODO": "Capture next room",
     "NAO_MELHOROU": "Could not enhance this time — the panorama below is straight from the camera.",
     "ADD_METHOD_TITLE": "Add 360° image",
     "WITH_CAMERA": "Capture with camera",
@@ -248,6 +249,7 @@
       "DONE": "Done",
       "PUBLISH": "Publish tour",
       "NEEDS_IMAGE": "Upload at least one 360° image to continue",
+      "NEEDS_TREATMENT": "Wait for the AI to finish enhancing the photos",
       "LEAVE_TITLE": "Your capture is saved",
       "LEAVE_MESSAGE": "The photos and the AI treatment are already stored. You can pick it up later from the home screen.",
       "LEAVE_KEEP": "Continue later",
@@ -316,6 +318,7 @@
       "BADGE_COVER": "Cover",
       "BADGE_ROOM": "Room {{n}}",
       "BADGE_IA": "AI-enhanced",
+      "BADGE_TRATANDO": "Enhancing with AI…",
       "REMOVE": "Remove the room {{room}}",
       "READING": "Reading the image…",
       "REJECTED_TYPE": "Not a valid image.",

@@ -328,7 +328,11 @@ export class VirtualTourService {
         // Falha de rede não encerra o acompanhamento: a montagem segue no
         // servidor, e a próxima tentativa reencontra o estado.
       }
-      await espera(intervaloMs, sinal);
+      // Resolvido A CADA VOLTA, e não uma vez lá em cima. Ver o tipo.
+      await espera(
+        typeof intervaloMs === 'function' ? intervaloMs() : intervaloMs,
+        sinal,
+      );
     }
 
     return ultimo;
@@ -477,7 +481,17 @@ export class VirtualTourService {
 }
 
 export interface OpcoesDeAcompanhamento {
-  intervaloMs?: number;
+  /**
+   * Intervalo entre as voltas, ou uma FUNÇÃO que o devolve.
+   *
+   * A função existe para quem muda de ideia no meio: o acompanhamento em
+   * segundo plano do wizard aperta o passo enquanto há alguém olhando a
+   * espera e afrouxa quando o corretor volta a fotografar. Com um número, o
+   * valor ficaria congelado no do INSTANTE em que o laço nasceu — e ele
+   * nasce exatamente quando a pessoa está saindo da tela, de modo que o
+   * intervalo lento valeria também para a volta dela.
+   */
+  intervaloMs?: number | (() => number);
   limiteMs?: number;
   /** Encerra o laço quando quem pediu o acompanhamento foi embora. */
   sinal?: AbortSignal;

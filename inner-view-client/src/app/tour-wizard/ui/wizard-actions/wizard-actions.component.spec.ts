@@ -89,6 +89,40 @@ describe('WizardActionsComponent', () => {
     });
   });
 
+  describe('a etapa 1 cobra o fim do tratamento', () => {
+    /**
+     * Antes do nome de propósito. Nomear é coisa que o corretor resolve num
+     * toque; esperar a IA, não. Dizer "faltam nomes" a quem já nomeou tudo e
+     * está olhando um selo girando manda procurar o problema no lugar errado.
+     */
+    it('explica a espera, e não o nome, quando é a espera que segura', () => {
+      const emCurso = { ...cena('sala'), aiState: 'treating' as const };
+      const { barra } = em(1, [emCurso]);
+
+      expect(barra.primaryDisabled()).toBeTrue();
+      expect(barra.motivoBloqueio()).toBe('TOUR_WIZARD.COMMON.NEEDS_TREATMENT');
+    });
+
+    it('com a IA terminada, libera', () => {
+      const pronta = { ...cena('sala'), aiState: 'done' as const };
+      const { barra } = em(1, [pronta]);
+
+      expect(barra.primaryDisabled()).toBeFalse();
+      expect(barra.motivoBloqueio()).toBeNull();
+    });
+
+    // Terminais no servidor: nunca virarão `done`, e uma trava literal
+    // prenderia o corretor aqui já fora do imóvel.
+    it('falha e dispensa não seguram a barra', () => {
+      const falhou = { ...cena('sala'), aiState: 'failed' as const };
+      const dispensada = { ...cena('cozinha'), aiState: 'skipped' as const };
+      const { barra } = em(1, [falhou, dispensada]);
+
+      expect(barra.primaryDisabled()).toBeFalse();
+      expect(barra.motivoBloqueio()).toBeNull();
+    });
+  });
+
   describe('a ordenacao cobra as conexoes', () => {
     // Sem isto o corretor seguia para a etapa 3 e encontrava so um "volte aos
     // ambientes": o wizard deixava entrar num lugar cuja unica instrucao e sair.
