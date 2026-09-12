@@ -248,6 +248,7 @@
       "DONE": "Done",
       "PUBLISH": "Publish tour",
       "NEEDS_IMAGE": "Upload at least one 360° image to continue",
+      "NEEDS_TREATMENT": "Wait for the AI to finish enhancing the photos",
       "LEAVE_TITLE": "Your capture is saved",
       "LEAVE_MESSAGE": "The photos and the AI treatment are already stored. You can pick it up later from the home screen.",
       "LEAVE_KEEP": "Continue later",

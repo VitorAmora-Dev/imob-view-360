@@ -248,6 +248,7 @@
       "DONE": "Pronto",
       "PUBLISH": "Publicar tour",
       "NEEDS_IMAGE": "Envie ao menos uma imagem 360° para continuar",
+      "NEEDS_TREATMENT": "Espere a IA terminar de melhorar as fotos",
       "LEAVE_TITLE": "Sua captura fica salva",
       "LEAVE_MESSAGE": "As fotos e o tratamento da IA já estão guardados. Você pode continuar depois pela tela inicial.",
       "LEAVE_KEEP": "Continuar depois",

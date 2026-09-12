@@ -332,7 +332,22 @@ export class TourDraftStore {
    */
   readonly canAdvance = computed(() => {
     if (!this.temImagem()) return false;
-    if (this.step() === 1) return this.ambientesSemNome().length === 0;
+    // A etapa 1 cobra DUAS coisas: nome e nenhuma montagem em curso.
+    //
+    // "Em curso", e NÃO "tratado". `failed` e `skipped` são terminais no
+    // servidor e nunca virarão `done` — dispensa acontece com menos de quatro
+    // fotos de referência, e falha é falha. Cobrar "tratado" prenderia o
+    // corretor nesta etapa para sempre, e ele já não está mais no imóvel para
+    // refotografar. O card mostra o aviso, e o wizard deixa passar.
+    //
+    // A trava existe porque a etapa 2 monta o tour a partir das fotos, e um
+    // cômodo que ainda vai mudar de imagem no meio do caminho faria o corretor
+    // conectar uma foto e publicar outra.
+    if (this.step() === 1) {
+      return (
+        this.ambientesSemNome().length === 0 && this.emTratamento().length === 0
+      );
+    }
     // Cada etapa cobra a alcançabilidade pela fonte que ELA produz.
     //
     // A ordenação cobra as conexões escolhidas, e não os pontos posicionados:

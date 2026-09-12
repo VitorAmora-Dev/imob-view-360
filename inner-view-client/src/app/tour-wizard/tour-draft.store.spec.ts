@@ -220,6 +220,43 @@ describe('TourDraftStore (contrato)', () => {
       expect(store.canAdvance()).toBe(true);
     });
 
+    it('não avança com cômodo ainda em tratamento', () => {
+      const store = storeWith(scene('a', { room: 'Sala', aiState: 'treating' }));
+
+      // A etapa 2 monta o tour a partir das fotos. Um cômodo que ainda vai
+      // trocar de imagem no meio do caminho faria o corretor conectar uma foto
+      // e publicar outra.
+      expect(store.canAdvance()).toBe(false);
+    });
+
+    /**
+     * O caso que o pedido original teria transformado em armadilha.
+     *
+     * "Só avança com os cômodos tratados", ao pé da letra, prende o corretor
+     * nesta etapa PARA SEMPRE: dispensa acontece com menos de quatro fotos de
+     * referência e falha é falha — os dois são terminais no servidor e nunca
+     * virarão `done`. E quando ele descobre, já não está mais no imóvel para
+     * refotografar.
+     */
+    it('falha e dispensa ATRAVESSAM a trava', () => {
+      const store = storeWith(
+        scene('a', { room: 'Sala', aiState: 'failed' }),
+        scene('b', { room: 'Cozinha', aiState: 'skipped' }),
+      );
+
+      expect(store.canAdvance()).toBe(true);
+    });
+
+    it('um cômodo em tratamento segura os outros, mesmo todos nomeados', () => {
+      const store = storeWith(
+        scene('a', { room: 'Sala', aiState: 'done' }),
+        scene('b', { room: 'Cozinha', aiState: 'treating' }),
+      );
+
+      expect(store.canAdvance()).toBe(false);
+      expect(store.emTratamento().map((s) => s.id)).toEqual(['b']);
+    });
+
     it('não cobra nome de cena recusada — ela não vira ambiente', () => {
       const store = storeWith(
         scene('a', { room: 'Sala' }),
