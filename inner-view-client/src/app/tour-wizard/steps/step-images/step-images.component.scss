@@ -601,6 +601,40 @@
   }
 }
 
+/*
+  A captura é a ação primária da etapa, e ao entrar na galeria ela perdia o
+  destaque.
+
+  A tela de decisão — a de `!scenes.length` — oferece a mesma dupla como
+  `tw-btn--bordered` + `tw-btn--primary`: um cartão branco e um botão azul. A
+  galeria que a substitui troca os dois por `tw-scene-action`, e o modificador
+  `--camera` não tinha regra NENHUMA: as duas ações nasciam com o mesmo
+  `--tw-surface`. Quem tirava a primeira foto via a ação principal ficar branca
+  junto com a outra, e a etapa deixava de apontar para onde seguir.
+
+  A borda assume a própria marca em vez de sumir. A caixa continua com o mesmo
+  tamanho da irmã branca, e as duas seguem alinhadas na mesma linha do grid.
+*/
+.tw-scene-action--camera {
+  border-color: var(--tw-brand);
+  background: var(--tw-brand);
+  color: var(--tw-on-brand);
+
+  &:hover {
+    background: var(--tw-brand-hover);
+  }
+
+  .tw-scene-action__eyebrow {
+    color: var(--tw-on-brand-muted);
+  }
+
+  /* A pílula inverte o par: fundo pálido não existe sobre azul cheio. */
+  .tw-scene-action__icon {
+    background: var(--tw-on-brand);
+    color: var(--tw-brand);
+  }
+}
+
 .tw-scene-action__eyebrow {
   grid-column: 1;
   color: var(--tw-text-faint);

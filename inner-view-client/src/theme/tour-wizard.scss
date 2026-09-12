@@ -30,6 +30,17 @@
   //                                             dropzone, badge "Capa"
   --tw-brand-border: var(--brand-primary-300); // borda em hover destrutivo
 
+  // Sobre a superfície da marca. Nasceram aqui, e não como `#fff` solto num
+  // componente, porque o cartão "Capturar próximo ambiente" da etapa 1 é a
+  // SEGUNDA superfície azul do wizard — a primeira é `.tw-btn--primary`.
+  //
+  // O translúcido está em 0,86 e não em 0,78 por medida, não por gosto: a
+  // etiqueta que ele pinta tem 11px, e 0,78 sobre a marca rende 4,23:1, que
+  // reprova para texto normal. Em 0,86 dá 4,83:1. O contrato da paleta prende
+  // os dois.
+  --tw-on-brand: var(--neutral-white);
+  --tw-on-brand-muted: rgba(var(--neutral-white-rgb), 0.86);
+
   /* -- Accent: os 10% ---------------------------------------------------- */
   // Azul é "o que eu posso fazer"; teal é "o que já está feito". Por isso o
   // accent vive no progresso — etapa concluída, barra, badge "Capa" — e nunca
