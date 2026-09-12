@@ -665,6 +665,45 @@ describe('TourDraftStore (contrato)', () => {
    * com menos de quatro fotos originais e ainda prende o id na guarda de
    * idempotência, o que transforma a chamada seguinte num no-op silencioso.
    */
+  describe('a memória das fotos tratadas', () => {
+    /**
+     * A foto tratada é uma equirretangular inteira, e o `blob:` dela vive fora
+     * do ciclo do Angular. Quem a cria passou a ser o acompanhamento, que roda
+     * com a tela viva por todo o tour — antes era o modal de captura, que
+     * morria em seguida. O vazamento ficou mais fácil, não menos.
+     */
+    it('remover o cômodo devolve a memória da foto tratada', () => {
+      const revogar = spyOn(URL, 'revokeObjectURL');
+      const store = storeWith(scene('a', { treatedImageUrl: 'blob:tratada-1' }));
+
+      store.removeScene('a');
+
+      expect(revogar).toHaveBeenCalledWith('blob:tratada-1');
+    });
+
+    it('o reset devolve a de todos os cômodos, e não só a do primeiro', () => {
+      const revogar = spyOn(URL, 'revokeObjectURL');
+      const store = storeWith(
+        scene('a', { treatedImageUrl: 'blob:tratada-1' }),
+        scene('b', { treatedImageUrl: 'blob:tratada-2' }),
+      );
+
+      store.reset();
+
+      expect(revogar).toHaveBeenCalledWith('blob:tratada-1');
+      expect(revogar).toHaveBeenCalledWith('blob:tratada-2');
+    });
+
+    it('cômodo sem foto tratada não pede revogação de nada', () => {
+      const revogar = spyOn(URL, 'revokeObjectURL');
+      const store = storeWith(scene('a'));
+
+      store.removeScene('a');
+
+      expect(revogar).not.toHaveBeenCalled();
+    });
+  });
+
   describe('acompanharTratamentos', () => {
     /**
      * Uma volta só do laço, com o estado que o caso quiser, e o controle da

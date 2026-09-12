@@ -812,9 +812,14 @@ export class TourDraftStore {
     // que ainda nem é público, e prender a remoção da tela numa ida à rede
     // seria pior. O que sobrar é varrido por `yarn limpar-rascunhos`.
     const alvo = this.scenes().find((s) => s.id === id);
-    // O `blob:` da imagem tratada foi criado no modal de captura e vive fora do
-    // ciclo do Angular: sem revogar, cada cômodo removido deixa alguns MB
-    // presos até a aba fechar.
+    // O `blob:` da imagem tratada vive fora do ciclo do Angular: sem revogar,
+    // cada cômodo removido deixa alguns MB presos até a aba fechar.
+    //
+    // Quem o cria mudou de lugar e isto ficou MAIS importante, não menos. Era
+    // o modal de captura, que só existia enquanto o corretor esperava; agora é
+    // `baixarTratada`, do acompanhamento, que roda com a tela viva por todo o
+    // tour. Um tour de oito cômodos passa a segurar oito equirretangulares
+    // inteiras se ninguém as devolver.
     if (alvo?.treatedImageUrl) URL.revokeObjectURL(alvo.treatedImageUrl);
 
     const remoto = alvo?.serverPanoramaId;
@@ -1925,7 +1930,8 @@ export class TourDraftStore {
   /** "Criar outro tour": volta tudo ao estado inicial. */
   reset(): void {
     // Mesma razão do `removeScene`: os blobs das imagens tratadas não somem
-    // sozinhos quando a lista é zerada.
+    // sozinhos quando a lista é zerada, e agora nascem do acompanhamento em
+    // vez do modal — com a tela viva por todo o tour.
     for (const scene of this.scenes()) {
       if (scene.treatedImageUrl) URL.revokeObjectURL(scene.treatedImageUrl);
     }
