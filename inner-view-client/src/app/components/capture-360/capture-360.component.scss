@@ -258,11 +258,89 @@ ion-button.on-dark {
   left: 0;
   right: 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 12px;
+  padding: 0 16px;
 
   ion-button {
     min-width: 150px;
+    margin: 0;
+  }
+
+  /*
+    Três botões de 150px não cabem lado a lado num celular pequeno: são 450px
+    mais dois vãos contra os ~360px de um aparelho de 4,7". O principal toma a
+    linha inteira e os dois secundários dividem a de baixo.
+
+    A ordem é declarada porque o DOM não a tem: a nota vem primeiro no HTML
+    para que o leitor de tela a encontre ANTES do botão que ela explica, e o
+    "próximo cômodo" vem por último ali pelo mesmo motivo.
+  */
+  @media (max-width: 520px) {
+    ion-button {
+      min-width: 0;
+      flex: 1 1 40%;
+      order: 2;
+    }
+  }
+}
+
+/*
+  Tranquiliza antes de o corretor decidir, e some quando não há o que
+  tranquilizar: com a montagem já terminada, "você pode continuar" não explica
+  botão nenhum.
+*/
+.result-actions__nota {
+  flex-basis: 100%;
+  order: 0;
+  margin: 0 0 2px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .result-actions__continuar {
+    flex-basis: 100%;
+    order: 1;
+  }
+}
+
+/*
+  O que separa "este é o seu resultado" de "ainda vem coisa melhor".
+
+  Sem ele o panorama costurado se lê como final — e foi exatamente por isso
+  que a primeira tentativa de tratar em segundo plano foi revertida. Mesma
+  caixa do aviso de "não melhorou", que ocupa este lugar no outro desfecho,
+  mas abaixo da barra de cima para não cobrir o fechar.
+*/
+.capture-selo {
+  position: absolute;
+  top: calc(60px + var(--ion-safe-area-top, 0px));
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 7px 14px;
+  max-width: min(420px, calc(100% - 32px));
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12.5px;
+  text-align: center;
+  animation: capture-selo-pulso 1.6s ease-in-out infinite;
+}
+
+@keyframes capture-selo-pulso {
+  50% {
+    opacity: 0.62;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capture-selo {
+    animation: none;
   }
 }
 

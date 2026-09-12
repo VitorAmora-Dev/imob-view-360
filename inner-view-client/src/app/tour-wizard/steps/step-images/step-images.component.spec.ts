@@ -34,6 +34,43 @@ describe('StepImagesComponent — escolha e galeria', () => {
   }
 
   /**
+   * Arma o modal de captura para devolver uma confirmação.
+   *
+   * `onDidDismiss` resolve uma vez só por modal criado, então cada `create`
+   * devolve um objeto novo — senão o caso do "capturar próximo" entraria em
+   * laço, reabrindo a câmera para sempre.
+   */
+  function prepararCaptura(over: { emTratamento: boolean; continuar: boolean }): void {
+    let primeira = true;
+    modalController.create.and.callFake(async () => {
+      const confirmar = primeira;
+      primeira = false;
+      return {
+        present: jasmine.createSpy('present').and.resolveTo(),
+        onDidDismiss: jasmine.createSpy('onDidDismiss').and.resolveTo(
+          confirmar
+            ? {
+                role: 'confirm',
+                data: {
+                  imageData: 'data:image/jpeg;base64,MTIz',
+                  frames: [],
+                  geometry: null,
+                  room: 'Sala',
+                  serverPanoramaId: 'pan-1',
+                  ...over,
+                },
+              }
+            : { role: 'cancel' },
+        ),
+      } as never;
+    });
+    Object.defineProperty(component, 'cameraAvailable', {
+      configurable: true,
+      value: true,
+    });
+  }
+
+  /**
    * A cor que o navegador do teste realmente pinta para um token do tema.
    *
    * `background-color` e não `color`, pelo mesmo motivo que o contrato da
@@ -249,7 +286,8 @@ describe('StepImagesComponent — escolha e galeria', () => {
           geometry: null,
           room: 'Sala',
           serverPanoramaId: null,
-          treatedUrl: '',
+          emTratamento: false,
+          continuar: false,
         },
       }),
     };
@@ -265,6 +303,54 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(component.activeScene()?.id).toBe(store.scenes()[0].id);
     expect(fixture.nativeElement.querySelector('.tw-scenes')).not.toBeNull();
     expect(store.step()).toBe(1);
+  });
+
+  /**
+   * Uma captura confirmada que deixou montagem a caminho.
+   *
+   * A cena nasce em `treating` e o acompanhador é acordado. As duas coisas
+   * juntas: sem o estado o selo não acende, e sem o acompanhador ele não
+   * apagaria — que foi o defeito que arrancou este selo da primeira vez.
+   */
+  it('a captura em tratamento acende o estado E o acompanhador', async () => {
+    const espia = spyOn(store, 'acompanharTratamentos');
+    prepararCaptura({ emTratamento: true, continuar: false });
+
+    await component.openCapture();
+    render();
+
+    expect(store.scenes()[0].aiState).toBe('treating');
+    expect(espia).toHaveBeenCalled();
+  });
+
+  it('dispensa pelo servidor não acende nada', async () => {
+    const espia = spyOn(store, 'acompanharTratamentos');
+    prepararCaptura({ emTratamento: false, continuar: false });
+
+    await component.openCapture();
+    render();
+
+    expect(store.scenes()[0].aiState).toBeUndefined();
+    expect(espia).not.toHaveBeenCalled();
+  });
+
+  it('"capturar próximo cômodo" reabre a câmera no mesmo gesto', async () => {
+    prepararCaptura({ emTratamento: true, continuar: true });
+    spyOn(store, 'acompanharTratamentos');
+
+    await component.openCapture();
+
+    // Duas: a que o corretor abriu e a que o botão pediu.
+    expect(modalController.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('confirmar sem continuar não reabre nada', async () => {
+    prepararCaptura({ emTratamento: true, continuar: false });
+    spyOn(store, 'acompanharTratamentos');
+
+    await component.openCapture();
+
+    expect(modalController.create).toHaveBeenCalledTimes(1);
   });
 
   it('cancelar a captura não cria card nem sai da decisão', async () => {

@@ -80,16 +80,6 @@ const INTERVALO_OLHANDO_MS = 3000;
 const INTERVALO_DE_FUNDO_MS = 10_000;
 
 /**
- * Teto da espera com o corretor parado olhando o loader.
- *
- * A montagem leva ~60s por cômodo. Dois minutos cobrem uma que demorou mais
- * que o normal sem transformar a captura numa tela travada — passado isso, o
- * panorama costurado é entregue e ele segue. O `acompanharMontagem` admite dez
- * minutos por padrão, que serve para segundo plano e não para isto.
- */
-const LIMITE_DA_ESPERA_MS = 2 * 60 * 1000;
-
-/**
  * Largura que o rail, o card compacto e o resumo pedem ao servidor.
  *
  * Os três desenham um retângulo perto de 196×110. Sem esta largura a rota de
@@ -698,54 +688,6 @@ export class TourDraftStore {
   }
 
   /**
-   * Sobe um cômodo recém-capturado e espera a IA montá-lo.
-   *
-   * Composição sobre `enviarCaptura`, e não mais o método inteiro: o que
-   * sobrou aqui é só a ESPERA, que é a parte que sai de cena quando o modal
-   * deixa de segurar a tela.
-   *
-   * Chamado pelo modal de captura, que segura a tela com o loader enquanto isto
-   * roda. A alternativa, tratar em segundo plano enquanto ele fotografa o
-   * próximo cômodo, escondia melhor a espera mas entregava a ele o panorama
-   * cru no momento em que ele mais olha para o resultado.
-   *
-   * Devolve `null` quando não deu — rede fora, tempo estourado, IA desabilitada
-   * no servidor. Quem chama mostra o panorama costurado e segue: falhar aqui
-   * degrada a qualidade do tour, nunca o impede.
-   */
-  async tratarCaptura(captura: {
-    imageData: string;
-    frames: CaptureFrameUpload[];
-    geometry: CaptureGeometry | null;
-  }): Promise<{ panoramaId: string; treatedUrl: string } | null> {
-    const enviado = await this.enviarCaptura(captura);
-    if (!enviado) return null;
-    if (!enviado.tratamentoPedido) {
-      return { panoramaId: enviado.panoramaId, treatedUrl: '' };
-    }
-
-    try {
-      const tourId = this.rascunhoTourId();
-      if (!tourId) return { panoramaId: enviado.panoramaId, treatedUrl: '' };
-
-      const pronto = await this.esperarPanorama(tourId, enviado.panoramaId);
-      if (!pronto) return { panoramaId: enviado.panoramaId, treatedUrl: '' };
-
-      const blob = await firstValueFrom(
-        this.virtualTourService.baixarPreview(enviado.panoramaId, 'treated'),
-      );
-      return {
-        panoramaId: enviado.panoramaId,
-        treatedUrl: URL.createObjectURL(blob),
-      };
-    } catch {
-      // O cômodo existe e a montagem está a caminho; o que falhou foi trazer a
-      // imagem. Ver o `catch` de `enviarCaptura`: o id nunca é descartado.
-      return { panoramaId: enviado.panoramaId, treatedUrl: '' };
-    }
-  }
-
-  /**
    * Há alguém de olho numa espera de montagem agora.
    *
    * Só aperta o passo do laço. Quem liga e desliga é o modal de captura, por
@@ -847,46 +789,6 @@ export class TourDraftStore {
       // estado terminal já foi gravado e a trava já liberou — o cômodo segue
       // com o panorama costurado, que é servível.
     }
-  }
-
-  /**
-   * Espera ESTE panorama chegar a um estado terminal.
-   *
-   * O andamento é por tour, então o laço olha a entrada deste id dentro dele —
-   * é para isso que o servidor passou a devolver a lista cômodo a cômodo.
-   *
-   * O teto é curto de propósito. O `acompanharMontagem` admite dez minutos, que
-   * serve para um acompanhamento em segundo plano e é inaceitável com alguém
-   * parado olhando: passado o limite, é melhor entregar o panorama costurado do
-   * que continuar segurando a tela.
-   */
-  private async esperarPanorama(tourId: string, panoramaId: string): Promise<boolean> {
-    // Controlador próprio para poder encerrar o laço no instante em que ESTE
-    // cômodo termina, sem esperar os outros do tour. Também repassa a tela
-    // morrendo, via `this.abortar`.
-    const controle = new AbortController();
-    const encerrar = () => controle.abort();
-    this.abortar.signal.addEventListener('abort', encerrar, { once: true });
-
-    let terminou = false;
-    try {
-      await this.virtualTourService.acompanharMontagem(
-        tourId,
-        (andamento) => {
-          const meu = andamento.panoramas.find((p) => p.id === panoramaId);
-          if (meu && meu.status !== 'PENDING' && meu.status !== 'PROCESSING') {
-            terminou = meu.status === 'DONE';
-            // Só este cômodo interessa: os outros já foram tratados nas
-            // capturas anteriores, e esperar por eles seria esperar de novo.
-            controle.abort();
-          }
-        },
-        { sinal: controle.signal, limiteMs: LIMITE_DA_ESPERA_MS },
-      );
-    } finally {
-      this.abortar.signal.removeEventListener('abort', encerrar);
-    }
-    return terminou;
   }
 
   renameScene(id: string, room: string): void {

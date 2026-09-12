@@ -815,7 +815,7 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
-  describe('enviarCaptura e tratarCaptura', () => {
+  describe('enviarCaptura', () => {
     interface Dublês {
       tours: VirtualTourService;
       chamadas: string[];
@@ -881,138 +881,17 @@ describe('TourDraftStore (contrato)', () => {
       spyOn(URL, 'createObjectURL').and.returnValue('blob:tratada');
     });
 
-    it('sobe as fotos ANTES de pedir a montagem', async () => {
-      const store = newStore();
-      const { chamadas } = comRede();
-
-      const r = await store.tratarCaptura(captura());
-
-      expect(chamadas).toEqual([
-        'createProperty',
-        'createTour',
-        'addPanorama',
-        'uploadCaptureFrames',
-        'montarTour',
-        'baixarPreview',
-      ]);
-      expect(r).toEqual({ panoramaId: 'pan-0', treatedUrl: 'blob:tratada' });
-    });
-
     it('cria um rascunho só, para quantos cômodos forem', async () => {
       const store = newStore();
       const { chamadas } = comRede();
 
-      await store.tratarCaptura(captura());
-      await store.tratarCaptura(captura());
-      await store.tratarCaptura(captura());
+      await store.enviarCaptura(captura());
+      await store.enviarCaptura(captura());
+      await store.enviarCaptura(captura());
 
       expect(chamadas.filter((c) => c === 'createProperty')).toHaveSize(1);
       expect(chamadas.filter((c) => c === 'createTour')).toHaveSize(1);
       expect(chamadas.filter((c) => c === 'addPanorama')).toHaveSize(3);
-    });
-
-    it('não pede montagem quando quase nenhuma foto subiu', async () => {
-      const store = newStore();
-      const { tours, chamadas } = comRede();
-      (tours.uploadCaptureFrames as jasmine.Spy).and.resolveTo({
-        uploaded: 2,
-        total: 8,
-      });
-
-      const r = await store.tratarCaptura(captura());
-
-      // O servidor exige quatro referências; abaixo disso ele dispensaria, e a
-      // ida à rede só serviria para receber um SKIPPED.
-      expect(chamadas).not.toContain('montarTour');
-      // O cômodo existe no servidor, mas sem versão tratada: o modal mostra o
-      // costurado e avisa.
-      expect(r).toEqual({ panoramaId: 'pan-0', treatedUrl: '' });
-    });
-
-    it('devolve o cômodo sem tratamento quando a IA dispensa', async () => {
-      const store = newStore();
-      comRede({ status: 'SKIPPED' });
-
-      const r = await store.tratarCaptura(captura());
-
-      expect(r?.treatedUrl).toBe('');
-    });
-
-    it('devolve null quando a rede falha, sem derrubar a captura', async () => {
-      const store = newStore();
-      const { tours } = comRede();
-      (tours.addPanorama as jasmine.Spy).and.returnValue(
-        throwError(() => new Error('rede caiu')),
-      );
-
-      // `null` e não exceção: quem chama é o modal, que precisa mostrar o
-      // panorama costurado e seguir. Falhar aqui degrada a qualidade do tour,
-      // nunca impede a captura.
-      await expectAsync(store.tratarCaptura(captura())).toBeResolvedTo(null);
-    });
-
-    /**
-     * O caso que um tour publicado pagou, em 10/09/2026: a sala saiu duplicada,
-     * uma cópia tratada e outra crua.
-     *
-     * A partir do `addPanorama` existe uma linha no servidor, com as fotos
-     * originais e a montagem por IA a caminho. Devolver `null` daqui descartava
-     * o id dela; a cena ficava sem `serverPanoramaId`, e `salvarRascunho` — que
-     * cria um panorama para toda cena que não tem um — criava OUTRO para o
-     * mesmo cômodo.
-     *
-     * O download da imagem tratada é o passo que falha na vida real: ele baixa
-     * a panorâmica inteira por rede móvel, depois de o servidor já ter feito o
-     * trabalho caro.
-     */
-    it('falha DEPOIS de criar o cômodo não descarta o id dele', async () => {
-      const store = newStore();
-      const { tours } = comRede();
-      (tours.baixarPreview as jasmine.Spy).and.returnValue(
-        throwError(() => new Error('conexão caiu no download')),
-      );
-
-      const r = await store.tratarCaptura(captura());
-
-      // Sem tratamento, mas COM o id: o modal avisa e o cômodo continua sendo
-      // aquele que já está no servidor.
-      expect(r).toEqual({ panoramaId: 'pan-0', treatedUrl: '' });
-    });
-
-    it('vale para qualquer passo depois da criação, não só o download', async () => {
-      const store = newStore();
-      const { tours } = comRede();
-      (tours.montarTour as jasmine.Spy).and.returnValue(
-        throwError(() => new Error('rede caiu')),
-      );
-
-      const r = await store.tratarCaptura(captura());
-
-      expect(r).toEqual({ panoramaId: 'pan-0', treatedUrl: '' });
-    });
-
-    it('para de esperar assim que ESTE cômodo termina', async () => {
-      // O andamento é por tour. Sem olhar a entrada deste id, o laço esperaria
-      // os cômodos anteriores terminarem de novo, a cada captura.
-      const store = newStore();
-      const { tours } = comRede();
-      (tours.acompanharMontagem as jasmine.Spy).and.callFake(
-        async (_id: string, aoAvancar: (a: never) => void) => {
-          aoAvancar({
-            total: 2, prontos: 1, falhas: 0, dispensados: 0,
-            // O tour NÃO terminou — mas o cômodo desta captura, sim.
-            terminado: false,
-            panoramas: [
-              { id: 'pan-0', status: 'DONE' },
-              { id: 'pan-9', status: 'PROCESSING' },
-            ],
-          } as never);
-          return null as never;
-        },
-      );
-
-      const r = await store.tratarCaptura(captura());
-      expect(r?.treatedUrl).toBe('blob:tratada');
     });
 
     /**
@@ -1344,7 +1223,7 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     /**
-     * O outro lado do defeito da duplicata — ver os casos de `tratarCaptura`.
+     * O outro lado do defeito da duplicata — ver os casos de `enviarCaptura`.
      *
      * Criar um panorama para toda cena sem `serverPanoramaId` é o certo para a
      * cena que veio de arquivo, e era a armadilha para a que veio da captura: o
@@ -2485,14 +2364,14 @@ describe('TourDraftStore (contrato)', () => {
       const framesA = [{ index: 0 }] as unknown as CaptureFrameUpload[];
       const framesB = [{ index: 1 }] as unknown as CaptureFrameUpload[];
 
-      // É o modal de captura que chama isto, uma vez por cômodo, enquanto o
-      // corretor espera. Nomes repetidos de propósito: era casando por nome que
+      // É o modal de captura que chama isto, uma vez por cômodo, na
+      // confirmação. Nomes repetidos de propósito: era casando por nome que
       // as fotos das duas cenas iam parar no mesmo panorama, deixando a segunda
       // sem nenhuma e fazendo a IA dispensá-la por falta de verdade de campo.
-      const a = await store.tratarCaptura({
+      const a = await store.enviarCaptura({
         imageData: 'data:image/jpeg;base64,a', frames: framesA, geometry: null,
       });
-      const b = await store.tratarCaptura({
+      const b = await store.enviarCaptura({
         imageData: 'data:image/jpeg;base64,b', frames: framesB, geometry: null,
       });
 

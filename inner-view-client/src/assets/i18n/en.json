@@ -79,8 +79,9 @@
     "EMPTY_CTA": "Start a capture"
   },
   "CAPTURE": {
-    "TRATANDO_TITULO": "Enhancing your panorama",
-    "TRATANDO": "AI is fixing the seams and parallax. This takes about a minute.",
+    "TRATANDO_SELO": "Enhancing with AI…",
+    "PODE_CONTINUAR": "Don't worry, you can keep going",
+    "PROXIMO_COMODO": "Capture next room",
     "NAO_MELHOROU": "Could not enhance this time — the panorama below is straight from the camera.",
     "ADD_METHOD_TITLE": "Add 360° image",
     "WITH_CAMERA": "Capture with camera",

@@ -77,14 +77,6 @@
       porque é o que faz o corretor ver a foto já tratada no momento em que ele
       mais olha para o resultado — logo depois de girar 360° com o celular.
     -->
-    @case ('treating') {
-      <div class="panel panel--ia">
-        <app-owl-loader />
-        <h2>{{ 'CAPTURE.TRATANDO_TITULO' | translate }}</h2>
-        <p>{{ 'CAPTURE.TRATANDO' | translate }}</p>
-      </div>
-    }
-
     @case ('preview') {
       <!--
         A espera terminou sem melhora. Dizer isso é o mínimo: ele acabou de
@@ -96,6 +88,18 @@
       }
       <div class="result-viewer">
         <app-panoramic-viewer [panoramas]="previewPanoramas()"></app-panoramic-viewer>
+
+        <!--
+          O selo é o que separa "este é o seu resultado" de "ainda vem coisa
+          melhor". Sem ele, o panorama costurado se lê como final, e foi por
+          isso que a primeira tentativa de tratar em segundo plano foi
+          revertida.
+        -->
+        @if (tratando()) {
+          <p class="capture-selo" role="status">
+            {{ 'CAPTURE.TRATANDO_SELO' | translate }}
+          </p>
+        }
       </div>
       <div class="top-bar">
         <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
@@ -159,10 +163,27 @@
       </div>
 
       <div class="result-actions">
+        <!--
+          Vem ANTES dos botões no DOM: quem usa leitor de tela encontra a
+          tranquilizacão antes do botão que ela explica, e não depois.
+        -->
+        @if (tratando()) {
+          <p class="result-actions__nota">{{ 'CAPTURE.PODE_CONTINUAR' | translate }}</p>
+        }
         <ion-button fill="outline" class="on-dark" (click)="restart()">
           {{ 'CAPTURE.RETAKE' | translate }}
         </ion-button>
-        <ion-button (click)="usePanorama()">{{ 'CAPTURE.USE' | translate }}</ion-button>
+        <ion-button fill="outline" class="on-dark" (click)="usePanorama()">
+          {{ 'CAPTURE.USE' | translate }}
+        </ion-button>
+        <!--
+          O caminho esperado de quem ainda está no imóvel, e por isso o cheio.
+          Confirma este cômodo e já abre a câmera no próximo — o tratamento
+          deste segue sozinho no servidor.
+        -->
+        <ion-button class="result-actions__continuar" (click)="usePanorama(true)">
+          {{ 'CAPTURE.PROXIMO_COMODO' | translate }}
+        </ion-button>
       </div>
     }
 

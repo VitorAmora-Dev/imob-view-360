@@ -79,8 +79,9 @@
     "EMPTY_CTA": "Começar uma captura"
   },
   "CAPTURE": {
-    "TRATANDO_TITULO": "Melhorando seu panorama",
-    "TRATANDO": "A IA está corrigindo as emendas e a paralaxe. Leva cerca de um minuto.",
+    "TRATANDO_SELO": "Melhorando com IA…",
+    "PODE_CONTINUAR": "Não se preocupe, você pode continuar",
+    "PROXIMO_COMODO": "Capturar próximo cômodo",
     "NAO_MELHOROU": "Não foi possível melhorar desta vez — o panorama abaixo é o da câmera.",
     "ADD_METHOD_TITLE": "Adicionar imagem 360°",
     "WITH_CAMERA": "Capturar com a câmera",
