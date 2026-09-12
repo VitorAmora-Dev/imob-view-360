@@ -14,6 +14,7 @@ import {
 import { costurarVolta, saltoNaVolta } from '../../../shared/imaging/volta';
 import { pngParaRaster, rasterParaJpeg } from '../../../shared/imaging/raster';
 import { devolverMemoria, emMB } from '../../../shared/memoria';
+import { linhaDeEspera } from '../../../shared/espera-do-tratamento';
 import { base64Puro } from '../panorama-image';
 
 /**
@@ -144,10 +145,40 @@ export class TreatPanoramaService implements OnModuleInit {
     if (this.conhecidos.has(panoramaId)) return;
     this.conhecidos.add(panoramaId);
 
+    // O relógio do corretor começa AQUI, e não em `execute`.
+    //
+    // Entre este ponto e o início da execução está a fila: com
+    // `CONCORRENCIA` ocupada, o cômodo espera sem que nada o registre. Era a
+    // parcela invisível — zero com um corretor sozinho, e justamente a que
+    // cresce com dois capturando ao mesmo tempo, que é quando o produto
+    // parece lento e o log dizia que estava rápido.
+    //
+    // A linha "montado com N fotos" continua onde está: ela mede a chamada ao
+    // modelo, e as duas juntas é que separam "o modelo demora" de "a fila
+    // encheu" — problemas com remédios opostos.
+    const pedidoEm = Date.now();
+
     const executar = () => {
       this.emAndamento++;
+      const comecouEm = Date.now();
+      const registrar = (desfecho: string) =>
+        this.logger.log(
+          linhaDeEspera({
+            panoramaId,
+            pedidoEm,
+            comecouEm,
+            terminouEm: Date.now(),
+            desfecho,
+          }),
+        );
+
       void this.execute(panoramaId)
+        // `status` e não só "pronto": um tratamento que demora e DESISTE é o
+        // que mais precisa aparecer na média. A linha antiga só saía no
+        // sucesso, e o gráfico ficava otimista exatamente nos casos ruins.
+        .then((r) => registrar(r.status))
         .catch((erro) => {
+          registrar('ERRO');
           this.logger.warn(
             `Montagem de ${panoramaId} não pôde ser agendada: ${erro instanceof Error ? erro.message : erro}`,
           );
