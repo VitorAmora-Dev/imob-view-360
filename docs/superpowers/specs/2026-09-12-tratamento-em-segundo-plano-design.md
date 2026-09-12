@@ -68,8 +68,13 @@ Levantado no código contra `a6e3d4d`, não suposto.
   `terminado: prontos + falhas + dispensados >= panoramas.length`.
   Captura com menos de quatro fotos de referência vira `SKIPPED` sem tratar.
 
-- **O servidor não registra duração.** O único log da montagem é
-  `"N panorama(s) enfileirado(s)"`. Não há como responder "quanto demora".
+- **O servidor já registra uma duração, mas a errada.** `treat-panorama.service`
+  loga `"montado com N fotos · volta X→Y · Zs"`, e esse `Z` é `r.ms`: o tempo da
+  CHAMADA AO MODELO, não o que o corretor espera. Fora dele ficam a espera na
+  fila (`emAndamento` limita a concorrência), o download das referências e a
+  gravação. E a linha só sai no sucesso: tratamento que falhou ou foi dispensado
+  não deixa tempo nenhum. Para responder "quanto o corretor espera", falta o
+  total, nos três desfechos.
 
 ## Decisões
 
@@ -152,11 +157,50 @@ e ali a resposta não precisa ser imediata.
 Rascunho retomado com cômodo em `PROCESSING` inicia o laço. Conserta de lambuja
 a limitação que `ESTADO_DA_IA` documenta hoje.
 
-### 9. O servidor passa a registrar a duração — DECIDIDO
+### 9. O envio é aguardado; só a IA vai para segundo plano — DECIDIDO
 
-Uma linha por panorama em `treat-panorama.service.ts`, com o tempo decorrido.
+**Descoberto ao escrever o plano, não na conversa.** `tratarCaptura` faz seis
+coisas em sequência: garante o rascunho, `addPanorama`, `uploadCaptureFrames`,
+`montarTour`, espera o tratamento, baixa a tratada. Só a quinta é a demora de
+que o pedido fala.
+
+Se o modal simplesmente parasse de esperar tudo, o corretor poderia sair antes
+de `addPanorama` responder. A cena entraria sem `serverPanoramaId`, e
+`salvarRascunhoAgora` — que cria um panorama para toda cena que não tem um —
+criaria **outro** para o mesmo cômodo. O tour sairia com a sala duplicada: uma
+cópia tratada com as fotos, outra crua e sem elas. Esse defeito já aconteceu em
+campo em 10/09/2026 e está documentado no `catch` de `tratarCaptura`.
+
+Então a divisão é:
+
+| passo | onde roda |
+|---|---|
+| rascunho, `addPanorama`, frames, `montarTour` | aguardado, mas **sem segurar a tela** |
+| esperar o tratamento, baixar a tratada | acompanhador em segundo plano |
+
+O preview aparece logo depois da costura, com o selo e o campo de nome, enquanto
+o envio ainda corre. Se o corretor tocar num dos dois botões antes de o envio
+terminar, o botão espera por ele — na prática o envio termina enquanto ele
+digita o nome. O que ele **nunca** espera é a IA.
+
+Isto elimina a classe inteira do defeito de cômodo duplicado, em vez de
+conviver com ela.
+
+### 10. O log de duração passa a medir a espera inteira — DECIDIDO
+
+A linha existente mede só a chamada ao modelo, e só no sucesso. Passa a medir
+`execute` de ponta a ponta — fila, referências, modelo, gravação — e a sair nos
+três desfechos: montado, falhou, dispensado.
+
 É o que transforma "está demorando" em número. Sem isto continuamos consertando
-a percepção de uma espera que ninguém mediu.
+a percepção de uma espera que ninguém mediu, e a métrica que existe hoje mede
+justamente a parte que não inclui a fila, que é onde a concorrência limitada do
+servidor aparece.
+
+Sem teste unitário, e de propósito: montar infraestrutura de teste do Nest com
+Prisma falso para prender o formato de uma linha de log custaria mais do que
+vale, e o valor dela está no gráfico de produção. A verificação é ler o log do
+Render depois do deploy.
 
 ## As peças
 
