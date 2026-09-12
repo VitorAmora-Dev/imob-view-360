@@ -1240,6 +1240,15 @@ export class TourDraftStore {
     this.selectedSceneId.set(cenas[0]?.id ?? null);
     this.step.set(1);
 
+    // Rascunho retomado no meio de uma montagem volta a ser acompanhado.
+    //
+    // Conserta uma limitação antiga: sem isto o cômodo em `PROCESSING`
+    // aparecia como se nada estivesse acontecendo, e o resultado só chegava
+    // numa retomada POSTERIOR. Agora ele chega enquanto a tela vive — e, sem
+    // ninguém acompanhando, a trava da etapa 1 também nunca liberaria, porque
+    // `'treating'` é o que ela segura.
+    if (this.emTratamento().length) this.acompanharTratamentos();
+
     const endereco = rascunho.property.address;
     // Campo marcador volta VAZIO, campo escolhido volta como está — e quem diz
     // qual é qual é o próprio servidor, em `draftPlaceholders`.

@@ -2537,6 +2537,50 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     /**
+     * O selo aceso sem ninguém para apagá-lo é o defeito que arrancou
+     * `'treating'` da primeira vez. Na retomada ele voltaria inteiro: a cena
+     * entra em `treating` pelo mapa, e sem acompanhador ficaria assim para
+     * sempre — travando junto a etapa 1, que é o que segura `treating`.
+     */
+    it('retomada com montagem em curso acorda o acompanhador', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [
+            { ...base.panoramas[0], treatmentStatus: 'PROCESSING' },
+            { ...base.panoramas[1], treatmentStatus: 'DONE' },
+          ],
+        }) as never,
+      );
+      const espia = spyOn(store, 'acompanharTratamentos');
+
+      await store.retomarRascunho('t1');
+
+      expect(espia).toHaveBeenCalled();
+    });
+
+    it('retomada sem nada em curso não abre laço nenhum', async () => {
+      const store = newStore();
+      const base = rascunhoDeDoisComodos();
+      spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
+        of({
+          ...base,
+          panoramas: [
+            { ...base.panoramas[0], treatmentStatus: 'DONE' },
+            { ...base.panoramas[1], treatmentStatus: 'SKIPPED' },
+          ],
+        }) as never,
+      );
+      const espia = spyOn(store, 'acompanharTratamentos');
+
+      await store.retomarRascunho('t1');
+
+      expect(espia).not.toHaveBeenCalled();
+    });
+
+    /**
      * `Ambiente N` é marcador, e não nome — o salvamento o grava porque o
      * servidor exige `roomName`. Devolvê-lo como nome esvaziava
      * `ambientesSemNome()`, e o portão da etapa 1 parava de proteger: dava para
