@@ -2585,15 +2585,23 @@ describe('TourDraftStore (contrato)', () => {
     });
 
     /**
-     * O DEFEITO RELATADO: retomar um rascunho de fotos subidas por arquivo
-     * acendia "Melhorando com IA…" em todo cômodo, para sempre.
+     * O DEFEITO RELATADO, e o que mudou nele.
      *
-     * `PENDING` é o `@default` da coluna. Foto vinda de arquivo nasce assim e
-     * fica assim, porque não tem fotos originais e ninguém vai tratá-la — o
-     * tratamento hoje só roda dentro do modal de captura. E a retomada não tem
-     * poller nenhum: o selo, uma vez aceso, nunca mais se apagava.
+     * Retomar um rascunho de fotos subidas por arquivo acendia "Melhorando com
+     * IA…" em todo cômodo, PARA SEMPRE — a retomada não tinha poller, e o selo
+     * uma vez aceso nunca se apagava. A correção da época foi apagar os dois
+     * estados de uma vez, traduzindo `PENDING` e `PROCESSING` para `idle`.
+     *
+     * Agora eles se separam, porque só um deles era o defeito:
+     *
+     * - `PENDING` continua `idle`. É o `@default` da coluna, e foto vinda de
+     *   ARQUIVO nasce assim e fica assim, sem nunca ser tratada. Era ESTE o
+     *   cômodo que acendia o selo para sempre.
+     * - `PROCESSING` vira `treating`, porque agora há quem o encerre:
+     *   `acompanharTratamentos` o segue até o estado terminal, e derruba para
+     *   `failed` se o teto estourar.
      */
-    it('não acende o selo de montagem para PENDING nem PROCESSING', async () => {
+    it('PENDING fica parado; PROCESSING acende o selo que agora tem dono', async () => {
       const store = newStore();
       const base = rascunhoDeDoisComodos();
       spyOn(TestBed.inject(VirtualTourService), 'lerRascunho').and.returnValue(
@@ -2609,7 +2617,7 @@ describe('TourDraftStore (contrato)', () => {
       await store.retomarRascunho('t1');
 
       expect(store.scenes()[0].aiState).toBe('idle');
-      expect(store.scenes()[1].aiState).toBe('idle');
+      expect(store.scenes()[1].aiState).toBe('treating');
     });
 
     /**

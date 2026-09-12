@@ -350,6 +350,51 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(selectors[0].getAttribute('aria-label')).toContain('recusada.jpg');
   });
 
+  /**
+   * O selo que diz "a IA ainda está nisto".
+   *
+   * Ele já existiu e foi arrancado, porque nada no wizard acompanhava montagem
+   * e o selo aceso NUNCA se apagava. O que o traz de volta não é o desenho: é
+   * `TourDraftStore.acompanharTratamentos`, que agora encerra o estado — por
+   * resposta do servidor ou pelo teto. Por isso o caso mede o par: acende E
+   * apaga.
+   */
+  it('acende o selo de tratando no card, e apaga quando a IA termina', () => {
+    store.scenes.set([scene('sala', { aiState: 'treating' })]);
+    render();
+
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-treating'),
+    ).not.toBeNull();
+
+    store.scenes.update((s) => [{ ...s[0], aiState: 'done' as const }]);
+    render();
+
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-treating'),
+    ).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-enhanced'),
+    ).not.toBeNull();
+  });
+
+  /**
+   * `PENDING` é o `@default` da coluna, e toda foto vinda de ARQUIVO nasce
+   * assim sem nunca ser tratada. Foi traduzindo-o errado que o selo apareceu,
+   * da primeira vez, justamente em cima do cômodo que nunca teria tratamento.
+   */
+  it('cômodo parado não acende selo nenhum', () => {
+    store.scenes.set([scene('sala', { aiState: 'idle' })]);
+    render();
+
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-treating'),
+    ).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-enhanced'),
+    ).toBeNull();
+  });
+
   it('continua oferecendo upload e captura na galeria sem remontar a decisão', () => {
     store.scenes.set([scene('sala')]);
     render();

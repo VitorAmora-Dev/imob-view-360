@@ -316,6 +316,7 @@
       "BADGE_COVER": "Capa",
       "BADGE_ROOM": "Ambiente {{n}}",
       "BADGE_IA": "Melhorado com IA",
+      "BADGE_TRATANDO": "Melhorando com IA…",
       "REMOVE": "Remover o ambiente {{room}}",
       "READING": "Lendo a imagem…",
       "REJECTED_TYPE": "Não é uma imagem válida.",

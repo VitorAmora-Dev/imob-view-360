@@ -181,7 +181,7 @@ const NOME_MARCADOR_DE_AMBIENTE = /^Ambiente \d+$/;
  */
 const ESTADO_DA_IA: Record<TreatmentStatus, WizardSceneAiState> = {
   PENDING: 'idle',
-  PROCESSING: 'idle',
+  PROCESSING: 'treating',
   DONE: 'done',
   FAILED: 'failed',
   SKIPPED: 'skipped',

@@ -358,6 +358,16 @@
     color: var(--tw-brand);
   }
 
+  /*
+    Pulsa porque a unica coisa que este selo tem a dizer e "algo esta
+    acontecendo agora" — parado, ele e indistinguivel do `is-enhanced` que
+    aparece logo depois, e os dois moram no mesmo canto do card.
+  */
+  &.is-treating {
+    color: var(--tw-brand);
+    animation: tw-tratando 1.4s ease-in-out infinite;
+  }
+
   &.is-warning {
     color: var(--tw-warn-text);
   }
@@ -652,6 +662,12 @@
   border-radius: var(--tw-radius-pill);
   background: var(--tw-brand-soft);
   color: var(--tw-brand);
+}
+
+@keyframes tw-tratando {
+  50% {
+    opacity: 0.4;
+  }
 }
 
 @keyframes tw-deck-card-arrive {
