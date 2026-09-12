@@ -252,37 +252,49 @@ ion-button.on-dark {
   inset: 0;
 }
 
-.result-actions {
+/*
+  O rodapé inteiro, numa coluna só.
+
+  O campo de nome e os botões eram DUAS caixas absolutas, cada uma com o
+  próprio `bottom` em número fixo: 84px e 20px. Os números descreviam uma
+  barra de dois botões numa linha só, e pararam de descrever qualquer coisa
+  quando ela ganhou a nota e o terceiro botão — a barra cresceu para cima e
+  subiu POR CIMA do campo de nome e dos chips de sugestão, tudo legível ao
+  mesmo tempo e nada clicável.
+
+  Empilhar em fluxo, e não por coordenada, é o que faz o rodapé caber
+  independentemente de quantas linhas os botões ocuparem.
+*/
+.result-bottom {
   position: absolute;
   bottom: calc(20px + var(--ion-safe-area-bottom, 0px));
   left: 0;
   right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.result-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 12px;
   padding: 0 16px;
 
-  ion-button {
-    min-width: 150px;
-    margin: 0;
-  }
-
   /*
-    Três botões de 150px não cabem lado a lado num celular pequeno: são 450px
-    mais dois vãos contra os ~360px de um aparelho de 4,7". O principal toma a
-    linha inteira e os dois secundários dividem a de baixo.
+    Quebra a linha SOZINHO quando não cabe, em vez de perguntar a largura da
+    tela por media query.
 
-    A ordem é declarada porque o DOM não a tem: a nota vem primeiro no HTML
-    para que o leitor de tela a encontre ANTES do botão que ela explica, e o
-    "próximo cômodo" vem por último ali pelo mesmo motivo.
+    Três botões de 150px são 450px mais dois vãos, e um aparelho de 4,7" tem
+    uns 360px. `flex-basis` com `wrap` resolve isso pela largura REAL do
+    contêiner — e media query, que olha a viewport, não resolvia: era ela que
+    deixava o defeito invisível no navegador de teste, largo, enquanto a tela
+    do corretor quebrava.
   */
-  @media (max-width: 520px) {
-    ion-button {
-      min-width: 0;
-      flex: 1 1 40%;
-      order: 2;
-    }
+  ion-button {
+    flex: 1 1 150px;
+    margin: 0;
   }
 }
 
@@ -300,11 +312,13 @@ ion-button.on-dark {
   text-align: center;
 }
 
-@media (max-width: 520px) {
-  .result-actions__continuar {
-    flex-basis: 100%;
-    order: 1;
-  }
+/*
+  Linha própria, sempre. É a ação que o corretor em pé dentro do imóvel vai
+  tocar, e dividir a largura com "Refazer" faria dela um alvo de polegar do
+  mesmo tamanho do que ele NÃO quer apertar.
+*/
+.result-actions__continuar {
+  flex-basis: 100%;
 }
 
 /*
@@ -317,7 +331,7 @@ ion-button.on-dark {
 */
 .capture-selo {
   position: absolute;
-  top: calc(60px + var(--ion-safe-area-top, 0px));
+  top: calc(78px + var(--ion-safe-area-top, 0px));
   left: 50%;
   z-index: 2;
   transform: translateX(-50%);
@@ -349,10 +363,7 @@ ion-button.on-dark {
    enquanto nomeia, que é a razão inteira de o campo estar aqui e não na lista
    de cards depois. */
 .result-name {
-  position: absolute;
-  bottom: calc(84px + var(--ion-safe-area-bottom, 0px));
-  left: 16px;
-  right: 16px;
+  margin: 0 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;

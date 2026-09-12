@@ -129,61 +129,63 @@
         não cobrança — exigir formulário de quem acabou de girar um minuto com o
         telefone na mão é o pior momento possível para cobrar.
       -->
-      <div class="result-name">
-        <label class="tw-visually-hidden" for="captura-nome">
-          {{ 'CAPTURE.ROOM_LABEL' | translate }}
-        </label>
-        <input
-          id="captura-nome"
-          type="text"
-          class="result-name__input"
-          [value]="roomName()"
-          [placeholder]="'CAPTURE.ROOM_PLACEHOLDER' | translate"
-          (input)="onRoomName($event)" />
+      <div class="result-bottom">
+        <div class="result-name">
+          <label class="tw-visually-hidden" for="captura-nome">
+            {{ 'CAPTURE.ROOM_LABEL' | translate }}
+          </label>
+          <input
+            id="captura-nome"
+            type="text"
+            class="result-name__input"
+            [value]="roomName()"
+            [placeholder]="'CAPTURE.ROOM_PLACEHOLDER' | translate"
+            (input)="onRoomName($event)" />
 
-        <!--
-          Sugestões em chip porque a fricção real é digitar em pé segurando o
-          telefone. Um toque resolve o caso comum, e o campo livre continua ali
-          para "Escritório do fundo".
-        -->
-        <ul class="result-name__chips">
-          @for (sugestao of roomSuggestions(); track sugestao) {
-            <li>
-              <button
-                type="button"
-                class="result-name__chip"
-                [class.is-active]="roomName() === sugestao"
-                [attr.aria-pressed]="roomName() === sugestao"
-                (click)="pickRoom(sugestao)">
-                {{ sugestao }}
-              </button>
-            </li>
+          <!--
+            Sugestões em chip porque a fricção real é digitar em pé segurando o
+            telefone. Um toque resolve o caso comum, e o campo livre continua ali
+            para "Escritório do fundo".
+          -->
+          <ul class="result-name__chips">
+            @for (sugestao of roomSuggestions(); track sugestao) {
+              <li>
+                <button
+                  type="button"
+                  class="result-name__chip"
+                  [class.is-active]="roomName() === sugestao"
+                  [attr.aria-pressed]="roomName() === sugestao"
+                  (click)="pickRoom(sugestao)">
+                  {{ sugestao }}
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+
+        <div class="result-actions">
+          <!--
+            Vem ANTES dos botões no DOM: quem usa leitor de tela encontra a
+            tranquilizacão antes do botão que ela explica, e não depois.
+          -->
+          @if (tratando()) {
+            <p class="result-actions__nota">{{ 'CAPTURE.PODE_CONTINUAR' | translate }}</p>
           }
-        </ul>
-      </div>
-
-      <div class="result-actions">
-        <!--
-          Vem ANTES dos botões no DOM: quem usa leitor de tela encontra a
-          tranquilizacão antes do botão que ela explica, e não depois.
-        -->
-        @if (tratando()) {
-          <p class="result-actions__nota">{{ 'CAPTURE.PODE_CONTINUAR' | translate }}</p>
-        }
-        <ion-button fill="outline" class="on-dark" (click)="restart()">
-          {{ 'CAPTURE.RETAKE' | translate }}
-        </ion-button>
-        <ion-button fill="outline" class="on-dark" (click)="usePanorama()">
-          {{ 'CAPTURE.USE' | translate }}
-        </ion-button>
-        <!--
-          O caminho esperado de quem ainda está no imóvel, e por isso o cheio.
-          Confirma este cômodo e já abre a câmera no próximo — o tratamento
-          deste segue sozinho no servidor.
-        -->
-        <ion-button class="result-actions__continuar" (click)="usePanorama(true)">
-          {{ 'CAPTURE.PROXIMO_COMODO' | translate }}
-        </ion-button>
+          <ion-button fill="outline" class="on-dark" (click)="restart()">
+            {{ 'CAPTURE.RETAKE' | translate }}
+          </ion-button>
+          <ion-button fill="outline" class="on-dark" (click)="usePanorama()">
+            {{ 'CAPTURE.USE' | translate }}
+          </ion-button>
+          <!--
+            O caminho esperado de quem ainda está no imóvel, e por isso o cheio.
+            Confirma este cômodo e já abre a câmera no próximo — o tratamento
+            deste segue sozinho no servidor.
+          -->
+          <ion-button class="result-actions__continuar" (click)="usePanorama(true)">
+            {{ 'CAPTURE.PROXIMO_COMODO' | translate }}
+          </ion-button>
+        </div>
       </div>
     }
 
