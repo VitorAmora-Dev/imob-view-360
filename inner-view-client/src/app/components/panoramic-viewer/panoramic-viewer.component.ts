@@ -355,6 +355,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   private readonly pontosDaPinca = new Map<number, { x: number; y: number }>();
   private distanciaInicialDaPinca: number | null = null;
   private zoomInicialDaPinca = 0;
+  private rotacaoHabilitadaAntesDaPinca: boolean | null = null;
 
   alternarNav(): void {
     this.navAberta = !this.navAberta;
@@ -941,6 +942,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   private configurarModoDeZoom(): void {
     this.controls.enableZoom = !this.zoomLimitado;
     if (!this.zoomLimitado) {
+      this.restaurarRotacaoDepoisDaPinca();
       this.nivelDeZoom = 0;
       this.pontosDaPinca.clear();
       this.distanciaInicialDaPinca = null;
@@ -978,6 +980,16 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     const distancia = this.distanciaDaPinca();
     if (distancia === null || distancia <= 0) return;
 
+    // O OrbitControls recebe o primeiro dedo como ROTATE. Como o zoom nativo
+    // está desligado, ao chegar o segundo dedo ele mantém esse estado interno e
+    // interpreta parte da pinça como giro. A rotação fica suspensa até TODOS os
+    // dedos saírem; reativá-la no primeiro pointerup faria o dedo restante
+    // deslocar a câmera antes de terminar o gesto.
+    if (this.rotacaoHabilitadaAntesDaPinca === null) {
+      this.rotacaoHabilitadaAntesDaPinca = this.controls.enableRotate;
+      this.controls.enableRotate = false;
+    }
+
     this.distanciaInicialDaPinca = distancia;
     this.zoomInicialDaPinca = this.nivelDeZoom;
     this.pointerDownAt = null;
@@ -991,6 +1003,13 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     if (ponteiro !== null && this.renderer.domElement.hasPointerCapture(ponteiro)) {
       this.renderer.domElement.releasePointerCapture(ponteiro);
     }
+  }
+
+  private restaurarRotacaoDepoisDaPinca(): void {
+    if (this.rotacaoHabilitadaAntesDaPinca === null) return;
+
+    this.controls.enableRotate = this.rotacaoHabilitadaAntesDaPinca;
+    this.rotacaoHabilitadaAntesDaPinca = null;
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
@@ -1051,6 +1070,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     if (event.pointerType === 'touch') {
       this.pontosDaPinca.delete(event.pointerId);
       if (this.pontosDaPinca.size < 2) this.distanciaInicialDaPinca = null;
+      if (this.pontosDaPinca.size === 0) this.restaurarRotacaoDepoisDaPinca();
     }
 
     if (encerravaPinca) {
