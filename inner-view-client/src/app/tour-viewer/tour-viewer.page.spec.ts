@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
@@ -9,6 +10,7 @@ import { TourViewerPage } from './tour-viewer.page';
 import { TourViewerStore } from './tour-viewer.store';
 import { NavegacaoEntreTelas } from '../services/navegacao-entre-telas.service';
 import { Subject } from 'rxjs';
+import { PanoramicViewerComponent } from '../components/panoramic-viewer/panoramic-viewer.component';
 
 /**
  * O que só se descobre com a tela montada e as folhas de estilo aplicadas.
@@ -119,6 +121,13 @@ describe('TourViewerPage — camadas da tela', () => {
     for (const scrim of scrims) {
       expect(getComputedStyle(scrim as HTMLElement).pointerEvents).toBe('none');
     }
+  });
+
+  it('habilita o zoom curto e invisível no panorama do tour', () => {
+    const viewer = fixture.debugElement.query(By.directive(PanoramicViewerComponent))
+      .componentInstance as PanoramicViewerComponent;
+
+    expect(viewer.zoomLimitado).toBeTrue();
   });
 
   /**

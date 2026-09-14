@@ -165,6 +165,23 @@ describe('EmbedPage — o visualizador atual dentro do iframe', () => {
       expect(viewer.hotspotMode).toBe('none');
     });
 
+    /**
+     * Veio da #85 e continua valendo com o visualizador novo.
+     *
+     * O zoom do tour é curto (1,1x) e sem controle na tela. Ele NÃO saiu na
+     * troca de layout: quem incorpora o tour num site espera que a roda do
+     * mouse e a pinça façam alguma coisa dentro do iframe, e o teste da #85
+     * media isso num dublê de viewer que esta reescrita aposentou.
+     */
+    it('habilita o zoom curto e invisível no panorama incorporado', () => {
+      montar();
+
+      const viewer = fixture.debugElement.query(By.directive(PanoramicViewerComponent))
+        .componentInstance as PanoramicViewerComponent;
+
+      expect(viewer.zoomLimitado).toBeTrue();
+    });
+
     it('a barra traz ocultar, deitar e compartilhar', () => {
       montar();
 
