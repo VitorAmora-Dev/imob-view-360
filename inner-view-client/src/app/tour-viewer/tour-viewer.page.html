@@ -34,7 +34,7 @@
       </button>
     </div>
   } @else {
-    <div class="tv-palco" [class.tv-palco--deitado]="store.deitado()">
+    <div class="tv-palco" [class.tv-palco--deitado]="store.palcoGirado()">
       <!-- ---- camada 0: a foto ------------------------------------------ -->
       @if (!store.semCenas()) {
         <!--
@@ -51,7 +51,7 @@
           [panoramas]="store.panoramas()"
           [roomNav]="false"
           [hotspotMode]="'none'"
-          [rotacaoDaTela]="store.deitado() ? 90 : 0"
+          [rotacaoDaTela]="store.palcoGirado() ? 90 : 0"
           [zoomLimitado]="true"
           (panoramaChange)="aoTrocarPanorama($event)"
           (loadFailed)="aoFalharCena($event)"

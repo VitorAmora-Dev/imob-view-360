@@ -93,6 +93,29 @@ export class EmbedPage extends PalcoDoTour implements OnInit {
   ngOnInit(): void {
     this.mostrarControles = this.route.snapshot.queryParamMap.get('controles') !== '0';
 
+    /*
+     * O embed ABRE deitado, e é a única tela do produto que faz isso.
+     *
+     * Decisão do Gustavo, e vale registrar o que ela troca. Em pé, o tour
+     * mostra cerca de 39 graus na horizontal — um pedaço estreito do cômodo, e
+     * essa é a primeira impressão que o cliente final tem do imóvel. Deitado
+     * são uns 105. O preço é que a moldura nasce girada dentro de uma página
+     * que está em pé, até a pessoa virar o aparelho.
+     *
+     * Não é paisagem de verdade: travar a orientação do APARELHO exige tela
+     * cheia, e nenhum navegador entra em tela cheia sem um toque do usuário. O
+     * que existe é este giro por CSS.
+     *
+     * Incondicional de propósito. Quem pesa a largura é `palcoGirado`, no
+     * store: num embed de 960x540 — que já é largo — a intenção fica escrita e
+     * o giro não acontece. Repetir a conta aqui daria duas respostas para a
+     * mesma pergunta, que é justamente o defeito que `palcoGirado` consertou.
+     *
+     * O botão de levantar continua na barra de ações, e `abrirSheet()` levanta
+     * a tela sozinho antes de abrir qualquer folha.
+     */
+    this.store.deitado.set(true);
+
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
       // Mesmo estado de "não achei o tour": um link sem id e um link com id
