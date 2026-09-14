@@ -314,7 +314,13 @@
   gap: 10px;
 }
 
-.tw-deck__cover {
+/*
+  A pílula da capa e a de "melhorando" são a mesma forma de propósito: duas
+  informações do mesmo tipo — o que este cômodo é agora — no mesmo cartão. Só
+  a cor as separa.
+*/
+.tw-deck__cover,
+.tw-deck__tratando {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -326,6 +332,21 @@
   font-size: 13px;
   font-weight: 750;
   text-shadow: none;
+}
+
+.tw-deck__tratando {
+  background: var(--tw-brand-soft);
+  color: var(--tw-brand);
+
+  /* O ponto que pulsa. Ele é o "agora"; a palavra ao lado é o "o quê". */
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: var(--tw-radius-pill);
+    background: currentcolor;
+    animation: tw-tratando 1.4s ease-in-out infinite;
+  }
 }
 
 .tw-deck__status {
@@ -356,16 +377,6 @@
   &.is-reading,
   &.is-enhanced {
     color: var(--tw-brand);
-  }
-
-  /*
-    Pulsa porque a unica coisa que este selo tem a dizer e "algo esta
-    acontecendo agora" — parado, ele e indistinguivel do `is-enhanced` que
-    aparece logo depois, e os dois moram no mesmo canto do card.
-  */
-  &.is-treating {
-    color: var(--tw-brand);
-    animation: tw-tratando 1.4s ease-in-out infinite;
   }
 
   &.is-warning {

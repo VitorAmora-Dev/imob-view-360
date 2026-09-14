@@ -123,6 +123,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
             NAME_PROMPT: 'Dê nome a esse ambiente',
             NEEDS_NAMES: 'Dê nome a todos os ambiente antes de continuar',
             TAKE_ANOTHER_PHOTO: 'Capturar próximo ambiente',
+            BADGE_TRATANDO: 'Melhorando com IA…',
           },
         },
       },
@@ -444,24 +445,46 @@ describe('StepImagesComponent — escolha e galeria', () => {
    * `TourDraftStore.acompanharTratamentos`, que agora encerra o estado — por
    * resposta do servidor ou pelo teto. Por isso o caso mede o par: acende E
    * apaga.
+   *
+   * Afirma o TEXTO, e não só a classe. A versão anterior deste caso passava
+   * com uma engrenagem ⚙ cujo único rótulo era um `title` — que não existe no
+   * toque, onde este wizard vive. Uma asserção de classe teria continuado
+   * verde com o selo mudo no celular; uma de texto, não.
    */
   it('acende o selo de tratando no card, e apaga quando a IA termina', () => {
     store.scenes.set([scene('sala', { aiState: 'treating' })]);
     render();
 
-    expect(
-      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-treating'),
-    ).not.toBeNull();
+    const selo = fixture.nativeElement.querySelector('.tw-deck__tratando');
+    expect(selo).not.toBeNull();
+    expect(selo.textContent.trim()).toBe('Melhorando com IA…');
 
     store.scenes.update((s) => [{ ...s[0], aiState: 'done' as const }]);
     render();
 
     expect(
-      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-treating'),
+      fixture.nativeElement.querySelector('.tw-deck__tratando'),
     ).toBeNull();
     expect(
       fixture.nativeElement.querySelector('.tw-deck__status-icon.is-enhanced'),
     ).not.toBeNull();
+  });
+
+  /**
+   * Guarda contra deixar OS DOIS.
+   *
+   * Trocar um selo por outro é meia mudança fácil de fazer: acrescenta-se o
+   * novo, esquece-se de arrancar o velho, e o card passa a dizer a mesma coisa
+   * duas vezes — uma delas com o desenho que causou o problema. Sem este caso,
+   * nada na suíte notaria.
+   */
+  it('não sobra engrenagem nenhuma no canto do card', () => {
+    store.scenes.set([scene('sala', { aiState: 'treating' })]);
+    render();
+
+    expect(
+      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-treating'),
+    ).toBeNull();
   });
 
   /**
@@ -473,9 +496,7 @@ describe('StepImagesComponent — escolha e galeria', () => {
     store.scenes.set([scene('sala', { aiState: 'idle' })]);
     render();
 
-    expect(
-      fixture.nativeElement.querySelector('.tw-deck__status-icon.is-treating'),
-    ).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tw-deck__tratando')).toBeNull();
     expect(
       fixture.nativeElement.querySelector('.tw-deck__status-icon.is-enhanced'),
     ).toBeNull();
