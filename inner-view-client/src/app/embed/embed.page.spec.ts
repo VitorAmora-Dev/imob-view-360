@@ -140,6 +140,11 @@ describe('EmbedPage — o visualizador atual dentro do iframe', () => {
   const achar = (seletor: string): HTMLElement | null =>
     fixture.nativeElement.querySelector(seletor);
 
+  /** O viewer de verdade — o spec monta o componente, e não um dublê. */
+  const viewerReal = (): PanoramicViewerComponent =>
+    fixture.debugElement.query(By.directive(PanoramicViewerComponent))
+      .componentInstance as PanoramicViewerComponent;
+
   describe('o que passou a existir', () => {
     it('monta faixa de cenas, barra de ações e os pontos de passagem novos', () => {
       montar();
@@ -358,6 +363,68 @@ describe('EmbedPage — o visualizador atual dentro do iframe', () => {
 
       expect(chrome.compareDocumentPosition(pins) & Node.DOCUMENT_POSITION_FOLLOWING)
         .toBeTruthy();
+    });
+  });
+  /**
+   * O embed ABRE deitado — a única tela do produto que faz isso.
+   *
+   * Em pé o tour mostra cerca de 39 graus na horizontal, e essa é a primeira
+   * impressão que o cliente final tem do imóvel. Deitado são uns 105.
+   */
+  describe('abrir deitado', () => {
+    it('nasce com o palco girado, sem ninguém tocar em nada', () => {
+      montar();
+
+      expect(page.store.deitado()).toBeTrue();
+      expect(page.store.palcoGirado()).toBeTrue();
+      expect(achar('.tv-palco')!.classList).toContain('tv-palco--deitado');
+    });
+
+    /**
+     * Num iframe largo a INTENÇÃO fica escrita e o GIRO não acontece.
+     *
+     * Um embed de 960×540 já é largo, mesmo aberto num celular — girá-lo seria
+     * pôr conteúdo em pé dentro de uma caixa deitada. A página não repete essa
+     * conta: quem a faz é `palcoGirado`, num lugar só.
+     */
+    it('num iframe largo a intenção fica escrita e o giro não acontece', () => {
+      montar();
+
+      page.store.cabeGirar.set(false);
+      fixture.detectChanges();
+
+      expect(page.store.deitado()).toBeTrue();
+      expect(achar('.tv-palco')!.classList).not.toContain('tv-palco--deitado');
+    });
+
+    /**
+     * A ASSERÇÃO QUE GUARDA O DEFEITO.
+     *
+     * A classe do palco gira a imagem; o `rotacaoDaTela` do viewer gira o
+     * ARRASTO — ele desliga o `OrbitControls` e troca os eixos do dedo. As duas
+     * metades já viveram de condições diferentes, e a foto andava perpendicular
+     * ao dedo quando elas discordavam.
+     *
+     * Percorrer as quatro combinações, e não só a boa, é o que transforma "elas
+     * concordam hoje" em "elas não podem discordar".
+     */
+    it('a imagem e o arrasto nunca discordam sobre estar girados', () => {
+      montar();
+
+      for (const intencao of [true, false]) {
+        for (const largura of [true, false]) {
+          page.store.deitado.set(intencao);
+          page.store.cabeGirar.set(largura);
+          fixture.detectChanges();
+
+          const imagemGirada = achar('.tv-palco')!.classList.contains('tv-palco--deitado');
+          const arrastoGirado = viewerReal().rotacaoDaTela !== 0;
+
+          expect(arrastoGirado)
+            .withContext(`intenção=${intencao}, cabe girar=${largura}`)
+            .toBe(imagemGirada);
+        }
+      }
     });
   });
 });

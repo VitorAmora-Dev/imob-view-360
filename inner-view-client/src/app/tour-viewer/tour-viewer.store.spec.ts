@@ -456,4 +456,96 @@ describe('TourViewerStore', () => {
       expect(store.tourId()).toBe('t1');
     });
   });
+  /**
+   * O GIRO DO PALCO — e o defeito que fez `palcoGirado` existir.
+   *
+   * O giro tinha duas metades governadas por condições diferentes: o giro
+   * VISUAL era uma classe de CSS dentro de `@media (max-width: 767px)`, e o
+   * giro do ARRASTO vinha de `rotacaoDaTela`, sem guarda nenhuma.
+   *
+   * Quem tocava em "Deitar" e então virava o aparelho de verdade passava dos
+   * 767px. O CSS parava de girar; o arrasto não. A foto andava perpendicular ao
+   * dedo, sem nada na tela explicando por quê — e nenhum teste pegava, porque
+   * cada metade estava certa sozinha.
+   */
+  describe('o giro do palco', () => {
+    it('sem intenção não há giro, por mais estreita que seja a janela', () => {
+      store.cabeGirar.set(true);
+
+      expect(store.palcoGirado()).toBeFalse();
+    });
+
+    it('e a intenção sozinha não basta: numa janela larga o palco não gira', () => {
+      store.deitado.set(true);
+      store.cabeGirar.set(false);
+
+      expect(store.palcoGirado()).toBeFalse();
+    });
+
+    it('gira quando há intenção E largura', () => {
+      store.deitado.set(true);
+      store.cabeGirar.set(true);
+
+      expect(store.palcoGirado()).toBeTrue();
+    });
+
+    /**
+     * O caso do relato, agora com uma resposta só.
+     *
+     * Alargar a janela desfaz o GIRO sem apagar a INTENÇÃO: quem virou o
+     * aparelho de verdade já está vendo paisagem, e não precisa do giro falso.
+     * Voltar a estreitar devolve o giro sem exigir um segundo toque no botão.
+     */
+    it('alargar a janela desfaz o giro sem apagar a intenção', () => {
+      store.deitado.set(true);
+      store.cabeGirar.set(true);
+      expect(store.palcoGirado()).toBeTrue();
+
+      store.cabeGirar.set(false);
+      expect(store.palcoGirado()).toBeFalse();
+      expect(store.deitado()).toBeTrue();
+
+      store.cabeGirar.set(true);
+      expect(store.palcoGirado()).toBeTrue();
+    });
+
+    /**
+     * Prova que a largura é LIDA, e não suposta.
+     *
+     * O valor inicial de `cabeGirar` é `true`, e o Karma roda numa janela
+     * estreita — então um store que nunca consultasse `matchMedia` passaria por
+     * todos os casos acima. Este dublê responde `false` para separar as duas
+     * coisas.
+     */
+    it('lê a largura da janela ao nascer, em vez de supor', () => {
+      const consultaLarga = {
+        matches: false,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      } as unknown as MediaQueryList;
+      spyOn(window, 'matchMedia').and.returnValue(consultaLarga);
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          TourViewerStore,
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          provideRouter([]),
+        ],
+      });
+
+      expect(TestBed.inject(TourViewerStore).cabeGirar()).toBeFalse();
+    });
+
+    /** Abrir folha levanta a tela — o `ion-modal` é teleportado para fora do palco. */
+    it('abrir um sheet levanta a tela', () => {
+      store.deitado.set(true);
+
+      store.abrirSheet('share');
+
+      expect(store.deitado()).toBeFalse();
+      expect(store.palcoGirado()).toBeFalse();
+    });
+  });
 });

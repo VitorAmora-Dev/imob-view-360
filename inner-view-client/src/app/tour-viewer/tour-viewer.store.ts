@@ -16,6 +16,15 @@ import {
 } from './tour-viewer.model';
 
 /**
+ * Abaixo deste corte o giro do palco faz sentido; acima, não.
+ *
+ * O MESMO 767px do resto do app, e agora a única cópia dele que decide o giro —
+ * o `@media` que governava as regras de CSS do palco saiu quando esta constante
+ * entrou. Ver `TourViewerStore.palcoGirado`.
+ */
+const LARGURA_QUE_PERMITE_GIRAR = '(max-width: 767px)';
+
+/**
  * O estado da tela de visualização de tour (SPRINT-4-TOUR-VIEWER.md, TV-0).
  *
  * ASSINATURAS CONGELADAS: os nomes públicos daqui são o contrato entre as três
@@ -141,14 +150,46 @@ export class TourViewerStore {
   readonly chromeVisible = signal(true);
 
   /**
-   * A tela deitada — o modo paisagem.
+   * A tela deitada — o modo paisagem. É a INTENÇÃO de quem olha.
    *
    * NÃO é persistido de propósito. É postura de momento, não preferência: o
    * corretor deita para olhar um cômodo e levanta para mexer no resto. Guardar
    * isso faria a tela abrir de lado numa visita em que ele está com o telefone
    * em pé, e o botão para desfazer estaria girado 90 graus junto com ela.
+   *
+   * O embed é a exceção, e é deliberada: lá ele nasce `true`. Ver `EmbedPage`.
+   *
+   * Intenção não é o mesmo que giro: quem diz se o giro ACONTECE é
+   * `palcoGirado`, logo abaixo.
    */
   readonly deitado = signal(false);
+
+  /**
+   * A janela é estreita o bastante para o giro fazer sentido.
+   *
+   * Num monitor a janela já é larga, e girar seria mobiliário sem função. Dentro
+   * de um `<iframe>` isto mede o IFRAME, e não o aparelho — que é o correto: um
+   * embed de 960×540 já é largo, mesmo num celular.
+   *
+   * Escrito por `matchMedia`, e por mais ninguém fora dos testes.
+   */
+  readonly cabeGirar = signal(true);
+
+  /**
+   * O palco está girado AGORA — e é a única fonte dessa resposta.
+   *
+   * Isto existe por um defeito que estava em produção. O giro tinha duas
+   * metades governadas por condições diferentes: o giro VISUAL era uma classe
+   * de CSS dentro de `@media (max-width: 767px)`, e o giro do ARRASTO vinha de
+   * `rotacaoDaTela`, sem guarda nenhuma. Quem tocava em "Deitar" e então virava
+   * o aparelho de verdade passava dos 767px: o CSS parava de girar, o arrasto
+   * não — e a foto andava perpendicular ao dedo, sem nada na tela explicando.
+   *
+   * Uma decisão, um lugar. A classe do palco e o `rotacaoDaTela` do viewer leem
+   * DAQUI, e não podem mais discordar. O `@media` saiu do SCSS junto: se
+   * voltar, volta o defeito.
+   */
+  readonly palcoGirado = computed(() => this.deitado() && this.cabeGirar());
 
   alternarDeitado(): void {
     this.deitado.update((atual) => !atual);
@@ -554,8 +595,25 @@ export class TourViewerStore {
   }
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => {
+    const destroyRef = inject(DestroyRef);
+
+    destroyRef.onDestroy(() => {
       if (this.toastTimer) clearTimeout(this.toastTimer);
     });
+
+    // O mesmo corte do resto do app (767px), agora lido de um lugar só.
+    //
+    // `matchMedia` e não um listener de `resize`: o navegador avisa quando a
+    // resposta MUDA, em vez de a cada pixel arrastado na borda da janela. O
+    // `if` existe porque nem todo ambiente de execução tem `matchMedia` — e um
+    // tour que não gira é muito melhor que um tour que não abre.
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      const consulta = window.matchMedia(LARGURA_QUE_PERMITE_GIRAR);
+      this.cabeGirar.set(consulta.matches);
+
+      const aoMudar = () => this.cabeGirar.set(consulta.matches);
+      consulta.addEventListener('change', aoMudar);
+      destroyRef.onDestroy(() => consulta.removeEventListener('change', aoMudar));
+    }
   }
 }
