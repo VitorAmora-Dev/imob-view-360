@@ -232,6 +232,27 @@ export class Capture360Component implements OnDestroy {
   private envio: Promise<EnvioDaCaptura | null> | null = null;
 
   /**
+   * Qual confirmação está em curso, ou `null` quando nenhuma.
+   *
+   * EXISTE PORQUE O TOQUE SUMIA. `usePanorama` espera `this.envio`, e esse
+   * envio sobe OITO frames, um a um, cada um convertido para base64 — dezenas
+   * de segundos no celular do corretor. Durante toda essa janela os três
+   * botões continuavam acesos, tocáveis e absolutamente calados: quem
+   * apertava "Capturar próximo cômodo" via exatamente nada acontecer, e
+   * concluía — com razão — que o botão estava quebrado.
+   *
+   * A espera não pode simplesmente sumir: é ela que carrega o
+   * `serverPanoramaId` para a confirmação. Fechar antes faria o wizard subir
+   * o mesmo cômodo de novo no publicar, que é o defeito de campo de 10/09.
+   * O que faltava não era rapidez, era a tela dizer que recebeu o toque.
+   *
+   * Guarda a AÇÃO e não um booleano para o fiapo girar no botão que a pessoa
+   * apertou — e não nos três ao mesmo tempo, que leria como a tela inteira
+   * travando.
+   */
+  readonly confirmando = signal<'usar' | 'continuar' | null>(null);
+
+  /**
    * A tratada, se ela chegou ANTES de o corretor confirmar.
    *
    * Viaja no `dismiss`: a cena nasce pronta e o acompanhamento do wizard não
@@ -275,6 +296,12 @@ export class Capture360Component implements OnDestroy {
    * cômodo. O tour saía com a sala duplicada, uma cópia tratada e outra crua.
    */
   async usePanorama(continuar = false): Promise<void> {
+    // Segundo toque não abre segunda confirmação. Os botões já saem
+    // desabilitados, mas o teclado e o leitor de tela chegam aqui por caminhos
+    // que não passam pelo estado visual — e dois `dismiss` com o mesmo
+    // panorama são dois cômodos iguais na etapa 1.
+    if (this.confirmando()) return;
+
     // `originalImageData` e não o que está na tela: o preview pode já estar
     // mostrando a versão tratada, mas quem sobe e quem alimenta o "ver
     // original" da etapa 2 é o panorama como a costura o entregou.
@@ -284,6 +311,9 @@ export class Capture360Component implements OnDestroy {
       return;
     }
 
+    // ANTES do `await`, e não depois: é o `await` que dura, e é exatamente
+    // durante ele que a tela precisa dizer que recebeu o toque.
+    this.confirmando.set(continuar ? 'continuar' : 'usar');
     const enviado = this.envio ? await this.envio : null;
     this.serverPanoramaId = enviado?.panoramaId ?? this.serverPanoramaId;
     // The originals ride along so the caller can archive them once the
@@ -390,6 +420,10 @@ export class Capture360Component implements OnDestroy {
   }
 
   restart(): void {
+    // Volta a zero junto com o resto. Um "ocupado" preso aqui deixaria os três
+    // botões desabilitados na PRÓXIMA passagem pelo preview, e aí sim eles
+    // estariam quebrados de verdade.
+    this.confirmando.set(null);
     this.stopLoop();
     this.discardCandidates();
     this.shots = [];

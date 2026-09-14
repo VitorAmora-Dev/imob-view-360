@@ -151,6 +151,124 @@ describe('Capture360Component — a confirmação', () => {
    * Mede caixa contra caixa no navegador, e não a existência das classes: era
    * justamente com todas as classes no lugar que a tela estava quebrada.
    */
+  /**
+   * O TOQUE QUE SUMIA.
+   *
+   * Relatado como "os botões pararam de funcionar", e não eram os botões:
+   * `usePanorama` espera `this.envio`, e esse envio sobe OITO frames, um a um,
+   * cada um convertido para base64. No celular do corretor isso leva dezenas
+   * de segundos — e durante toda a janela os três botões continuavam acesos,
+   * tocáveis e calados. Quem apertava via exatamente nada acontecer.
+   *
+   * A espera em si tem de ficar: é ela que carrega o `serverPanoramaId` para a
+   * confirmação, e fechar antes faz o wizard subir o mesmo cômodo de novo no
+   * publicar — o defeito de campo de 10/09. O que faltava era a tela dizer que
+   * recebeu o toque.
+   */
+  describe('o toque durante o envio', () => {
+    /** Um envio que nunca chega: a janela inteira, congelada. */
+    const emVoo = () => new Promise<EnvioDaCaptura | null>(() => undefined);
+
+    const botoes = (): HTMLElement[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.result-actions ion-button'));
+
+    it('acende o botão apertado no mesmo instante do toque', async () => {
+      comCosturaPronta(emVoo());
+      fixture.detectChanges();
+
+      void componente.usePanorama(true);
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      const continuar = fixture.nativeElement.querySelector('.result-actions__continuar');
+      expect(continuar.getAttribute('aria-busy'))
+        .withContext('o botão apertado precisa dizer que está ocupado')
+        .toBe('true');
+      expect(continuar.querySelector('ion-spinner')).not.toBeNull();
+    });
+
+    /** Girar os três leria como a tela inteira travando, não como espera. */
+    it('gira só o botão apertado, e desabilita os outros', async () => {
+      comCosturaPronta(emVoo());
+      fixture.detectChanges();
+
+      void componente.usePanorama(true);
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      const comFiapo = botoes().filter((b) => b.querySelector('ion-spinner'));
+      expect(comFiapo.length).toBe(1);
+      // Propriedade e nao atributo: o wrapper do Ionic recebe `[disabled]`
+      // como @Input e o repassa ao elemento. Procurar o ATRIBUTO passaria verde
+      // com o binding arrancado.
+      const desabilitado = (b: HTMLElement) =>
+        (b as unknown as { disabled?: boolean }).disabled === true;
+      expect(botoes().every(desabilitado)).toBeTrue();
+    });
+
+    /**
+     * A espera continua existindo — o que mudou foi ela ter voz. Fechar antes
+     * de o envio chegar perderia o `serverPanoramaId`, e o cômodo subiria duas
+     * vezes.
+     */
+    it('não fecha antes de o envio chegar', async () => {
+      comCosturaPronta(emVoo());
+
+      void componente.usePanorama(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(modalCtrl.dismiss).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Teclado e leitor de tela chegam ao handler por caminhos que não passam
+     * pelo `disabled` visual. Dois `dismiss` com o mesmo panorama são dois
+     * cômodos iguais na etapa 1.
+     */
+    it('o segundo toque não abre uma segunda confirmação', async () => {
+      let resolver: (v: EnvioDaCaptura | null) => void = () => undefined;
+      comCosturaPronta(new Promise<EnvioDaCaptura | null>((r) => (resolver = r)));
+
+      void componente.usePanorama(true);
+      void componente.usePanorama(true);
+      resolver({ panoramaId: 'p1', tratamentoPedido: true });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(modalCtrl.dismiss).toHaveBeenCalledTimes(1);
+    });
+
+    it('quando o envio chega, a confirmação sai', async () => {
+      let resolver: (v: EnvioDaCaptura | null) => void = () => undefined;
+      comCosturaPronta(new Promise<EnvioDaCaptura | null>((r) => (resolver = r)));
+
+      void componente.usePanorama(true);
+      await Promise.resolve();
+      expect(modalCtrl.dismiss).not.toHaveBeenCalled();
+
+      resolver({ panoramaId: 'p1', tratamentoPedido: true });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(modalCtrl.dismiss).toHaveBeenCalledTimes(1);
+    });
+
+    /** Um "ocupado" preso desabilitaria os três na próxima passagem. */
+    it('refazer devolve os botões', async () => {
+      comCosturaPronta(emVoo());
+      void componente.usePanorama(true);
+      await Promise.resolve();
+      expect(componente.confirmando()).toBe('continuar');
+
+      componente.restart();
+
+      expect(componente.confirmando()).toBeNull();
+    });
+  });
+
   describe('o rodapé do preview', () => {
     /** Largura e altura de um aparelho de 4,7", que é onde o defeito apareceu. */
     const LARGURA_DO_CELULAR = 360;

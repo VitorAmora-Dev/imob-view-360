@@ -171,19 +171,46 @@
           @if (tratando()) {
             <p class="result-actions__nota">{{ 'CAPTURE.PODE_CONTINUAR' | translate }}</p>
           }
-          <ion-button fill="outline" class="on-dark" (click)="restart()">
+          <!--
+            Os três ficam desabilitados durante a confirmação, e só o apertado
+            gira. O envio leva dezenas de segundos — oito frames, um a um — e
+            sem isto o toque sumia calado: a pessoa apertava e a tela não
+            mudava nada, o que se lê como botão quebrado, não como espera.
+          -->
+          <ion-button
+            fill="outline"
+            class="on-dark"
+            [disabled]="confirmando() !== null"
+            (click)="restart()">
             {{ 'CAPTURE.RETAKE' | translate }}
           </ion-button>
-          <ion-button fill="outline" class="on-dark" (click)="usePanorama()">
-            {{ 'CAPTURE.USE' | translate }}
+          <ion-button
+            fill="outline"
+            class="on-dark"
+            [disabled]="confirmando() !== null"
+            [attr.aria-busy]="confirmando() === 'usar' ? 'true' : null"
+            (click)="usePanorama()">
+            @if (confirmando() === 'usar') {
+              <ion-spinner name="crescent"></ion-spinner>
+            } @else {
+              {{ 'CAPTURE.USE' | translate }}
+            }
           </ion-button>
           <!--
             O caminho esperado de quem ainda está no imóvel, e por isso o cheio.
             Confirma este cômodo e já abre a câmera no próximo — o tratamento
             deste segue sozinho no servidor.
           -->
-          <ion-button class="result-actions__continuar" (click)="usePanorama(true)">
-            {{ 'CAPTURE.PROXIMO_COMODO' | translate }}
+          <ion-button
+            class="result-actions__continuar"
+            [disabled]="confirmando() !== null"
+            [attr.aria-busy]="confirmando() === 'continuar' ? 'true' : null"
+            (click)="usePanorama(true)">
+            @if (confirmando() === 'continuar') {
+              <ion-spinner name="crescent"></ion-spinner>
+            } @else {
+              {{ 'CAPTURE.PROXIMO_COMODO' | translate }}
+            }
           </ion-button>
         </div>
       </div>
