@@ -3,7 +3,9 @@
   no topo da home, o `<h2>` existia para dizer de que era aquele bloco no meio
   do catálogo — aqui a tela inteira já responde isso.
 -->
-@if (rascunhos().length) {
+@if (carregando()) {
+  <app-home-placeholder [spinner]="true" text="DRAFTS.LOADING" />
+} @else if (rascunhos().length) {
   <section class="rascunhos">
     <ul class="rascunhos__lista">
       @for (r of rascunhos(); track r.id) {

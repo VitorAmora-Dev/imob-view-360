@@ -10,6 +10,7 @@ import { NavegacaoEntreTelas } from '../../services/navegacao-entre-telas.servic
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { PropertyService } from '../../services/property.service';
 import { RascunhoResumo, VirtualTourService } from '../../services/virtual-tour.service';
+import { HomePlaceholderComponent } from '../../components/home-placeholder/home-placeholder.component';
 import { DialogoDoWizard } from '../../tour-wizard/ui/wizard-dialog/dialogo-do-wizard.service';
 import { WizardDialogComponent } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.component';
 import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.model';
@@ -100,7 +101,13 @@ interface CartaoDeRascunho extends RascunhoResumo {
   standalone: true,
   templateUrl: './lista-de-rascunhos.component.html',
   styleUrls: ['./lista-de-rascunhos.component.scss'],
-  imports: [DatePipe, RouterLink, TranslatePipe, WizardDialogComponent],
+  imports: [
+    DatePipe,
+    RouterLink,
+    TranslatePipe,
+    HomePlaceholderComponent,
+    WizardDialogComponent,
+  ],
   providers: [DialogoDoWizard],
 })
 export class ListaDeRascunhosComponent implements OnInit {
@@ -121,6 +128,7 @@ export class ListaDeRascunhosComponent implements OnInit {
   private readonly translate = inject(TranslateService);
 
   readonly rascunhos = signal<CartaoDeRascunho[]>([]);
+  readonly carregando = signal(true);
 
   /**
    * Recarrega quando a tela de Rascunhos VOLTA a aparecer, e não só no
@@ -160,6 +168,8 @@ export class ListaDeRascunhosComponent implements OnInit {
    * exceção estouraria antes de `firstValueFrom` chegar a ser chamado.
    */
   private async carregar(): Promise<void> {
+    this.carregando.set(true);
+
     let lista: RascunhoResumo[];
     try {
       lista = await firstValueFrom(this.virtualTourService.listarRascunhos());
@@ -168,6 +178,7 @@ export class ListaDeRascunhosComponent implements OnInit {
     }
 
     this.rascunhos.set(lista);
+    this.carregando.set(false);
     for (const r of lista) void this.carregarMiniatura(r);
   }
 
