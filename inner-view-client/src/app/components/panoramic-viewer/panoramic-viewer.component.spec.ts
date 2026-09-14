@@ -3,6 +3,7 @@ import { provideTranslateService } from '@ngx-translate/core';
 import * as THREE from 'three';
 import { Panorama } from '../../models/virtual-tour.model';
 import { hotspotToWorld } from '../../tour-wizard/hotspots/hotspot-projection';
+import { LATITUDE_DA_FAIXA_GRAUS, cantoDoFrustum } from './fov-da-tela';
 import { PanoramicViewerComponent } from './panoramic-viewer.component';
 
 /** O `ngAfterViewInit` do viewer adia o init num setTimeout(0). */
@@ -809,5 +810,125 @@ describe('PanoramicViewerComponent — modo paisagem', () => {
     const depois = mira();
     expect(depois.theta).toBeCloseTo(antes.theta, 10);
     expect(depois.phi).toBeCloseTo(antes.phi, 10);
+  });
+});
+
+/**
+ * O DEFEITO RELATADO: "ao deitar o celular, o FOV fica escuro, deixando a
+ * imagem com impressão de neblina".
+ *
+ * Não era escuridão nem neblina. A câmera nasceu com `fov = 75`, e em three.js
+ * esse número é o campo VERTICAL — manter ele fixo faz a DIAGONAL crescer junto
+ * com a proporção da tela. Em pé o canto do frustum alcança 40° do centro;
+ * deitado, 61°. E a captura guiada deixa de fora as calotas acima de ±60°.
+ *
+ * Ou seja: só de virar o telefone, os quatro cantos passavam a mostrar teto e
+ * chão que ninguém fotografou. Escuro porque teto e chão são escuros; com cara
+ * de neblina porque aquilo é borrão de costura ou invenção da IA.
+ *
+ * Mede a CÂMERA de verdade, e não a função pura: o defeito só existe porque o
+ * componente nunca reconciliava o campo com a proporção nova, e um caso que só
+ * chamasse a conta passaria verde com essa ligação faltando.
+ */
+describe('PanoramicViewerComponent — o campo de visão da tela deitada', () => {
+  let fixture: ComponentFixture<PanoramicViewerComponent>;
+  let component: PanoramicViewerComponent;
+  let caixa: HTMLElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PanoramicViewerComponent],
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PanoramicViewerComponent);
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => {
+    fixture.destroy();
+    caixa?.remove();
+  });
+
+  /**
+   * Põe o viewer numa caixa com a forma que o palco deitado lhe dá.
+   *
+   * `.tv-palco--deitado` recebe `width: 100vh; height: 100vw` — as dimensões
+   * TROCADAS. É a proporção resultante que muda a geometria do frustum, e sem
+   * uma caixa de verdade o navegador do Karma devolveria a dele, larga, e o
+   * caso não provaria nada.
+   */
+  async function noPalco(largura: number, altura: number): Promise<void> {
+    caixa = document.createElement('div');
+    caixa.style.cssText = `position:relative;width:${largura}px;height:${altura}px`;
+    document.body.appendChild(caixa);
+    caixa.appendChild(fixture.nativeElement);
+
+    fixture.detectChanges();
+    await afterInit();
+  }
+
+  /**
+   * Deita o palco DEPOIS de o viewer já estar de pé, que é a sequência do
+   * relato — o corretor abre o tour em pé e então aperta o botão.
+   *
+   * A ordem importa mais do que parece. Um caso que criasse o viewer já
+   * deitado passaria verde mesmo com a reconciliação do campo arrancada do
+   * `onWindowResize`, porque o valor do nascimento já teria acertado. Foi o
+   * que a injeção de defeito mostrou: o caso não guardava nada.
+   */
+  async function deitarOPalco(): Promise<void> {
+    caixa.style.width = '844px';
+    caixa.style.height = '390px';
+    fixture.componentRef.setInput('rotacaoDaTela', 90);
+    fixture.detectChanges();
+    // O remedir é adiado um quadro de propósito — ver `aplicarRotacaoDaTela`.
+    await afterInit();
+  }
+
+  it('em pé, o campo de visão é o padrão de 75°', async () => {
+    await noPalco(390, 844);
+
+    expect(component.viewerCamera!.fov).toBeCloseTo(75, 0);
+  });
+
+  /**
+   * O caso do relato. Sem o conserto a câmera fica em 75° e o canto vai a 61°,
+   * e a mensagem de falha diz exatamente isso.
+   */
+  it('deitado, os cantos não alcançam o que a câmera não fotografou', async () => {
+    await noPalco(390, 844);
+    await deitarOPalco();
+
+    const camera = component.viewerCamera!;
+    const canto = cantoDoFrustum(camera.fov, camera.aspect);
+
+    // Compara com a LATITUDE, que é fato físico da captura, e exige dois graus
+    // de folga. Comparar com `CANTO_MAXIMO_GRAUS` seria auto-referente: ele
+    // deriva da margem, e afrouxar a margem moveria o alvo junto.
+    expect(canto)
+      .withContext(
+        `campo vertical ${camera.fov.toFixed(1)}° numa proporção ` +
+          `${camera.aspect.toFixed(2)} leva o canto a ${canto.toFixed(1)}°`,
+      )
+      .toBeLessThanOrEqual(LATITUDE_DA_FAIXA_GRAUS - 2);
+  });
+
+  /**
+   * O conserto não pode desfazer o motivo de o botão existir: deitar a tela é
+   * para ver MAIS do cômodo. Se o campo horizontal não crescesse, o certo seria
+   * apagar o botão, não consertá-lo.
+   */
+  it('e ainda assim mostra muito mais do cômodo que em pé', async () => {
+    await noPalco(390, 844);
+    await deitarOPalco();
+
+    const camera = component.viewerCamera!;
+    const horizontal =
+      (Math.atan(Math.tan((camera.fov * Math.PI) / 360) * camera.aspect) * 360) /
+      Math.PI;
+
+    // Em pé são 39°.
+    expect(horizontal).toBeGreaterThan(100);
   });
 });
