@@ -1,10 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideIonicAngular } from '@ionic/angular/standalone';
 import { provideTranslateService } from '@ngx-translate/core';
 
+import { environment } from '../../../environments/environment';
 import { PanoramaImageCache } from '../../services/panorama-image-cache.service';
 import { Panorama, VirtualTour } from '../../models/virtual-tour.model';
 import { LARGURA_DA_MINIATURA } from '../tour-viewer.model';
@@ -15,7 +16,7 @@ function panorama(id: string, order: number): Panorama {
   return {
     id,
     roomName: `Cômodo ${order + 1}`,
-    imageUrl: `/panoramas/${id}/image`,
+    imageUrl: `/panoramas/${id}/image?v=1`,
     order,
     initialPanorama: order === 0,
     originHotspots: [],
@@ -193,6 +194,80 @@ describe('TourScenesStripComponent', () => {
 
       // Com uma chave só para o app inteiro, o '1' do primeiro tour venceria.
       expect(store.railCollapsed()).toBeFalse();
+    });
+  });
+  /**
+   * A MESMA faixa, servindo um visitante do `/embed`.
+   *
+   * O que muda é só a origem da foto, e a troca não é estética: no embed não há
+   * token para o `HttpClient` levar, então a rota de preview responderia 401 e
+   * a faixa inteira ficaria cinza — miniaturas sem `src`, que é exatamente o
+   * estado de "carregando" que nunca termina.
+   */
+  describe('no embed (modo público)', () => {
+    let http: HttpTestingController;
+
+    /** Uma faixa nascida DEPOIS de o store já estar em modo público. */
+    async function faixaPublica(): Promise<ComponentFixture<TourScenesStripComponent>> {
+      const carga = store.carregarPorTour('t1');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      http.expectOne(`${environment.apiUrl}/virtual-tours/t1`).flush(TOUR);
+      await carga;
+      http.expectOne(`${environment.apiUrl}/virtual-tours/t1/views`).flush({});
+
+      // Uma instância NOVA: a do `beforeEach` nasceu antes do modo público e já
+      // tem as três miniaturas em mãos, então ela não perguntaria nada de novo.
+      pedidos.length = 0;
+      const outra = TestBed.createComponent(TourScenesStripComponent);
+      outra.detectChanges();
+      await outra.whenStable();
+      outra.detectChanges();
+      return outra;
+    }
+
+    beforeEach(() => {
+      http = TestBed.inject(HttpTestingController);
+    });
+
+    afterEach(() => http.verify());
+
+    it('não pede nada ao cache autenticado — não haveria token para levar', async () => {
+      await faixaPublica();
+
+      expect(pedidos).toEqual([]);
+    });
+
+    it('aponta para a rota pública da imagem, já reduzida', async () => {
+      const outra = await faixaPublica();
+
+      const fontes = Array.from(
+        outra.nativeElement.querySelectorAll('.tv-cenas__thumb'),
+      ).map((img) => (img as HTMLImageElement).getAttribute('src'));
+
+      expect(fontes).toEqual([
+        `${environment.apiUrl}/panoramas/a/image?v=1&w=${LARGURA_DA_MINIATURA}`,
+        `${environment.apiUrl}/panoramas/b/image?v=1&w=${LARGURA_DA_MINIATURA}`,
+        `${environment.apiUrl}/panoramas/c/image?v=1&w=${LARGURA_DA_MINIATURA}`,
+      ]);
+    });
+
+    /**
+     * A armadilha que não aparece na tela.
+     *
+     * `imageUrl` chega da API com `?v=…`. Emendar a largura com uma SEGUNDA
+     * interrogação faz o servidor ignorar o parâmetro: a resposta é 200, a
+     * miniatura aparece certinha, e o que desceu foi a equirretangular inteira
+     * — de 7 a 27 MB, vezes o número de cômodos, no primeiro frame do embed.
+     */
+    it('emenda a largura com `&`, e não com uma segunda interrogação', async () => {
+      const outra = await faixaPublica();
+
+      const primeira = (
+        outra.nativeElement.querySelector('.tv-cenas__thumb') as HTMLImageElement
+      ).getAttribute('src')!;
+
+      expect(primeira).toContain(`?v=1&w=${LARGURA_DA_MINIATURA}`);
+      expect(primeira).not.toContain('?w=');
     });
   });
 });

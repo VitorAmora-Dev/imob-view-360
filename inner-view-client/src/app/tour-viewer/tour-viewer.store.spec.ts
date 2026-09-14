@@ -2,7 +2,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { environment } from '../../environments/environment';
 import { Panorama, VirtualTour } from '../models/virtual-tour.model';
+import { PropertyService } from '../services/property.service';
 import { TourViewerStore } from './tour-viewer.store';
 
 /**
@@ -298,6 +300,160 @@ describe('TourViewerStore', () => {
       expect(await segundo).toBeFalse();
       pedidoDePublicacao().flush({ id: 't1', status: 'PUBLISHED' });
       expect(await primeiro).toBeTrue();
+    });
+  });
+  /**
+   * O CAMINHO PÚBLICO — o que `/embed` usa.
+   *
+   * A tela de visualização entra por `GET /properties/:id`, que é autenticada e
+   * escopada por agência no servidor. Era esse trajeto que permitia a
+   * `podeEditar` ser `true` cravado: quem chegava aqui só podia ser o dono.
+   *
+   * O embed não tem token nenhum, e é por isso que estes casos existem. Eles
+   * não testam uma conveniência de carregamento: testam que a permissão parou
+   * de ser consequência do caminho e virou uma pergunta com resposta.
+   */
+  describe('carga pública (o embed)', () => {
+    let http: HttpTestingController;
+
+    beforeEach(() => {
+      http = TestBed.inject(HttpTestingController);
+      // O embed começa sem nada. O `beforeEach` de cima deixa um tour em
+      // memória, e com ele um erro de carga ficaria indistinguível de sucesso.
+      store.tour.set(null);
+    });
+
+    // A verificação é METADE da asserção de segurança destes casos: qualquer
+    // requisição que ninguém esperava — uma busca de imóvel, um DELETE —
+    // derruba o teste aqui, mesmo que nenhum `expect` a mencione.
+    afterEach(() => http.verify());
+
+    /**
+     * Um passo de macrotask, que drena todos os microtasks pendentes.
+     *
+     * `expectOne` olha a fila NESTE instante, e as etapas da carga são
+     * separadas por `await` dentro do store: a busca do tour só existe depois
+     * que a anterior resolveu. Perguntar pelas duas de uma vez falha por
+     * motivo nenhum.
+     */
+    const proximoPasso = (): Promise<void> =>
+      new Promise((resolve) => setTimeout(resolve, 0));
+
+    /** Responde ao par de chamadas que a carga pública dispara. */
+    async function responderTour({ comVisita = true } = {}): Promise<void> {
+      await proximoPasso();
+      http.expectOne(`${environment.apiUrl}/virtual-tours/t1`).flush(TOUR);
+      await proximoPasso();
+      if (comVisita) {
+        http.expectOne(`${environment.apiUrl}/virtual-tours/t1/views`).flush({});
+      }
+    }
+
+    it('não passa pelo PropertyService — o visitante não tem token para aquela rota', async () => {
+      const espiao = spyOn(TestBed.inject(PropertyService), 'findProperty').and.callThrough();
+
+      const carga = store.carregarPorTour('t1');
+      await responderTour();
+      await carga;
+
+      expect(espiao).not.toHaveBeenCalled();
+      expect(store.tourId()).toBe('t1');
+      expect(store.scenes().length).toBe(3);
+    });
+
+    /**
+     * A asserção de segurança deste PR.
+     *
+     * `podeEditar` alimenta o botão EDITAR da barra de ações e o cluster do
+     * desktop. Enquanto era `computed(() => true)`, reusar esta tela no embed
+     * punha "Editar" na frente de qualquer visitante de qualquer site que
+     * incorporasse o tour.
+     */
+    it('depois da carga pública, não se pode editar', async () => {
+      const carga = store.carregarPorTour('t1');
+      await responderTour();
+      await carga;
+
+      expect(store.podeEditar()).toBeFalse();
+    });
+
+    it('e a carga por imóvel continua podendo — o dono não perdeu nada', async () => {
+      const carga = store.carregar('p1');
+      await proximoPasso();
+      http
+        .expectOne(`${environment.apiUrl}/properties/p1`)
+        .flush({ id: 'p1', title: 'Casa', virtualTour: { id: 't1' } });
+      await responderTour();
+      await carga;
+
+      expect(store.podeEditar()).toBeTrue();
+    });
+
+    /**
+     * Guarda de profundidade, e não redundância.
+     *
+     * A página de embed não importa a folha que chama estes dois métodos, o que
+     * já os torna inalcançáveis pela tela. Mas o tour carregado pela rota
+     * pública TRAZ `propertyId` — é ele que `apagarTour` procura — então o
+     * método continua chamável por código, e o que o impediria seria só o
+     * servidor. Aqui ele para antes de sair da máquina de quem visita.
+     */
+    it('apagar recusa em modo público, mesmo com o imóvel vindo dentro do tour', async () => {
+      const carga = store.carregarPorTour('t1');
+      await responderTour();
+      await carga;
+
+      expect(store.tour()?.propertyId).toBe('p1');
+      await expectAsync(store.apagarTour()).toBeResolvedTo(false);
+      // Nenhum DELETE saiu: quem prova é o `http.verify()` do afterEach.
+    });
+
+    it('publicar recusa em modo público', async () => {
+      const carga = store.carregarPorTour('t1');
+      await responderTour();
+      await carga;
+
+      await expectAsync(store.publicar()).toBeResolvedTo(false);
+    });
+
+    it('tentar de novo, no embed, volta pela rota pública e não pela de imóvel', async () => {
+      const primeira = store.carregarPorTour('t1');
+      await responderTour();
+      await primeira;
+
+      const segunda = store.recarregar();
+      // Sem `views`: a visita já foi contada nesta abertura de tela.
+      await responderTour({ comVisita: false });
+      await segunda;
+
+      expect(store.loadError()).toBeFalse();
+    });
+
+    /**
+     * O caso em que o "Tentar de novo" existe para alguma coisa: a PRIMEIRA
+     * carga falhou.
+     *
+     * Aí não há tour em memória, e portanto não há `tourId()` de onde tirar o
+     * alvo. Quem lembra do id é o próprio `carregarPorTour`. Sem isso, o botão
+     * de tentar de novo fica na tela sem fazer nada — o pior tipo de botão.
+     */
+    it('recarregar funciona mesmo depois de a primeira carga ter falhado', async () => {
+      const primeira = store.carregarPorTour('t1');
+      await proximoPasso();
+      http
+        .expectOne(`${environment.apiUrl}/virtual-tours/t1`)
+        .flush('fora do ar', { status: 500, statusText: 'Erro' });
+      await primeira;
+
+      expect(store.loadError()).toBeTrue();
+      expect(store.tourId()).toBeNull();
+
+      const segunda = store.recarregar();
+      await responderTour();
+      await segunda;
+
+      expect(store.loadError()).toBeFalse();
+      expect(store.tourId()).toBe('t1');
     });
   });
 });
