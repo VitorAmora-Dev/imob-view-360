@@ -495,9 +495,9 @@
     },
     "DELETE": {
       "TITLE": "Delete \"{{name}}\"?",
-      "BODY": "The {{n}} scenes, the navigation points and the public link will be removed. Anyone who embedded this tour will see an empty space.",
+      "BODY": "The property and the entire tour — including its {{n}} scenes, navigation points, and public link — will be removed. Anyone who embedded this tour will see an empty space.",
       "WARNING": "This action cannot be undone.",
-      "CONFIRM": "Delete tour",
+      "CONFIRM": "Delete tour and property",
       "CANCEL": "Cancel",
       "DELETING": "Deleting..."
     },
@@ -510,7 +510,7 @@
       "DOWNLOAD": "Download this scene",
       "DOWNLOAD_SUB": "Saves the 360 photo of the current room",
       "DELETE": "Delete tour",
-      "DELETE_SUB": "Removes the scenes and takes down the public link"
+      "DELETE_SUB": "Removes the property, scenes, and public link"
     },
     "HOTSPOT": {
       "GO_TO": "Go to {{name}}"

@@ -347,7 +347,13 @@ export class TourViewerStore {
   }
 
   /**
-   * Apaga o tour e volta para a listagem.
+   * Apaga o imóvel que representa o tour na home e volta para a listagem.
+   *
+   * A home lista `Property`, não `VirtualTour`. Apagar somente o tour deixaria
+   * o imóvel na listagem como um card sem foto, fazendo a operação parecer
+   * incompleta. A relação `Property -> VirtualTour` usa `onDelete: Cascade`,
+   * então remover o imóvel elimina, numa única operação, tour, panoramas,
+   * hotspots e métricas.
    *
    * Não confirma nada: quem confirma é o sheet (TV-5), e é assim que o
    * invariante 4 fica visível na leitura — este método é o DEPOIS da
@@ -355,12 +361,12 @@ export class TourViewerStore {
    * invariante existe para impedir.
    */
   async apagarTour(): Promise<boolean> {
-    const id = this.tourId();
-    if (!id) return false;
+    const propertyId = this.property()?.id ?? this.tour()?.propertyId;
+    if (!propertyId) return false;
 
     this.apagando.set(true);
     try {
-      await firstValueFrom(this.virtualTourService.deleteTour(id));
+      await firstValueFrom(this.propertyService.deleteProperty(propertyId));
       void this.router.navigate(['/home']);
       return true;
     } catch {
