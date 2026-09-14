@@ -17,6 +17,40 @@
   <p class="tw-actions__motivo" role="status">{{ motivoBloqueio()! | translate }}</p>
 }
 
+<!--
+  A espera da IA fica AQUI, permanente, e não num balão que aparece só depois
+  de a pessoa cutucar o botão apagado.
+
+  Ela é a razão de o "Pronto" estar desligado, então mora colada nele. Antes o
+  estado do LOTE — o que trava o botão — não aparecia em lugar nenhum da tela:
+  havia um selo por foto, no card, e nada dizendo quantos faltavam nem que dava
+  para seguir capturando enquanto isso.
+
+  Só na etapa 1 porque só ali a montagem trava alguma coisa. Nas outras o
+  acompanhamento segue em segundo plano sem impedir nada, e uma barra falando
+  de fotos enquanto o corretor liga ambientes seria ruído.
+-->
+@if (tratando()) {
+  <div class="tw-actions__ia" role="status" aria-live="polite">
+    <p>
+      {{
+        textoDaEspera()
+          | translate
+            : { prontas: store.loteDaIA().prontas, total: store.loteDaIA().total }
+      }}
+    </p>
+    <!--
+      `aria-hidden` porque a barra não acrescenta nada ao que a frase acima já
+      diz — "1 de 3 prontas" é a mesma informação, em palavras. Um
+      `progressbar` aqui faria o leitor de tela anunciar a contagem duas vezes
+      a cada cômodo que termina.
+    -->
+    <span class="tw-actions__ia-barra" aria-hidden="true">
+      <span [style.width.%]="pctPronto()"></span>
+    </span>
+  </div>
+}
+
 @if (blockedFeedback(); as feedbackKey) {
   <p class="tw-actions__feedback" role="status">{{ feedbackKey | translate }}</p>
 }

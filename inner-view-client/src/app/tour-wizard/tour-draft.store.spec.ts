@@ -852,6 +852,145 @@ describe('TourDraftStore (contrato)', () => {
 
       expect(espia).not.toHaveBeenCalled();
     });
+
+    /**
+     * O marco de início do lote.
+     *
+     * Ele existe para o rodapé decidir se já passou do tempo em que isto
+     * costuma terminar. Precisa nascer com o laço e morrer com ele: um marco
+     * que sobrevive ao fim do lote faz o próximo cômodo nascer já "atrasado",
+     * e a tela acusa demora que não houve.
+     */
+    it('marca o início do lote com o laço, e apaga quando ele termina', async () => {
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'p1', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+      expect(store.inicioDoLote()).toBeNull();
+
+      comAndamento([{ id: 'p1', status: 'DONE' }]);
+      store.acompanharTratamentos();
+
+      expect(store.inicioDoLote()).not.toBeNull();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(store.inicioDoLote()).toBeNull();
+    });
+
+    /**
+     * O passo do laço na etapa 1.
+     *
+     * Dez segundos eram certos quando ninguém via a espera. Agora o rodapé
+     * DESENHA a fração "1 de 3 prontas": uma contagem que só muda dez segundos
+     * depois do fato faz o corretor achar que a barra travou — que é
+     * exatamente o problema que a barra existe para resolver.
+     *
+     * Mede a FUNÇÃO, não o número: o serviço a chama a cada volta, e é essa
+     * chamada que faz o passo acompanhar a etapa em que a pessoa está.
+     */
+    it('acelera o passo do laço enquanto a etapa 1 mostra a espera', () => {
+      spyOnProperty(document, 'visibilityState').and.returnValue('visible');
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'p1', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+
+      const tours = TestBed.inject(VirtualTourService);
+      let passo: (() => number) | undefined;
+      spyOn(tours, 'acompanharMontagem').and.callFake(
+        (_id: string, _aoAvancar: never, opcoes: never) => {
+          passo = (opcoes as { intervaloMs: () => number }).intervaloMs;
+          return new Promise<never>(() => undefined);
+        },
+      );
+
+      store.step.set(1);
+      store.acompanharTratamentos();
+
+      expect(passo!()).toBe(3000);
+
+      // Fora da etapa 1 ninguém está olhando a fração: volta ao passo de fundo.
+      store.step.set(2);
+      expect(passo!()).toBe(10_000);
+    });
+
+    /** Três segundos com o celular no bolso são 200 requisições que ninguém lê. */
+    it('não acelera com o app fora da tela', () => {
+      spyOnProperty(document, 'visibilityState').and.returnValue('hidden');
+      const store = storeWith(
+        scene('a', { serverPanoramaId: 'p1', aiState: 'treating' }),
+      );
+      comRascunhoCriado(store);
+
+      const tours = TestBed.inject(VirtualTourService);
+      let passo: (() => number) | undefined;
+      spyOn(tours, 'acompanharMontagem').and.callFake(
+        (_id: string, _aoAvancar: never, opcoes: never) => {
+          passo = (opcoes as { intervaloMs: () => number }).intervaloMs;
+          return new Promise<never>(() => undefined);
+        },
+      );
+
+      store.step.set(1);
+      store.acompanharTratamentos();
+
+      expect(passo!()).toBe(10_000);
+    });
+  });
+
+  /**
+   * A fração que o rodapé da etapa 1 desenha.
+   *
+   * Discreta de propósito: o servidor não informa progresso parcial de uma
+   * montagem, então qualquer porcentagem contínua seria inventada — e barra
+   * inventada é a que engasga em 99% e ensina a não confiar na próxima.
+   */
+  describe('loteDaIA', () => {
+    it('conta as terminadas contra o tamanho do lote', () => {
+      const store = storeWith(
+        scene('a', { aiState: 'done' }),
+        scene('b', { aiState: 'treating' }),
+        scene('c', { aiState: 'treating' }),
+      );
+
+      expect(store.loteDaIA()).toEqual({ total: 3, prontas: 1 });
+    });
+
+    /**
+     * Foto de ARQUIVO nunca vai para a IA. Se ela entrasse no denominador, uma
+     * galeria de oito arquivos mais um cômodo capturado mostraria "8 de 9
+     * prontas" com a IA mal tendo começado — e a barra chegaria perto do fim
+     * no instante em que o trabalho começa.
+     */
+    it('cômodo que nunca foi para a IA fica fora da conta', () => {
+      const store = storeWith(
+        scene('a'),
+        scene('b', { aiState: 'idle' }),
+        scene('c', { aiState: 'treating' }),
+      );
+
+      expect(store.loteDaIA()).toEqual({ total: 1, prontas: 0 });
+    });
+
+    /**
+     * `failed` e `skipped` são terminais no servidor e a etapa 1 os libera
+     * (ver `canAdvance`). Contá-los como pendentes deixaria a fração parada em
+     * "2 de 3" com o botão "Pronto" já aceso — a tela dizendo uma coisa e o
+     * botão fazendo outra.
+     */
+    it('falha e dispensa contam como prontas, porque o wizard as libera', () => {
+      const store = storeWith(
+        scene('a', { aiState: 'failed' }),
+        scene('b', { aiState: 'skipped' }),
+        scene('c', { aiState: 'done' }),
+      );
+
+      expect(store.loteDaIA()).toEqual({ total: 3, prontas: 3 });
+      expect(store.emTratamento()).toEqual([]);
+    });
   });
 
   describe('enviarCaptura', () => {

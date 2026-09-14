@@ -710,6 +710,52 @@ export class TourDraftStore {
     this.scenes().filter((s) => s.aiState === 'treating'),
   );
 
+  /**
+   * Quantos cômodos do lote já terminaram, e de quantos.
+   *
+   * O rodapé da etapa 1 desenha esta fração enquanto a IA trabalha. Ela é
+   * DISCRETA de propósito: só anda quando um cômodo de verdade chega ao fim.
+   * Uma porcentagem contínua teria de ser inventada — o servidor não informa
+   * progresso parcial de uma montagem — e barra inventada é a que engasga em
+   * 99% e ensina o corretor a não confiar na próxima.
+   *
+   * Entram no lote as cenas com `aiState` conhecido e diferente de `'idle'`:
+   * as que vieram da galeria nunca foram para a IA e não podem inflar o
+   * denominador. Terminadas são todas as não-`'treating'` — `failed` e
+   * `skipped` contam como prontas porque são terminais no servidor e a etapa
+   * 1 as libera (ver `canAdvance`); deixá-las de fora faria a fração parar em
+   * "2 de 3" com o botão já aceso, que é pior que não mostrar fração alguma.
+   */
+  readonly loteDaIA = computed(() => {
+    const doLote = this.scenes().filter(
+      (s) => s.aiState && s.aiState !== 'idle',
+    );
+    return {
+      total: doLote.length,
+      prontas: doLote.filter((s) => s.aiState !== 'treating').length,
+    };
+  });
+
+  /**
+   * Quando o lote atual começou, em `Date.now()`. `null` fora de tratamento.
+   *
+   * Serve a UMA pergunta: já passou do tempo em que isto costuma terminar? O
+   * rodapé usa para trocar o texto por um que admite a demora, em vez de
+   * repetir a mesma frase otimista enquanto o corretor conclui sozinho que
+   * travou.
+   *
+   * Marcado em `acompanharTratamentos` e apagado quando o laço morre, porque
+   * é ele que já nasce e morre junto com o lote — e é idempotente, então o
+   * início não se desloca a cada cômodo novo que entra no meio.
+   *
+   * Um marco só, e não um por cena: cena retomada por `hidratar` chega em
+   * `'treating'` sem hora de início conhecida — o servidor devolve
+   * `treatmentStatus`, não o instante em que a fila a pegou. Aqui o relógio
+   * recomeça do zero nesse caso, e o aviso de demora aparece mais tarde do
+   * que o exato. Erra para o lado de não acusar demora que não houve.
+   */
+  readonly inicioDoLote = signal<number | null>(null);
+
   /** Um laço por tour. `null` quando não há nenhum vivo. */
   private acompanhamento: AbortController | null = null;
 
@@ -732,6 +778,7 @@ export class TourDraftStore {
 
     const controle = new AbortController();
     this.acompanhamento = controle;
+    this.inicioDoLote.set(Date.now());
     const encerrar = () => controle.abort();
     this.abortar.signal.addEventListener('abort', encerrar, { once: true });
 
@@ -742,12 +789,27 @@ export class TourDraftStore {
         // FUNÇÃO, e não número: o serviço resolve o passo a cada volta. Com um
         // número, o valor ficaria congelado no do instante em que o laço
         // nasceu — e ele nasce quando o corretor está saindo do preview.
+        //
+        // A etapa 1 conta como "alguém olhando" porque agora ela DESENHA a
+        // espera: o rodapé mostra "1 de 3 prontas", e uma fração que só muda
+        // dez segundos depois do fato faz o corretor achar que a barra
+        // travou. Não é o `alguemOlhando` reusado — aquele sinal tem dono, o
+        // modal de captura, e dois escritores se apagariam.
+        //
+        // `visibilityState` porque três segundos com o celular no bolso, até
+        // o teto de dez minutos, são duzentas requisições que ninguém vai
+        // ler: quem saiu do app não está esperando ver a fração andar.
         intervaloMs: () =>
-          this.alguemOlhando() ? INTERVALO_OLHANDO_MS : INTERVALO_DE_FUNDO_MS,
+          (this.alguemOlhando() ||
+            (this.step() === 1 && this.emTratamento().length > 0)) &&
+          document.visibilityState === 'visible'
+            ? INTERVALO_OLHANDO_MS
+            : INTERVALO_DE_FUNDO_MS,
       })
       .finally(() => {
         this.abortar.signal.removeEventListener('abort', encerrar);
         this.acompanhamento = null;
+        this.inicioDoLote.set(null);
 
         // Estourou o teto — ou a tela morreu — com cômodo ainda em curso:
         // derruba para terminal local. Sem isto a trava da etapa 1 seria

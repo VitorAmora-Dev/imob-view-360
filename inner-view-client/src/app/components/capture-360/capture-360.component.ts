@@ -1,6 +1,5 @@
 import { Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { IonButton, IonIcon, IonSpinner, ModalController } from '@ionic/angular/standalone';
-import { OwlLoaderComponent } from '../owl-loader/owl-loader.component';
 import { addIcons } from 'ionicons';
 import { cameraOutline, closeOutline, refreshOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
@@ -92,7 +91,6 @@ const CANDIDATE_START_PROGRESS = 0.4;
     IonSpinner,
     TranslatePipe,
     PanoramicViewerComponent,
-    OwlLoaderComponent,
   ],
 })
 export class Capture360Component implements OnDestroy {

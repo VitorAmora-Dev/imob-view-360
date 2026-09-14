@@ -88,11 +88,19 @@
   text-wrap: pretty;
 }
 
+/*
+  Em FLUXO, ocupando a linha inteira como o `.tw-actions__motivo` acima.
+
+  Era `position: absolute` com `bottom: calc(100% + 8px)`, dentro de um `:host`
+  `sticky`. Absoluto não reserva espaço: o balão subia por cima do que
+  estivesse ali e, num celular de 360px, o que estava ali eram os dois botões
+  de adicionar cômodo — o "Capturar próximo ambiente" ficava com o texto
+  coberto pela caixa branca justamente enquanto o balão explicava por que não
+  dava para seguir.
+*/
 .tw-actions__feedback {
-  position: absolute;
-  right: 20px;
-  bottom: calc(100% + 8px);
-  max-width: min(360px, calc(100vw - 40px));
+  flex: 0 0 100%;
+  max-width: 100%;
   margin: 0;
   padding: 10px 14px;
   border: 1px solid var(--tw-border-subtle);
@@ -104,10 +112,81 @@
   line-height: 1.4;
   text-wrap: pretty;
   animation: tw-actions-feedback-in 180ms ease-out both;
+}
 
-  @include tw.tw-mobile {
-    right: 16px;
-    max-width: calc(100vw - 32px);
+/*
+  A barra da espera da IA.
+
+  Uma linha de texto e um filete de 4px, e nada mais: o rodapé é `sticky` e
+  cada linha que ele ganha some do baralho de fotos logo acima. Num celular de
+  360px isso é a diferença entre ver o cômodo que se acabou de capturar e ver
+  só a borda dele.
+*/
+.tw-actions__ia {
+  flex: 0 0 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  p {
+    margin: 0;
+    color: var(--tw-text);
+    font-size: 13px;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+}
+
+.tw-actions__ia-barra {
+  position: relative;
+  overflow: hidden;
+  height: 4px;
+  border-radius: var(--tw-radius-pill);
+  /*
+    O trilho carrega um brilho lento que atravessa a parte VAZIA.
+
+    Existe para o caso de um cômodo só, que é o comum: ali a fração fica em
+    "0 de 1" por um minuto inteiro, e uma barra completamente parada durante um
+    minuto é indistinguível de uma tela travada. O brilho não finge progresso —
+    ele não anda para a direita como se estivesse enchendo —, só mostra que a
+    coisa está viva.
+  */
+  background:
+    linear-gradient(
+        90deg,
+        transparent,
+        var(--tw-brand-soft) 45%,
+        transparent
+      )
+      0 0 / 55% 100% no-repeat,
+    var(--tw-border-subtle);
+  animation: tw-actions-ia-brilho 2.4s ease-in-out infinite;
+
+  > span {
+    position: relative;
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--tw-brand);
+    /*
+      Mesma curva do stepper: a fração anda em degraus de um cômodo, e um salto
+      seco de 33% de largura lê como falha de desenho, não como progresso.
+    */
+    transition: var(--tw-ease-progress);
+  }
+}
+
+@keyframes tw-actions-ia-brilho {
+  from {
+    background-position:
+      -60% 0,
+      0 0;
+  }
+
+  to {
+    background-position:
+      160% 0,
+      0 0;
   }
 }
 
@@ -124,7 +203,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tw-actions__feedback {
+  /*
+    Só as animações declaradas aqui. A transição da parte cheia da barra usa
+    `--tw-ease-progress`, que o próprio tema já anula sob esta media query
+    (`theme/tour-wizard.scss`) — repetir aqui seria uma segunda fonte de
+    verdade para a mesma regra.
+  */
+  .tw-actions__feedback,
+  .tw-actions__ia-barra {
     animation: none;
   }
 }

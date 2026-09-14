@@ -174,13 +174,6 @@
                           [attr.aria-label]="'TOUR_WIZARD.STEP1.WARN_RATIO' | translate"
                           [attr.title]="'TOUR_WIZARD.STEP1.WARN_RATIO' | translate">!</span>
                       }
-                      @if (item.scene.aiState === 'treating') {
-                        <span
-                          class="tw-deck__status-icon is-treating"
-                          role="img"
-                          [attr.aria-label]="'TOUR_WIZARD.STEP1.BADGE_TRATANDO' | translate"
-                          [attr.title]="'TOUR_WIZARD.STEP1.BADGE_TRATANDO' | translate">&#9881;</span>
-                      }
                       @if (item.scene.aiState === 'done') {
                         <span
                           class="tw-deck__status-icon is-enhanced"
@@ -251,7 +244,24 @@
                     </button>
                   }
 
+                  <!--
+                    PALAVRA, e não ícone. Aqui havia uma engrenagem de 34px no
+                    canto superior direito, ao lado da lixeira, na mesma pílula
+                    branca e com a mesma sombra: forma de botão, posição de
+                    botão e vizinho de botão — e engrenagem quer dizer
+                    "ajustes" em todo lugar. O que explicava era um `title`,
+                    que no toque não existe. No celular o selo era mudo.
+
+                    Embaixo do nome porque é onde o olho já está: quem acabou
+                    de capturar olha para o nome do cômodo, não para o canto
+                    oposto da foto.
+                  -->
                   <div class="tw-deck__details">
+                    @if (item.scene.aiState === 'treating') {
+                      <span class="tw-deck__tratando">
+                        {{ 'TOUR_WIZARD.STEP1.BADGE_TRATANDO' | translate }}
+                      </span>
+                    }
                     @if (store.showErrors() && item.scene.state === 'ready' && !item.scene.room.trim()) {
                       <small role="alert">{{ 'TOUR_WIZARD.STEP1.NAME_REQUIRED' | translate }}</small>
                     }
