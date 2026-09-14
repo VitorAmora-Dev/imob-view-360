@@ -11,6 +11,7 @@ import {
   girarEsfera,
 } from './arrasto-girado';
 import { fovQueCabeNaFaixa } from './fov-da-tela';
+import { zoomDepoisDaPinca, zoomDepoisDaRoda } from './zoom-limitado';
 
 /**
  * Deslocamento, em px, acima do qual o gesto conta como arrasto e não clique.
@@ -284,6 +285,16 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    */
   @Input() rotacaoDaTela: RotacaoDaTela = 0;
 
+  /**
+   * Zoom discreto do tour, sem controle visual, limitado a 10%.
+   *
+   * Fica desligado por padrão para não mudar captura, preview nem wizard. O
+   * tour e o embed o ligam explicitamente. Quando ligado, roda e pinça alteram
+   * `camera.zoom`, nunca a posição: a câmera permanece no centro da esfera e
+   * não introduz a paralaxe que o dolly do OrbitControls criaria.
+   */
+  @Input() zoomLimitado = false;
+
   @Output() panoramaChange = new EventEmitter<Panorama>();
   @Output() hotspotPlaced = new EventEmitter<{ positionX: number; positionY: number }>();
 
@@ -338,6 +349,12 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    */
   private pedidoDeTextura = 0;
   nomeAtual = '';
+
+  /** Ampliação lógica: zero é a vista original; 0,1 é o teto de 10%. */
+  private nivelDeZoom = 0;
+  private readonly pontosDaPinca = new Map<number, { x: number; y: number }>();
+  private distanciaInicialDaPinca: number | null = null;
+  private zoomInicialDaPinca = 0;
 
   alternarNav(): void {
     this.navAberta = !this.navAberta;
@@ -501,6 +518,9 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     if (changes['rotacaoDaTela'] && this.initialized) {
       this.aplicarRotacaoDaTela();
     }
+    if (changes['zoomLimitado'] && this.initialized) {
+      this.configurarModoDeZoom();
+    }
     if (changes['revealUrl'] && this.initialized) {
       this.revelar();
     }
@@ -541,7 +561,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     }
     this.renderer?.domElement.removeEventListener('click', this.onCanvasClick);
     this.renderer?.domElement.removeEventListener('pointerdown', this.onPointerDown);
+    this.renderer?.domElement.removeEventListener('pointermove', this.onPointerMove);
     this.renderer?.domElement.removeEventListener('pointerup', this.onPointerUp);
+    this.renderer?.domElement.removeEventListener('pointercancel', this.onPointerUp);
+    this.renderer?.domElement.removeEventListener('wheel', this.onWheelZoom);
     this.desligarArrastoGirado();
     window.removeEventListener('resize', this.onWindowResize);
     this.frameCallbacks.clear();
@@ -687,9 +710,9 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     container.appendChild(this.renderer.domElement);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableZoom = true;
     this.controls.enablePan = false;
     this.controls.rotateSpeed = -0.5;
+    this.configurarModoDeZoom();
 
     // UVs are interpolated linearly across each face, so coarse segments bend
     // straight lines — 60×40 spans 6° per segment, enough to visibly curve a
@@ -714,7 +737,10 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
     this.renderer.domElement.addEventListener('click', this.onCanvasClick);
     this.renderer.domElement.addEventListener('pointerdown', this.onPointerDown);
+    this.renderer.domElement.addEventListener('pointermove', this.onPointerMove);
     this.renderer.domElement.addEventListener('pointerup', this.onPointerUp);
+    this.renderer.domElement.addEventListener('pointercancel', this.onPointerUp);
+    this.renderer.domElement.addEventListener('wheel', this.onWheelZoom, { passive: false });
     window.addEventListener('resize', this.onWindowResize);
 
     // Aqui e nao so no `ngOnChanges`: a cena pode nascer com a tela ja deitada
@@ -905,12 +931,108 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
     return `${texto.slice(0, corte)}…`;
   }
 
+  /**
+   * Alterna entre o zoom legado do OrbitControls e o zoom curto do tour.
+   *
+   * Os usos antigos continuam exatamente como estavam: sem o novo input, o
+   * OrbitControls segue cuidando da roda e da pinça. No tour ele é desligado
+   * para não aproximar a câmera fisicamente da parede da esfera.
+   */
+  private configurarModoDeZoom(): void {
+    this.controls.enableZoom = !this.zoomLimitado;
+    if (!this.zoomLimitado) {
+      this.nivelDeZoom = 0;
+      this.pontosDaPinca.clear();
+      this.distanciaInicialDaPinca = null;
+    }
+    this.aplicarZoom();
+  }
+
+  private aplicarZoom(): void {
+    this.camera.zoom = 1 + (this.zoomLimitado ? this.nivelDeZoom : 0);
+    this.camera.updateProjectionMatrix();
+  }
+
+  private readonly onWheelZoom = (event: WheelEvent) => {
+    if (!this.zoomLimitado || !this.initialized || event.deltaY === 0) return;
+
+    // O gesto pertence ao panorama enquanto o cursor está sobre ele. Sem isto,
+    // um embed dentro de página rolável moveria a página e a foto ao mesmo
+    // tempo, fazendo o zoom parecer escapar do mouse.
+    event.preventDefault();
+    this.nivelDeZoom = zoomDepoisDaRoda(
+      this.nivelDeZoom,
+      event.deltaY,
+      event.deltaMode,
+    );
+    this.aplicarZoom();
+  };
+
+  private distanciaDaPinca(): number | null {
+    if (this.pontosDaPinca.size < 2) return null;
+    const [a, b] = [...this.pontosDaPinca.values()];
+    return Math.hypot(b.x - a.x, b.y - a.y);
+  }
+
+  private iniciarPinca(): void {
+    const distancia = this.distanciaDaPinca();
+    if (distancia === null || distancia <= 0) return;
+
+    this.distanciaInicialDaPinca = distancia;
+    this.zoomInicialDaPinca = this.nivelDeZoom;
+    this.pointerDownAt = null;
+    this.suppressNextClick = true;
+
+    // No palco girado há um arrasto próprio de um dedo. A segunda ponta
+    // transforma o gesto em pinça e encerra aquele arrasto para a câmera não
+    // girar por baixo do zoom nem saltar quando um dos dedos for levantado.
+    const ponteiro = this.ponteiroDoArrasto;
+    this.ponteiroDoArrasto = null;
+    if (ponteiro !== null && this.renderer.domElement.hasPointerCapture(ponteiro)) {
+      this.renderer.domElement.releasePointerCapture(ponteiro);
+    }
+  }
+
   private readonly onPointerDown = (event: PointerEvent) => {
     // Encostar na foto fecha a lista. Ela cobre um pedaço da imagem, e quem
     // volta a mexer no panorama já decidiu que não era dali que queria sair —
     // exigir um segundo toque no botão para fechá-la seria cobrar pedágio.
     this.navAberta = false;
+    // Uma pinça nem sempre produz `click`. Limpar no começo de um gesto novo
+    // impede que ela engula o toque simples seguinte caso o browser não mande
+    // aquele click residual.
+    this.suppressNextClick = false;
     this.pointerDownAt = { x: event.clientX, y: event.clientY };
+
+    if (this.zoomLimitado && event.pointerType === 'touch') {
+      this.pontosDaPinca.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.pontosDaPinca.size === 2) this.iniciarPinca();
+    }
+  };
+
+  private readonly onPointerMove = (event: PointerEvent) => {
+    if (
+      !this.zoomLimitado ||
+      event.pointerType !== 'touch' ||
+      !this.pontosDaPinca.has(event.pointerId)
+    ) {
+      return;
+    }
+
+    this.pontosDaPinca.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (this.distanciaInicialDaPinca === null) return;
+
+    const distanciaAtual = this.distanciaDaPinca();
+    if (distanciaAtual === null) return;
+
+    event.preventDefault();
+    this.suppressNextClick = true;
+    this.nivelDeZoom = zoomDepoisDaPinca(
+      this.zoomInicialDaPinca,
+      this.distanciaInicialDaPinca,
+      distanciaAtual,
+    );
+    this.aplicarZoom();
   };
 
   /**
@@ -921,6 +1043,22 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
    * panorama em `editMode` criaria um hotspot a cada solta.
    */
   private readonly onPointerUp = (event: PointerEvent) => {
+    const encerravaPinca =
+      this.zoomLimitado &&
+      event.pointerType === 'touch' &&
+      (this.distanciaInicialDaPinca !== null || this.pontosDaPinca.size >= 2);
+
+    if (event.pointerType === 'touch') {
+      this.pontosDaPinca.delete(event.pointerId);
+      if (this.pontosDaPinca.size < 2) this.distanciaInicialDaPinca = null;
+    }
+
+    if (encerravaPinca) {
+      this.pointerDownAt = null;
+      this.suppressNextClick = true;
+      return;
+    }
+
     const start = this.pointerDownAt;
     this.pointerDownAt = null;
     if (!start) return;
@@ -1017,6 +1155,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   private readonly aoComecarArrasto = (evento: PointerEvent) => {
+    if (this.zoomLimitado && this.pontosDaPinca.size >= 2) return;
     if (this.ponteiroDoArrasto !== null) return;
 
     this.ponteiroDoArrasto = evento.pointerId;

@@ -26,6 +26,7 @@ import { EmbedPage } from './embed.page';
 class ViewerDeMentiraComponent {
   @Input() panoramas: Panorama[] = [];
   @Input() roomNav = true;
+  @Input() zoomLimitado = false;
 }
 
 const TOUR = {
@@ -83,8 +84,19 @@ describe('EmbedPage — o parâmetro `controles`', () => {
     ).roomNav;
   }
 
+  function zoomDoViewer(fixture: ReturnType<typeof montar>): boolean {
+    return (
+      fixture.debugElement.query(By.directive(ViewerDeMentiraComponent))
+        .componentInstance as ViewerDeMentiraComponent
+    ).zoomLimitado;
+  }
+
   it('sem parâmetro nenhum, o embed continua com a navegação de ambientes', () => {
     expect(roomNavDoViewer(montar({}))).toBeTrue();
+  });
+
+  it('habilita o zoom curto e invisível no panorama incorporado', () => {
+    expect(zoomDoViewer(montar({}))).toBeTrue();
   });
 
   it('`controles=0` esconde a navegação de ambientes', () => {
