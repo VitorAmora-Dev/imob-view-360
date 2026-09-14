@@ -83,15 +83,38 @@ export class TourViewerStore {
   readonly semCenas = computed(() => this.scenes().length === 0);
 
   /**
+   * A tela está servindo um VISITANTE, e não o dono do tour — é o `/embed`.
+   *
+   * Escrito por `carregarPorTour()`, o caminho público, e por mais ninguém: o
+   * modo é consequência de POR ONDE o tour entrou, e não uma opção de tela.
+   *
+   * Além da permissão logo abaixo, ele decide a origem das miniaturas na faixa
+   * de cenas: sem token, a rota autenticada de preview não é uma opção.
+   */
+  private readonly publico = signal(false);
+
+  readonly modoPublico = this.publico.asReadonly();
+
+  /**
    * Quem está vendo pode editar e apagar este tour.
    *
-   * Hoje é sempre verdadeiro: a rota inteira está atrás do `authGuard` e o
-   * backend já filtra por agência, então quem chega aqui é dono. Existe como
-   * sinal, e não como `true` cravado no template, porque o handoff especifica a
-   * variante da tab bar sem permissão — e no dia em que houver perfil de
-   * leitura, é esta linha que muda, não os três componentes que a consomem.
+   * NÃO é uma verificação de permissão — é a consequência do CAMINHO por onde o
+   * tour entrou. `carregar()` passa por `GET /properties/:id`, autenticada e
+   * escopada por agência no servidor: quem chega por ali é dono, e quem garantiu
+   * isso foi o servidor. `carregarPorTour()` entra pela rota pública, onde não
+   * há quem garanta coisa nenhuma.
+   *
+   * Isto já foi `computed(() => true)`, e estava correto enquanto o primeiro
+   * caminho era o único. O embed é o segundo, e com ele o `true` cravado viraria
+   * um botão EDITAR na frente de qualquer visitante de qualquer site que
+   * incorporasse o tour.
+   *
+   * Derivado de `publico` em vez de ser um segundo sinal que cada carga escreve:
+   * com dois sinais, o dia em que alguém acrescentasse um terceiro caminho de
+   * entrada e esquecesse uma das duas linhas, o esquecimento seria justamente o
+   * que ABRE a permissão. Aqui o esquecimento a fecha.
    */
-  readonly podeEditar = computed(() => true);
+  readonly podeEditar = computed(() => !this.publico());
 
   // ---- navegação entre cenas ---------------------------------------------
 
@@ -331,6 +354,9 @@ export class TourViewerStore {
    * mostra toast. Quem chamou é que sabe o que dizer.
    */
   async publicar(): Promise<boolean> {
+    // Visitante não publica. Guarda gêmea da de `apagarTour` — o porquê está lá.
+    if (this.publico()) return false;
+
     const id = this.tourId();
     if (!id || this.publicando()) return false;
 
@@ -361,6 +387,18 @@ export class TourViewerStore {
    * invariante existe para impedir.
    */
   async apagarTour(): Promise<boolean> {
+    /*
+     * Visitante não apaga nada.
+     *
+     * A página de embed não importa a folha que chama este método, o que já o
+     * deixa inalcançável pela tela. A guarda existe porque o tour carregado pela
+     * rota pública TRAZ `propertyId` — é exatamente o que a linha abaixo procura
+     * —, então o método continua chamável por código, e o único obstáculo
+     * restante seria o servidor. Depender só dele para isto é deixar a porta
+     * aberta confiando no cadeado do portão.
+     */
+    if (this.publico()) return false;
+
     const propertyId = this.property()?.id ?? this.tour()?.propertyId;
     if (!propertyId) return false;
 
@@ -427,8 +465,67 @@ export class TourViewerStore {
     }
   }
 
+  /**
+   * O tour pedido pelo caminho público, guardado para o "Tentar de novo".
+   *
+   * `tourId()` não serve no lugar dele: quando a PRIMEIRA carga falha não há
+   * tour em memória, e é justamente aí que o botão de tentar de novo existe
+   * para alguma coisa.
+   */
+  private tourPublico: string | null = null;
+
+  /**
+   * Carrega o tour pelo id DELE, sem passar por imóvel — o caminho do `/embed`.
+   *
+   * `GET /virtual-tours/:id` não tem guard, e é por ela que o embed sempre
+   * carregou. O que muda é quem carrega: era a página, passa a ser o store.
+   * Não é gosto arquitetural — os componentes do visualizador fazem
+   * `inject(TourViewerStore)` direto (ver `TourScenesStripComponent`), então
+   * reaproveitá-los EXIGE que exista um store de onde eles leiam.
+   *
+   * Ele não toca em `PropertyService`, e a ausência é o ponto: `GET
+   * /properties/:id` é `@UseGuards(JwtAccessGuard)`, o visitante não tem token,
+   * e a chamada daria 401 — derrubando a tela inteira por causa do nome do
+   * imóvel, que o embed sequer mostra.
+   */
+  async carregarPorTour(tourId: string): Promise<void> {
+    // Antes de qualquer `await`: é este sinal que fecha EDITAR, APAGAR e
+    // PUBLICAR, e uma falha de rede no meio não pode deixá-lo por escrever.
+    this.publico.set(true);
+    this.tourPublico = tourId;
+
+    this.loading.set(true);
+    this.loadError.set(false);
+
+    try {
+      const tour = await firstValueFrom(this.virtualTourService.findTour(tourId));
+      this.tour.set(tour);
+      this.currentSceneIndex.set(this.indiceInicial(tour));
+
+      // Mesma regra do caminho por imóvel: métrica é best effort, e uma vez por
+      // abertura de tela — senão cada "Tentar de novo" numa rede ruim somaria
+      // uma visita.
+      if (this.visitaContada !== tourId) {
+        this.visitaContada = tourId;
+        this.virtualTourService.recordView(tourId).subscribe({ error: () => undefined });
+      }
+    } catch {
+      this.loadError.set(true);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   /** Recarrega tudo. É o "Tentar de novo" do estado de erro (TV-8). */
   async recarregar(): Promise<void> {
+    // Cada caminho de entrada se refaz pela SUA porta. Um `recarregar` que
+    // sempre passasse por imóvel mandaria o visitante do embed a uma rota
+    // autenticada, e o sintoma seria o "Tentar de novo" não fazer nada.
+    if (this.publico()) {
+      if (this.tourPublico) await this.carregarPorTour(this.tourPublico);
+      return;
+    }
+
     const id = this.property()?.id;
     if (id) await this.carregar(id);
   }

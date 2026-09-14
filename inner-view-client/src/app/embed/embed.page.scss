@@ -1,33 +1,17 @@
-// Superfície imersiva do visualizador — a exceção intencional ao canvas branco.
+@use '../../theme/tour-viewer-palco' as palco;
+
+// O embed monta o MESMO palco da tela de visualização, e o esqueleto vem de
+// `theme/_tour-viewer-palco.scss` — camadas, scrims, giro do modo paisagem e as
+// regras de `pointer-events`.
 //
-// O escuro aqui é o --tour-bg da paleta e não preto puro: preto absoluto contra
-// a foto cria uma borda dura, e o azul-quase-preto pertence à mesma família fria
-// do resto do sistema. A diferença de luminância é desprezível (o branco por
-// cima segue em ~18:1), então isto é matiz, não legibilidade.
+// Copiá-lo para cá em vez de incluí-lo era a alternativa, e é a que erra
+// devagar: a cópia divergiria no primeiro ajuste, e a divergência apareceria
+// como "o panorama não gira dentro do iframe" — sem erro nenhum no console,
+// dentro do site de outra pessoa.
 //
-// O tema imersivo para nesta página e no inner-view. Ele NÃO é um dark mode: o
-// wizard, os formulários e a home continuam claros.
-ion-content {
-  --background: var(--tour-bg);
-}
-
-app-panoramic-viewer {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.embed-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  background: var(--tour-bg);
-  color: var(--tour-text);
-
-  ion-spinner {
-    width: 48px;
-    height: 48px;
-    color: var(--tour-text);
-  }
-}
+// Superfície imersiva, a exceção intencional ao canvas branco do produto. O
+// escuro é o `--tour-bg` da paleta e não preto puro: preto absoluto contra a
+// foto cria uma borda dura, e o azul-quase-preto pertence à mesma família fria
+// do resto do sistema. Nada disto é dark mode — o wizard, os formulários e a
+// home continuam claros.
+@include palco.tv-palco;

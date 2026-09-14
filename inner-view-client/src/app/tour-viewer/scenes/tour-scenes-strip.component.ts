@@ -70,8 +70,14 @@ export class TourScenesStripComponent {
 
   readonly recolhido = this.store.railCollapsed;
 
-  /** `sceneId` -> `blob:` da miniatura, conforme o cache vai respondendo. */
-  private readonly blobs = signal<Record<string, string>>({});
+  /**
+   * `sceneId` -> endereço da miniatura, conforme cada uma fica pronta.
+   *
+   * Nem sempre é um `blob:`. No visualizador é, porque a foto desce pela rota
+   * autenticada; no embed é a URL pública direta. Quem decide é
+   * `carregarMiniatura`, e o template não sabe a diferença.
+   */
+  private readonly fontes = signal<Record<string, string>>({});
 
   /** O tour cuja preferência de rail já foi restaurada. Ver o effect. */
   private restauradoDe: string | null = null;
@@ -85,8 +91,8 @@ export class TourScenesStripComponent {
      * mundo. Quem segura a conta é o `LARGURA_DA_MINIATURA` — 292px em vez da
      * equirretangular inteira.
      *
-     * `untracked` no corpo porque `carregarMiniatura` LÊ `blobs()` para não
-     * repetir download: rastreada, cada `blob:` que chega reagendaria o effect.
+     * `untracked` no corpo porque `carregarMiniatura` LÊ `fontes()` para não
+     * repetir download: rastreada, cada resposta que chega reagendaria o effect.
      */
     effect(() => {
       const cenas = this.cenas();
@@ -114,9 +120,9 @@ export class TourScenesStripComponent {
     });
   }
 
-  /** `undefined` enquanto o download não terminou — ver o template. */
+  /** `undefined` enquanto a miniatura não está pronta — ver o template. */
   miniatura(cena: TourViewerScene): string | undefined {
-    return this.blobs()[cena.id];
+    return this.fontes()[cena.id];
   }
 
   escolher(cena: TourViewerScene): void {
@@ -160,27 +166,45 @@ export class TourScenesStripComponent {
   }
 
   /**
-   * A miniatura passa pelo cache, e NUNCA por `<img src="/api/...">`.
+   * De onde vem a miniatura — e são dois lugares, por dois motivos opostos.
    *
-   * A rota `/panoramas/:id/preview` é autenticada, o token mora no
-   * `localStorage` e a tag `<img>` não passa pelo `authInterceptor` — ela não
-   * tem como levar o token. O caminho é sempre `HttpClient` -> `blob:` -> tela.
-   * É a mesma regra de `cenas-sheet` e da `lista-de-rascunhos`, e ignorá-la foi
-   * o que deixou a tela do tour branca em `036b4ac`.
+   * NO VISUALIZADOR, pelo cache, e NUNCA por `<img src="/api/...">`. A rota
+   * `/panoramas/:id/preview` é autenticada, o token mora no `localStorage` e a
+   * tag `<img>` não passa pelo `authInterceptor` — ela não tem como levar o
+   * token. O caminho é `HttpClient` -> `blob:` -> tela. É a mesma regra de
+   * `cenas-sheet` e da `lista-de-rascunhos`, e ignorá-la foi o que deixou a
+   * tela do tour branca em `036b4ac`.
+   *
+   * NO EMBED, direto pela URL, e pelo mesmo raciocínio invertido: não há token
+   * para levar. E não é preciso — `GET /panoramas/:id/image` é pública, filtra
+   * tour `PUBLISHED`, escolhe sozinha a variante tratada, atende `w` e responde
+   * `Cache-Control: public, max-age=86400`. Passá-la pelo `HttpClient` só
+   * trocaria o cache do navegador por um `blob:` que ninguém pode reaproveitar.
+   *
+   * `thumbUrl` já vem montada por `cenasDoTour()`, e a largura já está lá. NÃO
+   * concatene `?w=` aqui: `imageUrl` chega da API com `?v=…`, e a segunda
+   * interrogação faz o servidor ignorar o parâmetro — a resposta é 200 com a
+   * equirretangular inteira, de 7 a 27 MB por miniatura, e nada na tela
+   * denuncia. Quem sabe dessa emenda é `comLargura()`, num lugar só.
    *
    * Sem `liberar()` no destroy: o cache é `providedIn: 'root'` e estes mesmos
    * `blob:` são os do sheet de cenas e os do viewer. Revogar aqui apagaria a
    * imagem debaixo de quem ainda a está mostrando.
    */
   private async carregarMiniatura(cena: TourViewerScene): Promise<void> {
-    if (this.blobs()[cena.id]) return;
+    if (this.fontes()[cena.id]) return;
+
+    if (this.store.modoPublico()) {
+      this.fontes.update((atual) => ({ ...atual, [cena.id]: cena.thumbUrl }));
+      return;
+    }
 
     const url = await this.imagens
       .obter(cena.id, 'treated', LARGURA_DA_MINIATURA)
       .catch(() => '');
     if (!url) return;
 
-    this.blobs.update((atual) => ({ ...atual, [cena.id]: url }));
+    this.fontes.update((atual) => ({ ...atual, [cena.id]: url }));
   }
 
   /**

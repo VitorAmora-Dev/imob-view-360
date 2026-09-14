@@ -1,24 +1,177 @@
-<ion-content>
-  @if (tour && tour.panoramas.length > 0) {
-    <!--
-      `roomNav` é a lista de ambientes do próprio viewer, e aqui ela é a ÚNICA
-      navegação que existe: o embed não tem chrome, nem pill, nem faixa de
-      cenas. Por isso ela continua ligada por padrão — ao contrário do
-      visualizador, onde a TV-8 a desligou para não ter duas listas na tela.
-    -->
-    <app-panoramic-viewer
-      [panoramas]="tour.panoramas"
-      [roomNav]="mostrarControles"
-      [zoomLimitado]="true"></app-panoramic-viewer>
-  }
-  @if (!tour && !loadError) {
-    <div class="embed-state">
+<!--
+  O MESMO arranjo da tela de visualização, com a lista de peças do embed.
+
+  As camadas são as de `tour-viewer.page.html`, e a ordem não é decorativa:
+
+    0  panorama          recebe TODO o gesto de arrasto
+    1  scrims            pointer-events: none, sempre
+    2  hotspots          sobre a foto, abaixo do chrome
+    3  chrome            container com pointer-events: none e filhos com auto
+    4  sheets e toast    por cima de tudo
+
+  O que NÃO está aqui: cabeçalho com o nome do imóvel, cluster do desktop,
+  folha de gerenciar e folha de excluir. Nenhum deles é escondido por `@if` —
+  eles simplesmente não existem nesta tela, e a lista de `imports` do
+  componente é onde isso está escrito.
+-->
+<ion-content [fullscreen]="true" class="tv-content">
+  @if (store.loading()) {
+    <div class="tv-estado">
       <ion-spinner name="crescent"></ion-spinner>
+      <p>{{ 'TOUR_VIEWER.LOADING' | translate }}</p>
     </div>
-  }
-  @if (loadError) {
-    <div class="embed-state">
-      <p>Tour virtual não encontrado.</p>
+  } @else if (store.loadError()) {
+    <div class="tv-estado" role="alert">
+      <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
+      <button type="button" class="tv-ghost" (click)="tentarDeNovo()">
+        {{ 'TOUR_VIEWER.RETRY' | translate }}
+      </button>
+    </div>
+  } @else {
+    <div class="tv-palco" [class.tv-palco--deitado]="store.deitado()">
+      <!-- ---- camada 0: a foto ------------------------------------------ -->
+      @if (!store.semCenas()) {
+        <!--
+          `roomNav` desligada e `hotspotMode: 'none'`, como na tela do dono: a
+          navegação agora é a faixa de cenas mais os pins do overlay em HTML.
+          Era exatamente isto que o embed antigo não tinha — ele ficava com a
+          pílula "frente ▾" e os sprites do desenho velho.
+        -->
+        <app-panoramic-viewer
+          class="tv-pano"
+          [panoramas]="store.panoramas()"
+          [roomNav]="false"
+          [hotspotMode]="'none'"
+          [rotacaoDaTela]="store.deitado() ? 90 : 0"
+          [zoomLimitado]="true"
+          (panoramaChange)="aoTrocarPanorama($event)"
+          (loadFailed)="aoFalharCena($event)"
+          (canvasTapped)="aoTocarNaFoto()">
+        </app-panoramic-viewer>
+      } @else {
+        <div class="tv-estado tv-estado--vazio" role="status">
+          <p>{{ 'TOUR_VIEWER.NO_SCENES' | translate }}</p>
+        </div>
+      }
+
+      <!-- ---- camada 1: scrims ------------------------------------------ -->
+      <div class="tv-scrim tv-scrim--topo" aria-hidden="true"></div>
+      <div class="tv-scrim tv-scrim--base" aria-hidden="true"></div>
+
+      <!-- ---- camada 3: chrome ------------------------------------------ -->
+      <!--
+        `?controles=0` tira a moldura inteira, e não só um pedaço dela. Um
+        `@if` aqui e não `display: none` no CSS: os botões precisam sair da
+        ordem de tabulação, e não só da vista.
+      -->
+      @if (mostrarControles) {
+        <div class="tv-chrome">
+          <!-- O meio da tela é do polegar: é onde se arrasta a foto. -->
+          <div class="tv-espaco"></div>
+
+          @if (store.faixaVisivel()) {
+            <!--
+              O próprio componente É o slot: a classe `tv-slot` no host é o que
+              lhe devolve o `pointer-events` que o chrome tira de todo mundo. Um
+              `<div>` a mais em volta seria uma caixa transparente sem essa
+              classe, e a faixa deixaria de receber toque.
+
+              `cenaNaTela()` e não `store.currentScene()`, pela regra R4: a
+              miniatura marcada é a do cômodo que está NA FOTO, não a do que
+              acabou de ser pedido e ainda leva segundos para chegar.
+            -->
+            <app-tour-scenes-strip
+              class="tv-slot tv-slot--cenas"
+              [atualId]="cenaNaTela()?.id ?? null" />
+          }
+
+          <!--
+            Sem `(editRequested)`: `canEdit` é falso no embed, e o botão de
+            editar nem chega a ser desenhado. A barra fica com OCULTAR, DEITAR e
+            COMPARTILHAR — e o compartilhar acende sozinho, porque
+            `podeCompartilhar` é `hasScenes() || !canEdit()`.
+          -->
+          <div
+            class="tv-slot tv-slot--acoes"
+            [class.is-imersivo]="!store.chromeVisible()">
+            <app-tour-actions-bar
+              [deitado]="store.deitado()"
+              (orientationToggled)="store.alternarDeitado()"
+              [canEdit]="store.podeEditar()"
+              [hasScenes]="!store.semCenas()"
+              [chromeVisible]="store.chromeVisible()"
+              (visibilityToggled)="store.alternarChrome()"
+              (shareRequested)="store.abrirCompartilhamento()" />
+          </div>
+        </div>
+      }
+
+      <!--
+        A foto desta cena não veio. Cobre o palco porque o que está embaixo é a
+        foto do cômodo ANTERIOR: deixar aquilo à mostra sem aviso é pior que a
+        tela vazia — quem olha não sabe que está vendo outro lugar.
+      -->
+      @if (mostrarErroDaCena()) {
+        <div class="tv-estado tv-estado--sobre-a-foto" role="alert">
+          <p>{{ 'TOUR_VIEWER.LOAD_ERROR' | translate }}</p>
+          <button type="button" class="tv-ghost" (click)="tentarDeNovo()">
+            {{ 'TOUR_VIEWER.RETRY' | translate }}
+          </button>
+        </div>
+      }
+
+      <!-- ---- camada 2: hotspots ---------------------------------------- -->
+      <!--
+        FORA do `@if (mostrarControles)`, e isso é deliberado — não o mova para
+        dentro. O hotspot não é moldura: ele mora numa coordenada da
+        equirretangular, aponta para uma porta que está ali, e é o único jeito
+        de andar pelo tour quando a interface está desligada. Sem ele,
+        `controles=0` entregaria um cômodo só — menos do que o embed antigo já
+        fazia, onde os sprites do viewer ficavam.
+
+        DEPOIS do chrome no DOM e ainda assim ATRÁS dele na tela: a pilha é
+        decidida por z-index (2 aqui, 3 no chrome), não pela ordem dos nós. O
+        que a ordem decide é a tabulação.
+
+        `cenaNaTela()` e NÃO `store.currentScene()`: os pins pertencem a UMA
+        equirretangular, e o store vira no instante do toque enquanto a textura
+        ainda leva segundos para chegar. Ligados ao store, os pins do DESTINO
+        boiavam sobre a foto da ORIGEM — e clicáveis.
+      -->
+      @if (cenaNaTela(); as cena) {
+        <app-tv-hotspot-overlay
+          class="tv-slot--hotspots"
+          [viewer]="viewerRef() ?? null"
+          [hotspots]="cena.hotspots"
+          (cenaEscolhida)="store.irParaCenaPorId($event)" />
+      }
+
+      <!-- ---- camada 4: sheets e toast ---------------------------------- -->
+      <!--
+        Entra sem ligação nenhuma: lê o `TourViewerStore` que esta página
+        fornece, e é `store.sheet()` que diz de quem é a vez. Sem `@if` em
+        volta — quem monta e desmonta o `<ion-modal>` é o `isOpen` lá dentro, e
+        um `@if` aqui destruiria o componente no meio da animação de saída.
+      -->
+      <app-tour-share-sheet />
+
+      <!--
+        Obrigatório, e não enfeite: é o "Ver todas" da faixa que o abre. Sem
+        ele, aquele botão faria a faixa sumir (um sheet aberto esconde a faixa)
+        e não poria nada no lugar.
+      -->
+      <app-cenas-sheet
+        [aberto]="store.sheet() === 'scenes'"
+        [cenas]="store.panoramas()"
+        [atualId]="cenaNaTela()?.id ?? null"
+        (selecionada)="store.irParaCenaPorId($event.id)"
+        (fechado)="store.fecharSheet('scenes')" />
+
+      @if (store.toast(); as chave) {
+        <div class="tv-slot tv-slot--toast">
+          <app-tv-toast [messageKey]="chave" />
+        </div>
+      }
     </div>
   }
 </ion-content>
