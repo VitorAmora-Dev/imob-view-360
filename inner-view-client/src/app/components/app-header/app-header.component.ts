@@ -59,6 +59,7 @@ export class AppHeaderComponent {
   readonly links: HeaderNavLink[] = [
     { labelKey: 'NAV.HOME', href: '/home' },
     { labelKey: 'NAV.MY_PROPERTIES', href: '/profile' },
+    { labelKey: 'NAV.DRAFTS', href: '/rascunhos' },
     { labelKey: 'NAV.NEW_TOUR', href: '/upload' },
   ];
 

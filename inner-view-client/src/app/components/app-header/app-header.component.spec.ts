@@ -93,4 +93,15 @@ describe('AppHeaderComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.header-config')).toBeNull();
   });
+
+  it('oferece acesso aos rascunhos na navegacao desktop', () => {
+    entrar();
+    montar();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const links = Array.from(
+      element.querySelectorAll<HTMLAnchorElement>('.header-links .nav-link'),
+    );
+    expect(links.map((link) => link.getAttribute('href'))).toContain('/rascunhos');
+  });
 });

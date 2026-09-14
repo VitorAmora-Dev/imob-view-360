@@ -54,6 +54,7 @@
   "NAV": {
     "HOME": "Home",
     "MY_PROPERTIES": "My properties",
+    "DRAFTS": "Drafts",
     "NEW_TOUR": "New tour",
     "LANGUAGE": "Language",
     "SIGNOUT": "Sign out",
@@ -74,6 +75,7 @@
   },
   "DRAFTS": {
     "TITLE": "Captures in progress",
+    "LOADING": "Loading captures in progress...",
     "EMPTY_TITLE": "No captures in progress",
     "EMPTY_HINT": "Captures you leave unfinished show up here, ready to continue.",
     "EMPTY_CTA": "Start a capture"

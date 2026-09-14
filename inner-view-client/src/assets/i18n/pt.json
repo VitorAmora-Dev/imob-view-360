@@ -54,6 +54,7 @@
   "NAV": {
     "HOME": "Início",
     "MY_PROPERTIES": "Meus imóveis",
+    "DRAFTS": "Rascunhos",
     "NEW_TOUR": "Novo tour",
     "LANGUAGE": "Idioma",
     "SIGNOUT": "Sair",
@@ -74,6 +75,7 @@
   },
   "DRAFTS": {
     "TITLE": "Capturas em andamento",
+    "LOADING": "Carregando capturas em andamento...",
     "EMPTY_TITLE": "Nenhuma captura em andamento",
     "EMPTY_HINT": "As capturas que você deixar pela metade aparecem aqui, prontas para continuar.",
     "EMPTY_CTA": "Começar uma captura"

@@ -123,6 +123,41 @@ describe('ListaDeRascunhosComponent', () => {
 
   afterEach(() => fixture?.destroy());
 
+  it('nao anuncia lista vazia enquanto os rascunhos ainda estao carregando', async () => {
+    TestBed.configureTestingModule({
+      imports: [ListaDeRascunhosComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideIonicAngular(),
+        provideTranslateService({ lang: 'pt', fallbackLang: 'pt' }),
+        provideRouter([]),
+      ],
+    });
+    const resposta = new Subject<RascunhoResumo[]>();
+    spyOn(TestBed.inject(VirtualTourService), 'listarRascunhos').and.returnValue(
+      resposta,
+    );
+    spyOn(TestBed.inject(PanoramaImageCache), 'obter').and.returnValue(
+      new Promise(() => {}),
+    );
+
+    fixture = TestBed.createComponent(ListaDeRascunhosComponent);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.rascunhos--vazio')).toBeNull();
+    expect(el.textContent).toContain('DRAFTS.LOADING');
+
+    resposta.next([rascunho()]);
+    resposta.complete();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el.querySelector('.rascunhos__card')).not.toBeNull();
+    expect(el.textContent).not.toContain('DRAFTS.LOADING');
+  });
+
   it('sem rascunho, responde em vez de sumir', async () => {
     // Enquanto isto era uma faixa no topo da home, a lista vazia não desenhava
     // NADA: ali ela disputava espaço com o catálogo, e quem nunca deixou uma
