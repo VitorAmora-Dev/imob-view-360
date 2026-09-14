@@ -5,6 +5,7 @@
     "EMAIL_LABEL": "Email",
     "PASSWORD_LABEL": "Password",
     "SUBMIT": "Log in",
+    "SUBMITTING": "Signing in…",
     "NO_ACCOUNT": "Don't have an account? Sign up",
     "INVALID_CREDENTIALS": "Invalid email or password."
   },

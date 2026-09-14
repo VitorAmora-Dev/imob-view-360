@@ -1,12 +1,9 @@
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import {
-  IonContent, IonInput, IonButton, IonToast, IonSpinner
-} from '@ionic/angular/standalone';
+import { IonButton, IonContent, IonInput } from '@ionic/angular/standalone';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { BrandLogoComponent } from '../components/brand-logo/brand-logo.component';
-import { OwlLoaderComponent } from '../components/owl-loader/owl-loader.component';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -15,12 +12,13 @@ import { AuthService } from '../services/auth.service';
   styleUrls: ['./login.page.scss'],
   standalone: true,
   imports: [
-    FormsModule, RouterLink,
-    IonContent, IonInput, IonButton, IonToast, IonSpinner,
-    // OwlLoaderComponent so aparece dentro do @defer do template: o
-    // compilador transforma este import em dinamico sozinho, e o three.js
-    // fica fora do chunk do login.
-    TranslatePipe, BrandLogoComponent, OwlLoaderComponent,
+    FormsModule,
+    RouterLink,
+    IonButton,
+    IonContent,
+    IonInput,
+    TranslatePipe,
+    BrandLogoComponent,
   ],
 })
 export class LoginPage {
@@ -28,7 +26,6 @@ export class LoginPage {
   password = '';
   loading = false;
   errorMessage = '';
-  showToast = false;
 
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
@@ -36,7 +33,9 @@ export class LoginPage {
 
   submit() {
     if (!this.email || !this.password) return;
+
     this.loading = true;
+    this.errorMessage = '';
     this.authService.signin(this.email, this.password).subscribe({
       next: () => {
         this.loading = false;
@@ -45,7 +44,6 @@ export class LoginPage {
       error: () => {
         this.loading = false;
         this.errorMessage = this.translate.instant('AUTH.INVALID_CREDENTIALS');
-        this.showToast = true;
       },
     });
   }

@@ -1,44 +1,22 @@
-<ion-content [fullscreen]="true">
-  <div class="login-shell">
-    <div class="login-visual">
-      <!--
-        A coruja 3D custa three.js mais um modelo de 4,9 MB. `on viewport`
-        amarra esse download a ela estar VISIVEL: abaixo de 744px o painel
-        inteiro e' display:none, o placeholder nunca entra em viewport, e o
-        celular nao baixa nada disso -- fica com a coruja chapada, que ja
-        inclina a cabeca sozinha. Acima de 744px o painel nasce visivel e o
-        3D dispara na hora, sem o formulario esperar por ele.
-      -->
-      <div class="login-visual__mark">
-        @defer (on viewport) {
-          <app-owl-loader color="#FFFFFF" />
-        } @placeholder {
-          <app-brand-logo kind="symbol" tone="white" [decorative]="true"></app-brand-logo>
-        }
+<ion-content [fullscreen]="true" class="login-page">
+  <main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="login-brand">
+        <app-brand-logo kind="horizontal"></app-brand-logo>
       </div>
 
-      <app-brand-logo
-        class="login-visual__wordmark"
-        kind="horizontal"
-        tone="white"
-        [decorative]="true">
-      </app-brand-logo>
-      <p class="login-visual__tagline">{{ 'AUTH.TAGLINE' | translate }}</p>
-    </div>
+      <header class="login-intro">
+        <h1 id="login-title">{{ 'AUTH.LOGIN_TITLE' | translate }}</h1>
+        <p>{{ 'AUTH.TAGLINE' | translate }}</p>
+      </header>
 
-    <div class="login-form-panel">
-      <div class="auth-intro">
-        <app-brand-logo kind="symbol" [decorative]="true"></app-brand-logo>
-        <h1>{{ 'AUTH.LOGIN_TITLE' | translate }}</h1>
-        <p class="brand-tagline">{{ 'AUTH.TAGLINE' | translate }}</p>
-      </div>
-
-      <form (ngSubmit)="submit()">
+      <form class="login-form" (ngSubmit)="submit()">
         <ion-input
           [label]="'AUTH.EMAIL_LABEL' | translate"
           labelPlacement="floating"
           fill="outline"
           type="email"
+          inputmode="email"
           [(ngModel)]="email"
           name="email"
           autocomplete="email"
@@ -56,30 +34,27 @@
           required>
         </ion-input>
 
+        @if (errorMessage) {
+          <p class="login-error" role="alert">{{ errorMessage }}</p>
+        }
+
         <ion-button
           expand="block"
           type="submit"
           class="login-btn"
+          [attr.aria-busy]="loading ? 'true' : null"
           [disabled]="loading || !email || !password">
-          @if (loading) {
-            <ion-spinner name="crescent" slot="start"></ion-spinner>
-          }
-          {{ 'AUTH.SUBMIT' | translate }}
+          {{ (loading ? 'AUTH.SUBMITTING' : 'AUTH.SUBMIT') | translate }}
         </ion-button>
       </form>
 
-      <ion-button fill="clear" expand="block" routerLink="/register">
+      <ion-button
+        class="login-register"
+        fill="clear"
+        expand="block"
+        routerLink="/register">
         {{ 'AUTH.NO_ACCOUNT' | translate }}
       </ion-button>
-    </div>
-  </div>
+    </section>
+  </main>
 </ion-content>
-
-<ion-toast
-  [isOpen]="showToast"
-  [message]="errorMessage"
-  [duration]="3000"
-  color="danger"
-  position="bottom"
-  (didDismiss)="showToast = false">
-</ion-toast>
