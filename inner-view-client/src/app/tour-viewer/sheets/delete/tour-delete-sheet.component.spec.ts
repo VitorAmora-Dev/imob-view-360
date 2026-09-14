@@ -10,6 +10,7 @@ import { Observable, Subscriber } from 'rxjs';
 import { TourSheetComponent } from '../../../components/tour-sheet/tour-sheet.component';
 import { Property } from '../../../models/property.model';
 import { VirtualTour } from '../../../models/virtual-tour.model';
+import { PropertyService } from '../../../services/property.service';
 import { VirtualTourService } from '../../../services/virtual-tour.service';
 import { TourViewerStore } from '../../tour-viewer.store';
 import { TourDeleteSheetComponent } from './tour-delete-sheet.component';
@@ -42,10 +43,14 @@ describe('TourDeleteSheetComponent', () => {
   let store: TourViewerStore;
 
   let pedidosDeApagar: number;
+  let pedidosDeApagarTour: number;
+  let propertyIdApagado: string | null;
   let emVoo: Subscriber<void> | null;
 
   beforeEach(async () => {
     pedidosDeApagar = 0;
+    pedidosDeApagarTour = 0;
+    propertyIdApagado = null;
     emVoo = null;
 
     await TestBed.configureTestingModule({
@@ -63,13 +68,23 @@ describe('TourDeleteSheetComponent', () => {
         {
           // A requisição fica PENDURADA de propósito: é o intervalo em que o
           // sheet mostra "Apagando…", e é ele que os testes precisam habitar.
-          provide: VirtualTourService,
+          provide: PropertyService,
           useValue: {
-            deleteTour: () => {
+            deleteProperty: (id: string) => {
               pedidosDeApagar++;
+              propertyIdApagado = id;
               return new Observable<void>((sub) => {
                 emVoo = sub;
               });
+            },
+          },
+        },
+        {
+          provide: VirtualTourService,
+          useValue: {
+            deleteTour: () => {
+              pedidosDeApagarTour++;
+              return new Observable<void>();
             },
           },
         },
@@ -116,9 +131,11 @@ describe('TourDeleteSheetComponent', () => {
     expect(pedidosDeApagar).toBe(0);
   });
 
-  it('apagar sai daqui, e só depois da confirmação', () => {
+  it('apagar remove o imóvel pai, e não apenas o tour', () => {
     void sheet.confirmar();
     expect(pedidosDeApagar).toBe(1);
+    expect(propertyIdApagado).toBe('p1');
+    expect(pedidosDeApagarTour).toBe(0);
   });
 
   it('cancelar fecha o sheet sem apagar nada', () => {

@@ -493,9 +493,9 @@
     },
     "DELETE": {
       "TITLE": "Apagar “{{name}}”?",
-      "BODY": "As {{n}} cenas, os pontos de navegação e o link público serão removidos. Quem já incorporou o tour verá um espaço vazio.",
+      "BODY": "O imóvel e todo o tour — incluindo as {{n}} cenas, os pontos de navegação e o link público — serão removidos. Quem já incorporou o tour verá um espaço vazio.",
       "WARNING": "Esta ação não pode ser desfeita.",
-      "CONFIRM": "Apagar tour",
+      "CONFIRM": "Apagar tour e imóvel",
       "CANCEL": "Cancelar",
       "DELETING": "Apagando…"
     },
@@ -508,7 +508,7 @@
       "DOWNLOAD": "Baixar esta cena",
       "DOWNLOAD_SUB": "Salva a foto 360º do cômodo atual",
       "DELETE": "Apagar tour",
-      "DELETE_SUB": "Remove as cenas e derruba o link público"
+      "DELETE_SUB": "Remove o imóvel, as cenas e derruba o link público"
     },
     "HOTSPOT": {
       "GO_TO": "Ir para {{name}}"
