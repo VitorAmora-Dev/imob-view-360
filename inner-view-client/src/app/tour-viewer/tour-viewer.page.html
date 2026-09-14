@@ -52,6 +52,7 @@
           [roomNav]="false"
           [hotspotMode]="'none'"
           [rotacaoDaTela]="store.deitado() ? 90 : 0"
+          [zoomLimitado]="true"
           (panoramaChange)="aoTrocarPanorama($event)"
           (loadFailed)="aoFalharCena($event)"
           (canvasTapped)="aoTocarNaFoto()">

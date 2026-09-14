@@ -645,6 +645,103 @@ describe('PanoramicViewerComponent — superfície da tela de visualização', (
 });
 
 /**
+ * O zoom do tour é óptico: muda a projeção, não tira a câmera do centro.
+ *
+ * Isso é o que permite esconder a leve distorção das bordas sem introduzir
+ * paralaxe dentro da esfera. A entrada é opt-in porque o mesmo componente
+ * também serve à captura e ao wizard, que não fazem parte deste recurso.
+ */
+describe('PanoramicViewerComponent — zoom limitado do tour', () => {
+  let fixture: ComponentFixture<PanoramicViewerComponent>;
+  let component: PanoramicViewerComponent;
+  let canvas: HTMLCanvasElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PanoramicViewerComponent],
+      providers: [provideTranslateService({ lang: 'pt', fallbackLang: 'pt' })],
+    }).compileComponents();
+
+    spyOn(HTMLElement.prototype, 'setPointerCapture').and.stub();
+    spyOn(HTMLElement.prototype, 'releasePointerCapture').and.stub();
+
+    fixture = TestBed.createComponent(PanoramicViewerComponent);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('zoomLimitado', true);
+    fixture.detectChanges();
+    await afterInit();
+    canvas = fixture.nativeElement.querySelector('canvas');
+  });
+
+  afterEach(() => fixture.destroy());
+
+  function rodar(deltaY: number): WheelEvent {
+    const evento = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY });
+    canvas.dispatchEvent(evento);
+    return evento;
+  }
+
+  function ponteiro(
+    tipo: 'pointerdown' | 'pointermove' | 'pointerup',
+    id: number,
+    x: number,
+  ): void {
+    canvas.dispatchEvent(
+      new PointerEvent(tipo, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: id,
+        pointerType: 'touch',
+        clientX: x,
+        clientY: 100,
+      }),
+    );
+  }
+
+  it('abre na visualização original, sem zoom automático', () => {
+    expect(component.viewerCamera!.zoom).toBe(1);
+  });
+
+  it('a roda amplia no máximo dez por cento e não desloca a câmera', () => {
+    const camera = component.viewerCamera!;
+    const posicaoInicial = camera.position.clone();
+
+    const evento = rodar(-10_000);
+
+    expect(evento.defaultPrevented).toBeTrue();
+    expect(camera.zoom).toBeCloseTo(1.1, 8);
+    expect(camera.position.distanceTo(posicaoInicial)).toBeCloseTo(0, 8);
+  });
+
+  it('a roda permite voltar à visualização original, mas nunca afastar além dela', () => {
+    rodar(-10_000);
+    rodar(10_000);
+    rodar(10_000);
+
+    expect(component.viewerCamera!.zoom).toBe(1);
+  });
+
+  it('a pinça amplia até dez por cento', () => {
+    ponteiro('pointerdown', 1, 100);
+    ponteiro('pointerdown', 2, 200);
+    ponteiro('pointermove', 2, 220);
+
+    expect(component.viewerCamera!.zoom).toBeCloseTo(1.1, 8);
+
+    ponteiro('pointerup', 2, 220);
+    ponteiro('pointerup', 1, 100);
+  });
+
+  it('mantém o zoom quando a proporção da tela muda', () => {
+    rodar(-10_000);
+
+    window.dispatchEvent(new Event('resize'));
+
+    expect(component.viewerCamera!.zoom).toBeCloseTo(1.1, 8);
+  });
+});
+
+/**
  * O modo paisagem: o arrasto quando o palco esta girado por CSS.
  *
  * A conta mora em `arrasto-girado.ts` e tem spec proprio, sem WebGL. O que
@@ -723,6 +820,32 @@ describe('PanoramicViewerComponent — modo paisagem', () => {
     const depois = mira();
     expect(Math.abs(depois.phi - antes.phi)).toBeGreaterThan(0.05);
     expect(depois.theta).toBeCloseTo(antes.theta, 6);
+  });
+
+  it('a pinça deitado amplia sem girar a câmera', async () => {
+    fixture.componentRef.setInput('zoomLimitado', true);
+    const canvas = await deitar();
+    const antes = component.viewerCamera!.position.clone();
+
+    const evento = (tipo: 'pointerdown' | 'pointermove' | 'pointerup', id: number, x: number) =>
+      new PointerEvent(tipo, {
+        bubbles: true,
+        cancelable: true,
+        pointerId: id,
+        pointerType: 'touch',
+        clientX: x,
+        clientY: 100,
+      });
+
+    canvas.dispatchEvent(evento('pointerdown', 1, 100));
+    canvas.dispatchEvent(evento('pointerdown', 2, 200));
+    canvas.dispatchEvent(evento('pointermove', 2, 220));
+
+    expect(component.viewerCamera!.zoom).toBeCloseTo(1.1, 8);
+    expect(component.viewerCamera!.position.distanceTo(antes)).toBeCloseTo(0, 8);
+
+    canvas.dispatchEvent(evento('pointerup', 2, 220));
+    canvas.dispatchEvent(evento('pointerup', 1, 100));
   });
 
   /**
