@@ -10,6 +10,7 @@ import {
   deltaNoQuadroDoPalco,
   girarEsfera,
 } from './arrasto-girado';
+import { fovQueCabeNaFaixa } from './fov-da-tela';
 
 /**
  * Deslocamento, em px, acima do qual o gesto conta como arrasto e não clique.
@@ -671,7 +672,13 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
 
     this.scene = new THREE.Scene();
 
-    this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 1, 1100);
+    const aspecto = container.clientWidth / container.clientHeight;
+    this.camera = new THREE.PerspectiveCamera(
+      fovQueCabeNaFaixa(aspecto),
+      aspecto,
+      1,
+      1100,
+    );
     this.camera.position.set(0, 0, 0.1);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -1076,6 +1083,22 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   private readonly onWindowResize = () => {
     const container = this.canvasContainer.nativeElement;
     this.camera.aspect = container.clientWidth / container.clientHeight;
+    // O CAMPO acompanha a proporção, e não só a matriz.
+    //
+    // `fov` em three.js é o campo VERTICAL. Deixá-lo fixo em 75 fazia a
+    // DIAGONAL do frustum crescer junto com a largura da tela: 40° do centro
+    // com o telefone em pé, 61° deitado. A captura guiada não cobre acima de
+    // ±60°, então bastava virar o aparelho para os quatro cantos mostrarem teto
+    // e chão que ninguém fotografou — escuros, porque teto e chão são escuros,
+    // e com cara de neblina, porque ali é borrão de costura ou invenção da IA.
+    //
+    // Também no nascimento da câmera, e não só aqui — mas por um motivo
+    // pequeno, que não vale confundir com o defeito: `initThreeJS` termina
+    // chamando `aplicarRotacaoDaTela`, que agenda ESTA função para o quadro
+    // seguinte. Uma tela que já nasce deitada, portanto, se conserta sozinha.
+    // O que o valor inicial evita é o único quadro desenhado no meio — com o
+    // campo de 75° numa proporção larga, que é exatamente a imagem do defeito.
+    this.camera.fov = fovQueCabeNaFaixa(this.camera.aspect);
     this.camera.updateProjectionMatrix();
     // O DPR também muda aqui, e não só no primeiro desenho: arrastar a janela
     // de um monitor comum para um Retina dispara `resize` com um
