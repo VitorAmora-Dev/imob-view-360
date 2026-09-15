@@ -9,16 +9,7 @@
 
   @switch (state()) {
     @case ('intro') {
-      <div class="panel">
-        <ion-icon class="panel-icon" name="camera-outline" aria-hidden="true"></ion-icon>
-        <h2>{{ 'CAPTURE.INTRO_TITLE' | translate }}</h2>
-        <p>{{ 'CAPTURE.INTRO_TEXT' | translate }}</p>
-        <p class="tripod-hint">{{ 'CAPTURE.TRIPOD_HINT' | translate }}</p>
-        <ion-button expand="block" (click)="begin()">{{ 'CAPTURE.START' | translate }}</ion-button>
-        <ion-button expand="block" fill="clear" class="on-dark" (click)="cancel()">
-          {{ 'CAPTURE.CANCEL' | translate }}
-        </ion-button>
-      </div>
+      <app-capture-intro [starting]="starting()" (startRequested)="begin()" (cancelRequested)="cancel()" />
     }
 
     @case ('capturing') {

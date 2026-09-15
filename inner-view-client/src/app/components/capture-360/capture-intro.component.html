@@ -1,0 +1,74 @@
+<section class="intro" aria-labelledby="capture-intro-title">
+  <div class="intro-content">
+    <div class="intro-body">
+      <header class="intro-heading">
+        <h2 id="capture-intro-title">{{ 'CAPTURE.INTRO_TITLE' | translate }}</h2>
+        <p>{{ 'CAPTURE.TUTORIAL.META' | translate }}</p>
+      </header>
+
+      <figure class="tutorial">
+        <div class="tutorial-player" [class.tutorial-player--error]="videoFailed()">
+          <video
+            #tutorial
+            src="assets/tutorial-captura/tutorial-captura-360-v3.mp4"
+            poster="assets/tutorial-captura/tutorial-captura-360-v3-capa.jpg"
+            width="720"
+            height="1280"
+            preload="none"
+            [muted]="true"
+            playsinline
+            [controls]="hasStarted() && !starting()"
+            [hidden]="videoFailed()"
+            [attr.aria-label]="'CAPTURE.TUTORIAL.VIDEO_LABEL' | translate"
+            aria-describedby="tutorial-description"
+            (play)="ended.set(false)"
+            (ended)="ended.set(true)"
+            (error)="videoFailed.set(true)">
+          </video>
+
+          @if (videoFailed()) {
+            <div class="tutorial-error" role="status">
+              <p>{{ 'CAPTURE.TUTORIAL.UNAVAILABLE' | translate }}</p>
+              <p>{{ 'CAPTURE.TUTORIAL.USE_TEXT' | translate }}</p>
+            </div>
+          } @else if ((!hasStarted() || ended()) && !starting()) {
+            <button
+              class="tutorial-play"
+              type="button"
+              (click)="playTutorial()"
+              [attr.aria-label]="(ended() ? 'CAPTURE.TUTORIAL.REPLAY' : 'CAPTURE.TUTORIAL.PLAY') | translate">
+              <ion-icon [name]="ended() ? 'refresh-outline' : 'play'" aria-hidden="true"></ion-icon>
+            </button>
+          }
+        </div>
+      </figure>
+
+      <p class="intro-description" id="tutorial-description">{{ 'CAPTURE.TUTORIAL.TIP' | translate }}</p>
+
+      <details class="tutorial-steps" [open]="videoFailed()">
+        <summary>{{ 'CAPTURE.TUTORIAL.READ_STEPS' | translate }}</summary>
+        <ol>
+          <li>{{ 'CAPTURE.TUTORIAL.STEP_POSITION' | translate }}</li>
+          <li>{{ 'CAPTURE.TUTORIAL.STEP_ALIGN' | translate }}</li>
+          <li>{{ 'CAPTURE.TUTORIAL.STEP_HOLD' | translate }}</li>
+          <li>{{ 'CAPTURE.TUTORIAL.STEP_REPEAT' | translate }}</li>
+        </ol>
+      </details>
+    </div>
+  </div>
+
+  <footer class="intro-footer">
+    <div class="intro-actions">
+      <ion-button expand="block" fill="clear" (click)="dismiss()">
+        {{ 'CAPTURE.CANCEL' | translate }}
+      </ion-button>
+      <ion-button
+        expand="block"
+        [disabled]="starting()"
+        [attr.aria-busy]="starting() ? 'true' : null"
+        (click)="begin()">
+        {{ (starting() ? 'CAPTURE.TUTORIAL.STARTING' : 'CAPTURE.START') | translate }}
+      </ion-button>
+    </div>
+  </footer>
+</section>

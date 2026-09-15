@@ -1,7 +1,7 @@
 import { Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { IonButton, IonIcon, IonSpinner, ModalController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { cameraOutline, closeOutline, refreshOutline } from 'ionicons/icons';
+import { closeOutline, refreshOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
@@ -21,6 +21,7 @@ import {
 import { SimEnvironment } from './sim-environment';
 import { CaptureFrameUpload, CaptureGeometry } from '../../services/virtual-tour.service';
 import { releaseCanvas, sharpnessScore, storeFrame } from './frame-store';
+import { CaptureIntroComponent } from './capture-intro.component';
 import { StitchShot, hfovFromSpec, stitchEquirect } from './stitcher';
 
 type CaptureState =
@@ -91,6 +92,7 @@ const CANDIDATE_START_PROGRESS = 0.4;
     IonSpinner,
     TranslatePipe,
     PanoramicViewerComponent,
+    CaptureIntroComponent,
   ],
 })
 export class Capture360Component implements OnDestroy {
@@ -103,6 +105,7 @@ export class Capture360Component implements OnDestroy {
   @ViewChild('dwellCircle') dwellCircle?: ElementRef<SVGCircleElement>;
 
   readonly state = signal<CaptureState>('intro');
+  readonly starting = signal(false);
   private readonly translate = inject(TranslateService);
 
   /**
@@ -153,6 +156,8 @@ export class Capture360Component implements OnDestroy {
   private camera: CaptureCameraSource | null = null;
   private orientation: CaptureOrientationSource | null = null;
   private session: CaptureSession | null = null;
+  private startupVersion = 0;
+  private closing = false;
   /**
    * Encoding a frame is asynchronous, so a shot is held as the promise of one.
    * Position in the array keeps the capture order without a queue.
@@ -267,11 +272,12 @@ export class Capture360Component implements OnDestroy {
   readonly dwellCircumference = 2 * Math.PI * 34;
 
   constructor() {
-    addIcons({ cameraOutline, closeOutline, refreshOutline });
+    addIcons({ closeOutline, refreshOutline });
     window.addEventListener('resize', this.onResize);
   }
 
   ngOnDestroy(): void {
+    this.closing = true;
     window.removeEventListener('resize', this.onResize);
     this.teardownSources();
     // Aqui, e não no `dismiss`: fechar pelo X, pelo gesto de voltar do Android
@@ -281,6 +287,8 @@ export class Capture360Component implements OnDestroy {
   }
 
   cancel(): void {
+    this.closing = true;
+    this.teardownSources();
     this.modalCtrl.dismiss(null, 'cancel');
   }
 
@@ -344,27 +352,41 @@ export class Capture360Component implements OnDestroy {
 
   /** Abre a camera com a lente que ela mesma escolhe, e ja entra girando. */
   async begin(): Promise<void> {
+    if (this.closing || this.starting() || this.state() !== 'intro') return;
+
+    this.starting.set(true);
+    const version = ++this.startupVersion;
+    const current = (): boolean => !this.closing && version === this.startupVersion;
+    // Referências locais permitem fechar um stream que só resolveu depois
+    // de o modal sair e teardownSources() limpar os campos do componente.
+    let camera: CaptureCameraSource | null = null;
+    let orientation: CaptureOrientationSource | null = null;
     try {
       if (this.simMode) {
         this.simEnv = new SimEnvironment();
-        this.camera = new SimCameraSource(this.simEnv);
-        this.orientation = new SimOrientationSource(this.simEnv);
+        camera = this.camera = new SimCameraSource(this.simEnv);
+        orientation = this.orientation = new SimOrientationSource(this.simEnv);
       } else {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('camera-unsupported');
-        this.camera = new RealCameraSource();
-        this.orientation = new RealOrientationSource();
+        camera = this.camera = new RealCameraSource();
+        orientation = this.orientation = new RealOrientationSource();
       }
 
-      const sensorOk = await this.orientation.requestPermission();
+      // Deve continuar no gesto do botão: nenhum await antes da permissão iOS.
+      const sensorOk = await orientation.requestPermission();
+      if (!current()) return;
       if (!sensorOk) {
         this.fail('CAPTURE.SENSOR_ERROR');
         return;
       }
 
-      await this.camera.start();
-      this.orientation.start();
+      await camera.start();
+      if (!current()) return;
+      orientation.start();
 
-      if (!(await this.waitForSensor())) {
+      const sensorReady = await this.waitForSensor(orientation, version);
+      if (!current()) return;
+      if (!sensorReady) {
         this.fail('CAPTURE.SENSOR_ERROR');
         return;
       }
@@ -374,13 +396,20 @@ export class Capture360Component implements OnDestroy {
       this.state.set('capturing');
       // The overlay and its guidance elements only exist after this turn renders.
       await new Promise((resolve) => setTimeout(resolve));
-      this.camera.attach(this.previewContainer!.nativeElement);
+      if (!current()) return;
+      camera.attach(this.previewContainer!.nativeElement);
       if (this.simEnv && this.overlay) this.simEnv.bindInput(this.overlay.nativeElement);
       this.onResize();
-      this.orientation.rezero();
+      orientation.rezero();
       this.startLoop();
     } catch {
-      this.fail('CAPTURE.CAMERA_ERROR');
+      if (current()) this.fail('CAPTURE.CAMERA_ERROR');
+    } finally {
+      if (!current() || this.state() !== 'capturing') {
+        camera?.stop();
+        orientation?.stop();
+      }
+      if (current()) this.starting.set(false);
     }
   }
 
@@ -456,9 +485,10 @@ export class Capture360Component implements OnDestroy {
     return this.simMode && Number.isFinite(parsed) && parsed >= 100 ? parsed : DEFAULT_TUNING.dwellMs;
   }
 
-  private async waitForSensor(): Promise<boolean> {
+  private async waitForSensor(orientation: CaptureOrientationSource, version: number): Promise<boolean> {
     for (let i = 0; i < 40; i++) {
-      if (this.orientation?.sample()) return true;
+      if (this.closing || version !== this.startupVersion) return false;
+      if (orientation.sample()) return true;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     return false;
@@ -695,6 +725,8 @@ export class Capture360Component implements OnDestroy {
   }
 
   private teardownSources(): void {
+    this.startupVersion++;
+    this.starting.set(false);
     this.stopLoop();
     this.discardCandidates();
     this.camera?.stop();
