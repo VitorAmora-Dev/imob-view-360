@@ -702,14 +702,14 @@ describe('PanoramicViewerComponent — zoom limitado do tour', () => {
     expect(component.viewerCamera!.zoom).toBe(1);
   });
 
-  it('a roda amplia no máximo dez por cento e não desloca a câmera', () => {
+  it('a roda amplia no máximo vinte por cento e não desloca a câmera', () => {
     const camera = component.viewerCamera!;
     const posicaoInicial = camera.position.clone();
 
     const evento = rodar(-10_000);
 
     expect(evento.defaultPrevented).toBeTrue();
-    expect(camera.zoom).toBeCloseTo(1.1, 8);
+    expect(camera.zoom).toBeCloseTo(1.2, 8);
     expect(camera.position.distanceTo(posicaoInicial)).toBeCloseTo(0, 8);
   });
 
@@ -721,15 +721,44 @@ describe('PanoramicViewerComponent — zoom limitado do tour', () => {
     expect(component.viewerCamera!.zoom).toBe(1);
   });
 
-  it('a pinça amplia até dez por cento', () => {
+  it('a pinça amplia até vinte por cento', () => {
     ponteiro('pointerdown', 1, 100);
     ponteiro('pointerdown', 2, 200);
     ponteiro('pointermove', 2, 220);
 
-    expect(component.viewerCamera!.zoom).toBeCloseTo(1.1, 8);
+    expect(component.viewerCamera!.zoom).toBeCloseTo(1.2, 8);
 
     ponteiro('pointerup', 2, 220);
     ponteiro('pointerup', 1, 100);
+  });
+
+  it('a pinça suspende a rotação até os dois dedos deixarem a tela', () => {
+    const controls = (
+      component as unknown as { controls: { enableRotate: boolean } }
+    ).controls;
+    const camera = component.viewerCamera!;
+    const direcaoInicial = new THREE.Vector3();
+    camera.getWorldDirection(direcaoInicial);
+
+    ponteiro('pointerdown', 1, 100);
+    ponteiro('pointerdown', 2, 200);
+    expect(controls.enableRotate).toBeFalse();
+
+    ponteiro('pointermove', 2, 220);
+    const direcaoDepoisDaPinca = new THREE.Vector3();
+    camera.getWorldDirection(direcaoDepoisDaPinca);
+    expect(direcaoDepoisDaPinca.distanceTo(direcaoInicial)).toBeCloseTo(0, 8);
+
+    ponteiro('pointerup', 2, 220);
+    expect(controls.enableRotate).toBeFalse();
+
+    ponteiro('pointermove', 1, 80);
+    const direcaoComUmDedoRestante = new THREE.Vector3();
+    camera.getWorldDirection(direcaoComUmDedoRestante);
+    expect(direcaoComUmDedoRestante.distanceTo(direcaoInicial)).toBeCloseTo(0, 8);
+
+    ponteiro('pointerup', 1, 100);
+    expect(controls.enableRotate).toBeTrue();
   });
 
   it('mantém o zoom quando a proporção da tela muda', () => {
@@ -737,7 +766,7 @@ describe('PanoramicViewerComponent — zoom limitado do tour', () => {
 
     window.dispatchEvent(new Event('resize'));
 
-    expect(component.viewerCamera!.zoom).toBeCloseTo(1.1, 8);
+    expect(component.viewerCamera!.zoom).toBeCloseTo(1.2, 8);
   });
 });
 
@@ -841,7 +870,7 @@ describe('PanoramicViewerComponent — modo paisagem', () => {
     canvas.dispatchEvent(evento('pointerdown', 2, 200));
     canvas.dispatchEvent(evento('pointermove', 2, 220));
 
-    expect(component.viewerCamera!.zoom).toBeCloseTo(1.1, 8);
+    expect(component.viewerCamera!.zoom).toBeCloseTo(1.2, 8);
     expect(component.viewerCamera!.position.distanceTo(antes)).toBeCloseTo(0, 8);
 
     canvas.dispatchEvent(evento('pointerup', 2, 220));

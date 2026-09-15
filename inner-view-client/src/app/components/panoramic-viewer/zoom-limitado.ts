@@ -1,12 +1,12 @@
-/** Ampliação máxima permitida no tour: 1,1×, isto é, dez por cento. */
-export const ZOOM_MAXIMO_DO_TOUR = 0.1;
+/** Ampliação máxima permitida no tour: 1,2×, isto é, vinte por cento. */
+export const ZOOM_MAXIMO_DO_TOUR = 0.2;
 
 /**
  * Sensibilidade da roda em pixels.
  *
  * Uma roda tradicional costuma entregar cerca de 100 px por passo: dois
  * passos chegam ao teto. O trackpad entrega deltas menores e, por isso, mantém
- * a progressão contínua em vez de saltar direto para 10%.
+ * a progressão contínua em vez de saltar direto para 20%.
  */
 const ZOOM_POR_PIXEL_DA_RODA = 0.0005;
 
@@ -16,7 +16,7 @@ export function limitarZoomDoTour(valor: number): number {
 }
 
 /**
- * Converte a roda para a faixa lógica 0..0,1.
+ * Converte a roda para a faixa lógica 0..0,2.
  * `deltaMode` pode vir em pixels, linhas ou páginas, conforme o dispositivo.
  */
 export function zoomDepoisDaRoda(
@@ -35,7 +35,7 @@ export function zoomDepoisDaRoda(
 }
 
 /**
- * Mantém a pinça proporcional: afastar os dedos em 10% produz 1,1×.
+ * Mantém a pinça proporcional: afastar os dedos em 20% produz 1,2×.
  * A função pura também protege o componente contra distâncias inválidas.
  */
 export function zoomDepoisDaPinca(
