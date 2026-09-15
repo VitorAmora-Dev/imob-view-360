@@ -28,7 +28,15 @@
           </svg>
         </div>
 
-        <div class="reticle" #reticleEl [class.reticle--captured]="pointCaptured()"></div>
+        <div
+          class="reticle"
+          #reticleEl
+          [class.reticle--captured]="pointCaptured()"
+          aria-hidden="true">
+          @if (pointCaptured()) {
+            <ion-icon class="reticle__check" name="checkmark"></ion-icon>
+          }
+        </div>
         <div class="edge-arrow-wrap" #arrowEl aria-hidden="true">
           <div class="edge-arrow"></div>
         </div>
