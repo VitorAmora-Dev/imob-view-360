@@ -7,23 +7,40 @@ describe('CaptureIntroComponent', () => {
   let fixture: ComponentFixture<CaptureIntroComponent>;
   let component: CaptureIntroComponent;
   let video: HTMLVideoElement;
+  let playVideo: jasmine.Spy;
+  let pauseVideo: jasmine.Spy;
+  let loadVideo: jasmine.Spy;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [CaptureIntroComponent],
       providers: [provideIonicAngular(), provideTranslateService()],
     }).compileComponents();
+    playVideo = spyOn(HTMLMediaElement.prototype, 'play').and.resolveTo();
+    pauseVideo = spyOn(HTMLMediaElement.prototype, 'pause');
+    loadVideo = spyOn(HTMLMediaElement.prototype, 'load');
     fixture = TestBed.createComponent(CaptureIntroComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
     video = fixture.nativeElement.querySelector('video');
-    spyOn(video, 'pause');
-    spyOn(video, 'load');
+    await Promise.resolve();
+    fixture.detectChanges();
+  });
+
+  it('inicia automaticamente, sem áudio e dentro da página', () => {
+    expect(component.autoplayEnabled).toBeTrue();
+    expect(video.autoplay).toBeTrue();
+    expect(video.muted).toBeTrue();
+    expect(video.playsInline).toBeTrue();
+    expect(video.preload).toBe('auto');
+    expect(playVideo).toHaveBeenCalledTimes(1);
+    expect(component.hasStarted()).toBeTrue();
+    expect(component.playRequired()).toBeFalse();
   });
 
   it('deixa começar sem assistir e pausa o vídeo antes de solicitar a câmera', () => {
     const start = jasmine.createSpy('start').and.callFake(() => {
-      expect(video.pause).toHaveBeenCalled();
+      expect(pauseVideo).toHaveBeenCalled();
     });
     component.startRequested.subscribe(start);
     component.begin();
@@ -35,23 +52,28 @@ describe('CaptureIntroComponent', () => {
     expect(start).toHaveBeenCalledTimes(1);
   });
 
-  it('reproduz por escolha do usuário e terminar o tutorial não abre a câmera', async () => {
+  it('terminar o tutorial oferece replay sem abrir a câmera', () => {
     const start = jasmine.createSpy('start');
     component.startRequested.subscribe(start);
-    spyOn(video, 'play').and.resolveTo();
-    expect(video.autoplay).toBeFalse();
-    expect(video.preload).toBe('none');
 
-    component.playTutorial();
-    await Promise.resolve();
     video.dispatchEvent(new Event('ended'));
     fixture.detectChanges();
 
-    expect(video.play).toHaveBeenCalledTimes(1);
     expect(component.ended()).toBeTrue();
     expect(start).not.toHaveBeenCalled();
     expect(fixture.nativeElement.querySelector('.tutorial-play').getAttribute('aria-label'))
       .toBe('CAPTURE.TUTORIAL.REPLAY');
+  });
+
+  it('mantém o botão de play quando o navegador bloqueia o autoplay', async () => {
+    playVideo.and.rejectWith(new DOMException('Autoplay blocked', 'NotAllowedError'));
+    component.playTutorial();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(component.videoFailed()).toBeFalse();
+    expect(component.playRequired()).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.tutorial-play')).not.toBeNull();
   });
 
   it('mantém instruções e a opção de começar quando o vídeo falha', () => {
@@ -70,7 +92,7 @@ describe('CaptureIntroComponent', () => {
 
   it('pausa antes de cancelar e libera a mídia ao fechar o modal', () => {
     const cancel = jasmine.createSpy('cancel').and.callFake(() => {
-      expect(video.pause).toHaveBeenCalled();
+      expect(pauseVideo).toHaveBeenCalled();
     });
     component.cancelRequested.subscribe(cancel);
     component.dismiss();
@@ -78,11 +100,11 @@ describe('CaptureIntroComponent', () => {
 
     fixture.destroy();
     expect(video.hasAttribute('src')).toBeFalse();
-    expect(video.load).toHaveBeenCalled();
+    expect(loadVideo).toHaveBeenCalled();
   });
 
   it('não mostra falha quando sair interrompe o carregamento do vídeo', async () => {
-    spyOn(video, 'play').and.rejectWith(new DOMException('Playback interrupted', 'AbortError'));
+    playVideo.and.rejectWith(new DOMException('Playback interrupted', 'AbortError'));
     component.playTutorial();
     component.dismiss();
     await Promise.resolve();

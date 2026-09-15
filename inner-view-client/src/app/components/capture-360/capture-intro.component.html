@@ -14,14 +14,15 @@
             poster="assets/tutorial-captura/tutorial-captura-360-v3-capa.jpg"
             width="720"
             height="1280"
-            preload="none"
+            preload="auto"
+            [autoplay]="autoplayEnabled"
             [muted]="true"
             playsinline
             [controls]="hasStarted() && !starting()"
             [hidden]="videoFailed()"
             [attr.aria-label]="'CAPTURE.TUTORIAL.VIDEO_LABEL' | translate"
             aria-describedby="tutorial-description"
-            (play)="ended.set(false)"
+            (play)="onPlay()"
             (ended)="ended.set(true)"
             (error)="videoFailed.set(true)">
           </video>
@@ -31,7 +32,7 @@
               <p>{{ 'CAPTURE.TUTORIAL.UNAVAILABLE' | translate }}</p>
               <p>{{ 'CAPTURE.TUTORIAL.USE_TEXT' | translate }}</p>
             </div>
-          } @else if ((!hasStarted() || ended()) && !starting()) {
+          } @else if ((playRequired() || ended()) && !starting()) {
             <button
               class="tutorial-play"
               type="button"
