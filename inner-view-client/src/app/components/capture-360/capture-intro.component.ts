@@ -17,7 +17,6 @@ export class CaptureIntroComponent implements AfterViewInit, OnDestroy {
   readonly starting = input(false);
   readonly startRequested = output<void>();
   readonly cancelRequested = output<void>();
-  readonly hasStarted = signal(false);
   readonly ended = signal(false);
   readonly playRequired = signal(false);
   readonly videoFailed = signal(false);
@@ -44,12 +43,10 @@ export class CaptureIntroComponent implements AfterViewInit, OnDestroy {
     if (this.ended()) video.currentTime = 0;
     this.ended.set(false);
     this.playRequired.set(false);
-    this.hasStarted.set(true);
     void video.play().catch((error: DOMException) => {
       // Pausar ao sair também rejeita uma reprodução ainda carregando.
       if (this.destroyed || this.starting() || error.name === 'AbortError') return;
       if (error.name === 'NotAllowedError') {
-        this.hasStarted.set(false);
         this.playRequired.set(true);
         return;
       }
@@ -60,7 +57,28 @@ export class CaptureIntroComponent implements AfterViewInit, OnDestroy {
   onPlay(): void {
     this.ended.set(false);
     this.playRequired.set(false);
-    this.hasStarted.set(true);
+  }
+
+  onPause(): void {
+    if (this.destroyed || this.starting() || this.ended()) return;
+    this.playRequired.set(true);
+  }
+
+  toggleTutorialPlayback(): void {
+    const video = this.tutorial?.nativeElement;
+    if (!video || this.starting() || this.videoFailed()) return;
+    if (video.paused || this.ended()) {
+      this.playTutorial();
+      return;
+    }
+    video.pause();
+    this.playRequired.set(true);
+  }
+
+  onTutorialKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    this.toggleTutorialPlayback();
   }
 
   begin(): void {
