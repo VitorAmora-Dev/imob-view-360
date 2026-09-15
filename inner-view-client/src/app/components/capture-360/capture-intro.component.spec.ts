@@ -28,6 +28,7 @@ describe('CaptureIntroComponent', () => {
   });
 
   it('inicia automaticamente, sem áudio e dentro da página', () => {
+    expect(fixture.nativeElement.querySelector('.intro-heading p')).toBeNull();
     expect(component.autoplayEnabled).toBeTrue();
     expect(video.autoplay).toBeTrue();
     expect(video.muted).toBeTrue();
