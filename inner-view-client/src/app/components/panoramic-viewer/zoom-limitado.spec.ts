@@ -10,7 +10,7 @@ describe('zoom limitado do tour', () => {
     expect(limitarZoomDoTour(0)).toBe(0);
   });
 
-  it('nunca sai da faixa de zero a dez por cento', () => {
+  it('nunca sai da faixa de zero a vinte por cento', () => {
     expect(limitarZoomDoTour(-1)).toBe(0);
     expect(limitarZoomDoTour(1)).toBe(ZOOM_MAXIMO_DO_TOUR);
   });
@@ -20,8 +20,8 @@ describe('zoom limitado do tour', () => {
     expect(zoomDepoisDaRoda(ZOOM_MAXIMO_DO_TOUR, 10_000)).toBe(0);
   });
 
-  it('a pinça de dez por cento chega ao teto sem ultrapassá-lo', () => {
-    expect(zoomDepoisDaPinca(0, 100, 110)).toBeCloseTo(ZOOM_MAXIMO_DO_TOUR, 8);
+  it('a pinça de vinte por cento chega ao teto sem ultrapassá-lo', () => {
+    expect(zoomDepoisDaPinca(0, 100, 120)).toBeCloseTo(ZOOM_MAXIMO_DO_TOUR, 8);
     expect(zoomDepoisDaPinca(0, 100, 300)).toBe(ZOOM_MAXIMO_DO_TOUR);
   });
 });

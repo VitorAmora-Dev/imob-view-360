@@ -286,7 +286,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   @Input() rotacaoDaTela: RotacaoDaTela = 0;
 
   /**
-   * Zoom discreto do tour, sem controle visual, limitado a 10%.
+   * Zoom discreto do tour, sem controle visual, limitado a 20%.
    *
    * Fica desligado por padrão para não mudar captura, preview nem wizard. O
    * tour e o embed o ligam explicitamente. Quando ligado, roda e pinça alteram
@@ -350,7 +350,7 @@ export class PanoramicViewerComponent implements AfterViewInit, OnChanges, OnDes
   private pedidoDeTextura = 0;
   nomeAtual = '';
 
-  /** Ampliação lógica: zero é a vista original; 0,1 é o teto de 10%. */
+  /** Ampliação lógica: zero é a vista original; 0,2 é o teto de 20%. */
   private nivelDeZoom = 0;
   private readonly pontosDaPinca = new Map<number, { x: number; y: number }>();
   private distanciaInicialDaPinca: number | null = null;
