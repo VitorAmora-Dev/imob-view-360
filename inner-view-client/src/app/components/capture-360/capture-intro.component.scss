@@ -64,6 +64,7 @@
     width: 100%;
     height: 100%;
     object-fit: contain;
+    cursor: pointer;
   }
 
   video[hidden] {
@@ -101,6 +102,11 @@
 .tutorial-steps summary:focus-visible {
   outline: 3px solid var(--ion-color-primary);
   outline-offset: 3px;
+}
+
+.tutorial-player video:focus-visible {
+  outline: 3px solid var(--ion-color-primary);
+  outline-offset: -3px;
 }
 
 .tutorial-error {

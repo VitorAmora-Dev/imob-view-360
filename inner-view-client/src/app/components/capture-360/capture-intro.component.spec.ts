@@ -33,9 +33,34 @@ describe('CaptureIntroComponent', () => {
     expect(video.muted).toBeTrue();
     expect(video.playsInline).toBeTrue();
     expect(video.preload).toBe('auto');
+    expect(video.controls).toBeFalse();
     expect(playVideo).toHaveBeenCalledTimes(1);
-    expect(component.hasStarted()).toBeTrue();
     expect(component.playRequired()).toBeFalse();
+  });
+
+  it('pausa e continua ao tocar no vídeo sem exibir controles nativos', () => {
+    spyOnProperty(video, 'paused', 'get').and.returnValues(false, true);
+
+    video.click();
+    fixture.detectChanges();
+    expect(pauseVideo).toHaveBeenCalled();
+    expect(component.playRequired()).toBeTrue();
+    expect(fixture.nativeElement.querySelector('.tutorial-play')).not.toBeNull();
+
+    component.toggleTutorialPlayback();
+    expect(playVideo).toHaveBeenCalledTimes(2);
+  });
+
+  it('oferece a mesma pausa pelo teclado', () => {
+    spyOnProperty(video, 'paused', 'get').and.returnValue(false);
+    const event = new KeyboardEvent('keydown', { key: ' ' });
+    spyOn(event, 'preventDefault');
+
+    component.onTutorialKeydown(event);
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(pauseVideo).toHaveBeenCalled();
+    expect(component.playRequired()).toBeTrue();
   });
 
   it('deixa começar sem assistir e pausa o vídeo antes de solicitar a câmera', () => {

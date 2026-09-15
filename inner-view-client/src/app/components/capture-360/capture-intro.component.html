@@ -18,11 +18,15 @@
             [autoplay]="autoplayEnabled"
             [muted]="true"
             playsinline
-            [controls]="hasStarted() && !starting()"
+            tabindex="0"
+            role="button"
             [hidden]="videoFailed()"
-            [attr.aria-label]="'CAPTURE.TUTORIAL.VIDEO_LABEL' | translate"
+            [attr.aria-label]="(ended() ? 'CAPTURE.TUTORIAL.REPLAY' : playRequired() ? 'CAPTURE.TUTORIAL.PLAY' : 'CAPTURE.TUTORIAL.PAUSE') | translate"
             aria-describedby="tutorial-description"
+            (click)="toggleTutorialPlayback()"
+            (keydown)="onTutorialKeydown($event)"
             (play)="onPlay()"
+            (pause)="onPause()"
             (ended)="ended.set(true)"
             (error)="videoFailed.set(true)">
           </video>

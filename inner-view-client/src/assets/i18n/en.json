@@ -93,8 +93,9 @@
     "TUTORIAL": {
       "VIDEO_LABEL": "360-degree capture tutorial with Portuguese on-screen text",
       "PLAY": "Watch tutorial",
+      "PAUSE": "Pause tutorial",
       "REPLAY": "Watch tutorial again",
-      "META": "27 seconds · No audio · Portuguese text",
+      "META": "25 seconds · No audio · Portuguese text",
       "TIP": "Hold your phone upright and move around the camera, keeping it in the same spot.",
       "READ_STEPS": "Read the step-by-step guide",
       "STEP_POSITION": "Hold your phone upright at a steady height. Move around the lens, keeping the camera in the same spot without extending your arm.",
