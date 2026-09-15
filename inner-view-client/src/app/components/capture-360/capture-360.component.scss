@@ -40,6 +40,9 @@
   position: absolute;
   top: 50%;
   left: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
   width: 28px;
   height: 28px;
   margin: -14px 0 0 -14px;
@@ -53,11 +56,18 @@
 
   &.reticle--captured {
     border-color: var(--ion-color-success-tint);
-    background: rgba(var(--tour-bg-rgb), 0.72);
+    background: var(--ion-color-success);
     box-shadow:
       0 0 0 6px rgba(var(--ion-color-success-rgb), 0.2),
       0 0 18px rgba(var(--ion-color-success-rgb), 0.48);
   }
+}
+
+.reticle__check {
+  color: var(--ion-color-success-contrast);
+  font-size: 21px;
+  stroke-width: 4px;
+  animation: capture-check-in 160ms ease-out both;
 }
 
 .capture-success {
@@ -386,9 +396,22 @@ ion-button.on-dark {
   }
 }
 
+@keyframes capture-check-in {
+  from {
+    transform: scale(0.68);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .capture-selo,
-  .capture-success {
+  .capture-success,
+  .reticle__check {
     animation: none;
     transition: none;
   }
