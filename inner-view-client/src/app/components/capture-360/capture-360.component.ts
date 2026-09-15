@@ -1,7 +1,7 @@
 import { Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { IonButton, IonIcon, IonSpinner, ModalController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { checkmarkCircle, closeOutline, refreshOutline } from 'ionicons/icons';
+import { checkmark, checkmarkCircle, closeOutline, refreshOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
@@ -281,7 +281,7 @@ export class Capture360Component implements OnDestroy {
   readonly dwellCircumference = 2 * Math.PI * 34;
 
   constructor() {
-    addIcons({ checkmarkCircle, closeOutline, refreshOutline });
+    addIcons({ checkmark, checkmarkCircle, closeOutline, refreshOutline });
     window.addEventListener('resize', this.onResize);
   }
 

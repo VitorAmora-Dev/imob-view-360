@@ -94,13 +94,18 @@ describe('Capture360Component — a confirmação', () => {
       fixture.detectChanges();
 
       const success: HTMLElement = fixture.nativeElement.querySelector('.capture-success');
+      const reticle: HTMLElement = fixture.nativeElement.querySelector('.reticle');
       expect(success.classList).toContain('is-visible');
       expect(success.querySelector('ion-icon')).not.toBeNull();
       expect(success.textContent).toContain('CAPTURE.POINT_CAPTURED');
+      expect(reticle.classList).toContain('reticle--captured');
+      expect(reticle.querySelector('ion-icon[name="checkmark"]')).not.toBeNull();
 
       tick(900);
       fixture.detectChanges();
       expect(success.classList).not.toContain('is-visible');
+      expect(reticle.classList).not.toContain('reticle--captured');
+      expect(reticle.querySelector('ion-icon')).toBeNull();
     }));
 
     it('mantém o último sucesso visível antes de iniciar a costura', fakeAsync(() => {
