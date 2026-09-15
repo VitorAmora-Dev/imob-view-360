@@ -1,0 +1,22 @@
+<div class="capture-minimap" aria-hidden="true">
+  <span class="capture-minimap__cone"></span>
+
+  <div class="capture-minimap__rotor" #rotor>
+    @for (target of targets(); track $index) {
+      <span
+        class="capture-minimap__point"
+        [class.is-done]="$index < capturedCount()"
+        [class.is-current]="$index === capturedCount()"
+        [style.transform]="'rotate(' + target.yawDeg + 'deg)'">
+        <span class="capture-minimap__dot"></span>
+      </span>
+    }
+  </div>
+
+  <span class="capture-minimap__device">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+      <rect x="7" y="2.5" width="10" height="19" rx="2.25" />
+      <path d="M10 5h4M10.5 18.5h3" />
+    </svg>
+  </span>
+</div>

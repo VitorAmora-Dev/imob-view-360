@@ -1,13 +1,13 @@
 import { Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { IonButton, IonIcon, IonSpinner, ModalController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { closeOutline, refreshOutline } from 'ionicons/icons';
+import { checkmarkCircle, closeOutline, refreshOutline } from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
 import { PanoramicViewerComponent } from '../panoramic-viewer/panoramic-viewer.component';
 import { CaptureSession, DEFAULT_TUNING } from './capture-session';
-import { buildCapturePattern } from './capture-pattern';
+import { buildCapturePattern, CaptureTarget } from './capture-pattern';
 import { directionForYawPitch } from './orientation-math';
 import {
   CaptureCameraSource,
@@ -22,6 +22,7 @@ import { SimEnvironment } from './sim-environment';
 import { CaptureFrameUpload, CaptureGeometry } from '../../services/virtual-tour.service';
 import { releaseCanvas, sharpnessScore, storeFrame } from './frame-store';
 import { CaptureIntroComponent } from './capture-intro.component';
+import { CaptureMinimapComponent } from './capture-minimap.component';
 import { StitchShot, hfovFromSpec, stitchEquirect } from './stitcher';
 
 type CaptureState =
@@ -60,6 +61,8 @@ const CANDIDATE_LIMIT = 4;
 const CANDIDATE_INTERVAL_MS = 220;
 /** Sampling starts once the hold is mostly through, where the hand is stillest. */
 const CANDIDATE_START_PROGRESS = 0.4;
+/** Tempo suficiente para o sucesso ser lido antes de a última captura sair da tela. */
+const POINT_CAPTURED_FEEDBACK_MS = 900;
 
 /**
  * Full-screen guided 360° capture modal (BANIB-style): horizon line, centre
@@ -93,6 +96,7 @@ const CANDIDATE_START_PROGRESS = 0.4;
     TranslatePipe,
     PanoramicViewerComponent,
     CaptureIntroComponent,
+    CaptureMinimapComponent,
   ],
 })
 export class Capture360Component implements OnDestroy {
@@ -103,6 +107,7 @@ export class Capture360Component implements OnDestroy {
   @ViewChild('targetEl') targetEl?: ElementRef<HTMLElement>;
   @ViewChild('arrowEl') arrowEl?: ElementRef<HTMLElement>;
   @ViewChild('dwellCircle') dwellCircle?: ElementRef<SVGCircleElement>;
+  @ViewChild(CaptureMinimapComponent) minimap?: CaptureMinimapComponent;
 
   readonly state = signal<CaptureState>('intro');
   readonly starting = signal(false);
@@ -144,6 +149,8 @@ export class Capture360Component implements OnDestroy {
 
   readonly capturedCount = signal(0);
   readonly totalCount = signal(0);
+  readonly captureTargets = signal<readonly CaptureTarget[]>([]);
+  readonly pointCaptured = signal(false);
   readonly hintKey = signal('CAPTURE.ALIGN_HINT');
   readonly errorKey = signal('CAPTURE.CAMERA_ERROR');
   readonly previewPanoramas = signal<Panorama[]>([]);
@@ -267,12 +274,14 @@ export class Capture360Component implements OnDestroy {
   private rafId: number | null = null;
   private viewport = { width: 0, height: 0 };
   private lastHint = '';
+  private pointCapturedTimer: number | null = null;
+  private completeTimer: number | null = null;
 
   /** Dwell ring geometry: r=34 in an 80×80 viewBox. */
   readonly dwellCircumference = 2 * Math.PI * 34;
 
   constructor() {
-    addIcons({ closeOutline, refreshOutline });
+    addIcons({ checkmarkCircle, closeOutline, refreshOutline });
     window.addEventListener('resize', this.onResize);
   }
 
@@ -442,6 +451,7 @@ export class Capture360Component implements OnDestroy {
     const targets = buildCapturePattern(options);
     this.session = new CaptureSession(targets, { dwellMs: this.dwellMs() });
     this.shots = [];
+    this.captureTargets.set(targets);
     this.totalCount.set(targets.length);
     this.capturedCount.set(0);
   }
@@ -451,6 +461,7 @@ export class Capture360Component implements OnDestroy {
     // botões desabilitados na PRÓXIMA passagem pelo preview, e aí sim eles
     // estariam quebrados de verdade.
     this.confirmando.set(null);
+    this.clearCaptureFeedback();
     this.stopLoop();
     this.discardCandidates();
     this.shots = [];
@@ -527,7 +538,7 @@ export class Capture360Component implements OnDestroy {
         this.captureShot(reading);
       } else {
         this.stopLoop();
-        this.zone.run(() => void this.stitch());
+        this.scheduleStitchAfterFeedback();
         return;
       }
     }
@@ -571,7 +582,37 @@ export class Capture360Component implements OnDestroy {
     this.shots.push(storeFrame(best.canvas).then((frame) => ({ frame, quaternion })));
 
     Haptics.impact({ style: ImpactStyle.Medium }).catch(() => navigator.vibrate?.(40));
-    this.zone.run(() => this.capturedCount.set(this.shots.length));
+    this.showPointCaptured();
+  }
+
+  private showPointCaptured(): void {
+    if (this.pointCapturedTimer !== null) window.clearTimeout(this.pointCapturedTimer);
+    this.zone.run(() => {
+      this.capturedCount.set(this.shots.length);
+      this.pointCaptured.set(true);
+    });
+    this.pointCapturedTimer = window.setTimeout(() => {
+      this.pointCapturedTimer = null;
+      this.zone.run(() => this.pointCaptured.set(false));
+    }, POINT_CAPTURED_FEEDBACK_MS);
+  }
+
+  /** A última confirmação continua visível antes de a costura ocupar a tela. */
+  private scheduleStitchAfterFeedback(): void {
+    if (this.completeTimer !== null) window.clearTimeout(this.completeTimer);
+    this.completeTimer = window.setTimeout(() => {
+      this.completeTimer = null;
+      if (this.closing || this.state() !== 'capturing') return;
+      this.zone.run(() => void this.stitch());
+    }, POINT_CAPTURED_FEEDBACK_MS);
+  }
+
+  private clearCaptureFeedback(): void {
+    if (this.pointCapturedTimer !== null) window.clearTimeout(this.pointCapturedTimer);
+    if (this.completeTimer !== null) window.clearTimeout(this.completeTimer);
+    this.pointCapturedTimer = null;
+    this.completeTimer = null;
+    this.pointCaptured.set(false);
   }
 
   private async stitch(): Promise<void> {
@@ -728,6 +769,7 @@ export class Capture360Component implements OnDestroy {
     this.startupVersion++;
     this.starting.set(false);
     this.stopLoop();
+    this.clearCaptureFeedback();
     this.discardCandidates();
     this.camera?.stop();
     this.orientation?.stop();
@@ -762,6 +804,7 @@ export class Capture360Component implements OnDestroy {
     const tanHalfV = Math.tan((vfov * Math.PI) / 360);
 
     const ypr = reading.ypr;
+    this.minimap?.paintHeading(ypr.yawDeg);
     if (this.horizonEl) {
       const pxPerDegY = halfY / (vfov / 2);
       this.horizonEl.nativeElement.style.transform =

@@ -111,6 +111,7 @@
     "START": "Start",
     "CANCEL": "Cancel",
     "PROGRESS": "Captures {{captured}} of {{total}}",
+    "POINT_CAPTURED": "Point captured",
     "ALIGN_HINT": "Move the reticle into the dot",
     "HOLD_HINT": "Hold still…",
     "STITCHING": "Building the panorama…",

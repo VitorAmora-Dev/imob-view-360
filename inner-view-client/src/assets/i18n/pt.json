@@ -111,6 +111,7 @@
     "START": "Começar",
     "CANCEL": "Cancelar",
     "PROGRESS": "Capturas {{captured}} de {{total}}",
+    "POINT_CAPTURED": "Ponto capturado",
     "ALIGN_HINT": "Leve a mira até a bolinha",
     "HOLD_HINT": "Segure parado…",
     "STITCHING": "Montando o panorama…",
