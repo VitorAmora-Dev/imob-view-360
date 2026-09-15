@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ModalController } from '@ionic/angular/standalone';
@@ -44,6 +44,80 @@ describe('Capture360Component — a confirmação', () => {
     componente['envio'] = envio;
     componente.state.set('preview');
   }
+
+  describe('a orientação durante a captura', () => {
+    const targets = [
+      { yawDeg: 0, pitchDeg: 0 },
+      { yawDeg: 90, pitchDeg: 0 },
+      { yawDeg: 180, pitchDeg: 0 },
+      { yawDeg: 270, pitchDeg: 0 },
+    ];
+
+    function capturando(): void {
+      componente.captureTargets.set(targets);
+      componente.totalCount.set(targets.length);
+      componente.capturedCount.set(1);
+      componente.state.set('capturing');
+      fixture.detectChanges();
+    }
+
+    it('mostra no minimapa o que foi concluído e qual é o próximo ponto', () => {
+      capturando();
+
+      const points: HTMLElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('.capture-minimap__point'),
+      );
+      expect(points.length).toBe(4);
+      expect(points[0].classList).toContain('is-done');
+      expect(points[1].classList).toContain('is-current');
+    });
+
+    it('mantém o minimapa separado da dica inferior no celular', () => {
+      const phone = document.createElement('div');
+      phone.style.cssText = 'position:relative;width:390px;height:760px;overflow:hidden';
+      document.body.appendChild(phone);
+      phone.appendChild(fixture.nativeElement);
+      capturando();
+
+      const minimap = fixture.nativeElement
+        .querySelector('app-capture-minimap')
+        .getBoundingClientRect();
+      const hint = fixture.nativeElement.querySelector('.hint-pill').getBoundingClientRect();
+
+      expect(minimap.bottom).toBeLessThan(hint.top);
+      phone.remove();
+    });
+
+    it('confirma o ponto com texto e ícone e depois limpa o sinal', fakeAsync(() => {
+      capturando();
+      componente['showPointCaptured']();
+      fixture.detectChanges();
+
+      const success: HTMLElement = fixture.nativeElement.querySelector('.capture-success');
+      expect(success.classList).toContain('is-visible');
+      expect(success.querySelector('ion-icon')).not.toBeNull();
+      expect(success.textContent).toContain('CAPTURE.POINT_CAPTURED');
+
+      tick(900);
+      fixture.detectChanges();
+      expect(success.classList).not.toContain('is-visible');
+    }));
+
+    it('mantém o último sucesso visível antes de iniciar a costura', fakeAsync(() => {
+      componente.state.set('capturing');
+      const stitch = spyOn(
+        componente as unknown as { stitch: () => Promise<void> },
+        'stitch',
+      ).and.resolveTo();
+
+      componente['scheduleStitchAfterFeedback']();
+      tick(899);
+      expect(stitch).not.toHaveBeenCalled();
+
+      tick(1);
+      expect(stitch).toHaveBeenCalledTimes(1);
+    }));
+  });
 
   /**
    * O ciclo do selo, que na primeira versão desta entrega não tinha fim.

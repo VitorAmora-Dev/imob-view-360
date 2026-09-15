@@ -28,10 +28,26 @@
           </svg>
         </div>
 
-        <div class="reticle" #reticleEl></div>
+        <div class="reticle" #reticleEl [class.reticle--captured]="pointCaptured()"></div>
         <div class="edge-arrow-wrap" #arrowEl aria-hidden="true">
           <div class="edge-arrow"></div>
         </div>
+
+        <div
+          class="capture-success"
+          [class.is-visible]="pointCaptured()"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true">
+          @if (pointCaptured()) {
+            <ion-icon name="checkmark-circle" aria-hidden="true"></ion-icon>
+            <span>{{ 'CAPTURE.POINT_CAPTURED' | translate }}</span>
+          }
+        </div>
+
+        <app-capture-minimap
+          [targets]="captureTargets()"
+          [capturedCount]="capturedCount()" />
 
         <div class="top-bar">
           <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
