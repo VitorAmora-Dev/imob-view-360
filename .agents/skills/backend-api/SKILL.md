@@ -165,7 +165,7 @@ npx prisma migrate reset
 
 O tratamento corrige paralaxe e degrau de junção nas fotos 360°.
 
-- Modelo: `gpt-image-2` via `OPENAI_API_KEY`
+- Modelo: `gpt-image-2.5-sunburst` via `OPENAI_API_KEY`
 - Custo: ~US$ 0,19 por panorama
 - Sem API key: etapa é `SKIPPED`
 
