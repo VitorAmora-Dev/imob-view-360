@@ -4,6 +4,7 @@ import {
   LARGURA_MODELO,
   MAXIMO_DE_FOTOS,
   MODELO,
+  QUALIDADE_MODELO,
   amostrarAnel,
   custoDaFalha,
   promptDeMontagem,
@@ -12,6 +13,8 @@ import {
 describe('montagem-360', () => {
   it('usa o GPT Image 2.5 Sunburst para tratamento de panoramas', () => {
     expect(MODELO).toBe('gpt-image-2.5-sunburst');
+    expect(QUALIDADE_MODELO).toBe('xhigh');
+    expect([LARGURA_MODELO, ALTURA_MODELO]).toEqual([2048, 1024]);
   });
 
   describe('amostrarAnel', () => {
