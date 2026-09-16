@@ -219,7 +219,8 @@ O alvo são os dois defeitos que o corretor enxerga no tour: **paralaxe** (objet
 duplicado ou com a borda quebrada na emenda, porque o celular não gira em torno
 do centro óptico) e **degrau na junção** das fotos. O modelo recebe o equirect
 montado pelo stitcher mais cada foto original como verdade de campo, e devolve o
-mesmo panorama reparado — uma chamada, `gpt-image-2.5-sunburst`, em 3840×1920.
+mesmo panorama reparado — uma chamada, `gpt-image-2.5-sunburst`, em
+`quality: xhigh` e 2048×1024 para preservar a projeção equiretangular 2:1.
 
 Uma rota anterior decompunha o equirect em cubemap e só deixava a IA pintar onde
 não havia pixel fotografado. Era segura por construção e mediu bem, mas foi

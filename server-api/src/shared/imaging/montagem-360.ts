@@ -20,19 +20,20 @@ import OpenAI, { toFile } from 'openai';
  */
 
 /**
- * Teto real para uma imagem 2:1 no GPT Image 2.5 Sunburst.
+ * Resolução 2K escolhida para avaliar o GPT Image 2.5 Sunburst em qualidade
+ * `xhigh`, preservando a projeção equiretangular 2:1 exigida pelo tour.
  *
- * A documentação do SDK diz: lados divisíveis por 16, proporção entre 1:3 e 3:1,
- * e resolução máxima de 3840×2160. Para 2:1 o que morde antes é o total de
- * pixels: 3840×1920 dá 7.372.800, e o próximo passo par (4096×2048) estouraria.
+ * `2048×1152`, embora seja a opção 2K landscape comum da API, tem proporção
+ * 16:9 e deformaria o panorama. `2048×1024` é uma dimensão personalizada válida:
+ * os lados são múltiplos de 16 e totalizam 2.097.152 pixels.
  *
- * Consequência que vale ter em mente: o stitcher entrega 5120×2560, maior do que
- * o modelo sabe devolver. A imagem é reduzida para vir aqui e reamostrada de
- * volta depois, então a passagem pela IA custa resolução. Não há como pedir mais
- * — nem no prompt, nem no `size`.
+ * O stitcher entrega 5120×2560. A imagem é reduzida para a IA e reamostrada de
+ * volta depois, portanto esta configuração privilegia o teste de qualidade do
+ * tratamento sobre a preservação da resolução nativa.
  */
-export const LARGURA_MODELO = 3840;
-export const ALTURA_MODELO = 1920;
+export const LARGURA_MODELO = 2048;
+export const ALTURA_MODELO = 1024;
+export const QUALIDADE_MODELO = 'xhigh';
 
 /** Estimativa pública por imagem; conferir contra a fatura antes de projetar custo. */
 export const CUSTO_POR_PANORAMA = 0.19;
@@ -343,6 +344,7 @@ export async function montarPanorama(
         image: imagens,
         prompt: promptDeMontagem(pedido.fotos.length),
         size: `${LARGURA_MODELO}x${ALTURA_MODELO}`,
+        quality: QUALIDADE_MODELO,
       } as never);
 
       const b64 = (resposta as { data?: Array<{ b64_json?: string }> })

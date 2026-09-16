@@ -113,6 +113,7 @@ export class OpenAIImageProvider implements ImageEditProvider {
       mask: await paraArquivo(mascara, 'mascara.png'),
       prompt: pedido.prompt,
       size: `${lado}x${lado}`,
+      quality: 'xhigh',
     } as never);
     const ms = Date.now() - inicio;
 
