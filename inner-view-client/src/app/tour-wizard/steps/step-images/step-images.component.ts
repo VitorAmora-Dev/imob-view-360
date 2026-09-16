@@ -439,6 +439,10 @@ export class StepImagesComponent implements OnDestroy {
     const modal = await this.modalController.create({
       component: Capture360Component,
       cssClass: 'capture-360-modal',
+      // Backdrop, gesto e botão voltar não podem pular a confirmação de
+      // descarte exibida no preview. As saídas explícitas do componente usam
+      // sempre um destes dois papéis.
+      canDismiss: async (_data, role) => role === 'confirm' || role === 'cancel',
       // Passado por `componentProps` e não resolvido por injeção: o
       // `ModalController` cria o componente fora da árvore da página, então ele
       // não enxerga o `TourDraftStore`, que é provido lá.
@@ -450,7 +454,15 @@ export class StepImagesComponent implements OnDestroy {
         aoOlhar: (olhando: boolean) => this.store.alguemOlhando.set(olhando),
         // E este é como a foto tratada chega até ele, para trocar a costurada
         // sem sair da tela.
-        aoTratar: (panoramaId: string) => this.store.fotoTratada(panoramaId),
+        aoTratar: (panoramaId: string, signal?: AbortSignal) =>
+          this.store.fotoTratada(panoramaId, signal),
+        // Sugestões repetidas ganham um sufixo previsível ("Quarto 2") em vez
+        // de criar duas cenas visualmente indistinguíveis.
+        existingRoomNames: this.store.scenes().map((scene) => scene.room),
+        // Registra antes de o upload terminar: publicar nesse intervalo também
+        // espera a limpeza, em vez de deixar o panorama reaparecer no tour.
+        aoAgendarDescarte: (panoramaId: Promise<string | null>) =>
+          this.store.agendarDescarteCaptura(panoramaId),
       },
     });
     await modal.present();
@@ -468,8 +480,9 @@ export class StepImagesComponent implements OnDestroy {
     if (role !== 'confirm' || !data?.imageData) return;
 
     // O nome vem da tela de preview da captura, onde a pessoa ainda está dentro
-    // do cômodo olhando o resultado — que é onde a evidência está. Aqui ele
-    // apenas chega; pode vir vazio, e a etapa 1 cobra depois.
+    // do cômodo olhando o resultado — que é onde a evidência está. As ações de
+    // salvar só são liberadas depois da escolha; o fallback abaixo mantém o
+    // contrato defensivo para chamadas antigas.
     //
     // Antes vinha "Ambiente N" daqui. O badge do card continua mostrando esse
     // número, então a identidade ordinal não se perdeu — o que se perdeu foi um

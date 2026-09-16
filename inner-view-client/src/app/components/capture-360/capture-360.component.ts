@@ -1,7 +1,13 @@
 import { Component, ElementRef, NgZone, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { IonButton, IonIcon, IonSpinner, ModalController } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { checkmark, checkmarkCircle, closeOutline, refreshOutline } from 'ionicons/icons';
+import {
+  checkmark,
+  checkmarkCircle,
+  closeOutline,
+  informationCircleOutline,
+  refreshOutline,
+} from 'ionicons/icons';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Panorama } from '../../models/virtual-tour.model';
@@ -24,6 +30,8 @@ import { releaseCanvas, sharpnessScore, storeFrame } from './frame-store';
 import { CaptureIntroComponent } from './capture-intro.component';
 import { CaptureMinimapComponent } from './capture-minimap.component';
 import { StitchShot, hfovFromSpec, stitchEquirect } from './stitcher';
+import { WizardDialogComponent } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.component';
+import { PerguntaDoWizard } from '../../tour-wizard/ui/wizard-dialog/wizard-dialog.model';
 
 type CaptureState =
   | 'intro'
@@ -51,6 +59,11 @@ interface Candidate {
   sharpness: number;
 }
 
+interface RoomSuggestion {
+  readonly id: 'living-room' | 'kitchen' | 'bedroom' | 'bathroom';
+  readonly labelKey: string;
+}
+
 /**
  * The hold lasts two seconds and the frame used to be whichever one the timer
  * happened to land on — including the ones where the hand was still settling.
@@ -63,6 +76,35 @@ const CANDIDATE_INTERVAL_MS = 220;
 const CANDIDATE_START_PROGRESS = 0.4;
 /** Tempo suficiente para o sucesso ser lido antes de a última captura sair da tela. */
 const POINT_CAPTURED_FEEDBACK_MS = 900;
+const PREVIEW_HINT_MS = 3200;
+
+type PreviewDiscardIntent = 'cancel' | 'restart';
+
+const KEEP_CAPTURE = 'keep-capture';
+const DISCARD_CAPTURE = 'discard-capture';
+const RETAKE_CAPTURE = 'retake-capture';
+
+const DISCARD_CAPTURE_QUESTION: PerguntaDoWizard = {
+  tituloKey: 'CAPTURE.DISCARD_TITLE',
+  mensagemKey: 'CAPTURE.DISCARD_MESSAGE',
+  acoes: [
+    { id: KEEP_CAPTURE, rotuloKey: 'CAPTURE.KEEP_REVIEWING', tom: 'primario' },
+    { id: DISCARD_CAPTURE, rotuloKey: 'CAPTURE.DISCARD_CONFIRM', tom: 'destrutivo' },
+  ],
+  dispensavel: true,
+  fecharKey: 'CAPTURE.KEEP_REVIEWING',
+};
+
+const RETAKE_CAPTURE_QUESTION: PerguntaDoWizard = {
+  tituloKey: 'CAPTURE.RETAKE_TITLE',
+  mensagemKey: 'CAPTURE.RETAKE_MESSAGE',
+  acoes: [
+    { id: KEEP_CAPTURE, rotuloKey: 'CAPTURE.KEEP_CAPTURE', tom: 'primario' },
+    { id: RETAKE_CAPTURE, rotuloKey: 'CAPTURE.RETAKE_CAPTURE', tom: 'destrutivo' },
+  ],
+  dispensavel: true,
+  fecharKey: 'CAPTURE.KEEP_CAPTURE',
+};
 
 /**
  * Full-screen guided 360° capture modal (BANIB-style): horizon line, centre
@@ -97,6 +139,7 @@ const POINT_CAPTURED_FEEDBACK_MS = 900;
     PanoramicViewerComponent,
     CaptureIntroComponent,
     CaptureMinimapComponent,
+    WizardDialogComponent,
   ],
 })
 export class Capture360Component implements OnDestroy {
@@ -107,6 +150,7 @@ export class Capture360Component implements OnDestroy {
   @ViewChild('targetEl') targetEl?: ElementRef<HTMLElement>;
   @ViewChild('arrowEl') arrowEl?: ElementRef<HTMLElement>;
   @ViewChild('dwellCircle') dwellCircle?: ElementRef<SVGCircleElement>;
+  @ViewChild('customRoomInput') customRoomInput?: ElementRef<HTMLInputElement>;
   @ViewChild(CaptureMinimapComponent) minimap?: CaptureMinimapComponent;
 
   readonly state = signal<CaptureState>('intro');
@@ -121,30 +165,50 @@ export class Capture360Component implements OnDestroy {
    * gesto que não mudou de assunto.
    */
   readonly roomName = signal('');
+  readonly customRoom = signal(false);
+  readonly selectedRoomSuggestion = signal<RoomSuggestion['id'] | null>(null);
+  readonly hasRoomName = computed(() => this.roomName().trim().length > 0);
 
-  /**
-   * Sugestões de ambiente, para o toque resolver o caso comum.
-   *
-   * Vêm de UMA chave separada por vírgula, e não de uma chave por sugestão, de
-   * propósito: assim o tradutor troca o conjunto inteiro pelo que faz sentido no
-   * idioma dele — a lista de cômodos de uma casa não é a mesma em toda parte —
-   * sem precisar de código novo para cada item.
-   */
-  readonly roomSuggestions = computed(() =>
-    this.translate
-      .instant('CAPTURE.ROOM_SUGGESTIONS')
-      .split(',')
-      .map((s: string) => s.trim())
-      .filter(Boolean),
-  );
+  /** Nomes já usados no tour, recebidos pelo caller para sugerir "Quarto 2". */
+  existingRoomNames: readonly string[] = [];
+
+  readonly roomSuggestions: readonly RoomSuggestion[] = [
+    { id: 'living-room', labelKey: 'CAPTURE.ROOM_LIVING' },
+    { id: 'kitchen', labelKey: 'CAPTURE.ROOM_KITCHEN' },
+    { id: 'bedroom', labelKey: 'CAPTURE.ROOM_BEDROOM' },
+    { id: 'bathroom', labelKey: 'CAPTURE.ROOM_BATHROOM' },
+  ];
 
   onRoomName(event: Event): void {
     this.roomName.set((event.target as HTMLInputElement).value);
   }
 
-  /** Tocar de novo no chip aceso limpa o campo — é o desfazer óbvio. */
-  pickRoom(nome: string): void {
-    this.roomName.update((atual) => (atual === nome ? '' : nome));
+  pickRoom(suggestion: RoomSuggestion): void {
+    const baseName = this.translate.instant(suggestion.labelKey);
+    this.customRoom.set(false);
+    this.selectedRoomSuggestion.set(suggestion.id);
+    this.roomName.set(this.nextAvailableRoomName(baseName));
+  }
+
+  chooseCustomRoom(): void {
+    if (this.customRoom()) {
+      this.customRoomInput?.nativeElement.focus();
+      return;
+    }
+    this.customRoom.set(true);
+    this.selectedRoomSuggestion.set(null);
+    this.roomName.set('');
+    window.setTimeout(() => this.customRoomInput?.nativeElement.focus());
+  }
+
+  private nextAvailableRoomName(baseName: string): string {
+    const normalize = (name: string) => name.trim().toLocaleLowerCase();
+    const occupied = new Set(this.existingRoomNames.map(normalize));
+    if (!occupied.has(normalize(baseName))) return baseName;
+
+    let suffix = 2;
+    while (occupied.has(normalize(`${baseName} ${suffix}`))) suffix += 1;
+    return `${baseName} ${suffix}`;
   }
 
   readonly capturedCount = signal(0);
@@ -194,6 +258,16 @@ export class Capture360Component implements OnDestroy {
    * espera que termina sem explicação é pior que não ter esperado.
    */
   readonly naoMelhorou = signal(false);
+  readonly imagemAprimorada = signal(false);
+  readonly previewHintVisible = signal(false);
+
+  private readonly discardIntent = signal<PreviewDiscardIntent | null>(null);
+  readonly discardQuestion = computed(() => {
+    const intent = this.discardIntent();
+    if (intent === 'restart') return RETAKE_CAPTURE_QUESTION;
+    if (intent === 'cancel') return DISCARD_CAPTURE_QUESTION;
+    return null;
+  });
 
   /**
    * Quem sabe SUBIR a captura e pedir a montagem. Injetado pelo wizard via
@@ -218,7 +292,7 @@ export class Capture360Component implements OnDestroy {
    * Devolve `null` quando a IA não melhorou, falhou ou demorou demais — aí a
    * tela fica com o panorama costurado, que é servível, e diz isso.
    */
-  aoTratar?: (panoramaId: string) => Promise<string | null>;
+  aoTratar?: (panoramaId: string, signal?: AbortSignal) => Promise<string | null>;
 
   /**
    * Avisa o wizard de que há alguém de olho numa espera de montagem.
@@ -228,7 +302,16 @@ export class Capture360Component implements OnDestroy {
    */
   aoOlhar?: (olhando: boolean) => void;
 
-  /** A IA ainda está montando este cômodo. Acende o selo sobre o preview. */
+  /** Remove do rascunho remoto uma captura que foi descartada no preview. */
+  aoDescartar?: (panoramaId: string) => Promise<void> | void;
+
+  /**
+   * Registra o descarte antes mesmo de o upload devolver o id. Assim um
+   * autosave/publicar iniciado nesse intervalo também espera a limpeza.
+   */
+  aoAgendarDescarte?: (panoramaId: Promise<string | null>) => void;
+
+  /** A IA ainda está montando este cômodo. Alimenta o status compacto do preview. */
   readonly tratando = signal(false);
 
   /**
@@ -257,10 +340,10 @@ export class Capture360Component implements OnDestroy {
    * O que faltava não era rapidez, era a tela dizer que recebeu o toque.
    *
    * Guarda a AÇÃO e não um booleano para o fiapo girar no botão que a pessoa
-   * apertou — e não nos três ao mesmo tempo, que leria como a tela inteira
+   * apertou — e não nos dois ao mesmo tempo, que leria como a tela inteira
    * travando.
    */
-  readonly confirmando = signal<'usar' | 'continuar' | null>(null);
+  readonly confirmando = signal<'concluir' | 'continuar' | null>(null);
 
   /**
    * A tratada, se ela chegou ANTES de o corretor confirmar.
@@ -276,18 +359,29 @@ export class Capture360Component implements OnDestroy {
   private lastHint = '';
   private pointCapturedTimer: number | null = null;
   private completeTimer: number | null = null;
+  private previewHintTimer: number | null = null;
+  private previewGeneration = 0;
+  private previewTreatmentController: AbortController | null = null;
 
   /** Dwell ring geometry: r=34 in an 80×80 viewBox. */
   readonly dwellCircumference = 2 * Math.PI * 34;
 
   constructor() {
-    addIcons({ checkmark, checkmarkCircle, closeOutline, refreshOutline });
+    addIcons({
+      checkmark,
+      checkmarkCircle,
+      closeOutline,
+      informationCircleOutline,
+      refreshOutline,
+    });
     window.addEventListener('resize', this.onResize);
   }
 
   ngOnDestroy(): void {
     this.closing = true;
     window.removeEventListener('resize', this.onResize);
+    this.clearPreviewHint();
+    this.abortPreviewTreatment();
     this.teardownSources();
     // Aqui, e não no `dismiss`: fechar pelo X, pelo gesto de voltar do Android
     // e pelos botões são três caminhos, e só este passa por todos. Deixar
@@ -295,7 +389,33 @@ export class Capture360Component implements OnDestroy {
     this.aoOlhar?.(false);
   }
 
+  requestPreviewCancel(): void {
+    if (this.confirmando()) return;
+    this.discardIntent.set('cancel');
+  }
+
+  requestPreviewRetake(): void {
+    if (this.confirmando()) return;
+    this.discardIntent.set('restart');
+  }
+
+  dismissDiscardQuestion(): void {
+    this.discardIntent.set(null);
+  }
+
+  resolveDiscardQuestion(actionId: string): void {
+    const intent = this.discardIntent();
+    this.discardIntent.set(null);
+
+    if (actionId === DISCARD_CAPTURE && intent === 'cancel') {
+      this.cancel();
+      return;
+    }
+    if (actionId === RETAKE_CAPTURE && intent === 'restart') this.restart();
+  }
+
   cancel(): void {
+    if (this.state() === 'preview') this.discardPreviewCapture();
     this.closing = true;
     this.teardownSources();
     this.modalCtrl.dismiss(null, 'cancel');
@@ -315,20 +435,20 @@ export class Capture360Component implements OnDestroy {
     // desabilitados, mas o teclado e o leitor de tela chegam aqui por caminhos
     // que não passam pelo estado visual — e dois `dismiss` com o mesmo
     // panorama são dois cômodos iguais na etapa 1.
-    if (this.confirmando()) return;
+    if (this.confirmando() || !this.hasRoomName()) return;
 
     // `originalImageData` e não o que está na tela: o preview pode já estar
     // mostrando a versão tratada, mas quem sobe e quem alimenta o "ver
     // original" da etapa 2 é o panorama como a costura o entregou.
     const imageData = this.originalImageData;
     if (!imageData) {
-      this.modalCtrl.dismiss(null, 'cancel');
+      this.cancel();
       return;
     }
 
     // ANTES do `await`, e não depois: é o `await` que dura, e é exatamente
     // durante ele que a tela precisa dizer que recebeu o toque.
-    this.confirmando.set(continuar ? 'continuar' : 'usar');
+    this.confirmando.set(continuar ? 'continuar' : 'concluir');
     const enviado = this.envio ? await this.envio : null;
     this.serverPanoramaId = enviado?.panoramaId ?? this.serverPanoramaId;
     // The originals ride along so the caller can archive them once the
@@ -339,6 +459,13 @@ export class Capture360Component implements OnDestroy {
       blob: shot.frame.blob,
       quaternion: shot.quaternion,
     }));
+    // A decisão foi tomada. Impede uma resposta tardia da IA de trocar o
+    // preview durante a animação de saída ou criar um blob que ninguém usará;
+    // o wizard assume o acompanhamento a partir dos dados abaixo.
+    this.closing = true;
+    this.clearPreviewHint();
+    this.abortPreviewTreatment();
+    this.aoOlhar?.(false);
     this.modalCtrl.dismiss(
       {
         imageData,
@@ -457,9 +584,10 @@ export class Capture360Component implements OnDestroy {
   }
 
   restart(): void {
-    // Volta a zero junto com o resto. Um "ocupado" preso aqui deixaria os três
-    // botões desabilitados na PRÓXIMA passagem pelo preview, e aí sim eles
-    // estariam quebrados de verdade.
+    if (this.state() === 'preview') this.discardPreviewCapture();
+    this.discardIntent.set(null);
+    // Um "ocupado" preso aqui deixaria as ações desabilitadas na próxima
+    // passagem pelo preview.
     this.confirmando.set(null);
     this.clearCaptureFeedback();
     this.stopLoop();
@@ -482,6 +610,70 @@ export class Capture360Component implements OnDestroy {
     } else {
       this.startLoop();
     }
+  }
+
+  private discardPreviewCapture(): void {
+    const pendingUpload = this.envio;
+    const knownPanoramaId = this.serverPanoramaId;
+    const discardedTreatedUrl = this.treatedUrl;
+
+    this.previewGeneration += 1;
+    this.clearPreviewHint();
+    this.abortPreviewTreatment();
+    this.aoOlhar?.(false);
+    this.tratando.set(false);
+    this.naoMelhorou.set(false);
+    this.imagemAprimorada.set(false);
+    this.previewPanoramas.set([]);
+    this.originalImageData = '';
+    this.serverPanoramaId = null;
+    this.treatedUrl = '';
+    this.envio = null;
+
+    if (discardedTreatedUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(discardedTreatedUrl);
+    }
+
+    if (!knownPanoramaId && !pendingUpload) return;
+    const panoramaIdPendente = knownPanoramaId
+      ? Promise.resolve(knownPanoramaId)
+      : pendingUpload!.then((uploaded) => uploaded?.panoramaId ?? null).catch(() => null);
+
+    if (this.aoAgendarDescarte) {
+      this.aoAgendarDescarte(panoramaIdPendente);
+      return;
+    }
+
+    void (async () => {
+      const panoramaId = await panoramaIdPendente;
+      if (!panoramaId || !this.aoDescartar) return;
+      try {
+        await this.aoDescartar(panoramaId);
+      } catch {
+        // Limpeza best-effort: o rascunho ainda pode ser usado mesmo se a rede
+        // falhar; a rotina de expiração do servidor remove o órfão depois.
+      }
+    })();
+  }
+
+  private showPreviewHint(): void {
+    this.clearPreviewHint();
+    this.previewHintVisible.set(true);
+    this.previewHintTimer = window.setTimeout(() => {
+      this.previewHintTimer = null;
+      this.zone.run(() => this.previewHintVisible.set(false));
+    }, PREVIEW_HINT_MS);
+  }
+
+  private clearPreviewHint(): void {
+    if (this.previewHintTimer !== null) window.clearTimeout(this.previewHintTimer);
+    this.previewHintTimer = null;
+    this.previewHintVisible.set(false);
+  }
+
+  private abortPreviewTreatment(): void {
+    this.previewTreatmentController?.abort();
+    this.previewTreatmentController = null;
   }
 
   retryFromError(): void {
@@ -669,6 +861,11 @@ export class Capture360Component implements OnDestroy {
    * modal fora do wizard.
    */
   private tratarEEntao(costurado: string): void {
+    this.abortPreviewTreatment();
+    const generation = ++this.previewGeneration;
+    this.naoMelhorou.set(false);
+    this.imagemAprimorada.set(false);
+    this.treatedUrl = '';
     const frames: CaptureFrameUpload[] = this.stitchedShots.map((shot, index) => ({
       index,
       blob: shot.frame.blob,
@@ -697,7 +894,9 @@ export class Capture360Component implements OnDestroy {
       geometry: this.geometry,
     }).catch(() => null);
 
-    void this.trocarQuandoChegar();
+    const treatmentController = new AbortController();
+    this.previewTreatmentController = treatmentController;
+    void this.trocarQuandoChegar(generation, treatmentController);
   }
 
   /**
@@ -711,8 +910,15 @@ export class Capture360Component implements OnDestroy {
    * Quem sai antes não perde nada: o cômodo já subiu, o servidor termina
    * sozinho e o card da etapa 1 recebe a foto pelo acompanhamento de fundo.
    */
-  private async trocarQuandoChegar(): Promise<void> {
+  private async trocarQuandoChegar(
+    generation = this.previewGeneration,
+    treatmentController = this.previewTreatmentController ?? new AbortController(),
+  ): Promise<void> {
     const enviado = this.envio ? await this.envio : null;
+    if (this.closing || generation !== this.previewGeneration) {
+      this.finishPreviewTreatment(treatmentController);
+      return;
+    }
 
     // Sem montagem a caminho não há o que esperar: ou o envio falhou, ou o
     // servidor vai dispensar por ter poucas fotos de referência.
@@ -720,24 +926,42 @@ export class Capture360Component implements OnDestroy {
       this.zone.run(() => {
         this.tratando.set(false);
         this.naoMelhorou.set(true);
+        this.imagemAprimorada.set(false);
       });
+      this.finishPreviewTreatment(treatmentController);
       return;
     }
 
-    const url = await this.aoTratar(enviado.panoramaId).catch(() => null);
+    const url = await this.aoTratar(enviado.panoramaId, treatmentController.signal).catch(
+      () => null,
+    );
+    if (this.closing || generation !== this.previewGeneration) {
+      if (url?.startsWith('blob:')) URL.revokeObjectURL(url);
+      this.finishPreviewTreatment(treatmentController);
+      return;
+    }
 
     this.zone.run(() => {
       this.tratando.set(false);
       this.naoMelhorou.set(!url);
+      this.imagemAprimorada.set(!!url);
       if (!url) return;
       this.treatedUrl = url;
       // O costurado continua guardado em `originalImageData`: é ele que sobe
       // e que alimenta o "ver original" da etapa 2.
       this.mostrarPreview(url);
     });
+    this.finishPreviewTreatment(treatmentController);
+  }
+
+  private finishPreviewTreatment(controller: AbortController): void {
+    if (this.previewTreatmentController === controller) {
+      this.previewTreatmentController = null;
+    }
   }
 
   private mostrarPreview(imageUrl: string): void {
+    const firstPreview = this.state() !== 'preview';
     this.previewPanoramas.set([{
       id: 'capture-preview',
       roomName: '',
@@ -750,6 +974,7 @@ export class Capture360Component implements OnDestroy {
       measurements: [],
     }]);
     this.state.set('preview');
+    if (firstPreview) this.showPreviewHint();
   }
 
   private fail(key: string): void {

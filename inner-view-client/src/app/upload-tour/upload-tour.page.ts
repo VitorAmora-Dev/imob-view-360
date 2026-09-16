@@ -189,16 +189,22 @@ export class UploadTourPage {
     const modal = await this.modalController.create({
       component: Capture360Component,
       cssClass: 'capture-360-modal',
+      canDismiss: async (_data, role) => role === 'confirm' || role === 'cancel',
+      componentProps: {
+        existingRoomNames: this.panoramas.map((panorama) => panorama.roomName),
+      },
     });
     await modal.present();
     const { role, data } = await modal.onDidDismiss<{
       imageData: string;
       frames: CaptureFrameUpload[];
       geometry: CaptureGeometry | null;
+      room: string;
+      continuar: boolean;
     }>();
     if (role !== 'confirm' || !data?.imageData) return;
 
-    const roomName = await this.promptRoomName();
+    const roomName = data.room?.trim();
     if (!roomName) return;
 
     this.panoramas.push({
@@ -208,6 +214,8 @@ export class UploadTourPage {
       frames: data.frames,
       geometry: data.geometry,
     });
+
+    if (data.continuar) void this.openCapture();
   }
 
   async onFileSelected(event: Event) {

@@ -839,13 +839,17 @@ export class TourDraftStore {
    * Devolve `null` em falha, dispensa e estouro — quem chama já tem o
    * costurado e segue com ele.
    */
-  async fotoTratada(panoramaId: string): Promise<string | null> {
+  async fotoTratada(
+    panoramaId: string,
+    sinalExterno?: AbortSignal,
+  ): Promise<string | null> {
     const tourId = this.rascunhoTourId();
-    if (!tourId) return null;
+    if (!tourId || sinalExterno?.aborted) return null;
 
     const controle = new AbortController();
     const encerrar = () => controle.abort();
     this.abortar.signal.addEventListener('abort', encerrar, { once: true });
+    sinalExterno?.addEventListener('abort', encerrar, { once: true });
 
     let pronto = false;
     try {
@@ -865,9 +869,10 @@ export class TourDraftStore {
       return null;
     } finally {
       this.abortar.signal.removeEventListener('abort', encerrar);
+      sinalExterno?.removeEventListener('abort', encerrar);
     }
 
-    if (!pronto) return null;
+    if (!pronto || sinalExterno?.aborted) return null;
     try {
       const blob = await firstValueFrom(
         this.virtualTourService.baixarPreview(panoramaId, 'treated'),
@@ -923,6 +928,70 @@ export class TourDraftStore {
     this.patchScene(id, (s) => ({ ...s, room }));
   }
 
+  /** Remove uma captura que subiu durante o preview, antes de virar cena. */
+  async descartarCaptura(panoramaId: string): Promise<void> {
+    this.panoramasParaApagar.update((ids) =>
+      ids.includes(panoramaId) ? ids : [...ids, panoramaId],
+    );
+    await this.apagarPanoramaDescartado(panoramaId);
+  }
+
+  /** Mantém save/publicar cientes de um upload descartado ainda em voo. */
+  agendarDescarteCaptura(panoramaId: Promise<string | null>): void {
+    let tarefa!: Promise<void>;
+    tarefa = panoramaId
+      .then((id) => (id ? this.descartarCaptura(id) : undefined))
+      .finally(() => this.descartesPendentes.delete(tarefa));
+    this.descartesPendentes.add(tarefa);
+    // O chamador não espera (a UI precisa fechar já); a fila guarda a falha e
+    // o próximo salvar faz o retry de forma observável.
+    void tarefa.catch(() => undefined);
+  }
+
+  /**
+   * Uma exclusão por panorama, mesmo quando o autosave chega durante a
+   * requisição iniciada pelo preview. Em falha o id permanece na fila: o
+   * próximo salvamento tenta de novo e a publicação não leva um cômodo que a
+   * pessoa acabou de descartar.
+   */
+  private apagarPanoramaDescartado(panoramaId: string): Promise<void> {
+    const emVoo = this.exclusoesDePanorama.get(panoramaId);
+    if (emVoo) return emVoo;
+
+    const confirmarExclusao = () => {
+      this.panoramasParaApagar.update((ids) =>
+        ids.filter((id) => id !== panoramaId),
+      );
+    };
+    const exclusao = firstValueFrom(
+      this.virtualTourService.deletePanorama(panoramaId),
+    )
+      .then(confirmarExclusao)
+      .catch((error: unknown) => {
+        // DELETE idempotente no cliente: a resposta da primeira tentativa pode
+        // ter se perdido depois de o servidor apagar. Nesse caso o 404 do
+        // retry confirma exatamente o estado desejado.
+        if ((error as HttpErrorResponse | undefined)?.status !== 404) throw error;
+        confirmarExclusao();
+      })
+      .finally(() => this.exclusoesDePanorama.delete(panoramaId));
+    this.exclusoesDePanorama.set(panoramaId, exclusao);
+    return exclusao;
+  }
+
+  private async apagarPanoramasDescartados(): Promise<void> {
+    while (this.descartesPendentes.size) {
+      await Promise.all(
+        [...this.descartesPendentes].map((descarte) =>
+          descarte.catch(() => undefined),
+        ),
+      );
+    }
+    await Promise.all(
+      this.panoramasParaApagar().map((id) => this.apagarPanoramaDescartado(id)),
+    );
+  }
+
   /**
    * Remove um ambiente e limpa o que apontava para ele.
    *
@@ -936,9 +1005,8 @@ export class TourDraftStore {
     // só da tela, e ele reaparecia no tour publicado — com a foto e a montagem
     // por IA que o corretor acabou de descartar.
     //
-    // Best-effort e sem `await`: falhar aqui deixa um cômodo a mais num tour
-    // que ainda nem é público, e prender a remoção da tela numa ida à rede
-    // seria pior. O que sobrar é varrido por `yarn limpar-rascunhos`.
+    // Sem `await`: a remoção da tela é imediata. Se a rede falhar, o id fica na
+    // fila e `salvarRascunho()` tenta novamente antes de permitir publicar.
     const alvo = this.scenes().find((s) => s.id === id);
     // O `blob:` da imagem tratada vive fora do ciclo do Angular: sem revogar,
     // cada cômodo removido deixa alguns MB presos até a aba fechar.
@@ -951,11 +1019,7 @@ export class TourDraftStore {
     if (alvo?.treatedImageUrl) URL.revokeObjectURL(alvo.treatedImageUrl);
 
     const remoto = alvo?.serverPanoramaId;
-    if (remoto) {
-      void firstValueFrom(this.virtualTourService.deletePanorama(remoto)).catch(
-        () => undefined,
-      );
-    }
+    if (remoto) void this.descartarCaptura(remoto).catch(() => undefined);
 
     // Os hotspots que nasceram NESTA cena somem junto com ela, e não pelo
     // filtro comum de `patchScene` — a cena inteira sai da lista. Sem
@@ -1244,6 +1308,11 @@ export class TourDraftStore {
    * consome e esvazia a cada chamada seguinte.
    */
   private readonly hotspotsParaApagar = signal<string[]>([]);
+
+  /** Panoramas já rejeitados na UI cuja exclusão ainda precisa ser confirmada. */
+  private readonly panoramasParaApagar = signal<string[]>([]);
+  private readonly exclusoesDePanorama = new Map<string, Promise<void>>();
+  private readonly descartesPendentes = new Set<Promise<void>>();
 
   /** Id do tour publicado — vira o link de compartilhamento na tela de sucesso. */
   readonly publishedTourId = signal<string | null>(null);
@@ -1716,6 +1785,11 @@ export class TourDraftStore {
     // mandar apagar. Ver `geracao`.
     if (geracao !== this.geracao) return;
 
+    // Vem antes de qualquer reconciliação: publicar enquanto uma exclusão
+    // falhou faria o backend incluir também o panorama que não está em
+    // `scenes()`. A falha fica visível e o retry reutiliza a fila.
+    await this.apagarPanoramasDescartados();
+
     // Sem espera de fila: cada cômodo já subiu e foi tratado dentro do modal
     // de captura, antes mesmo de o corretor dar nome a ele.
     const tourId = await this.garantirRascunho();
@@ -2089,6 +2163,9 @@ export class TourDraftStore {
     // uma confirmacao de um ponto que nao existe mais.
     this.passagemPorConfirmar.set(false);
     this.hotspotsParaApagar.set([]);
+    this.panoramasParaApagar.set([]);
+    this.exclusoesDePanorama.clear();
+    this.descartesPendentes.clear();
     this.miniaturas.set({});
     this.miniaturasQueFalharam.clear();
     // A memória do que já foi gravado morre com o rascunho a que pertencia.
