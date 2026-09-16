@@ -167,7 +167,7 @@ O tratamento corrige paralaxe e degrau de junção nas fotos 360°.
 
 - Modelo: `gpt-image-2.5-sunburst` via `OPENAI_API_KEY`
 - Qualidade: `xhigh`
-- Saída: `2048x1024` (2K equiretangular 2:1)
+- Saída: `3840x1920` (equiretangular 2:1)
 - Custo: ~US$ 0,19 por panorama
 - Sem API key: etapa é `SKIPPED`
 
