@@ -71,16 +71,16 @@ export interface ImageEditProvider {
 }
 
 /* -------------------------------------------------------------------------- */
-/* GPT Image 2                                                                 */
+/* GPT Image 2.5 Sunburst                                                      */
 /* -------------------------------------------------------------------------- */
 
 /** Estimativa pública por imagem; conferir contra a fatura antes de projetar custo. */
-const CUSTO_GPT_IMAGE_2 = 0.19;
+const CUSTO_GPT_IMAGE_2_5 = 0.19;
 
 export class OpenAIImageProvider implements ImageEditProvider {
-  readonly nome = 'gpt-image-2';
-  readonly modelo = 'gpt-image-2';
-  readonly custoPorImagemUSD = CUSTO_GPT_IMAGE_2;
+  readonly nome = 'gpt-image-2.5-sunburst';
+  readonly modelo = 'gpt-image-2.5-sunburst';
+  readonly custoPorImagemUSD = CUSTO_GPT_IMAGE_2_5;
 
   private cliente: OpenAI | null = null;
 
@@ -92,19 +92,23 @@ export class OpenAIImageProvider implements ImageEditProvider {
     this.cliente ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const face = await rasterParaPng(pedido.face);
-    const mascara = await rasterParaPng(mascaraParaAlfaEditavel(pedido.cobertura));
-    const referencias = await Promise.all((pedido.referencias ?? []).map(rasterParaPng));
+    const mascara = await rasterParaPng(
+      mascaraParaAlfaEditavel(pedido.cobertura),
+    );
+    const referencias = await Promise.all(
+      (pedido.referencias ?? []).map(rasterParaPng),
+    );
 
     const lado = alinharAoLimite(pedido.face.width);
 
     const inicio = Date.now();
-    // Nada de `input_fidelity`: o gpt-image-2 removeu o parâmetro e a requisição
-    // falha se ele for enviado — o modelo já processa a entrada em alta fidelidade.
     const resposta = await this.cliente.images.edit({
       model: this.modelo,
       image: [
         await paraArquivo(face, 'face.png'),
-        ...(await Promise.all(referencias.map((r, i) => paraArquivo(r, `ref-${i}.png`)))),
+        ...(await Promise.all(
+          referencias.map((r, i) => paraArquivo(r, `ref-${i}.png`)),
+        )),
       ],
       mask: await paraArquivo(mascara, 'mascara.png'),
       prompt: pedido.prompt,
@@ -113,14 +117,14 @@ export class OpenAIImageProvider implements ImageEditProvider {
     const ms = Date.now() - inicio;
 
     const b64 = resposta?.data?.[0]?.b64_json;
-    if (!b64) throw new Error('GPT Image 2 não devolveu imagem.');
+    if (!b64) throw new Error('GPT Image 2.5 Sunburst não devolveu imagem.');
 
     return montarResultado(
       pedido,
       await pngParaRaster(Buffer.from(b64, 'base64')),
       this.modelo,
       ms,
-      CUSTO_GPT_IMAGE_2,
+      CUSTO_GPT_IMAGE_2_5,
     );
   }
 }
@@ -130,7 +134,7 @@ function paraArquivo(buffer: Buffer, nome: string) {
 }
 
 /**
- * O gpt-image-2 exige lados múltiplos de 16, com o maior lado até 3840 e o total
+ * O GPT Image 2.5 exige lados múltiplos de 16, com o maior lado até 3840 e o total
  * entre 655.360 e 8.294.400 pixels. Para uma face quadrada quem manda é o total,
  * não o lado: 3840² seriam 14,7 MP e a requisição falharia. O teto real aqui é
  * √8.294.400 = 2880, que já é múltiplo de 16.
@@ -150,12 +154,16 @@ export function alinharAoLimite(lado: number): number {
  * função — e não a boa vontade do provedor — que garante que nenhum móvel,
  * acabamento ou textura fotografada seja reescrito.
  *
- * O alfa do gerado é a terceira condição, e não é detalhe: o gpt-image-2 devolve
+ * O alfa do gerado é a terceira condição, e não é detalhe: o modelo pode devolver
  * a região preservada TRANSPARENTE em vez de repetir a original. Sem esta
  * checagem, "transparente" entraria como preto e a face voltaria com lascas
  * pretas na borda do buraco — foi exatamente o que apareceu na primeira rodada.
  */
-export function recomporPelaCobertura(original: Raster, gerado: Raster, cobertura: Raster): Raster {
+export function recomporPelaCobertura(
+  original: Raster,
+  gerado: Raster,
+  cobertura: Raster,
+): Raster {
   const data = new Uint8ClampedArray(original.data);
 
   for (let i = 0; i < data.length; i += 4) {
@@ -193,11 +201,15 @@ export function diferencaMedia(a: Raster, b: Raster): number {
  * ele repintou a face inteira e só a recomposição salvou o resultado.
  *
  * Pixel transparente na saída não conta. Devolver a região preservada como
- * transparente é como o gpt-image-2 diz "não mexi aqui" — tratar isso como preto
+ * transparente é como o modelo diz "não mexi aqui" — tratar isso como preto
  * marcaria 186 de 255 de deriva num modelo que na verdade obedeceu, que foi a
  * leitura errada da primeira rodada.
  */
-export function derivaForaDaMascara(original: Raster, gerado: Raster, cobertura: Raster): number {
+export function derivaForaDaMascara(
+  original: Raster,
+  gerado: Raster,
+  cobertura: Raster,
+): number {
   let soma = 0;
   let n = 0;
 
@@ -223,7 +235,10 @@ export function derivaForaDaMascara(original: Raster, gerado: Raster, cobertura:
  * "preencheu" de "casou" — e não tem como ser julgado pelo contact sheet, onde a
  * costura fica pequena demais para o olho.
  */
-export function descontinuidadeNaBorda(face: Raster, cobertura: Raster): number {
+export function descontinuidadeNaBorda(
+  face: Raster,
+  cobertura: Raster,
+): number {
   const { width, height } = face;
   let soma = 0;
   let n = 0;
@@ -269,7 +284,8 @@ async function montarResultado(
   // Os modelos não garantem devolver exatamente o lado pedido; sem reamostrar
   // de volta, a recomposição compararia pixels de grades diferentes.
   const cru =
-    cruBruto.width === pedido.face.width && cruBruto.height === pedido.face.height
+    cruBruto.width === pedido.face.width &&
+    cruBruto.height === pedido.face.height
       ? cruBruto
       : await redimensionar(cruBruto, pedido.face.width, pedido.face.height);
 
@@ -286,7 +302,11 @@ async function montarResultado(
         ? recomporComPena(pedido.face, casado, fiel, pena)
         : recomporPelaCobertura(pedido.face, casado, fiel),
     cru,
-    derivaForaDaMascara: derivaForaDaMascara(pedido.face, cru, pedido.cobertura),
+    derivaForaDaMascara: derivaForaDaMascara(
+      pedido.face,
+      cru,
+      pedido.cobertura,
+    ),
     modelo,
     ms,
     custoUSD,

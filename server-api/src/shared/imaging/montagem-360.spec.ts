@@ -3,12 +3,17 @@ import {
   CUSTO_POR_PANORAMA,
   LARGURA_MODELO,
   MAXIMO_DE_FOTOS,
+  MODELO,
   amostrarAnel,
   custoDaFalha,
   promptDeMontagem,
 } from './montagem-360';
 
 describe('montagem-360', () => {
+  it('usa o GPT Image 2.5 Sunburst para tratamento de panoramas', () => {
+    expect(MODELO).toBe('gpt-image-2.5-sunburst');
+  });
+
   describe('amostrarAnel', () => {
     it('devolve tudo quando cabe', () => {
       const fotos = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -42,7 +47,9 @@ describe('montagem-360', () => {
 
       // A última escolhida precisa estar perto do fim do anel, não a três
       // quartos dele.
-      expect(escolhidas[escolhidas.length - 1]).toBeGreaterThanOrEqual(fotos.length - 2);
+      expect(escolhidas[escolhidas.length - 1]).toBeGreaterThanOrEqual(
+        fotos.length - 2,
+      );
 
       // E nenhum vão pode passar de duas fotos originais, senão a faixa
       // anunciada e a fotografada se descolam.
@@ -79,7 +86,7 @@ describe('montagem-360', () => {
      * O prompt afirma as dimensões em três lugares e a requisição manda `size`
      * separado. Se os dois se descolarem, o modelo recebe uma ordem que a API
      * não deixa cumprir — e 8192×4096, que chegou a ser pedido, está quatro
-     * vezes acima do teto de pixels do gpt-image-2.
+     * vezes acima do teto de pixels do GPT Image 2.5.
      */
     it('afirma exatamente o tamanho que a requisição pede', () => {
       const p = promptDeMontagem(8);
@@ -106,7 +113,9 @@ describe('montagem-360', () => {
 
     it('é zero quando a chamada nem chegou a sair', () => {
       // Falha de `sharp` antes da API: nunca recebe anotação.
-      expect(custoDaFalha(new Error('Panorama sem dimensões legíveis.'))).toBe(0);
+      expect(custoDaFalha(new Error('Panorama sem dimensões legíveis.'))).toBe(
+        0,
+      );
     });
 
     it('é zero para erro anotado como recusa antes da geração', () => {
@@ -116,7 +125,9 @@ describe('montagem-360', () => {
     });
 
     it('cobra quando a falha veio depois de a imagem ter sido gerada', () => {
-      expect(custoDaFalha(comCusto(new Error('500 internal error')))).toBe(CUSTO_POR_PANORAMA);
+      expect(custoDaFalha(comCusto(new Error('500 internal error')))).toBe(
+        CUSTO_POR_PANORAMA,
+      );
     });
 
     it('não quebra com erro que não é objeto', () => {

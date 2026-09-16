@@ -20,7 +20,7 @@ import OpenAI, { toFile } from 'openai';
  */
 
 /**
- * Teto real para uma imagem 2:1 no gpt-image-2.
+ * Teto real para uma imagem 2:1 no GPT Image 2.5 Sunburst.
  *
  * A documentação do SDK diz: lados divisíveis por 16, proporção entre 1:3 e 3:1,
  * e resolução máxima de 3840×2160. Para 2:1 o que morde antes é o total de
@@ -37,7 +37,7 @@ export const ALTURA_MODELO = 1920;
 /** Estimativa pública por imagem; conferir contra a fatura antes de projetar custo. */
 export const CUSTO_POR_PANORAMA = 0.19;
 
-export const MODELO = 'gpt-image-2';
+export const MODELO = 'gpt-image-2.5-sunburst';
 
 /**
  * Fotos de referência por requisição. A API aceita 16 imagens e uma delas é o
@@ -62,7 +62,10 @@ export function amostrarAnel<T>(fotos: T[], maximo = MAXIMO_DE_FOTOS): T[] {
 
   const escolhidas: T[] = [];
   for (let k = 0; k < maximo; k++) {
-    const i = Math.min(fotos.length - 1, Math.round((k * fotos.length) / maximo));
+    const i = Math.min(
+      fotos.length - 1,
+      Math.round((k * fotos.length) / maximo),
+    );
     escolhidas.push(fotos[i]);
   }
   return escolhidas;
@@ -306,16 +309,26 @@ Do not include comments, captions, explanations, labels, comparison images, befo
  * Uma chamada por panorama. A API aceita 16 imagens por requisição, o que cobre
  * o equirect mais até 15 fotos — o teto das capturas atuais.
  */
-export async function montarPanorama(pedido: PedidoMontagem): Promise<ResultadoMontagem> {
-  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY não configurada.');
+export async function montarPanorama(
+  pedido: PedidoMontagem,
+): Promise<ResultadoMontagem> {
+  if (!process.env.OPENAI_API_KEY)
+    throw new Error('OPENAI_API_KEY não configurada.');
 
   // `maxRetries: 0` é deliberado — ver TENTATIVAS_EXTRAS.
-  const cliente = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 0 });
+  const cliente = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    maxRetries: 0,
+  });
 
   const imagens = [
     await toFile(pedido.panorama, 'panorama.png', { type: 'image/png' }),
     ...(await Promise.all(
-      pedido.fotos.map((f, i) => toFile(f, `foto-${String(i + 1).padStart(2, '0')}.png`, { type: 'image/png' })),
+      pedido.fotos.map((f, i) =>
+        toFile(f, `foto-${String(i + 1).padStart(2, '0')}.png`, {
+          type: 'image/png',
+        }),
+      ),
     )),
   ];
 
@@ -330,19 +343,10 @@ export async function montarPanorama(pedido: PedidoMontagem): Promise<ResultadoM
         image: imagens,
         prompt: promptDeMontagem(pedido.fotos.length),
         size: `${LARGURA_MODELO}x${ALTURA_MODELO}`,
-        // SEM `input_fidelity`. O tipo do SDK diz que o parâmetro vale para
-        // "gpt-image-1, gpt-image-1.5 and later models", e o gpt-image-2 é
-        // posterior — mas a API ao vivo responde:
-        //
-        //   400 The model 'gpt-image-2' does not support the
-        //   'input_fidelity' parameter.
-        //
-        // Medido em 13/08/2026. A documentação do .d.ts está adiantada em
-        // relação ao que o modelo aceita; quem manda é a resposta da API.
-        // Recusa é 400 na validação, antes de gerar, então testar não custou.
       } as never);
 
-      const b64 = (resposta as { data?: Array<{ b64_json?: string }> })?.data?.[0]?.b64_json;
+      const b64 = (resposta as { data?: Array<{ b64_json?: string }> })
+        ?.data?.[0]?.b64_json;
       if (!b64) throw new Error('A OpenAI não devolveu imagem.');
 
       return {
@@ -354,7 +358,8 @@ export async function montarPanorama(pedido: PedidoMontagem): Promise<ResultadoM
         uso: extrairUso(resposta),
       };
     } catch (erro) {
-      if (extra >= TENTATIVAS_EXTRAS || !ehLimiteDeTaxa(erro)) throw anotarCusto(erro);
+      if (extra >= TENTATIVAS_EXTRAS || !ehLimiteDeTaxa(erro))
+        throw anotarCusto(erro);
       tentativas--; // não gerou, não custou
       await new Promise((r) => setTimeout(r, ESPERA_APOS_429_MS * (extra + 1)));
     }
@@ -387,10 +392,13 @@ function ehLimiteDeTaxa(erro: unknown): boolean {
  */
 function anotarCusto(erro: unknown): unknown {
   const status = (erro as { status?: number })?.status;
-  const semGeracao = typeof status === 'number' && status >= 400 && status < 500;
+  const semGeracao =
+    typeof status === 'number' && status >= 400 && status < 500;
 
   if (erro instanceof Error || (typeof erro === 'object' && erro !== null)) {
-    (erro as { custoUSD?: number }).custoUSD = semGeracao ? 0 : CUSTO_POR_PANORAMA;
+    (erro as { custoUSD?: number }).custoUSD = semGeracao
+      ? 0
+      : CUSTO_POR_PANORAMA;
   }
   return erro;
 }

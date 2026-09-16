@@ -5,9 +5,14 @@ import {
   descontinuidadeNaBorda,
   diferencaMedia,
   recomporPelaCobertura,
+  OpenAIImageProvider,
 } from './providers';
 
-function raster(width: number, height: number, valor: (x: number, y: number) => number): Raster {
+function raster(
+  width: number,
+  height: number,
+  valor: (x: number, y: number) => number,
+): Raster {
   const data = new Uint8ClampedArray(width * height * 4);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -23,12 +28,23 @@ function raster(width: number, height: number, valor: (x: number, y: number) => 
 const cobertura = raster(8, 8, (_x, y) => (y < 4 ? 255 : 0));
 
 describe('providers', () => {
+  it('mantém o provedor auxiliar no GPT Image 2.5 Sunburst', () => {
+    const provider = new OpenAIImageProvider();
+
+    expect(provider.nome).toBe('gpt-image-2.5-sunburst');
+    expect(provider.modelo).toBe('gpt-image-2.5-sunburst');
+  });
+
   describe('recomporPelaCobertura', () => {
     it('mantém a fotografia mesmo quando o modelo repinta a face inteira', () => {
       const original = raster(8, 8, () => 100);
       const modeloDesobediente = raster(8, 8, () => 7);
 
-      const final = recomporPelaCobertura(original, modeloDesobediente, cobertura);
+      const final = recomporPelaCobertura(
+        original,
+        modeloDesobediente,
+        cobertura,
+      );
 
       for (let y = 0; y < 8; y++) {
         for (let x = 0; x < 8; x++) {
@@ -41,13 +57,17 @@ describe('providers', () => {
 
     it('não devolve o buffer de entrada', () => {
       const original = raster(4, 4, () => 10);
-      const final = recomporPelaCobertura(original, raster(4, 4, () => 20), raster(4, 4, () => 255));
+      const final = recomporPelaCobertura(
+        original,
+        raster(4, 4, () => 20),
+        raster(4, 4, () => 255),
+      );
       expect(final.data).not.toBe(original.data);
       expect(final.data[0]).toBe(10);
     });
 
     it('mantém o original onde o modelo devolveu transparente', () => {
-      // É assim que o gpt-image-2 diz "não mexi aqui". Copiar esse pixel daria
+      // É assim que o modelo diz "não mexi aqui". Copiar esse pixel daria
       // preto — foi o que produziu as lascas pretas na borda do buraco.
       const original = raster(8, 8, () => 100);
       const gerado = raster(8, 8, () => 0);
@@ -55,7 +75,8 @@ describe('providers', () => {
 
       const final = recomporPelaCobertura(original, gerado, cobertura);
 
-      for (let i = 0; i < final.data.length; i += 4) expect(final.data[i]).toBe(100);
+      for (let i = 0; i < final.data.length; i += 4)
+        expect(final.data[i]).toBe(100);
     });
 
     it('opaca o que gerou, para o buraco nunca sair transparente', () => {
@@ -63,9 +84,14 @@ describe('providers', () => {
       const gerado = raster(4, 4, () => 20);
       for (let i = 3; i < gerado.data.length; i += 4) gerado.data[i] = 0;
 
-      const final = recomporPelaCobertura(original, gerado, raster(4, 4, () => 0));
+      const final = recomporPelaCobertura(
+        original,
+        gerado,
+        raster(4, 4, () => 0),
+      );
 
-      for (let i = 3; i < final.data.length; i += 4) expect(final.data[i]).toBe(255);
+      for (let i = 3; i < final.data.length; i += 4)
+        expect(final.data[i]).toBe(255);
     });
   });
 
@@ -82,16 +108,25 @@ describe('providers', () => {
       // Erra 30 em cima (fotografia) e 200 embaixo (buraco, que não conta).
       const gerado = raster(8, 8, (_x, y) => (y < 4 ? 130 : 255));
 
-      expect(derivaForaDaMascara(original, gerado, cobertura)).toBeCloseTo(30, 6);
+      expect(derivaForaDaMascara(original, gerado, cobertura)).toBeCloseTo(
+        30,
+        6,
+      );
     });
 
     it('é zero quando não sobra nada fotografado para comparar', () => {
       const tudoBuraco = raster(4, 4, () => 0);
-      expect(derivaForaDaMascara(raster(4, 4, () => 1), raster(4, 4, () => 250), tudoBuraco)).toBe(0);
+      expect(
+        derivaForaDaMascara(
+          raster(4, 4, () => 1),
+          raster(4, 4, () => 250),
+          tudoBuraco,
+        ),
+      ).toBe(0);
     });
 
     it('não acusa deriva quando o modelo devolveu transparente', () => {
-      // O caso do gpt-image-2: região preservada volta transparente. Ler isso
+      // Região preservada pode voltar transparente. Ler isso
       // como preto marcaria 100 de deriva num modelo que obedeceu.
       const original = raster(8, 8, () => 100);
       const gerado = raster(8, 8, () => 0);
@@ -103,8 +138,18 @@ describe('providers', () => {
 
   describe('diferencaMedia', () => {
     it('mede a imagem inteira, que é o que interessa numa edição global', () => {
-      expect(diferencaMedia(raster(4, 4, () => 100), raster(4, 4, () => 130))).toBeCloseTo(30, 6);
-      expect(diferencaMedia(raster(4, 4, () => 100), raster(4, 4, () => 100))).toBe(0);
+      expect(
+        diferencaMedia(
+          raster(4, 4, () => 100),
+          raster(4, 4, () => 130),
+        ),
+      ).toBeCloseTo(30, 6);
+      expect(
+        diferencaMedia(
+          raster(4, 4, () => 100),
+          raster(4, 4, () => 100),
+        ),
+      ).toBe(0);
     });
   });
 
@@ -129,12 +174,17 @@ describe('providers', () => {
 
     it('é zero quando não existe fronteira', () => {
       const tudoFoto = raster(8, 8, () => 255);
-      expect(descontinuidadeNaBorda(raster(8, 8, (x) => x * 30), tudoFoto)).toBe(0);
+      expect(
+        descontinuidadeNaBorda(
+          raster(8, 8, (x) => x * 30),
+          tudoFoto,
+        ),
+      ).toBe(0);
     });
   });
 
   describe('alinharAoLimite', () => {
-    it('arredonda para múltiplo de 16, que é o que o gpt-image-2 aceita', () => {
+    it('arredonda para múltiplo de 16, que é o que o GPT Image 2.5 aceita', () => {
       expect(alinharAoLimite(1280) % 16).toBe(0);
       expect(alinharAoLimite(1280)).toBe(1280);
       expect(alinharAoLimite(1290) % 16).toBe(0);
