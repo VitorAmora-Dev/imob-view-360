@@ -87,148 +87,133 @@
       </div>
     }
 
-    <!--
-      A espera da montagem por IA. Vem DEPOIS da costura e ANTES do preview,
-      porque é o que faz o corretor ver a foto já tratada no momento em que ele
-      mais olha para o resultado — logo depois de girar 360° com o celular.
-    -->
     @case ('preview') {
-      <!--
-        A espera terminou sem melhora. Dizer isso é o mínimo: ele acabou de
-        aguardar por algo, e uma tela que volta calada não deixa distinguir
-        "a IA não conseguiu" de "a IA nem tentou".
-      -->
-      @if (naoMelhorou()) {
-        <p class="capture-aviso" role="status">{{ 'CAPTURE.NAO_MELHOROU' | translate }}</p>
-      }
       <div class="result-viewer">
         <app-panoramic-viewer [panoramas]="previewPanoramas()"></app-panoramic-viewer>
-
-        <!--
-          O selo é o que separa "este é o seu resultado" de "ainda vem coisa
-          melhor". Sem ele, o panorama costurado se lê como final, e foi por
-          isso que a primeira tentativa de tratar em segundo plano foi
-          revertida.
-        -->
-        @if (tratando()) {
-          <p class="capture-selo" role="status">
-            {{ 'CAPTURE.TRATANDO_SELO' | translate }}
-          </p>
-        }
       </div>
-      <div class="top-bar">
-        <button type="button" class="circle-control circle-control--overlay" (click)="cancel()"
+      <div class="top-bar top-bar--preview">
+        <button
+          type="button"
+          class="circle-control circle-control--overlay"
+          [disabled]="confirmando() !== null"
+          (click)="requestPreviewCancel()"
           [attr.aria-label]="'CAPTURE.CANCEL' | translate">
           <ion-icon name="close-outline"></ion-icon>
         </button>
-        <span class="count-chip">{{ 'CAPTURE.PREVIEW_TITLE' | translate }}</span>
-        <span class="top-bar-spacer"></span>
+        <h2 class="preview-title">{{ 'CAPTURE.PREVIEW_TITLE' | translate }}</h2>
+        <button
+          type="button"
+          class="preview-retake"
+          [disabled]="confirmando() !== null"
+          (click)="requestPreviewRetake()"
+          [attr.aria-label]="'CAPTURE.RETAKE_CAPTURE' | translate">
+          <ion-icon name="refresh-outline" aria-hidden="true"></ion-icon>
+          <span>{{ 'CAPTURE.RETAKE' | translate }}</span>
+        </button>
       </div>
-      <!--
-        Nomear o ambiente AQUI, e não depois na lista de cards.
+      @if (previewHintVisible()) {
+        <p class="preview-gesture-hint">{{ 'CAPTURE.PREVIEW_HINT' | translate }}</p>
+      }
+      <section class="result-bottom" [attr.aria-label]="'CAPTURE.PREVIEW_OPTIONS' | translate">
+        @if (tratando()) {
+          <p class="capture-ai-status" role="status" aria-live="polite" aria-atomic="true">
+            <ion-spinner name="crescent" aria-hidden="true"></ion-spinner>
+            <span>{{ 'CAPTURE.AI_PROCESSING' | translate }}</span>
+          </p>
+        } @else if (imagemAprimorada()) {
+          <p class="capture-ai-status capture-ai-status--done" role="status" aria-live="polite" aria-atomic="true">
+            <ion-icon name="checkmark-circle" aria-hidden="true"></ion-icon>
+            <span>{{ 'CAPTURE.AI_DONE' | translate }}</span>
+          </p>
+        } @else if (naoMelhorou()) {
+          <p class="capture-ai-status" role="status" aria-live="polite" aria-atomic="true">
+            <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+            <span>{{ 'CAPTURE.AI_FAILED' | translate }}</span>
+          </p>
+        }
 
-        Nomear funciona onde está a evidência, e na captura a evidência é a
-        pessoa estar de pé dentro do cômodo — verdade neste instante e nunca
-        mais com a mesma força. Dez minutos depois são oito miniaturas de parede
-        branca e um esforço de memória para separar o quarto do escritório.
+        <fieldset class="result-name">
+          <legend class="result-name__question">
+            <span>{{ 'CAPTURE.ROOM_QUESTION' | translate }}</span>
+            <span class="result-name__required">{{ 'CAPTURE.REQUIRED' | translate }}</span>
+          </legend>
 
-        No preview e não num modal depois do "Usar": esta tela já é a
-        confirmação, com o panorama à vista. Um diálogo a mais custaria uma tela
-        e um fechamento pelo mesmo campo.
-
-        Sem foco automático de propósito: o teclado subiria cobrindo justamente
-        o panorama que a pessoa veio conferir, que é o propósito declarado da
-        tela.
-
-        E sem obrigar: a etapa 1 já segura quem não nomear. Aqui é oportunidade,
-        não cobrança — exigir formulário de quem acabou de girar um minuto com o
-        telefone na mão é o pior momento possível para cobrar.
-      -->
-      <div class="result-bottom">
-        <div class="result-name">
-          <label class="tw-visually-hidden" for="captura-nome">
-            {{ 'CAPTURE.ROOM_LABEL' | translate }}
-          </label>
-          <input
-            id="captura-nome"
-            type="text"
-            class="result-name__input"
-            [value]="roomName()"
-            [placeholder]="'CAPTURE.ROOM_PLACEHOLDER' | translate"
-            (input)="onRoomName($event)" />
-
-          <!--
-            Sugestões em chip porque a fricção real é digitar em pé segurando o
-            telefone. Um toque resolve o caso comum, e o campo livre continua ali
-            para "Escritório do fundo".
-          -->
           <ul class="result-name__chips">
-            @for (sugestao of roomSuggestions(); track sugestao) {
+            @for (sugestao of roomSuggestions; track sugestao.id) {
               <li>
                 <button
                   type="button"
                   class="result-name__chip"
-                  [class.is-active]="roomName() === sugestao"
-                  [attr.aria-pressed]="roomName() === sugestao"
+                  [class.is-active]="selectedRoomSuggestion() === sugestao.id"
+                  [attr.aria-pressed]="selectedRoomSuggestion() === sugestao.id"
                   (click)="pickRoom(sugestao)">
-                  {{ sugestao }}
+                  {{ sugestao.labelKey | translate }}
                 </button>
               </li>
             }
+            <li>
+              <button
+                type="button"
+                class="result-name__chip"
+                [class.is-active]="customRoom()"
+                [attr.aria-pressed]="customRoom()"
+                (click)="chooseCustomRoom()">
+                {{ 'CAPTURE.ROOM_OTHER' | translate }}
+              </button>
+            </li>
           </ul>
-        </div>
+
+          @if (customRoom()) {
+            <label class="tw-visually-hidden" for="captura-nome">
+              {{ 'CAPTURE.ROOM_CUSTOM_LABEL' | translate }}
+            </label>
+            <input
+              #customRoomInput
+              id="captura-nome"
+              type="text"
+              class="result-name__input"
+              aria-required="true"
+              [value]="roomName()"
+              [placeholder]="'CAPTURE.ROOM_CUSTOM_PLACEHOLDER' | translate"
+              (input)="onRoomName($event)" />
+          }
+        </fieldset>
 
         <div class="result-actions">
-          <!--
-            Vem ANTES dos botões no DOM: quem usa leitor de tela encontra a
-            tranquilizacão antes do botão que ela explica, e não depois.
-          -->
-          @if (tratando()) {
-            <p class="result-actions__nota">{{ 'CAPTURE.PODE_CONTINUAR' | translate }}</p>
-          }
-          <!--
-            Os três ficam desabilitados durante a confirmação, e só o apertado
-            gira. O envio leva dezenas de segundos — oito frames, um a um — e
-            sem isto o toque sumia calado: a pessoa apertava e a tela não
-            mudava nada, o que se lê como botão quebrado, não como espera.
-          -->
           <ion-button
-            fill="outline"
-            class="on-dark"
-            [disabled]="confirmando() !== null"
-            (click)="restart()">
-            {{ 'CAPTURE.RETAKE' | translate }}
-          </ion-button>
-          <ion-button
-            fill="outline"
-            class="on-dark"
-            [disabled]="confirmando() !== null"
-            [attr.aria-busy]="confirmando() === 'usar' ? 'true' : null"
-            (click)="usePanorama()">
-            @if (confirmando() === 'usar') {
-              <ion-spinner name="crescent"></ion-spinner>
-            } @else {
-              {{ 'CAPTURE.USE' | translate }}
-            }
-          </ion-button>
-          <!--
-            O caminho esperado de quem ainda está no imóvel, e por isso o cheio.
-            Confirma este cômodo e já abre a câmera no próximo — o tratamento
-            deste segue sozinho no servidor.
-          -->
-          <ion-button
-            class="result-actions__continuar"
-            [disabled]="confirmando() !== null"
+            expand="block"
+            class="result-actions__continue"
+            [disabled]="confirmando() !== null || !hasRoomName()"
+            [attr.aria-label]="'CAPTURE.SAVE_AND_CAPTURE_ANOTHER' | translate"
             [attr.aria-busy]="confirmando() === 'continuar' ? 'true' : null"
             (click)="usePanorama(true)">
             @if (confirmando() === 'continuar') {
-              <ion-spinner name="crescent"></ion-spinner>
+              <ion-spinner name="crescent" aria-hidden="true"></ion-spinner>
             } @else {
-              {{ 'CAPTURE.PROXIMO_COMODO' | translate }}
+              {{ 'CAPTURE.SAVE_AND_CAPTURE_ANOTHER' | translate }}
+            }
+          </ion-button>
+          <ion-button
+            expand="block"
+            fill="clear"
+            class="result-actions__finish on-dark"
+            [disabled]="confirmando() !== null || !hasRoomName()"
+            [attr.aria-label]="'CAPTURE.SAVE_AND_FINISH' | translate"
+            [attr.aria-busy]="confirmando() === 'concluir' ? 'true' : null"
+            (click)="usePanorama()">
+            @if (confirmando() === 'concluir') {
+              <ion-spinner name="crescent" aria-hidden="true"></ion-spinner>
+            } @else {
+              {{ 'CAPTURE.SAVE_AND_FINISH' | translate }}
             }
           </ion-button>
         </div>
-      </div>
+      </section>
+
+      <app-tw-wizard-dialog
+        [pergunta]="discardQuestion()"
+        (escolheu)="resolveDiscardQuestion($event)"
+        (dispensou)="dismissDiscardQuestion()" />
     }
 
     @case ('error') {

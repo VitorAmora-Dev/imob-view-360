@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ModalController } from '@ionic/angular/standalone';
-import { provideTranslateService } from '@ngx-translate/core';
+import { provideTranslateService, TranslateService } from '@ngx-translate/core';
 import { Capture360Component, EnvioDaCaptura } from './capture-360.component';
 
 /**
@@ -32,6 +32,15 @@ describe('Capture360Component — a confirmação', () => {
 
     fixture = TestBed.createComponent(Capture360Component);
     componente = fixture.componentInstance;
+
+    TestBed.inject(TranslateService).setTranslation('pt', {
+      CAPTURE: {
+        ROOM_LIVING: 'Sala',
+        ROOM_KITCHEN: 'Cozinha',
+        ROOM_BEDROOM: 'Quarto',
+        ROOM_BATHROOM: 'Banheiro',
+      },
+    }, true);
   });
 
   /**
@@ -42,6 +51,7 @@ describe('Capture360Component — a confirmação', () => {
   function comCosturaPronta(envio: Promise<EnvioDaCaptura | null> | null): void {
     componente['originalImageData'] = 'data:image/jpeg;base64,x';
     componente['envio'] = envio;
+    componente.roomName.set('Sala');
     componente.state.set('preview');
   }
 
@@ -125,14 +135,14 @@ describe('Capture360Component — a confirmação', () => {
   });
 
   /**
-   * O ciclo do selo, que na primeira versão desta entrega não tinha fim.
+   * O ciclo do tratamento, que na primeira versão desta entrega não tinha fim.
    *
    * Ele acendia e NUNCA apagava: "Melhorando com IA…" ficava pulsando sobre o
    * preview para sempre, e a foto tratada nunca chegava a trocar a costurada —
    * a promessa que justifica a entrega inteira não se cumpria. Foi assim que o
    * modal chegou a produção, e foi visto na tela, não em teste.
    */
-  describe('o selo tem fim', () => {
+  describe('o tratamento assíncrono tem fim', () => {
     /**
      * Roda o caminho que `tratarEEntao` dispara depois da costura, sem passar
      * pela câmera nem pela costura de verdade.
@@ -145,6 +155,7 @@ describe('Capture360Component — a confirmação', () => {
       componente['envio'] = Promise.resolve(envio);
       componente.aoTratar = () => Promise.resolve(tratada);
       componente.tratando.set(true);
+      componente.roomName.set('Sala');
       componente.state.set('preview');
 
       await componente['trocarQuandoChegar']();
@@ -155,10 +166,10 @@ describe('Capture360Component — a confirmação', () => {
      *
      * Os casos abaixo provam que `trocarQuandoChegar` funciona. Nenhum deles
      * provava que ALGUÉM a chama — e era exatamente esse o defeito que chegou
-     * a produção: o selo acendia em `tratarEEntao` e nada agendava o fim dele.
+     * a produção: o status acendia em `tratarEEntao` e nada agendava o fim dele.
      * Chamar o privado direto pula a única linha que faltava.
      */
-    it('a costura pronta agenda o fim do selo, sem ninguém pedir', async () => {
+    it('a costura pronta agenda o fim do tratamento, sem ninguém pedir', async () => {
       componente.enviar = () =>
         Promise.resolve({ panoramaId: 'p1', tratamentoPedido: true });
       componente.aoTratar = () => Promise.resolve('blob:tratada');
@@ -168,7 +179,7 @@ describe('Capture360Component — a confirmação', () => {
 
       componente['tratarEEntao']('data:image/jpeg;base64,x');
 
-      // O selo acende de imediato: a foto costurada já está na tela.
+      // O status acende de imediato: a foto costurada já está na tela.
       expect(componente.tratando()).toBeTrue();
       expect(componente.previewPanoramas()[0].imageUrl).toBe('data:image/jpeg;base64,x');
 
@@ -179,7 +190,7 @@ describe('Capture360Component — a confirmação', () => {
       expect(componente.previewPanoramas()[0].imageUrl).toBe('blob:tratada');
     });
 
-    it('apaga o selo e troca a foto quando a tratada chega', async () => {
+    it('encerra o status e troca a foto quando a tratada chega', async () => {
       await esperarATroca({ panoramaId: 'p1', tratamentoPedido: true }, 'blob:tratada');
 
       expect(componente.tratando()).toBeFalse();
@@ -187,7 +198,7 @@ describe('Capture360Component — a confirmação', () => {
       expect(componente.previewPanoramas()[0].imageUrl).toBe('blob:tratada');
     });
 
-    it('apaga o selo e avisa quando a IA não melhorou', async () => {
+    it('encerra o status e avisa quando a IA não melhorou', async () => {
       await esperarATroca({ panoramaId: 'p1', tratamentoPedido: true }, null);
 
       expect(componente.tratando()).toBeFalse();
@@ -196,7 +207,7 @@ describe('Capture360Component — a confirmação', () => {
       expect(componente.naoMelhorou()).toBeTrue();
     });
 
-    it('apaga o selo quando não havia montagem a caminho', async () => {
+    it('encerra o status quando não havia montagem a caminho', async () => {
       await esperarATroca({ panoramaId: 'p1', tratamentoPedido: false }, null);
 
       expect(componente.tratando()).toBeFalse();
@@ -213,30 +224,51 @@ describe('Capture360Component — a confirmação', () => {
         'confirm',
       );
     });
+
+    it('ignora e libera a tratada antiga quando o usuario refaz a captura', async () => {
+      let concluirEnvio!: (envio: EnvioDaCaptura) => void;
+      let concluirTratamento!: (url: string | null) => void;
+      const tratar = jasmine.createSpy('aoTratar').and.returnValue(
+        new Promise<string | null>((resolve) => (concluirTratamento = resolve)),
+      );
+      const revoke = spyOn(URL, 'revokeObjectURL');
+
+      componente.enviar = () =>
+        new Promise<EnvioDaCaptura>((resolve) => (concluirEnvio = resolve));
+      componente.aoTratar = tratar;
+      componente['stitchedShots'] = [
+        { frame: { blob: new Blob(['f']) }, quaternion: {} },
+      ] as never;
+
+      componente['tratarEEntao']('data:image/jpeg;base64,primeira');
+      concluirEnvio({ panoramaId: 'p-antigo', tratamentoPedido: true });
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(tratar).toHaveBeenCalledTimes(1);
+      expect(tratar.calls.mostRecent().args[0]).toBe('p-antigo');
+      const sinal = tratar.calls.mostRecent().args[1] as AbortSignal;
+      expect(sinal.aborted).toBeFalse();
+
+      componente.restart();
+      expect(sinal.aborted).toBeTrue();
+      concluirTratamento('blob:resultado-antigo');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(componente.state()).toBe('capturing');
+      expect(componente.previewPanoramas()).toEqual([]);
+      expect(componente.imagemAprimorada()).toBeFalse();
+      expect(revoke).toHaveBeenCalledWith('blob:resultado-antigo');
+    });
   });
 
-  /**
-   * O RODAPÉ NÃO PODE SE SOBREPOR.
-   *
-   * Relatado da tela, em produção: o campo "Que ambiente é este?", os chips de
-   * sugestão, "Refazer", "Usar este panorama" e a nota apareceram todos
-   * empilhados uns sobre os outros, legíveis ao mesmo tempo e nada clicável.
-   *
-   * A causa foi número mágico: o campo de nome e a barra de botões eram duas
-   * caixas absolutas com `bottom` fixo — 84px e 20px —, e os números descreviam
-   * uma barra de DOIS botões numa linha só. Ganhando a nota e o terceiro botão,
-   * a barra cresceu para cima e invadiu o campo.
-   *
-   * Mede caixa contra caixa no navegador, e não a existência das classes: era
-   * justamente com todas as classes no lugar que a tela estava quebrada.
-   */
   /**
    * O TOQUE QUE SUMIA.
    *
    * Relatado como "os botões pararam de funcionar", e não eram os botões:
    * `usePanorama` espera `this.envio`, e esse envio sobe OITO frames, um a um,
    * cada um convertido para base64. No celular do corretor isso leva dezenas
-   * de segundos — e durante toda a janela os três botões continuavam acesos,
+   * de segundos — e durante toda a janela os botões continuavam acesos,
    * tocáveis e calados. Quem apertava via exatamente nada acontecer.
    *
    * A espera em si tem de ficar: é ela que carrega o `serverPanoramaId` para a
@@ -259,14 +291,14 @@ describe('Capture360Component — a confirmação', () => {
       await Promise.resolve();
       fixture.detectChanges();
 
-      const continuar = fixture.nativeElement.querySelector('.result-actions__continuar');
+      const continuar = fixture.nativeElement.querySelector('.result-actions__continue');
       expect(continuar.getAttribute('aria-busy'))
         .withContext('o botão apertado precisa dizer que está ocupado')
         .toBe('true');
       expect(continuar.querySelector('ion-spinner')).not.toBeNull();
     });
 
-    /** Girar os três leria como a tela inteira travando, não como espera. */
+    /** Girar os dois leria como a tela inteira travando, não como espera. */
     it('gira só o botão apertado, e desabilita os outros', async () => {
       comCosturaPronta(emVoo());
       fixture.detectChanges();
@@ -335,7 +367,7 @@ describe('Capture360Component — a confirmação', () => {
       expect(modalCtrl.dismiss).toHaveBeenCalledTimes(1);
     });
 
-    /** Um "ocupado" preso desabilitaria os três na próxima passagem. */
+    /** Um "ocupado" preso desabilitaria as duas ações na próxima passagem. */
     it('refazer devolve os botões', async () => {
       comCosturaPronta(emVoo());
       void componente.usePanorama(true);
@@ -348,106 +380,185 @@ describe('Capture360Component — a confirmação', () => {
     });
   });
 
-  describe('o rodapé do preview', () => {
-    /** Largura e altura de um aparelho de 4,7", que é onde o defeito apareceu. */
+  describe('a folha de decisão do preview', () => {
     const LARGURA_DO_CELULAR = 360;
     const ALTURA_DO_CELULAR = 640;
     let celular: HTMLElement;
 
-    /**
-     * Põe o modal dentro de uma caixa do tamanho de um celular.
-     *
-     * Sem isto o caso não prova nada: o navegador do Karma abre com quase
-     * 750px de largura, os três botões cabem lado a lado, e a tela quebrada do
-     * corretor não se reproduz. A caixa é `position: relative` porque é ela que
-     * precisa ser o bloco de contenção dos absolutos do rodapé.
-     */
-    function noPreview(comSelo: boolean): void {
+    function noPreview(comIa = false): void {
       celular = document.createElement('div');
       celular.style.cssText = `position:relative;width:${LARGURA_DO_CELULAR}px;height:${ALTURA_DO_CELULAR}px;overflow:hidden`;
       document.body.appendChild(celular);
       celular.appendChild(fixture.nativeElement);
 
       componente['originalImageData'] = 'data:image/jpeg;base64,x';
-      componente.tratando.set(comSelo);
+      componente.tratando.set(comIa);
       componente['mostrarPreview']('data:image/jpeg;base64,x');
       fixture.detectChanges();
     }
 
     afterEach(() => celular?.remove());
 
-    const caixa = (seletor: string): DOMRect =>
-      fixture.nativeElement.querySelector(seletor).getBoundingClientRect();
+    const botoesDeDecisao = (): HTMLElement[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('.result-actions ion-button'));
 
-    it('o campo de nome termina antes de os botões começarem', () => {
-      noPreview(true);
+    it('oferece somente salvar e capturar outro ou salvar e concluir', () => {
+      noPreview();
 
-      const nome = caixa('.result-name');
-      const acoes = caixa('.result-actions');
-
-      expect(nome.bottom)
-        .withContext(
-          `nome termina em ${nome.bottom.toFixed(0)}px e os botões começam em ${acoes.top.toFixed(0)}px`,
-        )
-        .toBeLessThanOrEqual(acoes.top);
+      const botoes = botoesDeDecisao();
+      expect(botoes.length).toBe(2);
+      expect(botoes[0].textContent).toContain('CAPTURE.SAVE_AND_CAPTURE_ANOTHER');
+      expect(botoes[1].textContent).toContain('CAPTURE.SAVE_AND_FINISH');
+      expect(fixture.nativeElement.querySelector('.result-actions__nota')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.capture-selo')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.capture-aviso')).toBeNull();
     });
 
-    it('os chips de sugestão não ficam por baixo dos botões', () => {
+    it('mantém nome e ações na mesma folha, sem sobreposição', () => {
       noPreview(true);
 
-      const chips = caixa('.result-name__chips');
-      const acoes = caixa('.result-actions');
-
-      expect(chips.bottom).toBeLessThanOrEqual(acoes.top);
-    });
-
-    it('a nota não cobre o campo de nome', () => {
-      noPreview(true);
-
-      const nome = caixa('.result-name');
-      const nota = caixa('.result-actions__nota');
-
-      expect(nota.top).toBeGreaterThanOrEqual(nome.bottom);
-    });
-
-    it('o selo fica abaixo da barra de cima, e não em cima dela', () => {
-      noPreview(true);
-
-      const selo = caixa('.capture-selo');
-      const barra = caixa('.top-bar');
-
-      expect(selo.top)
-        .withContext(`selo em ${selo.top.toFixed(0)}px, barra termina em ${barra.bottom.toFixed(0)}px`)
-        .toBeGreaterThanOrEqual(barra.bottom);
-    });
-
-    /**
-     * O que torna a sobreposição IMPOSSÍVEL, e não só improvável nesta largura.
-     *
-     * Enquanto o campo de nome tiver `bottom` próprio, ele e a barra de botões
-     * são duas caixas independentes, e a distância entre elas é uma aposta
-     * sobre quantas linhas os botões vão ocupar. Em fluxo, não há aposta.
-     */
-    it('o campo e os botões fluem na MESMA coluna, sem coordenada própria', () => {
-      noPreview(true);
-
+      const folha: HTMLElement = fixture.nativeElement.querySelector('.result-bottom');
       const nome: HTMLElement = fixture.nativeElement.querySelector('.result-name');
       const acoes: HTMLElement = fixture.nativeElement.querySelector('.result-actions');
+      const limite = celular.getBoundingClientRect();
+      const caixaDaFolha = folha.getBoundingClientRect();
 
-      expect(nome.parentElement?.classList).toContain('result-bottom');
-      expect(acoes.parentElement).toBe(nome.parentElement);
+      expect(nome.parentElement).toBe(folha);
+      expect(acoes.parentElement).toBe(folha);
       expect(getComputedStyle(nome).position).toBe('static');
       expect(getComputedStyle(acoes).position).toBe('static');
+      expect(caixaDaFolha.bottom).toBeLessThanOrEqual(limite.bottom);
+      expect(caixaDaFolha.top).toBeGreaterThan(limite.top);
     });
 
-    it('o rodapé continua inteiro dentro da tela sem o selo', () => {
-      noPreview(false);
+    it('exige o nome antes de habilitar as duas ações', () => {
+      noPreview();
 
-      const rodape = caixa('.result-bottom');
+      const desabilitado = (botao: HTMLElement) =>
+        (botao as unknown as { disabled?: boolean }).disabled === true;
+      expect(botoesDeDecisao().every(desabilitado)).toBeTrue();
 
-      expect(rodape.bottom).toBeLessThanOrEqual(
-        celular.getBoundingClientRect().bottom,
+      const quarto = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll('.result-name__chip'),
+      ).find((chip) => chip.textContent?.trim() === 'Quarto')!;
+      quarto.click();
+      fixture.detectChanges();
+
+      expect(componente.roomName()).toBe('Quarto');
+      expect(botoesDeDecisao().some(desabilitado)).toBeFalse();
+    });
+
+    it('sugere um sufixo quando o nome do ambiente já foi usado', () => {
+      componente.existingRoomNames = ['quarto', 'Quarto 2'];
+      const quarto = componente.roomSuggestions.find((item) => item.id === 'bedroom')!;
+
+      componente.pickRoom(quarto);
+
+      expect(componente.roomName()).toBe('Quarto 3');
+      expect(componente.selectedRoomSuggestion()).toBe('bedroom');
+    });
+
+    it('só mostra o campo livre ao escolher Outro e volta aos chips comuns', () => {
+      noPreview();
+      expect(fixture.nativeElement.querySelector('.result-name__input')).toBeNull();
+
+      const chips = Array.from<HTMLElement>(
+        fixture.nativeElement.querySelectorAll('.result-name__chip'),
       );
+      chips[chips.length - 1].click();
+      fixture.detectChanges();
+
+      const input: HTMLInputElement = fixture.nativeElement.querySelector('.result-name__input');
+      expect(input).not.toBeNull();
+      input.value = 'Varanda gourmet';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(componente.roomName()).toBe('Varanda gourmet');
+
+      chips[chips.length - 1].click();
+      fixture.detectChanges();
+      expect(componente.roomName()).toBe('Varanda gourmet');
+
+      chips[0].click();
+      fixture.detectChanges();
+      expect(componente.roomName()).toBe('Sala');
+      expect(componente.customRoom()).toBeFalse();
+      expect(fixture.nativeElement.querySelector('.result-name__input')).toBeNull();
+    });
+
+    it('mostra um único status para processamento, sucesso ou falha da IA', () => {
+      noPreview(true);
+      let status: HTMLElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('.capture-ai-status'),
+      );
+      expect(status.length).toBe(1);
+      expect(status[0].querySelector('ion-spinner')).not.toBeNull();
+      expect(status[0].textContent).toContain('CAPTURE.AI_PROCESSING');
+
+      componente.tratando.set(false);
+      componente.imagemAprimorada.set(true);
+      fixture.detectChanges();
+      status = Array.from(fixture.nativeElement.querySelectorAll('.capture-ai-status'));
+      expect(status.length).toBe(1);
+      expect(status[0].querySelector('ion-icon[name="checkmark-circle"]')).not.toBeNull();
+      expect(status[0].textContent).toContain('CAPTURE.AI_DONE');
+
+      componente.imagemAprimorada.set(false);
+      componente.naoMelhorou.set(true);
+      fixture.detectChanges();
+      status = Array.from(fixture.nativeElement.querySelectorAll('.capture-ai-status'));
+      expect(status.length).toBe(1);
+      expect(status[0].querySelector('ion-icon[name="information-circle-outline"]')).not.toBeNull();
+      expect(status[0].textContent).toContain('CAPTURE.AI_FAILED');
+    });
+  });
+
+  describe('as confirmações de descarte', () => {
+    it('o X pede confirmação e manter preserva o preview', () => {
+      comCosturaPronta(Promise.resolve(null));
+
+      componente.requestPreviewCancel();
+      expect(componente.discardQuestion()?.tituloKey).toBe('CAPTURE.DISCARD_TITLE');
+      expect(modalCtrl.dismiss).not.toHaveBeenCalled();
+
+      componente.resolveDiscardQuestion('keep-capture');
+      expect(componente.discardQuestion()).toBeNull();
+      expect(componente.state()).toBe('preview');
+      expect(modalCtrl.dismiss).not.toHaveBeenCalled();
+    });
+
+    it('refazer pede confirmação e preserva o nome escolhido', () => {
+      comCosturaPronta(Promise.resolve(null));
+
+      componente.requestPreviewRetake();
+      expect(componente.discardQuestion()?.tituloKey).toBe('CAPTURE.RETAKE_TITLE');
+      expect(componente.state()).toBe('preview');
+
+      componente.resolveDiscardQuestion('retake-capture');
+      expect(componente.state()).toBe('capturing');
+      expect(componente.roomName()).toBe('Sala');
+      expect(modalCtrl.dismiss).not.toHaveBeenCalled();
+    });
+
+    it('ao descartar espera o upload e remove o panorama remoto', async () => {
+      let concluirEnvio!: (envio: EnvioDaCaptura) => void;
+      const descartar = jasmine.createSpy('aoDescartar').and.resolveTo();
+      comCosturaPronta(
+        new Promise<EnvioDaCaptura>((resolve) => (concluirEnvio = resolve)),
+      );
+      componente.aoDescartar = descartar;
+
+      componente.requestPreviewCancel();
+      componente.resolveDiscardQuestion('discard-capture');
+      expect(modalCtrl.dismiss).toHaveBeenCalledWith(null, 'cancel');
+      expect(descartar).not.toHaveBeenCalled();
+
+      concluirEnvio({ panoramaId: 'pan-descartado', tratamentoPedido: true });
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(descartar).toHaveBeenCalledOnceWith('pan-descartado');
     });
   });
 
@@ -457,9 +568,22 @@ describe('Capture360Component — a confirmação', () => {
     await componente.usePanorama();
 
     expect(modalCtrl.dismiss).toHaveBeenCalledWith(
-      jasmine.objectContaining({ serverPanoramaId: 'pan-7', emTratamento: true }),
+      jasmine.objectContaining({
+        room: 'Sala',
+        serverPanoramaId: 'pan-7',
+        emTratamento: true,
+      }),
       'confirm',
     );
+  });
+
+  it('não confirma sem nome mesmo quando o handler é chamado diretamente', async () => {
+    comCosturaPronta(Promise.resolve({ panoramaId: 'pan-7', tratamentoPedido: true }));
+    componente.roomName.set('   ');
+
+    await componente.usePanorama();
+
+    expect(modalCtrl.dismiss).not.toHaveBeenCalled();
   });
 
   /**

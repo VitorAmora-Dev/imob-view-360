@@ -1,7 +1,7 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { from, of, throwError } from 'rxjs';
+import { from, of, Subject, throwError } from 'rxjs';
 import { PropertyService } from '../services/property.service';
 import { VirtualTourService } from '../services/virtual-tour.service';
 import { PanoramaImageCache } from '../services/panorama-image-cache.service';
@@ -164,6 +164,19 @@ describe('TourDraftStore (contrato)', () => {
   });
 
   describe('remoção de ambiente', () => {
+    it('descarta no servidor uma captura de preview que ainda não virou cena', async () => {
+      const store = newStore();
+      const tours = TestBed.inject(VirtualTourService);
+      const apagar = spyOn(tours, 'deletePanorama').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+
+      await store.descartarCaptura('panorama-preview');
+
+      expect(apagar).toHaveBeenCalledOnceWith('panorama-preview');
+      expect(store.scenes()).toEqual([]);
+    });
+
     it('zera o destino dos hotspots que apontavam para ele', () => {
       const store = storeWith(
         scene('a', {
@@ -704,6 +717,34 @@ describe('TourDraftStore (contrato)', () => {
     });
   });
 
+  describe('fotoTratada', () => {
+    it('encerra a espera do servidor quando o chamador aborta', async () => {
+      const store = newStore();
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      let sinalDoPolling: AbortSignal | undefined;
+      spyOn(tours, 'acompanharMontagem').and.callFake(
+        (_tourId, _aoAvancar, opcoes) => {
+          sinalDoPolling = opcoes?.sinal;
+          return new Promise((resolve) => {
+            sinalDoPolling?.addEventListener('abort', () => resolve(null), {
+              once: true,
+            });
+          });
+        },
+      );
+      const baixar = spyOn(tours, 'baixarPreview');
+      const controle = new AbortController();
+
+      const foto = store.fotoTratada('panorama-preview', controle.signal);
+      controle.abort();
+
+      await expectAsync(foto).toBeResolvedTo(null);
+      expect(sinalDoPolling?.aborted).toBeTrue();
+      expect(baixar).not.toHaveBeenCalled();
+    });
+  });
+
   describe('acompanharTratamentos', () => {
     /**
      * Uma volta só do laço, com o estado que o caso quiser, e o controle da
@@ -1144,6 +1185,105 @@ describe('TourDraftStore (contrato)', () => {
   });
 
   describe('salvarRascunho', () => {
+    it('espera o id agendado ficar disponível antes de concluir o salvamento', async () => {
+      const store = newStore();
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const apagar = spyOn(tours, 'deletePanorama').and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+      let entregarId!: (id: string | null) => void;
+      const idPendente = new Promise<string | null>((resolve) => {
+        entregarId = resolve;
+      });
+      store.agendarDescarteCaptura(idPendente);
+      let terminou = false;
+
+      const salvamento = store.salvarRascunho().then(() => {
+        terminou = true;
+      });
+      await Promise.resolve();
+
+      expect(terminou).toBeFalse();
+      expect(apagar).not.toHaveBeenCalled();
+
+      entregarId('panorama-preview');
+      await salvamento;
+
+      expect(apagar).toHaveBeenCalledOnceWith('panorama-preview');
+      expect(terminou).toBeTrue();
+    });
+
+    it('mantém exclusão falha na fila e tenta novamente no próximo salvamento', async () => {
+      const store = newStore();
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const apagar = spyOn(tours, 'deletePanorama').and.returnValue(
+        throwError(() => new Error('rede caiu')) as ReturnType<
+          VirtualTourService['deletePanorama']
+        >,
+      );
+
+      await expectAsync(
+        store.descartarCaptura('panorama-preview'),
+      ).toBeRejectedWithError('rede caiu');
+      apagar.and.returnValue(
+        of(undefined) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+
+      await store.salvarRascunho();
+
+      expect(apagar.calls.allArgs()).toEqual([
+        ['panorama-preview'],
+        ['panorama-preview'],
+      ]);
+    });
+
+    it('considera o 404 do retry como exclusão concluída e libera o salvamento', async () => {
+      const store = newStore();
+      comRascunhoCriado(store);
+      const tours = TestBed.inject(VirtualTourService);
+      const apagar = spyOn(tours, 'deletePanorama').and.returnValue(
+        throwError(() => new Error('resposta perdida')) as ReturnType<
+          VirtualTourService['deletePanorama']
+        >,
+      );
+      await expectAsync(
+        store.descartarCaptura('panorama-preview'),
+      ).toBeRejected();
+      apagar.and.returnValue(
+        throwError(
+          () => new HttpErrorResponse({ status: 404, statusText: 'Not Found' }),
+        ) as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+
+      await expectAsync(store.salvarRascunho()).toBeResolved();
+      expect(apagar).toHaveBeenCalledTimes(2);
+
+      await store.salvarRascunho();
+
+      expect(apagar).toHaveBeenCalledTimes(2);
+    });
+
+    it('reutiliza a mesma exclusão quando duas chamadas descartam o mesmo panorama', async () => {
+      const store = newStore();
+      const tours = TestBed.inject(VirtualTourService);
+      const resposta = new Subject<void>();
+      const apagar = spyOn(tours, 'deletePanorama').and.returnValue(
+        resposta.asObservable() as ReturnType<VirtualTourService['deletePanorama']>,
+      );
+
+      const primeira = store.descartarCaptura('panorama-preview');
+      const segunda = store.descartarCaptura('panorama-preview');
+
+      expect(apagar).toHaveBeenCalledOnceWith('panorama-preview');
+      resposta.next();
+      resposta.complete();
+      await Promise.all([primeira, segunda]);
+
+      expect(apagar).toHaveBeenCalledTimes(1);
+    });
+
     it('grava nome, ordem e capa sem publicar', async () => {
       const store = storeWith(scene('s1', { serverPanoramaId: 'p1', room: 'Sala' }));
       comRascunhoCriado(store);

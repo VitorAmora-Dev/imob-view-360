@@ -185,16 +185,26 @@
   top: 0;
   left: 0;
   right: 0;
+  z-index: 4;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: calc(12px + var(--ion-safe-area-top, 0px)) 16px 12px;
+
+  .circle-control {
+    width: 44px;
+    height: 44px;
+  }
 }
 
-.top-bar-spacer {
-  width: 40px;
-  flex-shrink: 0;
+.top-bar--preview {
+  display: grid;
+  grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr);
+
+  > :first-child {
+    justify-self: start;
+  }
 }
 
 .circle-control--overlay {
@@ -210,6 +220,52 @@
   font-weight: 600;
   box-shadow: var(--app-shadow-tier);
   white-space: nowrap;
+}
+
+.preview-title {
+  justify-self: center;
+  margin: 0;
+  padding: 7px 13px;
+  border-radius: 9999px;
+  background: rgba(var(--tour-bg-rgb), 0.78);
+  color: var(--tour-text);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.preview-retake {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 9999px;
+  background: rgba(var(--tour-bg-rgb), 0.78);
+  color: var(--tour-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+
+  ion-icon {
+    flex: 0 0 auto;
+    font-size: 19px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.52;
+    cursor: default;
+  }
 }
 
 .bottom-bar {
@@ -296,104 +352,95 @@ ion-button.on-dark {
   inset: 0;
 }
 
-/*
-  O rodapé inteiro, numa coluna só.
-
-  O campo de nome e os botões eram DUAS caixas absolutas, cada uma com o
-  próprio `bottom` em número fixo: 84px e 20px. Os números descreviam uma
-  barra de dois botões numa linha só, e pararam de descrever qualquer coisa
-  quando ela ganhou a nota e o terceiro botão — a barra cresceu para cima e
-  subiu POR CIMA do campo de nome e dos chips de sugestão, tudo legível ao
-  mesmo tempo e nada clicável.
-
-  Empilhar em fluxo, e não por coordenada, é o que faz o rodapé caber
-  independentemente de quantas linhas os botões ocuparem.
-*/
+/* Uma única folha agrupa decisão, nome e ações sem disputar espaço com a foto. */
 .result-bottom {
+  box-sizing: border-box;
   position: absolute;
-  bottom: calc(20px + var(--ion-safe-area-bottom, 0px));
+  bottom: 0;
   left: 0;
   right: 0;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  max-height: 52vh;
+  max-height: min(52dvh, 400px);
+  padding: 14px 16px calc(12px + var(--ion-safe-area-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  background: var(--tour-surface);
+  color: var(--tour-text);
+  box-shadow: 0 -10px 32px rgba(var(--tour-bg-rgb), 0.28);
+  scrollbar-width: thin;
+
+  &:has(.result-name__input:focus) {
+    max-height: calc(100dvh - 76px - var(--ion-safe-area-top, 0px));
+  }
 }
 
 .result-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  padding: 0 16px;
+  flex-direction: column;
+  gap: 2px;
 
-  /*
-    Quebra a linha SOZINHO quando não cabe, em vez de perguntar a largura da
-    tela por media query.
-
-    Três botões de 150px são 450px mais dois vãos, e um aparelho de 4,7" tem
-    uns 360px. `flex-basis` com `wrap` resolve isso pela largura REAL do
-    contêiner — e media query, que olha a viewport, não resolvia: era ela que
-    deixava o defeito invisível no navegador de teste, largo, enquanto a tela
-    do corretor quebrava.
-  */
   ion-button {
-    flex: 1 1 150px;
+    min-height: 44px;
     margin: 0;
+  }
+
+  .result-actions__continue {
+    min-height: 48px;
+  }
+
+  .result-actions__finish {
+    --color: var(--tour-text);
   }
 }
 
-/*
-  Tranquiliza antes de o corretor decidir, e some quando não há o que
-  tranquilizar: com a montagem já terminada, "você pode continuar" não explica
-  botão nenhum.
-*/
-.result-actions__nota {
-  flex-basis: 100%;
-  order: 0;
-  margin: 0 0 2px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
-  text-align: center;
-}
-
-/*
-  Linha própria, sempre. É a ação que o corretor em pé dentro do imóvel vai
-  tocar, e dividir a largura com "Refazer" faria dela um alvo de polegar do
-  mesmo tamanho do que ele NÃO quer apertar.
-*/
-.result-actions__continuar {
-  flex-basis: 100%;
-}
-
-/*
-  O que separa "este é o seu resultado" de "ainda vem coisa melhor".
-
-  Sem ele o panorama costurado se lê como final — e foi exatamente por isso
-  que a primeira tentativa de tratar em segundo plano foi revertida. Mesma
-  caixa do aviso de "não melhorou", que ocupa este lugar no outro desfecho,
-  mas abaixo da barra de cima para não cobrir o fechar.
-*/
-.capture-selo {
+.preview-gesture-hint {
   position: absolute;
-  top: calc(78px + var(--ion-safe-area-top, 0px));
+  bottom: calc(52vh + 16px);
+  bottom: calc(min(52dvh, 400px) + 16px);
   left: 50%;
   z-index: 2;
   transform: translateX(-50%);
   margin: 0;
-  padding: 7px 14px;
-  max-width: min(420px, calc(100% - 32px));
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.72);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 12.5px;
+  padding: 8px 14px;
+  max-width: calc(100% - 32px);
+  border-radius: 9999px;
+  background: rgba(var(--tour-bg-rgb), 0.8);
+  color: var(--tour-text);
+  font-size: 13px;
+  font-weight: 600;
   text-align: center;
-  animation: capture-selo-pulso 1.6s ease-in-out infinite;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
-@keyframes capture-selo-pulso {
-  50% {
-    opacity: 0.62;
+.capture-ai-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  line-height: 1.35;
+
+  ion-spinner,
+  ion-icon {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
   }
+}
+
+.capture-ai-status--done {
+  color: var(--tw-pin-accent);
 }
 
 @keyframes capture-check-in {
@@ -409,7 +456,6 @@ ion-button.on-dark {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .capture-selo,
   .capture-success,
   .reticle__check {
     animation: none;
@@ -417,24 +463,40 @@ ion-button.on-dark {
   }
 }
 
-/* Nome do ambiente, na tela de preview da captura.
-   Fica ACIMA das ações e abaixo do panorama: a pessoa vê o que está nomeando
-   enquanto nomeia, que é a razão inteira de o campo estar aqui e não na lista
-   de cards depois. */
 .result-name {
-  margin: 0 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* O campo e os chips são o mesmo material: vidro escuro sobre a foto. O que os
-   separa é só peso e forma, então o que é comum vive numa regra só — e o
-   orçamento de 6kB por folha de componente é apertado nesta tela. */
+.result-name__question {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  color: var(--tour-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.result-name__required {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .result-name__input,
 .result-name__chip {
   padding: 0 14px;
-  backdrop-filter: blur(7px);
   color: #fff;
   font: inherit;
   font-weight: 600;
@@ -442,11 +504,10 @@ ion-button.on-dark {
 
 .result-name__input {
   width: 100%;
-  /* Piso de alvo da WCAG — tocado em pé, segurando o telefone. */
   min-height: 48px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 12px;
-  background: rgba(var(--tour-bg-rgb), 0.82);
+  background: var(--tour-bg);
   font-size: 16px; /* menos que 16px faz o iOS dar zoom ao focar */
 }
 
@@ -456,13 +517,11 @@ ion-button.on-dark {
 }
 
 .result-name__input:focus-visible {
-  outline: none;
-  border-color: var(--ion-color-primary);
+  outline: 2px solid var(--ion-color-primary);
+  outline-offset: 1px;
 }
 
 .result-name__chips {
-  /* Rola na horizontal: seis sugestões não cabem na largura de um celular, e
-     quebrar em duas linhas comeria a foto que a pessoa veio conferir. */
   display: flex;
   gap: 8px;
   margin: 0;
@@ -478,10 +537,10 @@ ion-button.on-dark {
 
 .result-name__chip {
   flex: 0 0 auto;
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
-  background: rgba(var(--tour-bg-rgb), 0.72);
+  background: var(--tour-bg);
   font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
@@ -498,42 +557,47 @@ ion-button.on-dark {
   outline-offset: 2px;
 }
 
-/* -- Espera da montagem por IA -------------------------------------------- */
-
-// A coruja traz o peso visual do painel. O `gap` menor puxa
-// o texto para perto dela, para os três lerem como um bloco só em vez de três
-// elementos soltos no meio da tela.
-.panel--ia {
-  gap: 4px;
-
-  h2 {
-    margin: 8px 0 0;
-    font-size: 19px;
+@media (max-width: 380px) {
+  .top-bar--preview {
+    gap: 8px;
   }
 
-  // A saída da espera é deliberadamente discreta: existe para quem está com a
-  // rede ruim, não para ser o caminho normal.
-  ion-button {
-    width: auto;
-    margin-top: 4px;
-    --color: rgba(255, 255, 255, 0.62);
-    font-size: 13px;
+  .preview-title {
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  .preview-retake {
+    width: 44px;
+    padding: 0;
+
+    span {
+      display: none;
+    }
   }
 }
 
-// Fica acima da foto no preview, onde o olho já está.
-.capture-aviso {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  z-index: 2;
-  transform: translateX(-50%);
-  margin: 0;
-  padding: 8px 14px;
-  max-width: min(420px, calc(100% - 32px));
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.72);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 12.5px;
-  text-align: center;
+@media (min-width: 768px) {
+  .result-bottom {
+    top: calc(76px + var(--ion-safe-area-top, 0px));
+    right: 16px;
+    bottom: calc(16px + var(--ion-safe-area-bottom, 0px));
+    left: auto;
+    width: min(392px, calc(100% - 32px));
+    max-height: none;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(var(--tour-bg-rgb), 0.34);
+
+    &:focus-within {
+      max-height: none;
+    }
+  }
+
+  .preview-gesture-hint {
+    top: 43%;
+    bottom: auto;
+    left: calc(50% - 204px);
+  }
 }

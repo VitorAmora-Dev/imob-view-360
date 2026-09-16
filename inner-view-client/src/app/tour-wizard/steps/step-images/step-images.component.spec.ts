@@ -306,6 +306,42 @@ describe('StepImagesComponent — escolha e galeria', () => {
     expect(store.step()).toBe(1);
   });
 
+  it('abre a captura com os nomes existentes, descarte remoto e saídas protegidas', async () => {
+    store.scenes.set([
+      scene('sala', { room: 'Sala' }),
+      scene('cozinha', { room: 'Cozinha' }),
+    ]);
+    const agendarDescarte = spyOn(store, 'agendarDescarteCaptura');
+    const modal = {
+      present: jasmine.createSpy('present').and.resolveTo(),
+      onDidDismiss: jasmine
+        .createSpy('onDidDismiss')
+        .and.resolveTo({ role: 'cancel' }),
+    };
+    modalController.create.and.resolveTo(modal as never);
+    Object.defineProperty(component, 'cameraAvailable', { value: true });
+
+    await component.openCapture();
+
+    const options = modalController.create.calls.mostRecent().args[0] as unknown as {
+      canDismiss: (data: unknown, role?: string) => Promise<boolean>;
+      componentProps: {
+        existingRoomNames: string[];
+        aoAgendarDescarte: (panoramaId: Promise<string | null>) => void;
+      };
+    };
+    expect(options.componentProps.existingRoomNames).toEqual(['Sala', 'Cozinha']);
+
+    const panoramaPendente = Promise.resolve('panorama-preview');
+    options.componentProps.aoAgendarDescarte(panoramaPendente);
+
+    expect(agendarDescarte).toHaveBeenCalledOnceWith(panoramaPendente);
+    expect(await options.canDismiss(undefined, 'backdrop')).toBeFalse();
+    expect(await options.canDismiss(undefined, 'gesture')).toBeFalse();
+    expect(await options.canDismiss(undefined, 'cancel')).toBeTrue();
+    expect(await options.canDismiss(undefined, 'confirm')).toBeTrue();
+  });
+
   /**
    * Uma captura confirmada que deixou montagem a caminho.
    *
