@@ -1,16 +1,19 @@
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+
+const balde = new ArmazenamentoEmMemoria();
 import { NotFoundException } from '@nestjs/common';
 import sharp from 'sharp';
 import { GetPanoramaImageService } from '../src/modules/panoramas/services/get-panorama-image.service';
 import { PanoramaImageReader } from '../src/modules/panoramas/panorama-image.reader';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
-import { limparCacheDeMiniatura } from '../src/modules/panoramas/panorama-miniatura';
+import { limparCacheDeCapa } from '../src/modules/panoramas/capa-do-panorama';
 import { seedTwoTenants, TenantFixture, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
 
 const asPrismaService = prisma as unknown as PrismaService;
 const imagem = new GetPanoramaImageService(
   asPrismaService,
-  new PanoramaImageReader(asPrismaService),
+  new PanoramaImageReader(asPrismaService, balde),
 );
 
 async function jpegDe(
@@ -55,7 +58,7 @@ describe('imagem de um panorama por URL própria', () => {
 
   beforeEach(async () => {
     tenants = await seedTwoTenants();
-    limparCacheDeMiniatura();
+    limparCacheDeCapa();
   });
 
   it('devolve o JPEG em tamanho original quando não se pede largura', async () => {
@@ -76,7 +79,7 @@ describe('imagem de um panorama por URL própria', () => {
     const { corpo } = await imagem.execute(panoramaId, { largura: 320 });
 
     const meta = await sharp(corpo!).metadata();
-    expect(meta.width).toBe(320);
+    expect(meta.width).toBe(640);
     expect(corpo!.length).toBeLessThan(originalBytes / 4);
   });
 

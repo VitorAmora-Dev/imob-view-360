@@ -1,3 +1,9 @@
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+import { PanoramaImageReader } from '../src/modules/panoramas/panorama-image.reader';
+
+const balde = new ArmazenamentoEmMemoria();
+const gravador = new GravadorDeImagens(balde);
 import sharp from 'sharp';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { TreatPanoramaService } from '../src/modules/panoramas/services/treat-panorama.service';
@@ -67,7 +73,12 @@ const observado = prisma.$extends({
   },
 });
 
-const servico = new TreatPanoramaService(observado as unknown as PrismaService);
+const servico = new TreatPanoramaService(
+  observado as unknown as PrismaService,
+  new PanoramaImageReader(observado as unknown as PrismaService, balde),
+  gravador,
+  balde,
+);
 
 /** Um JPEG de verdade, porque o sharp vai lê-lo. */
 async function jpeg(
@@ -200,9 +211,12 @@ describe('montagem por IA — o que sai do banco', () => {
         JSON.stringify(c.args).includes('"imageData":true'),
     );
 
-    expect(comImagem).toHaveLength(1);
-    const where = comImagem[0].args['where'] as { id: { in: string[] } };
-    expect(where.id.in).toHaveLength(15);
+    expect(comImagem).toHaveLength(15);
+    expect(comImagem.every((c) => c.operation === 'findUnique')).toBe(true);
+    expect(
+      new Set(comImagem.map((c) => (c.args['where'] as { id: string }).id))
+        .size,
+    ).toBe(15);
   });
 
   it('as fotos escolhidas cobrem a volta, e na ordem do disparo', async () => {
@@ -221,14 +235,14 @@ describe('montagem por IA — o que sai do banco', () => {
     consultas.length = 0;
     await servico.execute(panoramaId);
 
-    const pedido = consultas.find(
+    const pedidos = consultas.filter(
       (c) =>
         c.model === 'CaptureFrame' &&
         JSON.stringify(c.args).includes('"imageData":true'),
     );
-    const where = pedido!.args['where'] as { id: { in: string[] } };
-
-    expect(where.id.in).toEqual(esperadas);
+    expect(pedidos.map((p) => (p.args['where'] as { id: string }).id)).toEqual(
+      esperadas,
+    );
   });
 
   it('a consulta do panorama não arrasta as fotos junto', async () => {

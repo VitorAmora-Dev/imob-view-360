@@ -7,6 +7,8 @@ import { ApiThrottlerGuard } from './common/guards/throttler.guard';
 import { validateEnv } from './config/env.schema';
 import { GLOBAL_THROTTLE } from './config/throttle.config';
 import { PrismaModule } from './infra/prisma/prisma.module';
+import { ArmazenamentoModule } from './shared/armazenamento/armazenamento.module';
+import { PublicImagesModule } from './modules/public-images/public-images.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PropertiesModule } from './modules/properties/properties.module';
@@ -19,6 +21,8 @@ import { HotspotsModule } from './modules/hotspots/hotspots.module';
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([GLOBAL_THROTTLE]),
     PrismaModule,
+    ArmazenamentoModule,
+    PublicImagesModule,
     AuthModule,
     UsersModule,
     PropertiesModule,

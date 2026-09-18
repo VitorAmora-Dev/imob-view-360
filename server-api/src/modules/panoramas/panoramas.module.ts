@@ -13,6 +13,7 @@ import { GetPanoramaPreviewController } from './controllers/get-panorama-preview
 import { GetPanoramaImageService } from './services/get-panorama-image.service';
 import { GetPanoramaPreviewService } from './services/get-panorama-preview.service';
 import { PanoramaImageReader } from './panorama-image.reader';
+import { GravadorDeImagens } from './gravador-de-imagens.service';
 
 @Module({
   controllers: [
@@ -32,10 +33,11 @@ import { PanoramaImageReader } from './panorama-image.reader';
     GetPanoramaImageService,
     GetPanoramaPreviewService,
     PanoramaImageReader,
+    GravadorDeImagens,
   ],
   // O `PanoramaImageReader` sai daqui porque a capa do tour, que mora em
   // virtual-tours, lê imagem pela mesma regra — e duas cópias da regra
   // divergiriam em silêncio.
-  exports: [TreatPanoramaService, PanoramaImageReader],
+  exports: [TreatPanoramaService, PanoramaImageReader, GravadorDeImagens],
 })
 export class PanoramasModule {}

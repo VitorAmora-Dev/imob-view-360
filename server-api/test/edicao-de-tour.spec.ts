@@ -1,3 +1,7 @@
+import { FOTO_DE_TESTE } from './imagem-de-teste';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+const gravador = new GravadorDeImagens(new ArmazenamentoEmMemoria());
 import { NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { CreateVirtualTourService } from '../src/modules/virtual-tours/services/create-virtual-tour.service';
@@ -21,7 +25,7 @@ import { prisma } from './setup/prisma';
  */
 
 const asPrismaService = prisma as unknown as PrismaService;
-const criarTour = new CreateVirtualTourService(asPrismaService);
+const criarTour = new CreateVirtualTourService(asPrismaService, gravador);
 const lerParaEdicao = new FindEditableTourService(asPrismaService);
 const lerRascunho = new FindDraftTourService(asPrismaService);
 
@@ -70,7 +74,7 @@ describe('leitura de tour para edição', () => {
       data: {
         virtualTourId: tour.id,
         roomName: 'Sala',
-        imageData: 'data:image/jpeg;base64,SGk=',
+        imageData: FOTO_DE_TESTE,
         order: 0,
         initialPanorama: true,
       },
@@ -80,7 +84,7 @@ describe('leitura de tour para edição', () => {
       data: {
         virtualTourId: tour.id,
         roomName: 'Quarto',
-        imageData: 'data:image/jpeg;base64,SGk=',
+        imageData: FOTO_DE_TESTE,
         order: 1,
         initialPanorama: false,
       },
@@ -118,7 +122,7 @@ describe('leitura de tour para edição', () => {
       data: {
         virtualTourId: tour.id,
         roomName: 'Sala',
-        imageData: 'data:image/jpeg;base64,SGk=',
+        imageData: FOTO_DE_TESTE,
         order: 0,
         initialPanorama: true,
       },
@@ -129,7 +133,7 @@ describe('leitura de tour para edição', () => {
         data: {
           virtualTourId: tour.id,
           roomName: nome,
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 1,
           initialPanorama: false,
         },
@@ -161,7 +165,7 @@ describe('leitura de tour para edição', () => {
       data: {
         virtualTourId: tour.id,
         roomName: 'Sala',
-        imageData: 'data:image/jpeg;base64,SGk=',
+        imageData: FOTO_DE_TESTE,
         treatedImageData: 'data:image/jpeg;base64,VHJhdGFkYQ==',
         order: 0,
         initialPanorama: true,

@@ -1,17 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { PanoramaImageReader } from '../panorama-image.reader';
 import {
-  LARGURA_MAXIMA,
+  ARMAZENAMENTO,
+  ArmazenamentoDeImagens,
+  VALIDADE_DO_LINK_ASSINADO,
+  chaveDaCapa,
+} from '../../../shared/armazenamento/armazenamento.port';
+import { chaveServida } from '../panorama-image';
+import { clienteJaTem, etagDe } from '../panorama-miniatura';
+import {
+  LARGURA_DA_CAPA,
   chaveDeCache,
-  clienteJaTem,
-  etagDe,
+  larguraPedida,
   reduzirComCache,
-} from '../panorama-miniatura';
-import { RespostaImagem } from './get-panorama-image.service';
+} from '../capa-do-panorama';
 
 export type VariantePreview = 'treated' | 'original';
+export type RespostaPreview =
+  | { tipo: 'desvio'; url: string }
+  | { tipo: 'bytes'; etag: string; corpo?: Buffer };
 
 /**
  * A imagem de um panorama para quem está editando o tour, não para quem o
@@ -37,6 +46,8 @@ export class GetPanoramaPreviewService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly leitor: PanoramaImageReader,
+    @Inject(ARMAZENAMENTO)
+    private readonly armazenamento: ArmazenamentoDeImagens,
   ) {}
 
   async execute(
@@ -47,65 +58,77 @@ export class GetPanoramaPreviewService {
       largura?: number;
       etagDoCliente?: string;
     },
-  ): Promise<RespostaImagem> {
-    // Escopo por agência no padrão das rotas de edição, e `NotFoundException`
-    // em vez de 403 pelo mesmo motivo de sempre: 403 confirmaria o id.
+  ): Promise<RespostaPreview> {
+    // A autorização vem PRIMEIRO e não mudou: escopo por agência, e
+    // `NotFoundException` em vez de 403 porque 403 confirmaria o id. Emitir um
+    // link assinado antes desta linha entregaria a foto de outra imobiliária a
+    // quem tivesse o uuid.
     const panorama = await this.prisma.panorama.findFirst({
       where: {
         id: panoramaId,
         virtualTour: { property: { agencyId: currentUser.agencyId } },
       },
-      select: { id: true, updatedAt: true, treatmentStatus: true },
+      select: {
+        id: true,
+        updatedAt: true,
+        treatmentStatus: true,
+        imageKey: true,
+        treatedImageKey: true,
+      },
     });
     if (!panorama) throw new NotFoundException('Panorama not found');
 
-    const largura = normalizarLargura(opcoes.largura);
+    const largura = larguraPedida(opcoes.largura);
+    const preferirTratada = opcoes.variante === 'treated';
 
-    // A variante entra no ETag e na chave de cache. Sem isso as duas imagens
-    // dividiriam a mesma identidade: o botão de comparar pediria a original,
-    // o navegador veria o ETag que já tem da tratada e responderia do cache —
-    // o antes e o depois viravam a mesma foto, sem nenhuma requisição para
-    // denunciar.
+    const chave = chaveServida(panorama, preferirTratada);
+    if (chave) {
+      const alvo = largura === null ? chave : chaveDaCapa(chave);
+      const url = await this.armazenamento.enderecoAssinado(
+        alvo,
+        VALIDADE_DO_LINK_ASSINADO,
+      );
+      if (url) return { tipo: 'desvio', url };
+    }
+
+    // Queda: sem chave para esta variante, ou armazenamento que não assina.
     const etag = etagDe(
       panorama.id,
       panorama.updatedAt,
       largura ?? 0,
       opcoes.variante,
     );
-    if (clienteJaTem(opcoes.etagDoCliente, etag)) return { etag };
+    if (clienteJaTem(opcoes.etagDoCliente, etag))
+      return { tipo: 'bytes', etag };
 
-    // `treated` aceita cair na original: durante a captura o tratamento pode
-    // não ter terminado, e o leitor já faz esse fallback. `original` nunca cai
-    // na tratada — é justamente o que ele existe para não fazer.
-    const preferirTratada = opcoes.variante === 'treated';
+    const carregar = async (): Promise<Buffer> => {
+      // `treated` aceita cair na original: durante a captura o tratamento pode
+      // não ter terminado, e o leitor já faz esse fallback. `original` nunca
+      // cai na tratada — é justamente o que ele existe para não fazer.
+      const bytes = await this.leitor.carregar(panorama.id, preferirTratada);
+      if (!bytes) throw new NotFoundException('Panorama image not available');
+      return bytes;
+    };
 
-    if (largura === null) {
-      const corpo = await this.leitor.carregar(panorama.id, preferirTratada);
-      if (!corpo) throw new NotFoundException('Panorama image not available');
-      return { etag, corpo };
-    }
+    if (largura === null)
+      return { tipo: 'bytes', etag, corpo: await carregar() };
 
-    const corpo = await reduzirComCache(
-      chaveDeCache(panorama.id, panorama.updatedAt, largura, opcoes.variante),
-      largura,
-      async () => {
-        const original = await this.leitor.carregar(
+    const capa = await this.leitor.carregarCapa(panorama.id, preferirTratada);
+    if (capa) return { tipo: 'bytes', etag, corpo: capa };
+
+    return {
+      tipo: 'bytes',
+      etag,
+      corpo: await reduzirComCache(
+        chaveDeCache(
           panorama.id,
-          preferirTratada,
-        );
-        if (!original)
-          throw new NotFoundException('Panorama image not available');
-        return original;
-      },
-    );
-
-    return { etag, corpo };
+          panorama.updatedAt,
+          LARGURA_DA_CAPA,
+          opcoes.variante,
+        ),
+        LARGURA_DA_CAPA,
+        carregar,
+      ),
+    };
   }
-}
-
-/** Mesma regra da rota pública: acima do teto, o original sai mais barato. */
-function normalizarLargura(largura?: number): number | null {
-  if (!largura || !Number.isFinite(largura)) return null;
-  if (largura >= LARGURA_MAXIMA) return null;
-  return Math.max(1, Math.floor(largura));
 }

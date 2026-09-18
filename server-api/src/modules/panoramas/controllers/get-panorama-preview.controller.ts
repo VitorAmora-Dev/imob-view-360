@@ -57,12 +57,19 @@ export class GetPanoramaPreviewController {
     @CurrentUser() user: JwtPayload,
     @Res() res: Response,
   ) {
-    const { etag, corpo } = await this.service.execute(id, user, {
+    const resposta = await this.service.execute(id, user, {
       variante: query.variant,
       largura: query.w,
       etagDoCliente: ifNoneMatch,
     });
 
+    if (resposta.tipo === 'desvio') {
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.redirect(HttpStatus.FOUND, resposta.url);
+      return;
+    }
+
+    const { etag, corpo } = resposta;
     res.setHeader('ETag', etag);
     // `private`: a resposta depende do token de quem pediu, e um cache
     // compartilhado que a guardasse a entregaria para outra imobiliária. Curto

@@ -1,3 +1,6 @@
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+const gravador = new GravadorDeImagens(new ArmazenamentoEmMemoria());
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -25,7 +28,7 @@ import { prisma } from './setup/prisma';
  */
 
 const asPrismaService = prisma as unknown as PrismaService;
-const criarTour = new CreateVirtualTourService(asPrismaService);
+const criarTour = new CreateVirtualTourService(asPrismaService, gravador);
 
 // A estratégia só lê o segredo no construtor; nada aqui verifica assinatura.
 const config = { get: () => 'segredo-de-teste' } as unknown as ConfigService<

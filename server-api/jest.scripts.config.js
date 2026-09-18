@@ -10,7 +10,7 @@
  */
 module.exports = {
   rootDir: '.',
-  testRegex: '(scripts|src/shared)/.*\\.spec\\.ts$',
+  testRegex: '(scripts|src/shared|src/config)/.*\\.spec\\.ts$',
   moduleFileExtensions: ['js', 'json', 'ts'],
   transform: { '^.+\\.(t|j)s$': 'ts-jest' },
   testEnvironment: 'node',

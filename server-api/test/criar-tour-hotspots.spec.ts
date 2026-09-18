@@ -1,3 +1,7 @@
+import { FOTO_DE_TESTE } from './imagem-de-teste';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+import { chaveDaCapa } from '../src/shared/armazenamento/armazenamento.port';
 import { BadRequestException } from '@nestjs/common';
 import { CreateVirtualTourService } from '../src/modules/virtual-tours/services/create-virtual-tour.service';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
@@ -5,7 +9,6 @@ import { seedTwoTenants, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
 
 const asPrismaService = prisma as unknown as PrismaService;
-const criarTour = new CreateVirtualTourService(asPrismaService);
 
 /**
  * As ligações entre cômodos são criadas junto com o tour, e o cliente não
@@ -21,7 +24,7 @@ function panorama(tempId: string, order: number, hotspots: unknown[] = []) {
   return {
     tempId,
     roomName: `Cômodo ${tempId}`,
-    imageData: `data:image/jpeg;base64,foto-${tempId}`,
+    imageData: FOTO_DE_TESTE,
     order,
     initialPanorama: order === 0,
     measurements: [],
@@ -35,9 +38,16 @@ function hotspot(targetTempId: string, label: string) {
 
 describe('ligações entre cômodos na criação do tour', () => {
   let tenants: TwoTenants;
+  let balde: ArmazenamentoEmMemoria;
+  let criarTour: CreateVirtualTourService;
 
   beforeEach(async () => {
     tenants = await seedTwoTenants();
+    balde = new ArmazenamentoEmMemoria();
+    criarTour = new CreateVirtualTourService(
+      asPrismaService,
+      new GravadorDeImagens(balde),
+    );
   });
 
   it('resolve tempId para o id real e liga origem e destino', async () => {
@@ -65,6 +75,15 @@ describe('ligações entre cômodos na criação do tour', () => {
       ['Cômodo sala', 'Cômodo quarto'],
       ['Cômodo quarto', 'Cômodo sala'],
     ]);
+    const panoramas = await prisma.panorama.findMany({
+      select: { imageKey: true, imageData: true },
+    });
+    expect(panoramas).toHaveLength(2);
+    for (const p of panoramas) {
+      expect(p.imageData).toBe(FOTO_DE_TESTE);
+      expect(balde.tem(p.imageKey!)).toBe(true);
+      expect(balde.tem(chaveDaCapa(p.imageKey!))).toBe(true);
+    }
   });
 
   it('recusa destino que não está na lista, sem deixar tour pela metade', async () => {
@@ -87,5 +106,24 @@ describe('ligações entre cômodos na criação do tour', () => {
     expect(await prisma.virtualTour.count()).toBe(0);
     expect(await prisma.panorama.count()).toBe(0);
     expect(await prisma.hotspot.count()).toBe(0);
+  });
+
+  it('cada panorama mantém seu id e sua imagem mesmo com tempId repetido', async () => {
+    await criarTour.execute(
+      {
+        propertyId: tenants.a.propertyId,
+        panoramas: [panorama('sala', 0), panorama('sala', 1)],
+      } as never,
+      tenants.a.admin,
+    );
+
+    const panoramas = await prisma.panorama.findMany({
+      select: { id: true, imageKey: true },
+    });
+    expect(panoramas).toHaveLength(2);
+    for (const p of panoramas) {
+      expect(p.imageKey).toContain(`panoramas/${p.id}/`);
+      expect(balde.tem(p.imageKey!)).toBe(true);
+    }
   });
 });

@@ -1,8 +1,11 @@
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+
+const balde = new ArmazenamentoEmMemoria();
 import { NotFoundException } from '@nestjs/common';
 import sharp from 'sharp';
 import { GetThumbnailService } from '../src/modules/virtual-tours/services/get-thumbnail.service';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
-import { limparCacheDeMiniatura } from '../src/modules/panoramas/panorama-miniatura';
+import { limparCacheDeCapa } from '../src/modules/panoramas/capa-do-panorama';
 import { PanoramaImageReader } from '../src/modules/panoramas/panorama-image.reader';
 import { seedTwoTenants, TenantFixture, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
@@ -10,7 +13,7 @@ import { prisma } from './setup/prisma';
 const asPrismaService = prisma as unknown as PrismaService;
 const miniatura = new GetThumbnailService(
   asPrismaService,
-  new PanoramaImageReader(asPrismaService),
+  new PanoramaImageReader(asPrismaService, balde),
 );
 
 /**
@@ -68,7 +71,7 @@ describe('capa do tour', () => {
     tenants = await seedTwoTenants();
     // O cache é global ao processo: sem limpar, um caso serviria a imagem do
     // anterior e o teste passaria sem tocar no banco.
-    limparCacheDeMiniatura();
+    limparCacheDeCapa();
   });
 
   it('devolve uma imagem reduzida, não a panorâmica inteira', async () => {

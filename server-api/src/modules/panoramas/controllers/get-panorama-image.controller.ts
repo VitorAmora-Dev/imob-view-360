@@ -40,16 +40,15 @@ export class GetPanoramaImageController {
     @Headers('if-none-match') ifNoneMatch: string | undefined,
     @Res() res: Response,
   ) {
+    // A URL da API continua acessível mesmo com o gateway ativo. Não permita
+    // que um cache externo pule a checagem de PUBLISHED após ocultar/apagar.
+    res.setHeader('Cache-Control', 'no-store');
     const { etag, corpo } = await this.service.execute(id, {
       largura: query.w,
       etagDoCliente: ifNoneMatch,
     });
 
     res.setHeader('ETag', etag);
-    // Um dia, e não `immutable`, porque a URL sem `?v=` continua válida e o
-    // tratamento por IA troca a imagem por baixo dela. Com o `?v=` que o tour
-    // devolve, o endereço muda junto com a foto e o cache longo é honesto.
-    res.setHeader('Cache-Control', 'public, max-age=86400');
 
     if (!corpo) {
       res.status(HttpStatus.NOT_MODIFIED).end();

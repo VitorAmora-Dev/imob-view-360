@@ -25,12 +25,17 @@
     "exportar-capturas": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/exportar-capturas.ts",
     "bakeoff-ia": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/bakeoff-ia.ts",
     "tratar-panorama": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/tratar-panorama.ts",
-    "limpar-rascunhos": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/limpar-rascunhos.ts"
+    "limpar-rascunhos": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/limpar-rascunhos.ts",
+    "exportar-tour": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/exportar-tour.ts",
+    "migrar-imagens": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/migrar-imagens.ts",
+    "varrer-orfaos": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/varrer-orfaos.ts"
   },
   "prisma": {
     "seed": "yarn seed"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1135.0",
+    "@aws-sdk/s3-request-presigner": "^3.1135.0",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.1.27",
@@ -50,7 +55,7 @@
     "pg": "^8.22.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.4.3"
   },
@@ -95,7 +100,8 @@
       "/node_modules/",
       "/dist/",
       "/scripts/",
-      "/src/shared/"
+      "/src/shared/",
+      "/src/config/"
     ],
     "modulePaths": [
       "<rootDir>"

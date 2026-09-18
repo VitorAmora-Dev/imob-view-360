@@ -1,3 +1,8 @@
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+
+const balde = new ArmazenamentoEmMemoria();
+const gravador = new GravadorDeImagens(balde);
 import { NotFoundException } from '@nestjs/common';
 import { UploadCaptureFrameService } from '../src/modules/panoramas/services/upload-capture-frame.service';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
@@ -5,7 +10,7 @@ import { seedTwoTenants, TenantFixture, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
 
 const asPrismaService = prisma as unknown as PrismaService;
-const upload = new UploadCaptureFrameService(asPrismaService);
+const upload = new UploadCaptureFrameService(asPrismaService, gravador);
 
 async function seedPanorama(tenant: TenantFixture): Promise<string> {
   const tour = await prisma.virtualTour.create({
@@ -22,7 +27,10 @@ async function seedPanorama(tenant: TenantFixture): Promise<string> {
   return panorama.id;
 }
 
-function frame(index: number, imageData = `data:image/jpeg;base64,foto-${index}`) {
+function frame(
+  index: number,
+  imageData = `data:image/jpeg;base64,foto-${index}`,
+) {
   return {
     index,
     imageData,
@@ -64,8 +72,16 @@ describe('fotos originais da captura 360°', () => {
   it('reenviar a mesma foto repõe, em vez de acumular cópias', async () => {
     // O envio roda em segundo plano e é retomável, então o mesmo índice chega
     // duas vezes sempre que a rede cair no meio.
-    await upload.execute(panoramaId, frame(0, 'primeira-tentativa'), tenants.a.admin);
-    await upload.execute(panoramaId, frame(0, 'segunda-tentativa'), tenants.a.admin);
+    await upload.execute(
+      panoramaId,
+      frame(0, 'primeira-tentativa'),
+      tenants.a.admin,
+    );
+    await upload.execute(
+      panoramaId,
+      frame(0, 'segunda-tentativa'),
+      tenants.a.admin,
+    );
 
     const saved = await prisma.captureFrame.findMany({ where: { panoramaId } });
     expect(saved.length).toBe(1);

@@ -1,13 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { PanoramaImageReader } from '../../panoramas/panorama-image.reader';
+import { clienteJaTem, etagDe } from '../../panoramas/panorama-miniatura';
 import {
-  LARGURA_MINIATURA,
+  LARGURA_DA_CAPA,
   chaveDeCache,
-  clienteJaTem,
-  etagDe,
   reduzirComCache,
-} from '../../panoramas/panorama-miniatura';
+} from '../../panoramas/capa-do-panorama';
 
 export interface RespostaMiniatura {
   etag: string;
@@ -37,12 +36,18 @@ export class GetThumbnailService {
     });
     if (!capa) throw new NotFoundException('No thumbnail available');
 
-    const etag = etagDe(capa.id, capa.updatedAt, LARGURA_MINIATURA);
+    const etag = etagDe(capa.id, capa.updatedAt, LARGURA_DA_CAPA);
     if (clienteJaTem(etagDoCliente, etag)) return { etag };
 
+    const gravada = await this.leitor.carregarCapa(
+      capa.id,
+      capa.treatmentStatus === 'DONE',
+    );
+    if (gravada) return { etag, corpo: gravada };
+
     const corpo = await reduzirComCache(
-      chaveDeCache(capa.id, capa.updatedAt, LARGURA_MINIATURA),
-      LARGURA_MINIATURA,
+      chaveDeCache(capa.id, capa.updatedAt, LARGURA_DA_CAPA),
+      LARGURA_DA_CAPA,
       async () => {
         const original = await this.leitor.carregar(
           capa.id,

@@ -7,6 +7,9 @@ import {
 import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { CreateVirtualTourDto } from '../dto/create-virtual-tour.dto';
+import { randomUUID } from 'node:crypto';
+import { GravadorDeImagens } from '../../panoramas/gravador-de-imagens.service';
+import { base64Puro } from '../../panoramas/panorama-image';
 
 const TOUR_TRANSACTION_OPTIONS = {
   /** Tempo máximo da transação inteira. Padrão do Prisma é 5s. */
@@ -17,7 +20,10 @@ const TOUR_TRANSACTION_OPTIONS = {
 
 @Injectable()
 export class CreateVirtualTourService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gravador: GravadorDeImagens,
+  ) {}
 
   async execute(dto: CreateVirtualTourDto, currentUser: JwtPayload) {
     const property = await this.prisma.property.findFirst({
@@ -33,6 +39,19 @@ export class CreateVirtualTourService {
         'Virtual tour already exists for this property',
       );
 
+    // Todas as imagens sobem ANTES da transação, uma por vez. Se ela falhar,
+    // sobram órfãos seguros; nenhuma linha referencia um upload incompleto.
+    const imagens: Array<{ id: string; imageKey: string }> = [];
+    for (const p of dto.panoramas) {
+      const id = randomUUID();
+      const imageKey = await this.gravador.gravarPanorama(
+        id,
+        Buffer.from(base64Puro(p.imageData), 'base64'),
+        'original',
+      );
+      imagens.push({ id, imageKey });
+    }
+
     // O corpo é limitado a 50MB (body-limit.config.ts), então a transação nunca
     // processa mais que isso — a ~5MB/s pessimistas de compressão TOAST + WAL
     // dá ~10s, e 60s deixa folga sem prender conexão indefinidamente. O padrão
@@ -44,9 +63,10 @@ export class CreateVirtualTourService {
 
       const tempIdMap = new Map<string, string>();
 
-      for (const p of dto.panoramas) {
+      for (const [indice, p] of dto.panoramas.entries()) {
         const panorama = await tx.panorama.create({
           data: {
+            ...imagens[indice],
             roomName: p.roomName,
             imageData: p.imageData,
             order: p.order,

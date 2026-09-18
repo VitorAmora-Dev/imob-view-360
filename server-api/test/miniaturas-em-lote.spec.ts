@@ -1,8 +1,8 @@
 import sharp from 'sharp';
 import {
-  limparCacheDeMiniatura,
+  limparCacheDeCapa,
   reduzirComCache,
-} from '../src/modules/panoramas/panorama-miniatura';
+} from '../src/modules/panoramas/capa-do-panorama';
 
 /**
  * O que acontece quando um tour inteiro pede miniatura de uma vez.
@@ -20,7 +20,7 @@ import {
  * quantas reduções o processo aceitou ao mesmo tempo, sem expor estado interno.
  */
 describe('miniaturas pedidas em lote', () => {
-  beforeEach(() => limparCacheDeMiniatura());
+  beforeEach(() => limparCacheDeCapa());
 
   /** Uma equirretangular de verdade: o sharp vai decodificá-la. */
   async function panoramica(tom: number): Promise<Buffer> {

@@ -2,10 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
 import { CreatePanoramaDto } from '../dto/create-panorama.dto';
+import { randomUUID } from 'node:crypto';
+import { GravadorDeImagens } from '../gravador-de-imagens.service';
+import { base64Puro } from '../panorama-image';
 
 @Injectable()
 export class CreatePanoramaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gravador: GravadorDeImagens,
+  ) {}
 
   async execute(dto: CreatePanoramaDto, currentUser: JwtPayload) {
     const { tourId, measurements, ...panoramaData } = dto;
@@ -15,9 +21,19 @@ export class CreatePanoramaService {
     });
     if (!tour) throw new NotFoundException('Virtual tour not found');
 
+    // Upload fora da transação: se o banco falhar, sobra um órfão, não uma
+    // linha apontando para uma imagem inexistente. A coluna mantém o rollback.
+    const id = randomUUID();
+    const imageKey = await this.gravador.gravarPanorama(
+      id,
+      Buffer.from(base64Puro(panoramaData.imageData), 'base64'),
+      'original',
+    );
+
     const criado = await this.prisma.$transaction(async (tx) => {
       const panorama = await tx.panorama.create({
-        data: { ...panoramaData, virtualTourId: tourId },
+        data: { id, ...panoramaData, imageKey, virtualTourId: tourId },
+        select: { id: true },
       });
       if (measurements.length) {
         await tx.measurement.createMany({
@@ -42,8 +58,14 @@ export class CreatePanoramaService {
       return tx.panorama.findUnique({
         where: { id: panorama.id },
         select: {
-          id: true, roomName: true, order: true, initialPanorama: true, virtualTourId: true,
-          measurements: { select: { id: true, description: true, value: true, unit: true } },
+          id: true,
+          roomName: true,
+          order: true,
+          initialPanorama: true,
+          virtualTourId: true,
+          measurements: {
+            select: { id: true, description: true, value: true, unit: true },
+          },
         },
       });
     });

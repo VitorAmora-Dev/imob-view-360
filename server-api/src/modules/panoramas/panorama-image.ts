@@ -26,6 +26,32 @@ export function base64Puro(imageData: string): string {
  * o endereço muda junto. O servidor não lê esse parâmetro — ele existe para o
  * cache do navegador.
  */
-export function urlDaImagem(panoramaId: string, updatedAt: Date): string {
-  return `/panoramas/${panoramaId}/image?v=${updatedAt.getTime()}`;
+export function urlDaImagem(
+  panoramaId: string,
+  updatedAt: Date,
+  enderecoPublico?: string | null,
+): string {
+  return (
+    enderecoPublico ?? `/panoramas/${panoramaId}/image?v=${updatedAt.getTime()}`
+  );
+}
+
+/** A tratada ainda não migrada não pode ser trocada pelo original da CDN. */
+export function chaveServida(
+  linha: { imageKey: string | null; treatedImageKey: string | null },
+  preferirTratada: boolean,
+): string | null {
+  return preferirTratada ? linha.treatedImageKey : linha.imageKey;
+}
+
+/** A CDN não entende ?w=; a miniatura possui arquivo e endereço próprios. */
+export function urlDaMiniatura(
+  panoramaId: string,
+  updatedAt: Date,
+  enderecoPublico?: string | null,
+): string {
+  return (
+    enderecoPublico ??
+    `/panoramas/${panoramaId}/image?v=${updatedAt.getTime()}&w=640`
+  );
 }
