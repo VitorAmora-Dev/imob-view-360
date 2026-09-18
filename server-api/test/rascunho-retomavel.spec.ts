@@ -1,3 +1,9 @@
+import { FOTO_DE_TESTE } from './imagem-de-teste';
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+
+const balde = new ArmazenamentoEmMemoria();
+const gravador = new GravadorDeImagens(balde);
 import { NotFoundException } from '@nestjs/common';
 import { CreatePanoramaService } from '../src/modules/panoramas/services/create-panorama.service';
 import { UpdatePanoramaService } from '../src/modules/panoramas/services/update-panorama.service';
@@ -20,11 +26,11 @@ import { prisma } from './setup/prisma';
  */
 
 const asPrismaService = prisma as unknown as PrismaService;
-const criarTour = new CreateVirtualTourService(asPrismaService);
+const criarTour = new CreateVirtualTourService(asPrismaService, gravador);
 const listarRascunhos = new ListDraftToursService(asPrismaService);
 const lerRascunho = new FindDraftTourService(asPrismaService);
-const criarPanorama = new CreatePanoramaService(asPrismaService);
-const atualizarPanorama = new UpdatePanoramaService(asPrismaService);
+const criarPanorama = new CreatePanoramaService(asPrismaService, gravador);
+const atualizarPanorama = new UpdatePanoramaService(asPrismaService, gravador);
 const atualizarImovel = new UpdatePropertyService(asPrismaService);
 
 describe('rascunho retomável', () => {
@@ -44,7 +50,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Ambiente 1',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 0,
           initialPanorama: true,
         },
@@ -54,7 +60,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Ambiente 2',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 1,
           initialPanorama: false,
         },
@@ -113,7 +119,11 @@ describe('rascunho retomável', () => {
 
     it('não traz tour publicado', async () => {
       await criarTour.execute(
-        { propertyId: tenants.a.propertyId, status: 'PUBLISHED', panoramas: [] },
+        {
+          propertyId: tenants.a.propertyId,
+          status: 'PUBLISHED',
+          panoramas: [],
+        },
         tenants.a.admin,
       );
 
@@ -154,7 +164,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Sala',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 0,
           initialPanorama: true,
         },
@@ -164,7 +174,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Quarto',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 1,
           initialPanorama: false,
         },
@@ -182,7 +192,10 @@ describe('rascunho retomável', () => {
 
       const rascunho = await lerRascunho.execute(tour!.id, tenants.a.admin);
 
-      expect(rascunho.panoramas.map((p) => p.roomName)).toEqual(['Sala', 'Quarto']);
+      expect(rascunho.panoramas.map((p) => p.roomName)).toEqual([
+        'Sala',
+        'Quarto',
+      ]);
       expect(rascunho.panoramas[0].hotspots).toHaveLength(1);
       expect(rascunho.panoramas[0].hotspots[0].targetId).toBe(quarto.id);
       expect(rascunho.panoramas[0].hotspots[0].positionX).toBe(0.25);
@@ -203,7 +216,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Sala',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 0,
           initialPanorama: true,
         },
@@ -213,7 +226,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Cozinha',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 1,
           initialPanorama: false,
         },
@@ -246,7 +259,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Sala',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 0,
           initialPanorama: true,
           draftConnections: [tour!.id],
@@ -287,7 +300,11 @@ describe('rascunho retomável', () => {
      */
     it('recusa tour publicado — rascunho publicado deixou de ser rascunho', async () => {
       const tour = await criarTour.execute(
-        { propertyId: tenants.a.propertyId, status: 'PUBLISHED', panoramas: [] },
+        {
+          propertyId: tenants.a.propertyId,
+          status: 'PUBLISHED',
+          panoramas: [],
+        },
         tenants.a.admin,
       );
 
@@ -356,7 +373,7 @@ describe('rascunho retomável', () => {
         data: {
           virtualTourId: tour!.id,
           roomName: 'Sala',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           treatedImageData: 'data:image/jpeg;base64,VHJhdGFkYQ==',
           order: 0,
           initialPanorama: true,
@@ -380,7 +397,6 @@ describe('rascunho retomável', () => {
         lerRascunho.execute(tour!.id, tenants.a.admin),
       ).rejects.toThrow(NotFoundException);
     });
-
   });
   /**
    * `VirtualTour.updatedAt` é o relógio de "quando esta captura parou de
@@ -424,7 +440,7 @@ describe('rascunho retomável', () => {
         {
           tourId: tour!.id,
           roomName: 'Sala',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 0,
           initialPanorama: true,
           measurements: [],
@@ -449,7 +465,7 @@ describe('rascunho retomável', () => {
         {
           tourId: tour!.id,
           roomName: 'Ambiente 1',
-          imageData: 'data:image/jpeg;base64,SGk=',
+          imageData: FOTO_DE_TESTE,
           order: 0,
           initialPanorama: true,
           measurements: [],
@@ -483,7 +499,7 @@ describe('rascunho retomável', () => {
           {
             tourId: tourB!.id,
             roomName: 'Sala',
-            imageData: 'data:image/jpeg;base64,SGk=',
+            imageData: FOTO_DE_TESTE,
             order: 0,
             initialPanorama: true,
             measurements: [],

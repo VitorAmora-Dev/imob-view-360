@@ -1,4 +1,5 @@
 import { Panorama, VirtualTour } from '../models/virtual-tour.model';
+import { environment } from '../../environments/environment';
 import {
   LARGURA_DA_MINIATURA,
   cenasDoTour,
@@ -48,6 +49,16 @@ describe('comLargura', () => {
 });
 
 describe('cenasDoTour', () => {
+  it('usa a capa da CDN sem emendar w=', () => {
+    const cenas = cenasDoTour(tourCom([panorama({ id: 'a', imageUrl: 'https://fotos.teste/a/original.jpg', thumbnailUrl: 'https://fotos.teste/a/capa.jpg' })]));
+    expect(cenas[0].thumbUrl).toBe('https://fotos.teste/a/capa.jpg');
+  });
+
+  it('prefixa a API quando o endereço da capa vem relativo', () => {
+    const cenas = cenasDoTour(tourCom([panorama({ id: 'a', thumbnailUrl: '/panoramas/a/image?v=1&w=640' })]));
+    expect(cenas[0].thumbUrl).toBe(`${environment.apiUrl}/panoramas/a/image?v=1&w=640`);
+  });
+
   it('pede a miniatura pequena, nunca a esfera inteira', () => {
     const cenas = cenasDoTour(tourCom([panorama({ id: 'a' })]));
 

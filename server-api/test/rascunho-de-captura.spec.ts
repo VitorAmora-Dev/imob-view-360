@@ -1,3 +1,8 @@
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+
+const balde = new ArmazenamentoEmMemoria();
+const gravador = new GravadorDeImagens(balde);
 import { NotFoundException } from '@nestjs/common';
 import sharp from 'sharp';
 import { CreateVirtualTourService } from '../src/modules/virtual-tours/services/create-virtual-tour.service';
@@ -10,7 +15,7 @@ import { ListPropertiesService } from '../src/modules/properties/services/list-p
 import { UpdatePropertyService } from '../src/modules/properties/services/update-property.service';
 import { PanoramaImageReader } from '../src/modules/panoramas/panorama-image.reader';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
-import { limparCacheDeMiniatura } from '../src/modules/panoramas/panorama-miniatura';
+import { limparCacheDeCapa } from '../src/modules/panoramas/capa-do-panorama';
 import { ListPropertiesDto } from '../src/modules/properties/dto/list-properties.dto';
 import { seedTwoTenants, TenantFixture, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
@@ -26,17 +31,29 @@ import { prisma } from './setup/prisma';
  */
 
 const asPrismaService = prisma as unknown as PrismaService;
-const leitor = new PanoramaImageReader(asPrismaService);
+const leitor = new PanoramaImageReader(asPrismaService, balde);
 
-const criarTour = new CreateVirtualTourService(asPrismaService);
+const criarTour = new CreateVirtualTourService(asPrismaService, gravador);
 const publicarTour = new UpdateVirtualTourService(asPrismaService);
 const atualizarImovel = new UpdatePropertyService(asPrismaService);
 const listarImoveis = new ListPropertiesService(asPrismaService);
-const preview = new GetPanoramaPreviewService(asPrismaService, leitor);
+const previewService = new GetPanoramaPreviewService(
+  asPrismaService,
+  leitor,
+  balde,
+);
+const preview = {
+  async execute(...args: Parameters<GetPanoramaPreviewService['execute']>) {
+    const r = await previewService.execute(...args);
+    if (r.tipo !== 'bytes')
+      throw new Error('O dublê sem base não pode redirecionar');
+    return r;
+  },
+};
 const imagemPublica = new GetPanoramaImageService(asPrismaService, leitor);
 const montar = new MontarTourService(
   asPrismaService,
-  new TreatPanoramaService(asPrismaService),
+  new TreatPanoramaService(asPrismaService, leitor, gravador, balde),
 );
 
 /** O que a rota de listagem entrega ao serviço quando ninguém filtra nada. */
@@ -85,7 +102,7 @@ describe('rascunho de captura', () => {
 
   beforeEach(async () => {
     tenants = await seedTwoTenants();
-    limparCacheDeMiniatura();
+    limparCacheDeCapa();
   });
 
   it('nasce em DRAFT quando o status não é informado', async () => {
@@ -172,7 +189,7 @@ describe('preview: original e tratada', () => {
 
   beforeEach(async () => {
     tenants = await seedTwoTenants();
-    limparCacheDeMiniatura();
+    limparCacheDeCapa();
     ({ panoramaId } = await seedRascunho(tenants.a));
     // Tratada bem mais clara que a original (60), para separar as duas pelo tom
     // médio dos pixels em vez de pelo tamanho do buffer.

@@ -181,7 +181,9 @@ model VirtualTour {
 model Panorama {
   id              String  @id @default(uuid())
   roomName        String // nomeComodo
-  imageData       String  @db.Text // base64 JPEG
+  imageData       String? @db.Text // legado: escrita dupla durante a migração
+  imageKey        String?
+  treatedImageKey String?
   order           Int     @default(0) // ordem
   initialPanorama Boolean @default(false) // panoramaInicial
 
@@ -263,7 +265,8 @@ model Panorama {
 model CaptureFrame {
   id        String @id @default(uuid())
   index     Int // ordem do disparo na captura
-  imageData String @db.Text // base64 JPEG
+  imageData String? @db.Text // legado: escrita dupla durante a migração
+  imageKey  String?
 
   // Orientação da câmera no instante do disparo, no referencial da sessão.
   qx Float

@@ -3,6 +3,8 @@ import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { JwtPayload } from '../../../common/strategies/jwt-access.strategy';
 import { Prisma } from 'generated/prisma/client';
 import { UpdatePanoramaDto } from '../dto/update-panorama.dto';
+import { GravadorDeImagens } from '../gravador-de-imagens.service';
+import { base64Puro } from '../panorama-image';
 
 /**
  * O tratamento é derivado de `imageData`: quando a foto muda, o que a IA montou
@@ -20,6 +22,7 @@ import { UpdatePanoramaDto } from '../dto/update-panorama.dto';
  */
 const SEM_TRATAMENTO = {
   treatedImageData: null,
+  treatedImageKey: null,
   treatmentStatus: 'PENDING',
   treatmentError: null,
   // `DbNull`, não `null` nem `undefined`: em coluna Json o Prisma trata
@@ -31,20 +34,43 @@ const SEM_TRATAMENTO = {
 
 @Injectable()
 export class UpdatePanoramaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gravador: GravadorDeImagens,
+  ) {}
 
   async execute(id: string, dto: UpdatePanoramaDto, currentUser: JwtPayload) {
     const panorama = await this.prisma.panorama.findFirst({
-      where: { id, virtualTour: { property: { agencyId: currentUser.agencyId } } },
+      where: {
+        id,
+        virtualTour: { property: { agencyId: currentUser.agencyId } },
+      },
       select: { id: true, virtualTourId: true },
     });
     if (!panorama) throw new NotFoundException('Panorama not found');
 
+    const imageKey = dto.imageData
+      ? await this.gravador.gravarPanorama(
+          id,
+          Buffer.from(base64Puro(dto.imageData), 'base64'),
+          'original',
+        )
+      : undefined;
+
     return this.prisma.$transaction(async (tx) => {
       const atualizado = await tx.panorama.update({
         where: { id },
-        data: { ...dto, ...(dto.imageData ? SEM_TRATAMENTO : {}) },
-        select: { id: true, roomName: true, order: true, initialPanorama: true, virtualTourId: true },
+        data: {
+          ...dto,
+          ...(dto.imageData ? { ...SEM_TRATAMENTO, imageKey } : {}),
+        },
+        select: {
+          id: true,
+          roomName: true,
+          order: true,
+          initialPanorama: true,
+          virtualTourId: true,
+        },
       });
       // O mesmo toque de `CreatePanoramaService`, e pela mesma razão: renomear
       // e reordenar cômodos é o que o salvamento de rascunho mais faz, e sem

@@ -2,6 +2,9 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 import { TreatPanoramaService } from '../src/modules/panoramas/services/treat-panorama.service';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
+import { armazenamentoDoAmbiente } from '../src/shared/armazenamento/armazenamento-do-ambiente';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+import { PanoramaImageReader } from '../src/modules/panoramas/panorama-image.reader';
 import { CUSTO_POR_PANORAMA, MODELO } from '../src/shared/imaging/montagem-360';
 
 /**
@@ -22,7 +25,9 @@ import { CUSTO_POR_PANORAMA, MODELO } from '../src/shared/imaging/montagem-360';
  * ser repetido à vontade — o que muda é só a coluna tratada.
  */
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL ?? '',
+});
 const prisma = new PrismaClient({ adapter });
 
 async function main(): Promise<void> {
@@ -38,10 +43,19 @@ async function main(): Promise<void> {
   }
 
   if (!id && !tour && !pendentes) {
-    throw new Error('Escolha um alvo: --id=<uuid>, --tour=<uuid> ou --pendentes. Ou --listar.');
+    throw new Error(
+      'Escolha um alvo: --id=<uuid>, --tour=<uuid> ou --pendentes. Ou --listar.',
+    );
   }
 
-  const servico = new TreatPanoramaService(prisma as unknown as PrismaService);
+  const armazenamento = armazenamentoDoAmbiente();
+  const banco = prisma as unknown as PrismaService;
+  const servico = new TreatPanoramaService(
+    banco,
+    new PanoramaImageReader(banco, armazenamento),
+    new GravadorDeImagens(armazenamento),
+    armazenamento,
+  );
   if (!servico.habilitado()) {
     throw new Error('OPENAI_API_KEY não configurada.');
   }
@@ -99,7 +113,9 @@ async function main(): Promise<void> {
     console.log(`${r.status}${detalhe} (${(r.ms / 1000).toFixed(0)}s)`);
   }
 
-  console.log(`\n${tratados}/${alvos.length} tratados. Custo real: US$ ${custo.toFixed(2)}.`);
+  console.log(
+    `\n${tratados}/${alvos.length} tratados. Custo real: US$ ${custo.toFixed(2)}.`,
+  );
 }
 
 /**
@@ -116,7 +132,9 @@ async function listar(): Promise<void> {
       fittedVfovDeg: true,
       treatmentStatus: true,
       treatmentMeta: true,
-      virtualTour: { select: { id: true, property: { select: { title: true } } } },
+      virtualTour: {
+        select: { id: true, property: { select: { title: true } } },
+      },
       _count: { select: { captureFrames: true } },
     },
     orderBy: [{ virtualTourId: 'asc' }, { order: 'asc' }],
@@ -124,10 +142,14 @@ async function listar(): Promise<void> {
 
   const ok = todos.filter((p) => p._count.captureFrames >= 4);
 
-  console.log(`${todos.length} panorama(s); ${ok.length} com fotos originais.\n`);
+  console.log(
+    `${todos.length} panorama(s); ${ok.length} com fotos originais.\n`,
+  );
 
   for (const p of ok) {
-    const meta = p.treatmentMeta as { saltoNaVolta?: { antes: number; depois: number } } | null;
+    const meta = p.treatmentMeta as {
+      saltoNaVolta?: { antes: number; depois: number };
+    } | null;
     const volta = meta?.saltoNaVolta
       ? `volta ${meta.saltoNaVolta.antes.toFixed(1)}→${meta.saltoNaVolta.depois.toFixed(1)}`
       : '';
@@ -141,7 +163,9 @@ async function listar(): Promise<void> {
 
   const semFotos = todos.length - ok.length;
   if (semFotos > 0) {
-    console.log(`\n${semFotos} sem fotos originais suficientes — não montáveis.`);
+    console.log(
+      `\n${semFotos} sem fotos originais suficientes — não montáveis.`,
+    );
   }
 }
 

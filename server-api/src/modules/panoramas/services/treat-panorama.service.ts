@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import sharp from 'sharp';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { Raster } from '../../../shared/imaging/cubemap';
@@ -16,6 +22,12 @@ import { pngParaRaster, rasterParaJpeg } from '../../../shared/imaging/raster';
 import { devolverMemoria, emMB } from '../../../shared/memoria';
 import { linhaDeEspera } from '../../../shared/espera-do-tratamento';
 import { base64Puro } from '../panorama-image';
+import { PanoramaImageReader } from '../panorama-image.reader';
+import { GravadorDeImagens } from '../gravador-de-imagens.service';
+import {
+  ARMAZENAMENTO,
+  ArmazenamentoDeImagens,
+} from '../../../shared/armazenamento/armazenamento.port';
 
 /**
  * Montagem final do 360° por IA, a partir do panorama costurado e das fotos que
@@ -91,7 +103,13 @@ export class TreatPanoramaService implements OnModuleInit {
   /** Panoramas já na fila ou em execução — a guarda de idempotência de `agendar`. */
   private readonly conhecidos = new Set<string>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly leitor: PanoramaImageReader,
+    private readonly gravador: GravadorDeImagens,
+    @Inject(ARMAZENAMENTO)
+    private readonly armazenamento: ArmazenamentoDeImagens,
+  ) {}
 
   /**
    * A fila vive na memória do processo; `PROCESSING` vive no banco. Um restart
@@ -111,7 +129,9 @@ export class TreatPanoramaService implements OnModuleInit {
         data: { treatmentStatus: 'PENDING' },
       });
       if (count > 0) {
-        this.logger.warn(`${count} panorama(s) em PROCESSING de uma execução anterior devolvido(s) a PENDING.`);
+        this.logger.warn(
+          `${count} panorama(s) em PROCESSING de uma execução anterior devolvido(s) a PENDING.`,
+        );
       }
     } catch (erro) {
       // Não derruba o boot: a API serve os panoramas originais sem esta etapa.
@@ -226,7 +246,11 @@ export class TreatPanoramaService implements OnModuleInit {
     });
 
     if (daCaptura.length < MINIMO_DE_FOTOS) {
-      return this.dispensar(panoramaId, 'sem fotos originais suficientes', inicio);
+      return this.dispensar(
+        panoramaId,
+        'sem fotos originais suficientes',
+        inicio,
+      );
     }
 
     // A escolha acontece ANTES de qualquer imagem sair do banco. `amostrarAnel`
@@ -250,7 +274,10 @@ export class TreatPanoramaService implements OnModuleInit {
       // porta, para o total impresso no fim de um lote não ficar abaixo da
       // fatura.
       const custoUSD = custoDaFalha(erro);
-      const nota = custoUSD > 0 ? ` (cobrada mesmo assim: US$ ${custoUSD.toFixed(2)})` : '';
+      const nota =
+        custoUSD > 0
+          ? ` (cobrada mesmo assim: US$ ${custoUSD.toFixed(2)})`
+          : '';
       this.logger.error(`Montagem de ${panoramaId} falhou${nota}: ${mensagem}`);
 
       // O panorama original continua servível: falhar aqui degrada a qualidade
@@ -297,10 +324,16 @@ export class TreatPanoramaService implements OnModuleInit {
     const larguraFinal = Math.min(largura, costurado.width);
     const alturaFinal = Math.min(altura, costurado.height);
     const finalJpeg = await gravavel(costurado, larguraFinal, alturaFinal);
+    const treatedImageKey = await this.gravador.gravarPanorama(
+      panoramaId,
+      finalJpeg,
+      'tratada',
+    );
 
     await this.prisma.panorama.update({
       where: { id: panoramaId },
       data: {
+        treatedImageKey,
         treatedImageData: `data:image/jpeg;base64,${finalJpeg.toString('base64')}`,
         treatmentStatus: 'DONE',
         treatmentError: null,
@@ -377,13 +410,9 @@ export class TreatPanoramaService implements OnModuleInit {
   private async equirectParaOModelo(
     panoramaId: string,
   ): Promise<{ reduzido: Buffer; largura: number; altura: number }> {
-    const original = await this.prisma.panorama.findUnique({
-      where: { id: panoramaId },
-      select: { imageData: true },
-    });
-    if (!original) throw new NotFoundException('Panorama não encontrado.');
-
-    const originalBuf = Buffer.from(base64Puro(original.imageData), 'base64');
+    const originalBuf = await this.leitor.carregar(panoramaId, false);
+    if (!originalBuf)
+      throw new NotFoundException('Panorama sem imagem para tratar.');
     const meta = await sharp(originalBuf).metadata();
     if (!meta.width || !meta.height)
       throw new Error('Panorama sem dimensões legíveis.');
@@ -402,27 +431,31 @@ export class TreatPanoramaService implements OnModuleInit {
   }
 
   /**
-   * As fotos de referência, convertidas UMA POR VEZ.
+   * As fotos de referência, uma por vez.
    *
-   * Eram convertidas com `Promise.all`, e quinze `sharp` simultâneos decodificam
-   * quinze JPEG de 1536×2048 ao mesmo tempo. Medido em 09/2026: pico de 84 MB
-   * em paralelo contra 33 MB em série, para um resultado idêntico byte a byte.
-   * Numa caixa de 512 MB essa diferença é o processo.
+   * A consulta traz só `id` e `imageKey` — bytes nenhum. Antes ela trazia
+   * `imageData` de TODAS as escolhidas de uma vez: quinze colunas TOAST
+   * materializadas juntas antes de a primeira virar PNG. O `shift` do laço
+   * soltava as strings, mas elas já tinham entrado no heap.
    *
-   * O `shift` no laço não é enfeite: ele solta o base64 de cada foto assim que
-   * ela vira PNG, em vez de manter as quinze strings vivas até o fim.
+   * Conversão em série, e não `Promise.all`: quinze `sharp` simultâneos
+   * decodificam quinze JPEG de 1536×2048 ao mesmo tempo. Medido em 09/2026,
+   * pico de 84 MB em paralelo contra 33 MB em série, para um resultado idêntico
+   * byte a byte. Numa caixa de 512 MB essa diferença é o processo.
    */
   private async referencias(escolhidas: string[]): Promise<Buffer[]> {
     const linhas = await this.prisma.captureFrame.findMany({
       where: { id: { in: escolhidas } },
-      select: { imageData: true },
+      select: { id: true, imageKey: true },
       orderBy: { index: 'asc' },
     });
 
     const fotos: Buffer[] = [];
-    for (let linha = linhas.shift(); linha; linha = linhas.shift()) {
+    for (const linha of linhas) {
+      const bytes = await this.bytesDaReferencia(linha);
+      if (!bytes) continue;
       fotos.push(
-        await sharp(Buffer.from(base64Puro(linha.imageData), 'base64'))
+        await sharp(bytes)
           .resize({ width: LARGURA_DA_REFERENCIA })
           .png()
           .toBuffer(),
@@ -430,6 +463,25 @@ export class TreatPanoramaService implements OnModuleInit {
     }
 
     return fotos;
+  }
+
+  /** Balde primeiro, coluna como queda — a mesma precedência do leitor. */
+  private async bytesDaReferencia(linha: {
+    id: string;
+    imageKey: string | null;
+  }): Promise<Buffer | null> {
+    if (linha.imageKey) {
+      const doBalde = await this.armazenamento.ler(linha.imageKey);
+      if (doBalde) return doBalde;
+    }
+
+    const daColuna = await this.prisma.captureFrame.findUnique({
+      where: { id: linha.id },
+      select: { imageData: true },
+    });
+    return daColuna?.imageData
+      ? Buffer.from(base64Puro(daColuna.imageData), 'base64')
+      : null;
   }
 
   private async dispensar(
@@ -440,9 +492,20 @@ export class TreatPanoramaService implements OnModuleInit {
     this.logger.log(`${panoramaId}: dispensado (${motivo}).`);
     await this.prisma.panorama.update({
       where: { id: panoramaId },
-      data: { treatmentStatus: 'SKIPPED', treatmentError: motivo, treatedAt: new Date() },
+      data: {
+        treatmentStatus: 'SKIPPED',
+        treatmentError: motivo,
+        treatedAt: new Date(),
+      },
     });
-    return { status: 'SKIPPED', fotos: 0, saltoAntes: 0, saltoDepois: 0, custoUSD: 0, ms: Date.now() - inicio };
+    return {
+      status: 'SKIPPED',
+      fotos: 0,
+      saltoAntes: 0,
+      saltoDepois: 0,
+      custoUSD: 0,
+      ms: Date.now() - inicio,
+    };
   }
 }
 

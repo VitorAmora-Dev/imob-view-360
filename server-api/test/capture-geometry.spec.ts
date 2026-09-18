@@ -1,10 +1,17 @@
+import { FOTO_DE_TESTE } from './imagem-de-teste';
+import { GravadorDeImagens } from '../src/modules/panoramas/gravador-de-imagens.service';
+import { ArmazenamentoEmMemoria } from '../src/shared/armazenamento/armazenamento-em-memoria';
+const gravador = new GravadorDeImagens(new ArmazenamentoEmMemoria());
 import { CreateVirtualTourService } from '../src/modules/virtual-tours/services/create-virtual-tour.service';
 import { CreateVirtualTourSchema } from '../src/modules/virtual-tours/dto/create-virtual-tour.dto';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { seedTwoTenants, TwoTenants } from './fixtures';
 import { prisma } from './setup/prisma';
 
-const createTour = new CreateVirtualTourService(prisma as unknown as PrismaService);
+const createTour = new CreateVirtualTourService(
+  prisma as unknown as PrismaService,
+  gravador,
+);
 
 /**
  * O preenchimento dos polos é deliberadamente plausível: olhando só a imagem,
@@ -21,7 +28,7 @@ describe('geometria da captura no panorama', () => {
   const panorama = (extra: Record<string, unknown> = {}) => ({
     tempId: 'p0',
     roomName: 'Cozinha',
-    imageData: 'data:image/jpeg;base64,panorama',
+    imageData: FOTO_DE_TESTE,
     order: 0,
     initialPanorama: true,
     ...extra,
@@ -31,12 +38,18 @@ describe('geometria da captura no panorama', () => {
     const dto = CreateVirtualTourSchema.parse({
       propertyId: tenants.a.propertyId,
       panoramas: [
-        panorama({ fittedVfovDeg: 88.6, bandTopDeg: 42.9, bandBottomDeg: -43.2 }),
+        panorama({
+          fittedVfovDeg: 88.6,
+          bandTopDeg: 42.9,
+          bandBottomDeg: -43.2,
+        }),
       ],
     });
     await createTour.execute(dto, tenants.a.admin);
 
-    const saved = await prisma.panorama.findFirstOrThrow({ where: { roomName: 'Cozinha' } });
+    const saved = await prisma.panorama.findFirstOrThrow({
+      where: { roomName: 'Cozinha' },
+    });
     expect(saved.fittedVfovDeg).toBeCloseTo(88.6, 6);
     expect(saved.bandTopDeg).toBeCloseTo(42.9, 6);
     expect(saved.bandBottomDeg).toBeCloseTo(-43.2, 6);
@@ -51,7 +64,9 @@ describe('geometria da captura no panorama', () => {
     });
     await createTour.execute(dto, tenants.a.admin);
 
-    const saved = await prisma.panorama.findFirstOrThrow({ where: { roomName: 'Cozinha' } });
+    const saved = await prisma.panorama.findFirstOrThrow({
+      where: { roomName: 'Cozinha' },
+    });
     expect(saved.fittedVfovDeg).toBeNull();
     expect(saved.bandTopDeg).toBeNull();
     expect(saved.bandBottomDeg).toBeNull();

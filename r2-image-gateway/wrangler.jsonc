@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "arp-vision-public-images",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-08-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  // Configure o domínio no Worker, NÃO como domínio público do bucket.
+  // "routes": [{ "pattern": "fotos.seu-dominio.com", "custom_domain": true }],
+  "vars": {
+    "API_ORIGIN": "https://configure-api.example.invalid",
+    "CORS_ORIGINS": "https://configure-app.example.invalid",
+    "ENVIRONMENT": "production",
+  },
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "configure-bucket-privado",
+    },
+  ],
+  // PUBLIC_IMAGE_GATEWAY_SECRET é cadastrado com wrangler secret put.
+}

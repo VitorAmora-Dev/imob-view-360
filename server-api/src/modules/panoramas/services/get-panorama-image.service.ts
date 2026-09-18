@@ -1,13 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infra/prisma/prisma.service';
 import { PanoramaImageReader } from '../panorama-image.reader';
+import { clienteJaTem, etagDe } from '../panorama-miniatura';
 import {
-  LARGURA_MAXIMA,
+  larguraPedida,
   chaveDeCache,
-  clienteJaTem,
-  etagDe,
   reduzirComCache,
-} from '../panorama-miniatura';
+} from '../capa-do-panorama';
 
 export interface RespostaImagem {
   etag: string;
@@ -47,7 +46,7 @@ export class GetPanoramaImageService {
     });
     if (!panorama) throw new NotFoundException('Panorama not found');
 
-    const largura = normalizarLargura(opcoes.largura);
+    const largura = larguraPedida(opcoes.largura);
     const etag = etagDe(panorama.id, panorama.updatedAt, largura ?? 0);
     if (clienteJaTem(opcoes.etagDoCliente, etag)) return { etag };
 
@@ -63,6 +62,10 @@ export class GetPanoramaImageService {
       return { etag, corpo };
     }
 
+    const capa = await this.leitor.carregarCapa(panorama.id, tratada);
+    if (capa) return { etag, corpo: capa };
+
+    // Queda limitada por portão e LRU para imagens ainda não migradas.
     const corpo = await reduzirComCache(
       chaveDeCache(panorama.id, panorama.updatedAt, largura),
       largura,
@@ -76,18 +79,4 @@ export class GetPanoramaImageService {
 
     return { etag, corpo };
   }
-}
-
-/**
- * `null` significa "sem redimensionar".
- *
- * O teto existe porque `?w=` é entrada de quem chama: sem ele, um valor absurdo
- * viraria um `sharp` ampliando uma equirretangular por requisição, numa rota
- * pública. Acima do teto, servir o original é mais barato do que qualquer
- * redimensionamento — e é o que o pedido queria dizer de qualquer forma.
- */
-function normalizarLargura(largura?: number): number | null {
-  if (!largura || !Number.isFinite(largura)) return null;
-  if (largura >= LARGURA_MAXIMA) return null;
-  return Math.max(1, Math.floor(largura));
 }

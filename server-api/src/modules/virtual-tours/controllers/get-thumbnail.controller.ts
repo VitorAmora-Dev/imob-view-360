@@ -22,12 +22,13 @@ export class GetThumbnailController {
     @Headers('if-none-match') ifNoneMatch: string | undefined,
     @Res() res: Response,
   ) {
+    // Também protege a rota alternativa à CDN, incluindo 404 e HEAD.
+    res.setHeader('Cache-Control', 'no-store');
     const { etag, corpo } = await this.service.execute(id, ifNoneMatch);
 
     // O ETag vai nos dois caminhos: no 304 ele é o que confirma qual versão o
     // cliente pode continuar usando.
     res.setHeader('ETag', etag);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
 
     if (!corpo) {
       res.status(HttpStatus.NOT_MODIFIED).end();

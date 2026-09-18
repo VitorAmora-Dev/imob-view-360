@@ -24,6 +24,8 @@ export interface Panorama {
    * endereço final é `VirtualTourService.urlDaImagem`.
    */
   imageUrl: string;
+  /** Endereço próprio da capa; opcional para APIs anteriores. */
+  thumbnailUrl?: string;
   order: number;
   initialPanorama: boolean;
   originHotspots: Hotspot[];

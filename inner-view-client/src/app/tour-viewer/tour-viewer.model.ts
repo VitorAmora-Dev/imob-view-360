@@ -134,8 +134,8 @@ export interface TourViewerScene {
  *
  * 292 é 2x de 146×92, a maior miniatura da tela (o rail do desktop). Sem este
  * parâmetro a resposta é a equirretangular inteira — dezenas de MB por cômodo,
- * para desenhar um retângulo de 104px. A rota já sabe atender `w` e devolve
- * ETag com cache de um dia.
+ * para desenhar um retângulo de 104px. A rota legada atende `w`; a CDN fornece
+ * thumbnailUrl própria. Ambas revalidam o acesso após ocultar/apagar o tour.
  */
 export const LARGURA_DA_MINIATURA = 292;
 
@@ -157,7 +157,9 @@ export function cenasDoTour(tour: VirtualTour): TourViewerScene[] {
     id: panorama.id,
     name: panorama.roomName,
     imageUrl: urlDaImagem(panorama),
-    thumbUrl: comLargura(urlDaImagem(panorama), LARGURA_DA_MINIATURA),
+    thumbUrl: panorama.thumbnailUrl
+      ? urlDaImagem({ imageUrl: panorama.thumbnailUrl })
+      : comLargura(urlDaImagem(panorama), LARGURA_DA_MINIATURA),
     hotspots: hotspotsDaCena(panorama, tour, indice, nomePorId),
   }));
 }
