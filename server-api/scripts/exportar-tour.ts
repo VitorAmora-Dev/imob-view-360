@@ -28,10 +28,13 @@ if (!alvo) {
 }
 
 const OUT = path.resolve(
-  process.env.OUT_DIR ?? path.resolve(__dirname, '../../../imagens-exportadas/tour'),
+  process.env.OUT_DIR ??
+    path.resolve(__dirname, '../../../imagens-exportadas/tour'),
 );
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL ?? '',
+});
 const prisma = new PrismaClient({ adapter });
 
 function slug(text: string): string {
@@ -48,7 +51,9 @@ function toBuffer(imageData: string | null | undefined): Buffer | null {
   if (!imageData) return null;
   const comma = imageData.indexOf(',');
   const base64 =
-    imageData.startsWith('data:') && comma > 0 ? imageData.slice(comma + 1) : imageData;
+    imageData.startsWith('data:') && comma > 0
+      ? imageData.slice(comma + 1)
+      : imageData;
   return Buffer.from(base64, 'base64');
 }
 
@@ -82,7 +87,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`${panoramas[0].virtualTour.property.title}: ${panoramas.length} cômodos`);
+  console.log(
+    `${panoramas[0].virtualTour.property.title}: ${panoramas.length} cômodos`,
+  );
 
   for (const panorama of panoramas) {
     const nome = `${String(panorama.order).padStart(2, '0')}-${slug(panorama.roomName)}`;
