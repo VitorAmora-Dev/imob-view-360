@@ -1,0 +1,13 @@
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": ["https://imob360-u1ge.onrender.com"],
+        "methods": ["GET", "HEAD"],
+        "headers": ["Content-Type", "Range"]
+      },
+      "exposeHeaders": ["ETag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

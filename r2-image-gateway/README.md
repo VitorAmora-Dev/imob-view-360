@@ -74,7 +74,7 @@ Configure os placeholders em `wrangler.jsonc`:
 | `vars.CORS_ORIGINS` | Origens do frontend, separadas por vírgula, sem wildcard |
 | `routes` | Domínio próprio do Worker, com `custom_domain: true` |
 
-`workers_dev` e URLs de preview ficam desativados. Autentique o Wrangler e
+Em produção, `workers_dev` e URLs de preview ficam desativados. Autentique o Wrangler e
 publique explicitamente:
 
 ```bash
@@ -110,6 +110,51 @@ Restrinja quem pode modificar Worker, bucket, DNS e secrets.
   cenas, sem cachear a autorização. CORS não é autenticação/antihotlink.
 
 ## Desenvolvimento e rotação
+
+### Homologação temporária em workers.dev
+
+O ambiente `homolog` usa a API `https://imob360-api.onrender.com`, o frontend
+`https://imob360-u1ge.onrender.com` e o bucket privado `arp-vision-fotos-homolog`.
+Somente esse ambiente habilita `workers_dev`; URLs de preview permanecem
+desativadas. O ambiente padrão de produção não foi alterado. O hostname público
+pertence ao Worker, não ao bucket, e mantém o mesmo contrato de autorização.
+
+Na pasta `r2-image-gateway/`, execute:
+
+```bash
+npm test
+npm run test:runtime
+npx wrangler deploy --env homolog --dry-run
+npx wrangler deploy --env homolog
+```
+
+Origem atual de homologação:
+`https://arp-vision-public-images-homolog.arp-vision-r2-image-gateway.workers.dev`.
+Confira também o endereço retornado pelo deploy, sem acrescentar caminho.
+Antes de ativar essa origem:
+
+1. Gere um segredo exclusivo aleatório com 32 bytes; não reutilize chaves S3 ou JWT.
+2. Cadastre o mesmo `PUBLIC_IMAGE_GATEWAY_SECRET` na API Render e como **Secret**
+   no Worker de homologação (Settings → Variables and Secrets), ou com
+   `npx wrangler secret put PUBLIC_IMAGE_GATEWAY_SECRET --env homolog`.
+   Nunca envie o valor por chat nem o salve neste arquivo ou no Git.
+3. Reimplante a API mantendo `STORAGE_PUBLIC_URL` vazia e teste o Worker com
+   uma chave real de um tour publicado. Confirme GET/HEAD e revogação ao ocultar
+   o tour, inclusive após aquecer o cache. Sem segredo válido o Worker retorna 503.
+4. Somente após validar, configure `STORAGE_PUBLIC_URL` com a origem real do Worker,
+   acrescente essa origem em `CSP_EXTRA_ORIGINS` preservando a origem S3 dos
+   previews e reimplante a API. Confira também a CSP do frontend, se existir.
+
+O arquivo `cors.homolog.json` permite GET/HEAD somente da origem do frontend.
+Para reaplicar a regra, confira a conta alvo e execute:
+
+```bash
+npx wrangler r2 bucket cors set arp-vision-fotos-homolog --file cors.homolog.json
+```
+
+Não habilite `r2.dev`, domínio público no bucket ou expiração genérica das fotos.
+Não execute backfill dos tours antigos. Para produção, prefira um domínio próprio
+no Worker e mantenha `workers_dev` desativado.
 
 `npm run test:runtime` usa Workerd/Miniflare, bucket e cache locais e uma API
 simulada. Não acessa Cloudflare, produção ou o banco de dados.
