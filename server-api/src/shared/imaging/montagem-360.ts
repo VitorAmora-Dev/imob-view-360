@@ -145,7 +145,7 @@ export function promptDeMontagem(quantidadeDeFotos: number): string {
 
 This is a reality-preserving photographic correction task, not a creative image-generation task. Accuracy is a legal requirement because a prospective buyer may compare the final panorama with the physical property.
 
-When any area is ambiguous, preserve the original panorama rather than guessing, completing, beautifying, or inventing content.
+When any area is ambiguous, preserve the original panorama rather than guessing, completing, beautifying, or inventing content. The required exception is the deliberately blurred or censored floor at the nadir: reconstruct that floor conservatively using only the source photographs and the visible surrounding floor as evidence.
 
 ## INPUTS
 
@@ -173,20 +173,31 @@ Straight architectural lines in the physical room may appear curved in the flat 
 
 The panorama is horizontally continuous: the right edge connects directly to the left edge. The wraparound seam must remain perfectly continuous, without any jump in geometry, texture, exposure, color, sharpness, or noise.
 
-## ZENITH AND NADIR PROTECTION
+## ZENITH PROTECTION AND NADIR FLOOR RECONSTRUCTION
 
-Only the central horizontal band—approximately ±45° from the horizon—contains reliable photographic information.
+The upper and lower caps of Image 1 may contain areas filled or blurred by the original panorama software. Treat the two poles differently.
 
-The upper and lower caps, including the blurred center of the ceiling at the **zenith** and the blurred center of the floor at the **nadir**, were filled or blurred by the original panorama software.
+### Zenith protection
 
-Preserve these blurred areas as they are:
+Preserve the blurred ceiling area at the **zenith** because the source photographs do not reliably show what is directly above the camera:
 
-* Do not deblur, sharpen, reconstruct, extend, or reveal them.
-* Do not invent ceiling or floor details.
-* Do not add lamps, skylights, vents, beams, tiles, floorboards, drains, rugs, cables, tripod parts, shadows, reflections, or any other structure.
-* Do not use content-aware filling or generative inpainting in these areas.
-* Only non-structural exposure, color, noise-reduction, and resolution-scaling adjustments may be applied, while preserving the original blur and silhouettes.
-* If a stitching defect reaches one of these areas, continue only a structure that is already clearly visible. Otherwise, leave the area unchanged.
+* Do not deblur, sharpen, reconstruct, extend, or reveal the zenith.
+* Do not add lamps, skylights, vents, beams, cables, shadows, reflections, or any other ceiling structure.
+* Only non-structural exposure, color, noise-reduction, and resolution-scaling adjustments may be applied while preserving the original zenith blur and silhouettes.
+
+### Nadir floor reconstruction
+
+The blurred or censored patch at the **nadir** is an artifact of the panorama software and must not remain in the final image.
+
+Reconstruct the entire blurred or censored floor area at the nadir:
+
+* Use the source photographs and the visible floor surrounding the missing area as ground truth.
+* Continue only the real floor surface confirmed by that evidence. Match its exact material, colour, texture, grain, tile or board dimensions, grout width, reflectivity, wear, and lighting.
+* Continue grout lines, floorboards, tile joints, patterns, and wall-to-floor boundaries through the repaired area with the correct equirectangular curvature and perspective. Lines must meet the existing floor at the boundary without offsets or angle changes.
+* Select the clearest relevant source photograph when references differ. Do not average conflicting geometry or textures.
+* Do not add rugs, drains, cables, tripod parts, people, objects, shadows, reflections, or architectural details unless they are clearly confirmed by the source photographs.
+* Produce a seamless photographic repair without cloned repetition, smearing, painterly texture, or synthetic 3D-rendered detail.
+* No blurred circle, censored patch, tripod mask, smear, or synthetic cover may remain on the floor.
 
 ## PHOTOGRAPHIC QUALITY ENHANCEMENT
 
@@ -272,8 +283,9 @@ Never:
 * Replace furniture, appliances, decorations, surfaces, finishes, doors, windows, corners, walls, picture frames, or fixtures.
 * Create details that are not visible in Image 1 or confirmed by the source photographs.
 * Convert uncertain or blurred content into sharp invented content.
-* Generate new floor or ceiling content.
-* Remove intentional blur from the zenith or nadir.
+* Generate floor or ceiling details that are not supported by Image 1 or the source photographs.
+* Remove intentional blur from the zenith.
+* Leave the floor at the nadir blurred, censored, masked, smeared, or covered instead of reconstructing it from the available evidence.
 * Straighten equirectangular curvature.
 * crop, rotate, zoom, reframe, recenter, or re-level the panorama.
 * Change the camera position, viewing direction, or field of view.
@@ -291,7 +303,7 @@ Before delivering the image, verify that:
 4. The right and left edges connect seamlessly.
 5. Small objects and thin structural elements remain intact.
 6. No element has been introduced unless it is confirmed by the source photographs.
-7. The zenith and nadir remain blurred and contain no invented floor or ceiling detail.
+7. The zenith remains protected and unchanged, while the floor at the nadir is reconstructed seamlessly from the references with no blurred or censored patch and no unsupported detail.
 8. Dark areas are clearer but still natural.
 9. JPEG artifacts and noise are reduced without destroying real texture.
 10. White balance, contrast, and sharpness are consistent throughout the panorama.

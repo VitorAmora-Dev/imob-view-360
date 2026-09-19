@@ -85,6 +85,28 @@ describe('montagem-360', () => {
       expect(p).toContain('selecting the most reliable source');
     });
 
+    it('reconstrói o chão do nadir pelas referências, sem preservar a censura', () => {
+      const p = promptDeMontagem(8);
+
+      expect(p).toContain('NADIR FLOOR RECONSTRUCTION');
+      expect(p).toContain(
+        'Reconstruct the entire blurred or censored floor area at the nadir',
+      );
+      expect(p).toContain(
+        'Use the source photographs and the visible floor surrounding the missing area as ground truth',
+      );
+      expect(p).toContain(
+        'No blurred circle, censored patch, tripod mask, smear, or synthetic cover may remain on the floor',
+      );
+
+      expect(p).not.toContain('Preserve these blurred areas as they are');
+      expect(p).not.toContain('Generate new floor or ceiling content');
+      expect(p).not.toContain(
+        'Remove intentional blur from the zenith or nadir',
+      );
+      expect(p).not.toContain('The zenith and nadir remain blurred');
+    });
+
     /**
      * O prompt afirma as dimensões em três lugares e a requisição manda `size`
      * separado. Se os dois se descolarem, o modelo recebe uma ordem que a API
